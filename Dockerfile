@@ -59,7 +59,8 @@ RUN apt-get update \
 		ncurses-base \
 		ncurses-term \
 	&& rm -rf /var/lib/apt/lists/* \
-	&& useradd --uid 1000 --create-home --home-dir /home/nullray nullray
+	&& useradd --uid 1000 --create-home --home-dir /home/nullray nullray \
+	&& install -d -o 1000 -g 1000 /home/nullray/.config/nullray
 
 COPY --from=build /out/nullray /usr/local/bin/nullray
 
