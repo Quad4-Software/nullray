@@ -35,7 +35,7 @@ AGENTS.md               Ambient agent notes (portable)
   references/                 Shared project maps (via AGENTS.md)
 contrib/completions/    Shell completion scripts
 man/                    nullray.1
-logo/                   Brand assets
+logo/                   Brand assets (word, profile, social, icon)
 packaging/
   flatpak/              Flatpak manifest, desktop, metainfo
   appimage/             Slim and SDK AppRun, desktop, tools.manifest
