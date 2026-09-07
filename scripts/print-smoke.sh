@@ -43,6 +43,8 @@ expect_exit 2 "$BIN" --print --print-strict
 expect_exit 2 "$BIN" --print --usage
 echo "$help_out" | grep -q -- '--print-strict'
 echo "$help_out" | grep -q -- '--usage'
+echo "$help_out" | grep -q -- '--auto'
+expect_exit 2 "$BIN" --print --auto
 expect_exit 2 "$BIN" --print --plan-in /tmp/nullray-print-smoke-missing-plan.md
 expect_exit 2 "$BIN" --print --plan-in /tmp/nullray-print-smoke-missing-plan.md --plan-out /tmp/nullray-print-smoke-plan.md
 expect_exit 2 "$BIN" --print --plan-in /tmp/nullray-print-smoke-missing-plan.md --mode ask

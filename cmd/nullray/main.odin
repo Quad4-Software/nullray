@@ -39,6 +39,7 @@ Cli :: struct {
 	print_usage:      bool,
 	print_mode:       bool,
 	ask_simple:       bool,
+	auto:             bool,
 	bare:             bool,
 	fail_on_findings: bool,
 	completions:      string,
@@ -485,6 +486,8 @@ parse_cli :: proc(args: []string) -> Cli {
 			cli.hide_sensitive = true
 		case "--print-strict":
 			cli.print_strict = true
+		case "--auto":
+			cli.auto = true
 		case "--usage":
 			cli.print_usage = true
 		case "--completions":
@@ -640,6 +643,9 @@ apply_cli_env :: proc(cli: ^Cli) {
 	}
 	if cli.print_strict {
 		os.set_env(constants.ENV_PRINT_STRICT, "1")
+	}
+	if cli.auto {
+		os.set_env(constants.ENV_AUTO, "1")
 	}
 	if cli.print_usage {
 		os.set_env(constants.ENV_PRINT_USAGE, "1")
@@ -830,6 +836,7 @@ print_help :: proc() {
 	fmt.println("      --plan-in PATH      load Done Contract and apply (print edit)")
 	fmt.println("      --output-format F   text | json (print mode)")
 	fmt.println("      --print-strict      exit 1 on incomplete plan/verify/living subagents")
+	fmt.println("      --auto              autonomous edit (NULLRAY_AUTO=1, 40 steps)")
 	fmt.println("      --usage             print token/cost summary (print mode)")
 	fmt.println("      --timeout SEC       print-mode wall clock limit (default 600)")
 	fmt.println("      --bare              skip home MCP and non-workspace skills")

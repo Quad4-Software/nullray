@@ -23,6 +23,13 @@ Result :: struct {
 
 apply :: proc(cfg: Config) -> Result {
 	if cfg.mode == .Off {
+		g_state = {}
+		g_state.mode = .Off
+		g_state.net = cfg.net
+		g_state.fs = cfg.fs
+		g_state.workspace = strings.clone(cfg.workspace)
+		g_state.config_dir = strings.clone(cfg.config_dir)
+		g_state.tmp_dir = strings.clone(cfg.tmp_dir)
 		return Result{ok = true, applied = false, message = "sandbox off"}
 	}
 

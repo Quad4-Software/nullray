@@ -11,6 +11,7 @@ import "core:os"
 import "core:path/filepath"
 import "core:strconv"
 import "core:strings"
+import "nullray:constants"
 import "nullray:sandbox"
 
 SKIP_DIR_NAMES :: []string{".git", "node_modules", "bin", ".cache"}
@@ -146,6 +147,9 @@ workspace_root :: proc(allocator := context.allocator) -> string {
 	st := sandbox.state()
 	if st != nil && len(st.workspace) > 0 {
 		return strings.clone(st.workspace, allocator)
+	}
+	if v, ok := os.lookup_env(constants.ENV_WORKSPACE, context.temp_allocator); ok && len(v) > 0 {
+		return strings.clone(v, allocator)
 	}
 	if cwd, wderr := os.get_working_directory(allocator); wderr == nil {
 		return cwd

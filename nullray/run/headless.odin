@@ -195,8 +195,36 @@ run_print :: proc(cfg: Config) -> Result {
 				}
 				time.sleep(50 * time.Millisecond)
 			}
+			delete(res.err)
 			res.err = strings.clone(fmt.tprintf("timed out after %d seconds", timeout_sec))
+			delete(res.stopped)
 			res.stopped = strings.clone("timeout")
+			res.usage = s.last_usage
+			res.session_usage = s.session_usage
+			res.input_chars = s.last_input_chars
+			res.peak_input_chars = s.peak_input_chars
+			res.usage_turns = s.usage_turns
+			res.subagent_total_tokens = s.subagent_total_tokens
+			text := last_assistant_text(&s)
+			if len(text) > 0 {
+				delete(res.text)
+				res.text = text
+			}
+			living := subagent.roster_living_count(&rt.roster)
+			if living > 0 {
+				fmt.eprintf("nullray: %d subagent(s) still running\n", living)
+			}
+			strict := cfg.print_strict || print_strict_from_env()
+			if strict {
+				if fail, reason := print_strict_fail(&s, res, living, false); fail {
+					res.ok = false
+					res.exit_code = 1
+					fmt.eprintln("nullray:", reason)
+					return res
+				}
+			}
+			res.ok = false
+			res.exit_code = 2
 			return res
 		}
 		time.sleep(50 * time.Millisecond)

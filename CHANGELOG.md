@@ -14,3 +14,10 @@ Format follows Keep a Changelog and Semantic Versioning.
 - Subagents (task, roster, knowledge, leases, worktrees). Progressive skills. /setup wizard.
 - Session usage (.usage.jsonl), /usage, --print --usage. Cost only when the provider sends it. --print-strict for CI-style exit checks.
 - Packages: Docker/GHCR, Flatpak, slim AppImage, airgap SDK AppImage (make appimage-sdk).
+- `--auto` CLI flag for autonomous edit (`NULLRAY_AUTO`).
+
+### Fixed
+
+- `--print-strict` now fails timeouts with exit 1 (timeout path used to return exit 2 before the strict check).
+- `NULLRAY_SANDBOX=off` still records `--workspace` / `NULLRAY_WORKSPACE` so file tools do not write to the process cwd.
+- Post-edit verify no longer SIGABRTs from freeing a temp-allocator verify command string on the heap.

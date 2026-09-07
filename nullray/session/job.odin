@@ -254,7 +254,7 @@ chat_job :: proc(data: rawptr) {
 		result.verify_fail_count == 0 &&
 		args.session.agent_mode == .Edit &&
 		agent.turn_had_writes(result.messages[:]) {
-		vcmd, voff := agent.resolve_verify_command(args.session.plan_verify, context.temp_allocator)
+		vcmd, voff := agent.resolve_verify_command(args.session.plan_verify)
 		if !voff && len(vcmd) > 0 {
 			session_add_verify_obligation(args.session, vcmd)
 			delete(vcmd)
