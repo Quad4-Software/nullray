@@ -241,6 +241,7 @@ Done_Contract :: struct {
 	success:  string,
 	budget:   string,
 	failure:  string,
+	steps:    string,
 	valid:    bool,
 	err:      string,
 }
@@ -254,6 +255,7 @@ done_contract_destroy :: proc(c: ^Done_Contract) {
 	delete(c.success)
 	delete(c.budget)
 	delete(c.failure)
+	delete(c.steps)
 	delete(c.err)
 	c^ = {}
 }
@@ -303,8 +305,12 @@ validate_plan_contract :: proc(body: string, allocator := context.allocator) -> 
 	c.success = section_body(body, "Success", allocator)
 	c.budget = section_body(body, "Budget", allocator)
 	c.failure = section_body(body, "Failure", allocator)
+	c.steps = section_body(body, "Steps", allocator)
 	missing: strings.Builder
 	strings.builder_init(&missing, context.temp_allocator)
+	if len(c.steps) == 0 {
+		strings.write_string(&missing, "Steps ")
+	}
 	if len(c.verify) == 0 {
 		strings.write_string(&missing, "Verify ")
 	}

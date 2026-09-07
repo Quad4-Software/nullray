@@ -102,6 +102,26 @@ test_validate_plan_contract_missing :: proc(t: ^testing.T) {
 }
 
 @(test)
+test_validate_plan_contract_requires_steps :: proc(t: ^testing.T) {
+	body := `## Goal
+G
+
+## Verify
+make test
+
+## Success
+ok
+
+## Budget
+1
+`
+	c := validate_plan_contract(body)
+	defer done_contract_destroy(&c)
+	testing.expect(t, !c.valid)
+	testing.expect(t, strings.contains(c.err, "Steps"))
+}
+
+@(test)
 test_first_verify_command :: proc(t: ^testing.T) {
 	cmd := first_verify_command("- `make test`\n- make lint\n")
 	defer delete(cmd)
