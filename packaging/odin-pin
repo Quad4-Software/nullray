@@ -1,0 +1,3 @@
+# Pinned Odin commit for Linux/macOS CI, Docker, and the SDK AppImage.
+# Full SHA. Bump on purpose, then bust Odin CI caches.
+8412dc37aa91def0c2fa90f89eade29056b4e608
