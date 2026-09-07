@@ -53,6 +53,13 @@ WRONG: The `parser` reads `input` and returns a `token` stream.
 RIGHT: The parser reads input and returns a token stream.
 ```
 
+## Changelog
+
+- No backticks, no code blocks. Bare flag and flag names only.
+- Short bullets, one line each. Cut subordinate clauses.
+- First release (0.1.0): everything goes under Added. Do not list fixes to unreleased code.
+- Later releases use Added, Changed, Fixed, Removed.
+
 ## Comments
 
 Plain language. No backticks, no Markdown, no TODO noise.
