@@ -71,18 +71,21 @@ jobs:
           path: |
             ~/Odin
             ~/.cache/odin
-          key: odin-${{ runner.os }}-${{ hashFiles('.github/workflows/ci.yml') }}-2026-08
+          key: odin-${{ runner.os }}-${{ hashFiles('.github/workflows/ci.yml') }}-2026-09-b
           restore-keys: |
             odin-${{ runner.os }}-
 
-      - name: Build Odin
-        if: steps.cache-odin.outputs.cache-hit != 'true'
+      - name: Ensure Odin
         run: |
-          git clone --depth 1 https://github.com/odin-lang/Odin.git "$HOME/Odin"
-          (cd "$HOME/Odin" && ./build_odin.sh)
-
-      - name: Add Odin to PATH
-        run: echo "$HOME/Odin" >> "$GITHUB_PATH"
+          set -euo pipefail
+          if [[ -x "$HOME/Odin/odin" ]]; then
+            echo "using cached odin"
+          else
+            rm -rf "$HOME/Odin"
+            git clone --depth 1 https://github.com/odin-lang/Odin.git "$HOME/Odin"
+            (cd "$HOME/Odin" && ./build_odin.sh)
+          fi
+          echo "$HOME/Odin" >> "$GITHUB_PATH"
 
       - name: Package tests
         env:
@@ -115,18 +118,21 @@ jobs:
           path: |
             ~/Odin
             ~/.cache/odin
-          key: odin-${{ runner.os }}-${{ hashFiles('.github/workflows/ci.yml') }}-2026-08
+          key: odin-${{ runner.os }}-${{ hashFiles('.github/workflows/ci.yml') }}-2026-09-b
           restore-keys: |
             odin-${{ runner.os }}-
 
-      - name: Build Odin
-        if: steps.cache-odin.outputs.cache-hit != 'true'
+      - name: Ensure Odin
         run: |
-          git clone --depth 1 https://github.com/odin-lang/Odin.git "$HOME/Odin"
-          (cd "$HOME/Odin" && ./build_odin.sh)
-
-      - name: Add Odin to PATH
-        run: echo "$HOME/Odin" >> "$GITHUB_PATH"
+          set -euo pipefail
+          if [[ -x "$HOME/Odin/odin" ]]; then
+            echo "using cached odin"
+          else
+            rm -rf "$HOME/Odin"
+            git clone --depth 1 https://github.com/odin-lang/Odin.git "$HOME/Odin"
+            (cd "$HOME/Odin" && ./build_odin.sh)
+          fi
+          echo "$HOME/Odin" >> "$GITHUB_PATH"
 
       - name: Build nullray
         run: make
@@ -169,14 +175,17 @@ jobs:
           restore-keys: |
             odin-${{ runner.os }}-
 
-      - name: Build Odin
-        if: steps.cache-odin.outputs.cache-hit != 'true'
+      - name: Ensure Odin
         run: |
-          git clone --depth 1 https://github.com/odin-lang/Odin.git "$HOME/Odin"
-          (cd "$HOME/Odin" && ./build_odin.sh)
-
-      - name: Add Odin to PATH
-        run: echo "$HOME/Odin" >> "$GITHUB_PATH"
+          set -euo pipefail
+          if [[ -x "$HOME/Odin/odin" ]]; then
+            echo "using cached odin"
+          else
+            rm -rf "$HOME/Odin"
+            git clone --depth 1 https://github.com/odin-lang/Odin.git "$HOME/Odin"
+            (cd "$HOME/Odin" && ./build_odin.sh)
+          fi
+          echo "$HOME/Odin" >> "$GITHUB_PATH"
 
       - name: Build and smoke
         run: |
@@ -220,14 +229,17 @@ jobs:
           restore-keys: |
             odin-${{ runner.os }}-
 
-      - name: Build Odin
-        if: steps.cache-odin.outputs.cache-hit != 'true'
+      - name: Ensure Odin
         run: |
-          git clone --depth 1 https://github.com/odin-lang/Odin.git "$HOME/Odin"
-          (cd "$HOME/Odin" && ./build_odin.sh)
-
-      - name: Add Odin to PATH
-        run: echo "$HOME/Odin" >> "$GITHUB_PATH"
+          set -euo pipefail
+          if [[ -x "$HOME/Odin/odin" ]]; then
+            echo "using cached odin"
+          else
+            rm -rf "$HOME/Odin"
+            git clone --depth 1 https://github.com/odin-lang/Odin.git "$HOME/Odin"
+            (cd "$HOME/Odin" && ./build_odin.sh)
+          fi
+          echo "$HOME/Odin" >> "$GITHUB_PATH"
 
       - name: Build and smoke
         run: |
