@@ -160,6 +160,17 @@ write_report :: proc(kind, prefix, message: string, loc: runtime.Source_Code_Loc
 	if sand, ok := os.lookup_env(constants.ENV_SANDBOX, context.temp_allocator); ok {
 		fmt.sbprintf(&b, "sandbox: %s\n", sand)
 	}
+	sstate := sandbox.state()
+	if sstate != nil {
+		fmt.sbprintf(
+			&b,
+			"sandbox_state: applied=%v landlock_abi=%d net=%v seccomp=%v\n",
+			sstate.applied,
+			sstate.abi,
+			sstate.net,
+			sstate.seccomp,
+		)
+	}
 	fmt.sbprintf(&b, "pid: %d\n", os.get_pid())
 	fmt.sbprintf(&b, "\n--- backtrace ---\n")
 	append_backtrace(&b)
@@ -239,6 +250,39 @@ doctor :: proc() -> int {
 	fmt.printf("crashes: %s\n", g.dir)
 	fmt.printf("debug: %v (NULLRAY_DEBUG or --debug)\n", g.debug)
 	fmt.printf("os: %v arch: %v\n", ODIN_OS, ODIN_ARCH)
+	sstate := sandbox.state()
+	dcfg := sandbox.config_from_env()
+	defer sandbox.config_destroy(&dcfg)
+	fmt.printf("sandbox config: mode=%v net=%v fs=%v\n", dcfg.mode, dcfg.net, dcfg.fs)
+	if sstate != nil && sstate.applied {
+		fmt.printf(
+			"sandbox state: applied=%v landlock_abi=%d net=%v seccomp=%v\n",
+			sstate.applied,
+			sstate.abi,
+			sstate.net,
+			sstate.seccomp,
+		)
+	} else {
+		fmt.println("sandbox state: not applied in doctor process")
+	}
+	when ODIN_OS == .Linux {
+		if abi, ok := sandbox.landlock_abi_version(); ok {
+			fmt.printf("landlock kernel abi: %d\n", abi)
+		} else {
+			fmt.println("landlock kernel abi: unavailable")
+		}
+		when ODIN_ARCH == .amd64 {
+			fmt.println("seccomp: amd64 deny-list supported")
+		} else {
+			fmt.println("seccomp: skipped on this architecture, current filter is amd64-only")
+		}
+	} else when ODIN_OS == .Windows {
+		fmt.println("sandbox backend: Windows Job Object spawn helper")
+		fmt.println("seccomp: unavailable on Windows")
+	} else {
+		fmt.println("sandbox backend: unavailable on this OS")
+		fmt.println("seccomp: unavailable on this OS")
+	}
 
 	print_env("provider", constants.ENV_PROVIDER)
 	print_env("model", constants.ENV_MODEL)
@@ -265,6 +309,9 @@ doctor :: proc() -> int {
 	fmt.println("  NULLRAY_DEBUG=1       verbose stderr lifecycle logs")
 	fmt.println("  NULLRAY_SANDBOX=off   isolate sandbox from the fault")
 	fmt.println("  nullray --self-test   headless smoke without a TTY")
+	fmt.println("  nullray -q QUESTION   simple read-only one-shot answer")
+	fmt.println("  man nullray           installed page under share/man/man1")
+	fmt.println("  nullray --man         print the bundled man page source")
 	return 0
 }
 

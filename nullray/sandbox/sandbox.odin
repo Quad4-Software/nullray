@@ -87,6 +87,7 @@ apply :: proc(cfg: Config) -> Result {
 				append(&msgs, fmt.tprintf("seccomp warn: %s", smsg))
 			} else {
 				append(&msgs, smsg)
+				g_state.seccomp = strings.contains(smsg, "active")
 			}
 		}
 
@@ -95,11 +96,21 @@ apply :: proc(cfg: Config) -> Result {
 			applied = g_state.applied,
 			message = strings.join(msgs[:], ", ", context.temp_allocator),
 		}
+	} else when ODIN_OS == .Windows {
+		wres := windows_job_apply(cfg, &g_state)
+		if wres.ok && wres.applied {
+			g_state.applied = true
+			return wres
+		}
+		if cfg.mode == .Strict {
+			return wres
+		}
+		return Result{ok = true, applied = false, message = "sandbox warn: Windows Job Object isolation unavailable"}
 	} else {
 		if cfg.mode == .Strict {
-			return Result{ok = false, applied = false, message = "sandbox requires linux"}
+			return Result{ok = false, applied = false, message = "strict sandbox is unavailable on this OS. Use NULLRAY_SANDBOX=warn or off"}
 		}
-		return Result{ok = true, applied = false, message = "sandbox skipped (non-linux)"}
+		return Result{ok = true, applied = false, message = "sandbox skipped (unsupported OS)"}
 	}
 }
 

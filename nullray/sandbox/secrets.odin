@@ -54,6 +54,37 @@ SECRET_PATH_PARTS :: []string{
 	"/.secrets/",
 }
 
+SECRET_VALUE_MARKERS :: []string{
+	"api_key=",
+	"api-key=",
+	"apikey=",
+	"secret=",
+	"password=",
+	"passwd=",
+	"private_key=",
+	"access_token=",
+	"refresh_token=",
+	"authorization: bearer ",
+}
+
+SECRET_VALUE_PREFIXES :: []string{"sk-", "ghp_", "github_pat_", "xoxb-", "xoxp-"}
+
+value_looks_secret :: proc(value: string) -> bool {
+	trimmed := strings.trim_space(value)
+	lower := strings.to_lower(trimmed, context.temp_allocator)
+	for marker in SECRET_VALUE_MARKERS {
+		if strings.contains(lower, marker) {
+			return true
+		}
+	}
+	for prefix in SECRET_VALUE_PREFIXES {
+		if strings.has_prefix(lower, prefix) {
+			return true
+		}
+	}
+	return strings.contains(lower, "-----begin private key-----")
+}
+
 /*
 True when path looks secret and is not on NULLRAY_SECRETS_ALLOW.
 */

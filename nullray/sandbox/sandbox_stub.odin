@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: 0BSD
-#+build !linux
+#+build darwin, freebsd, netbsd, openbsd
 
 package sandbox
 

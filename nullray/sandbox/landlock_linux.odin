@@ -253,7 +253,17 @@ landlock_apply :: proc(cfg: Config, state: ^State) -> (ok: bool, msg: string) {
 		return false, fmt.tprintf("landlock path failed: %s", cfg.tmp_dir)
 	}
 
-	ro_roots := []string{"/usr", "/lib", "/lib64", "/etc/ssl", "/etc/ssl/certs", "/etc"}
+	ro_roots := []string{
+		"/usr",
+		"/lib",
+		"/lib64",
+		"/etc/ssl",
+		"/etc/ssl/certs",
+		"/etc",
+		"/usr/share/man",
+		"/usr/local/share/man",
+		"/var/cache/man",
+	}
 	for root in ro_roots {
 		_ = add_path(ruleset, root, ro_access)
 	}

@@ -45,6 +45,7 @@ Config :: struct {
 State :: struct {
 	applied:    bool,
 	abi:        int,
+	seccomp:    bool,
 	workspace:  string,
 	config_dir: string,
 	tmp_dir:    string,
@@ -70,7 +71,7 @@ config_from_env :: proc(allocator := context.allocator) -> Config {
 		switch strings.to_lower(v, context.temp_allocator) {
 		case "off", "0", "false", "no":
 			cfg.mode = .Off
-		case "warn":
+		case "soft", "warn":
 			cfg.mode = .Warn
 		case "strict", "on", "1", "true", "yes":
 			cfg.mode = .Strict
@@ -226,6 +227,7 @@ shell_allowed :: proc(s: ^State) -> bool {
 }
 
 // True if abs_path is under one of the allowlisted roots.
+// Canonicalization narrows symlink escapes but cannot remove the check-use race.
 path_allowed :: proc(s: ^State, abs_path: string, want_write: bool) -> bool {
 	if path_is_secret_blocked(abs_path) {
 		return false
@@ -233,7 +235,7 @@ path_allowed :: proc(s: ^State, abs_path: string, want_write: bool) -> bool {
 	if s == nil || !s.applied {
 		return true
 	}
-	clean, _ := filepath.clean(abs_path, context.temp_allocator)
+	clean := path_real(abs_path, context.temp_allocator)
 	if want_write {
 		for root in s.allow_rw {
 			if path_beneath(clean, root) {
@@ -253,6 +255,18 @@ path_allowed :: proc(s: ^State, abs_path: string, want_write: bool) -> bool {
 		}
 	}
 	return false
+}
+
+path_real :: proc(path: string, allocator := context.allocator) -> string {
+	clean, cerr := filepath.clean(path, context.temp_allocator)
+	if cerr != nil {
+		clean = path
+	}
+	absolute, aerr := filepath.abs(clean, allocator)
+	if aerr == nil {
+		return absolute
+	}
+	return strings.clone(clean, allocator)
 }
 
 path_beneath :: proc(path, root: string) -> bool {

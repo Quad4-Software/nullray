@@ -13,6 +13,7 @@ test_config_from_env_modes :: proc(t: ^testing.T) {
 	cases := []Case{
 		{"off", .Off},
 		{"0", .Off},
+		{"soft", .Warn},
 		{"warn", .Warn},
 		{"strict", .Strict},
 		{"on", .Strict},
