@@ -98,8 +98,8 @@ run_elevated_windows :: proc(
 	sei: windows.SHELLEXECUTEINFOW
 	sei.cbSize = size_of(sei)
 	sei.fMask = windows.SEE_MASK_NOCLOSEPROCESS
-	sei.lpVerb = raw_data(verb)
-	sei.lpFile = raw_data(file)
+	sei.lpVerb = windows.wstring(verb)
+	sei.lpFile = windows.wstring(file)
 	sei.lpParameters = params
 	sei.lpDirectory = dir_w
 	sei.nShow = windows.SW_HIDE
