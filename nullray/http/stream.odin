@@ -105,7 +105,7 @@ post_json_stream :: proc(
 	_ = curl_easy_setopt(curl, .HEADERDATA, &hdr)
 	_ = curl_easy_setopt(curl, .TIMEOUT, c.long(timeout_sec))
 	_ = curl_easy_setopt(curl, .FOLLOWLOCATION, c.long(1))
-	_ = curl_easy_setopt(curl, .USERAGENT, cstring("nullray/0.6"))
+	_ = curl_easy_setopt(curl, .USERAGENT, strings.clone_to_cstring(fmt.tprintf("nullray/%s", constants.VERSION), context.temp_allocator))
 	_ = curl_easy_setopt(curl, .NOPROGRESS, c.long(0))
 	_ = curl_easy_setopt(curl, .XFERINFOFUNCTION, xfer_cb)
 

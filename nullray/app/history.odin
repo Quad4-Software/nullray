@@ -10,6 +10,7 @@ import "core:path/filepath"
 import "core:strings"
 import "core:unicode/utf8"
 import "nullray:constants"
+import "nullray:provider"
 import "nullray:sandbox"
 import "nullray:session"
 import "nullray:store"
@@ -180,6 +181,7 @@ app_reset_all_state :: proc(a: ^App) -> bool {
 	a.reset_pending = false
 
 	_ = session.session_new(&a.session, "")
+	provider.set_session(a.session.name)
 	session.session_set_status(&a.session, "reset complete")
 	app_refresh_banner(a)
 	app_setup_open(a, true)

@@ -9,7 +9,7 @@ source "${ROOT}/scripts/appimage-tools.sh"
 
 BINARY="${1:-${ROOT}/bin/nullray}"
 OUT_DIR="${2:-${ROOT}/dist}"
-VERSION="${VERSION:-0.1.0}"
+VERSION="${VERSION:-0.1.1}"
 TOOL_ARCH="${TOOL_ARCH:-x86_64}"
 ARTIFACT_ARCH="${ARTIFACT_ARCH:-amd64}"
 

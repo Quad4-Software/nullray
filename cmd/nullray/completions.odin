@@ -227,7 +227,7 @@ print_man :: proc() {
 	fmt.print(MAN_PAGE)
 }
 
-MAN_PAGE :: `.TH NULLRAY 1 "2026" "nullray 0.1.0" "User Commands"
+MAN_PAGE :: `.TH NULLRAY 1 "2026" "nullray 0.1.1" "User Commands"
 .SH NAME
 nullray \- Odin coding agent with sandboxed tools
 .SH SYNOPSIS

@@ -14,7 +14,7 @@ body:
     attributes:
       label: nullray version
       description: Output of `nullray --version` (or the release tag you installed).
-      placeholder: "nullray 0.1.0 (built 2026-09-07 ...)"
+      placeholder: "nullray 0.1.1 (built 2026-09-07 ...)"
     validations:
       required: true
 

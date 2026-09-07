@@ -145,6 +145,7 @@ append_provider_headers :: proc(headers: ^[dynamic]string, p: ^Provider) {
 		append(headers, "HTTP-Referer: https://github.com/Quad4-Software/nullray")
 		append(headers, fmt.tprintf("X-Title: %s", constants.APP_NAME))
 	}
+	append_opencode_headers(headers, p)
 	if p.id == "anthropic" {
 		append(headers, "anthropic-version: 2023-06-01")
 	}

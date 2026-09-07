@@ -6,7 +6,7 @@ Shared names paths timeouts defaults and size limits.
 package constants
 
 APP_NAME :: "nullray"
-VERSION :: "0.1.0"
+VERSION :: "0.1.1"
 BUILD_DATE :: #config(NULLRAY_BUILD_DATE, "unknown")
 BUILD_TIME :: #config(NULLRAY_BUILD_TIME, "unknown")
 CONFIG_DIR_NAME :: "nullray"

@@ -14,7 +14,7 @@ body:
     attributes:
       label: nullray version
       description: Output of `nullray --version` if you already use a build.
-      placeholder: "nullray 0.1.0"
+      placeholder: "nullray 0.1.1"
 
   - type: dropdown
     id: os

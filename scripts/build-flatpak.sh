@@ -5,7 +5,7 @@ set -euo pipefail
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 BINARY="${1:-${ROOT}/bin/nullray}"
 OUT_DIR="${2:-${ROOT}/dist}"
-VERSION="${VERSION:-0.1.0}"
+VERSION="${VERSION:-0.1.1}"
 ARCH="${ARCH:-x86_64}"
 MANIFEST_DIR="${ROOT}/packaging/flatpak"
 APP_ID="xyz.nullray.code"

@@ -1,7 +1,7 @@
 # Maintainer: Quad4 Software <ivan@quad4.io>
 # shellcheck disable=SC2034
 pkgname=nullray-bin
-pkgver=0.1.0
+pkgver=0.1.1
 pkgrel=1
 pkgdesc="Lightweight terminal AI coding agent (prebuilt binary)"
 arch=('x86_64')

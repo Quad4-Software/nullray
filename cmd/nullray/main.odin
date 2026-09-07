@@ -211,6 +211,7 @@ main :: proc() {
 	app.app_init(&a, &loop)
 	defer app.app_destroy(&a)
 	crash.set_session(a.session.name)
+	provider.set_session(a.session.name)
 	crash.set_note("tui")
 	crash.logf("app ready session=%s", a.session.name)
 

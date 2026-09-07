@@ -25,6 +25,11 @@ Ids are NULLRAY_PROVIDER values. Bases are OpenAI Chat Completions style unless 
 | opencode | OPENCODE_API_KEY | https://opencode.ai/zen/v1 |
 | opencode-go | OPENCODE_API_KEY | https://opencode.ai/zen/go/v1 |
 
+OpenCode notes:
+
+- Chat, stream, and models requests send `x-opencode-session` with the live session name (process fallback when unset). Required for Go routing and cache affinity.
+- HTTP User-Agent is `nullray/<VERSION>`.
+
 OpenRouter notes:
 
 - Chat requests send `provider.allow_fallbacks: true`.

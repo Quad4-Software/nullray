@@ -148,6 +148,7 @@ app_init :: proc(a: ^App, loop: ^ui.Loop) {
 		session.crash_lock_clear(cfg_dir)
 	}
 	session.crash_lock_write(cfg_dir, a.session.name)
+	provider.set_session(a.session.name)
 	a.input_hist_idx = -1
 	app_refresh_provider_status(a)
 	if plan_in := agent.plan_in_from_env(); len(plan_in) > 0 {

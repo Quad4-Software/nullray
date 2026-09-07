@@ -181,6 +181,7 @@ slash_cmd_resume :: proc(a: ^App, args: string) {
 	if session.session_switch(&a.session, name) {
 		_ = session.session_apply_saved_model(&a.session, &a.registry)
 		subagent.runtime_set_session(&a.subagents, a.session.session_path, a.session.persist)
+		provider.set_session(a.session.name)
 		app_refresh_credits(a)
 		session.session_set_status(&a.session, fmt.tprintf("resumed %s", a.session.name))
 	} else {
@@ -196,6 +197,7 @@ slash_cmd_name :: proc(a: ^App, args: string) {
 	}
 	_ = session.session_rename(&a.session, name)
 	subagent.runtime_set_session(&a.subagents, a.session.session_path, a.session.persist)
+	provider.set_session(a.session.name)
 }
 
 slash_cmd_new :: proc(a: ^App, args: string) {
@@ -205,6 +207,7 @@ slash_cmd_new :: proc(a: ^App, args: string) {
 	}
 	_ = session.session_new(&a.session, name)
 	subagent.runtime_set_session(&a.subagents, a.session.session_path, a.session.persist)
+	provider.set_session(a.session.name)
 }
 
 slash_cmd_fork :: proc(a: ^App, args: string) {
@@ -215,6 +218,7 @@ slash_cmd_fork :: proc(a: ^App, args: string) {
 	}
 	_ = session.session_fork(&a.session, name)
 	subagent.runtime_set_session(&a.subagents, a.session.session_path, a.session.persist)
+	provider.set_session(a.session.name)
 }
 
 slash_cmd_delete :: proc(a: ^App, args: string) {

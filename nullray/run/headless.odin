@@ -137,6 +137,7 @@ run_print :: proc(cfg: Config) -> Result {
 	s: session.Session
 	session.session_init(&s)
 	defer session.session_destroy(&s)
+	provider.set_session(s.name)
 	s.tools_registry = &tools_reg
 	s.tools_enabled = true
 

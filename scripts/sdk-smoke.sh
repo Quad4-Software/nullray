@@ -4,7 +4,7 @@
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-VERSION="${VERSION:-0.1.0}"
+VERSION="${VERSION:-0.1.1}"
 SDK_IMAGE="${1:-}"
 TMP="$(mktemp -d /tmp/nullray-sdk-XXXXXX)"
 cleanup() { rm -rf "${TMP}"; }
