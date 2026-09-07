@@ -89,7 +89,7 @@ registry_init :: proc(r: ^Registry) {
 	registry_register(r, Tool{
 		name = "run_shell",
 		description = "Run a shell command in the workspace when sandbox permits",
-		schema_json = `{"type":"object","properties":{"command":{"type":"string"}},"required":["command"]}`,
+		schema_json = `{"type":"object","properties":{"command":{"type":"string"},"timeout_ms":{"type":"string","description":"optional timeout in milliseconds"}},"required":["command"]}`,
 		kind = .Shell,
 		run = tool_run_shell,
 	})

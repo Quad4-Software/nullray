@@ -6,13 +6,10 @@ run_script tool: write code to a temp script file and execute with optional bwra
 package tools
 
 import "core:fmt"
-import "core:io"
 import "core:os"
 import "core:path/filepath"
-import "core:strconv"
 import "core:strings"
 import "core:time"
-import "nullray:constants"
 import "nullray:sandbox"
 
 SCRIPT_TMP_DIR :: ".nullray-tmp"
@@ -99,157 +96,6 @@ build_bwrap_command :: proc(
 	return args[:]
 }
 
-@(private)
-run_process_capture :: proc(
-	command: []string,
-	workspace: string,
-	timeout_ms: int,
-	allocator := context.allocator,
-) -> (result: string, err: string) {
-	stdout_r, stdout_w, pipe_err := os.pipe()
-	if pipe_err != nil {
-		return "", fmt.aprintf("pipe failed: %v", pipe_err, allocator = allocator)
-	}
-	defer os.close(stdout_r)
-	stderr_r, stderr_w, pipe_err2 := os.pipe()
-	if pipe_err2 != nil {
-		return "", fmt.aprintf("pipe failed: %v", pipe_err2, allocator = allocator)
-	}
-	defer os.close(stderr_r)
-
-	process: os.Process
-	{
-		defer os.close(stdout_w)
-		defer os.close(stderr_w)
-		desc := os.Process_Desc{
-			working_dir = workspace,
-			command = command,
-			stdout = stdout_w,
-			stderr = stderr_w,
-		}
-		start_err: os.Error
-		process, start_err = os.process_start(desc)
-		if start_err != nil {
-			return "", fmt.aprintf("exec failed: %v", start_err, allocator = allocator)
-		}
-	}
-
-	stdout_b: [dynamic]byte
-	stdout_b.allocator = context.temp_allocator
-	stderr_b: [dynamic]byte
-	stderr_b.allocator = context.temp_allocator
-	buf: [1024]u8
-
-	max_out := constants.MAX_SHELL_OUTPUT_BYTES
-	timeout := time.Millisecond * time.Duration(timeout_ms)
-	start := time.now()
-	stdout_done := false
-	stderr_done := false
-	timed_out := false
-
-	for !stdout_done || !stderr_done {
-		if time.since(start) >= timeout {
-			timed_out = true
-			_ = os.process_kill(process)
-			break
-		}
-
-		if !stdout_done {
-			has_data, read_err := os.pipe_has_data(stdout_r)
-			if has_data {
-				n, rerr := os.read(stdout_r, buf[:])
-				if n > 0 && len(stdout_b) < max_out {
-					remain := max_out - len(stdout_b)
-					if n > remain {
-						n = remain
-					}
-					append(&stdout_b, ..buf[:n])
-				}
-				if rerr == io.Error.EOF || rerr == os.General_Error.Broken_Pipe {
-					stdout_done = true
-				}
-			} else if read_err == io.Error.EOF || read_err == os.General_Error.Broken_Pipe {
-				stdout_done = true
-			}
-		}
-
-		if !stderr_done {
-			has_data, read_err := os.pipe_has_data(stderr_r)
-			if has_data {
-				n, rerr := os.read(stderr_r, buf[:])
-				if n > 0 && len(stderr_b) < max_out {
-					remain := max_out - len(stderr_b)
-					if n > remain {
-						n = remain
-					}
-					append(&stderr_b, ..buf[:n])
-				}
-				if rerr == io.Error.EOF || rerr == os.General_Error.Broken_Pipe {
-					stderr_done = true
-				}
-			} else if read_err == io.Error.EOF || read_err == os.General_Error.Broken_Pipe {
-				stderr_done = true
-			}
-		}
-
-		wait_state, wait_err := os.process_wait(process, 0)
-		if wait_err == nil && wait_state.exited {
-			for !stdout_done {
-				n, rerr := os.read(stdout_r, buf[:])
-				if n > 0 && len(stdout_b) < max_out {
-					remain := max_out - len(stdout_b)
-					if n > remain {
-						n = remain
-					}
-					append(&stdout_b, ..buf[:n])
-				}
-				if n == 0 || rerr == io.Error.EOF || rerr == os.General_Error.Broken_Pipe {
-					stdout_done = true
-				}
-			}
-			for !stderr_done {
-				n, rerr := os.read(stderr_r, buf[:])
-				if n > 0 && len(stderr_b) < max_out {
-					remain := max_out - len(stderr_b)
-					if n > remain {
-						n = remain
-					}
-					append(&stderr_b, ..buf[:n])
-				}
-				if n == 0 || rerr == io.Error.EOF || rerr == os.General_Error.Broken_Pipe {
-					stderr_done = true
-				}
-			}
-			break
-		}
-	}
-
-	state, _ := os.process_wait(process)
-	if !state.exited {
-		_ = os.process_kill(process)
-		state, _ = os.process_wait(process)
-	}
-
-	out: strings.Builder
-	strings.builder_init(&out, allocator)
-	if timed_out {
-		strings.write_string(&out, "timeout\n")
-	}
-	if state.exited {
-		strings.write_string(&out, fmt.aprintf("exit_code=%d\n", state.exit_code, allocator = allocator))
-	}
-	if len(stdout_b) > 0 {
-		strings.write_string(&out, string(stdout_b[:]))
-	}
-	if len(stderr_b) > 0 {
-		if len(stdout_b) > 0 {
-			strings.write_string(&out, "\n")
-		}
-		strings.write_string(&out, string(stderr_b[:]))
-	}
-	return strings.to_string(out), ""
-}
-
 tool_run_script :: proc(args_json: string, allocator := context.allocator) -> (result: string, err: string) {
 	language, lerr := json_arg_string(args_json, "language", allocator)
 	if lerr != "" {
@@ -261,14 +107,9 @@ tool_run_script :: proc(args_json: string, allocator := context.allocator) -> (r
 		return "", cerr
 	}
 	defer delete(code)
-	timeout_ms := constants.SHELL_TIMEOUT_MS
-	if raw, tok := json_arg_string_optional(args_json, "timeout_ms", "", allocator); tok == "" && len(raw) > 0 {
-		defer delete(raw)
-		if n, n_ok := strconv.parse_int(raw); n_ok && n > 0 {
-			timeout_ms = n
-		}
-	} else if tok != "" {
-		return "", tok
+	timeout_ms, terr := shell_timeout_ms_from_args(args_json, allocator)
+	if terr != "" {
+		return "", terr
 	}
 
 	interpreter, ext, lang_ok := script_language(language)
@@ -318,24 +159,22 @@ tool_run_script :: proc(args_json: string, allocator := context.allocator) -> (r
 	if !sandbox.path_allowed(sandbox.state(), script_path, true) {
 		return "", strings.clone("script path not allowed for write", allocator)
 	}
-	if werr2 := os.write_entire_file(script_path, transmute([]u8)code); werr2 != nil {
-		return "", fmt.aprintf("write script failed: %v", werr2, allocator = allocator)
+
+	if os.write_entire_file(script_path, transmute([]u8)code) != nil {
+		return "", strings.clone("write script failed", allocator)
+	}
+	when ODIN_OS != .Windows {
+		_ = os.chmod(script_path, os.perm(0o700))
 	}
 
-	command: []string
+	cmd: []string
+	owned_cmd: [dynamic]string
+	owned_cmd.allocator = context.temp_allocator
 	if bwrap_available() {
-		command = build_bwrap_command(workspace, interpreter, script_path, allocator)
-		defer delete(command)
+		cmd = build_bwrap_command(workspace, interpreter, script_path, context.temp_allocator)
 	} else {
-		command = make([]string, 2, allocator)
-		command[0] = strings.clone(interpreter, allocator)
-		command[1] = strings.clone(script_path, allocator)
-		defer {
-			delete(command[0])
-			delete(command[1])
-			delete(command)
-		}
+		append(&owned_cmd, interpreter, script_path)
+		cmd = owned_cmd[:]
 	}
-
-	return run_process_capture(command, workspace, timeout_ms, allocator)
+	return run_process_capture(cmd, workspace, timeout_ms, allocator)
 }

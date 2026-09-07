@@ -356,6 +356,8 @@ print_strict_fail :: proc(s: ^session.Session, res: Result, living: int, tool_on
 			if !voff {
 				return true, "print-strict: tool-only turn with writes and verify enabled"
 			}
+		} else {
+			return true, "print-strict: tool-only turn with no workspace writes"
 		}
 	}
 	return false, ""

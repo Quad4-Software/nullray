@@ -6,7 +6,7 @@ Lightweight coding agent with a custom TUI built in Odin.
 
 Providers: OpenAI and OpenAI-compatible endpoints, Anthropic, Gemini, Groq, DeepSeek, Mistral, Together, Fireworks, xAI, Azure OpenAI, OpenRouter, LM Studio, Ollama, OpenCode.
 
-Platforms: Linux, macOS, Windows.
+Platforms: Linux (amd64, arm64/aarch64), macOS (arm64), Windows (amd64). Android is not a target.
 
 ## Build
 

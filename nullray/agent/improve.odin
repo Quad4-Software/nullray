@@ -104,7 +104,7 @@ apply_auto_mode :: proc() {
 	os.set_env(constants.ENV_SHELL_CONFIRM, "0")
 	os.set_env(constants.ENV_AUTONOMY, "1")
 	if _, ok := os.lookup_env(constants.ENV_AGENT_STEPS, context.temp_allocator); !ok {
-		os.set_env(constants.ENV_AGENT_STEPS, "40")
+		os.set_env(constants.ENV_AGENT_STEPS, "80")
 	}
 }
 

@@ -4,6 +4,15 @@ Notable changes for nullray.
 
 Format follows Keep a Changelog and Semantic Versioning.
 
+## [Unreleased]
+
+### Added
+- Linux arm64/aarch64 release archives and install.sh selection (native ubuntu-24.04-arm). Landlock applies; seccomp stays amd64-only.
+
+### Fixed
+- Release workflow recreates dist/ after make clean so archives publish.
+- Windows release uses the same prebuilt Odin zip and vcpkg libcurl path as CI (no llvm-config build).
+
 ## [0.1.0] - 2026-09-07
 
 ### Added
@@ -17,3 +26,12 @@ Format follows Keep a Changelog and Semantic Versioning.
 - Gated network VCS (push/pull/fetch, gh PR) behind NULLRAY_VCS_NETWORK. fetch_url with SSRF basics.
 - Skills: linux-admin, docker-ops, kube-ops, git-workflow, hooks, docker-secure, unix-docs.
 - Packages: Docker/GHCR, Flatpak, slim AppImage, airgap SDK AppImage (make appimage-sdk), AUR nullray-bin recipe.
+
+### Fixed
+- run_shell honors timeout_ms and NULLRAY_SHELL_TIMEOUT_MS (auto default 5m, cap 15m). Process-group kill on timeout.
+- Identical tool loops intervene once with guidance then abort. Auto mode steps default to 80.
+- Soft shell denies (chmod 777, chown -R, base64, printenv) no longer apply under perms=yolo.
+- --print-strict fails tool-only turns with no workspace writes.
+
+### Changed
+- Shell output truncated at the byte cap now appends a truncation marker.

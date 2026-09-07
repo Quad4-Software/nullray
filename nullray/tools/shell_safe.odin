@@ -13,7 +13,8 @@ import "nullray:constants"
 import "nullray:elevate"
 import "nullray:sandbox"
 
-DENIED_SUBSTRINGS :: []string{
+// Always denied even under perms=yolo.
+ALWAYS_DENIED_SUBSTRINGS :: []string{
 	"rm -rf /",
 	"rm -rf /*",
 	"mkfs",
@@ -34,13 +35,17 @@ DENIED_SUBSTRINGS :: []string{
 	"id_ed25519",
 	"~/.ssh",
 	"cat /proc/self/environ",
+	"source .env",
+	". .env",
+}
+
+// Denied under ask/allow only. Yolo skips these so sysadmin benches can run.
+STRICT_DENIED_SUBSTRINGS :: []string{
 	"printenv",
 	"env |",
 	"history",
 	"chmod 777",
 	"chown -R",
-	"source .env",
-	". .env",
 	"set -a",
 	"$(cat ",
 	"`cat ",
@@ -63,9 +68,18 @@ shell_command_allowed :: proc(cmd: string, allocator := context.allocator) -> (o
 		)
 	}
 
-	for denied in DENIED_SUBSTRINGS {
+	for denied in ALWAYS_DENIED_SUBSTRINGS {
 		if strings.contains(trimmed, denied) {
 			return false, fmt.aprintf("denied pattern: %s", denied, allocator = allocator)
+		}
+	}
+
+	perms := perms_from_env()
+	if perms != .Yolo {
+		for denied in STRICT_DENIED_SUBSTRINGS {
+			if strings.contains(trimmed, denied) {
+				return false, fmt.aprintf("denied pattern: %s", denied, allocator = allocator)
+			}
 		}
 	}
 
@@ -105,8 +119,6 @@ shell_command_allowed :: proc(cmd: string, allocator := context.allocator) -> (o
 		)
 	}
 
-
-	perms := perms_from_env()
 	allow_raw, has_allow := os.lookup_env(constants.ENV_SHELL_ALLOW, context.temp_allocator)
 	in_allow := false
 	if has_allow && len(allow_raw) > 0 {

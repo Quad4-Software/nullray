@@ -62,7 +62,7 @@ Event_Proc :: #type proc(ev: Event, user: rawptr)
 default_config :: proc() -> Config {
 	steps := constants.MAX_AGENT_STEPS
 	if auto_from_env() {
-		steps = 40
+		steps = constants.MAX_AUTO_AGENT_STEPS
 	}
 	if v, ok := os.lookup_env(constants.ENV_AGENT_STEPS, context.temp_allocator); ok {
 		n, n_ok := strconv.parse_int(v)
@@ -241,11 +241,14 @@ run_turn :: proc(req: Run_Request, cfg: Config, allocator := context.allocator) 
 	saw_cost := false
 	prev_tool_fp := ""
 	tool_fp_streak := 0
+	intervened_tool_fp := ""
+	loop_intervene := false
 	prev_asst := ""
 	asst_streak := 0
 	verify_fails := cfg.verify_fail_count
 
 	for step in 0 ..< max_steps {
+		loop_intervene = false
 		switch check_stop(cfg) {
 		case .Cancel:
 			emit(cfg, .Status, "cancelled")
@@ -319,21 +322,27 @@ run_turn :: proc(req: Run_Request, cfg: Config, allocator := context.allocator) 
 				prev_tool_fp = strings.clone(fp, context.temp_allocator)
 			}
 			if tool_fp_streak >= constants.MAX_IDENTICAL_TOOL_LOOPS {
-				delete(res.model)
-				delete(res.err)
-				delete(res.finish_reason)
-				if text_calls {
-					provider.destroy_tool_calls(calls)
-				} else {
-					provider.destroy_tool_calls(res.tool_calls)
+				if len(intervened_tool_fp) > 0 && fp == intervened_tool_fp {
+					delete(res.model)
+					delete(res.err)
+					delete(res.finish_reason)
+					if text_calls {
+						provider.destroy_tool_calls(calls)
+					} else {
+						provider.destroy_tool_calls(res.tool_calls)
+					}
+					msg := strings.clone(
+						"Stopped: repeated the same tool calls after a loop warning. Adjust the approach or /continue with new instructions.",
+						allocator,
+					)
+					emit(cfg, .Status, "anti-loop: repeated tools after intervene")
+					append(&msgs, provider.Message{role = .Assistant, content = msg})
+					return Run_Result{ok = true, messages = msgs, content = msg, stopped = owned_stop("loop", allocator), usage = usage_sum}
 				}
-				msg := strings.clone(
-					"Stopped: repeated the same tool calls. Adjust the approach or /continue with new instructions.",
-					allocator,
-				)
-				emit(cfg, .Status, "anti-loop: repeated tools")
-				append(&msgs, provider.Message{role = .Assistant, content = msg})
-				return Run_Result{ok = true, messages = msgs, content = msg, stopped = owned_stop("loop", allocator), usage = usage_sum}
+				intervened_tool_fp = strings.clone(fp, context.temp_allocator)
+				tool_fp_streak = 0
+				loop_intervene = true
+				emit(cfg, .Status, "anti-loop: intervene")
 			}
 		}
 
@@ -424,28 +433,35 @@ run_turn :: proc(req: Run_Request, cfg: Config, allocator := context.allocator) 
 			}
 			emit(cfg, .Tool_Start, c.arguments, c.name)
 			tool_result, tool_err := "", ""
-			pre := hooks.run(.PreToolUse, c.name, c.arguments, allocator)
-			if !pre.blocked && c.name == "vcs_commit" {
-				delete(pre.message)
-				pre = hooks.run(.PreCommit, c.name, c.arguments, allocator)
-			}
-			if pre.blocked {
-				tool_err = pre.message
+			if loop_intervene {
+				tool_err = strings.clone(
+					"Loop detected: identical tool calls repeated. Do NOT retry with the same arguments. Change strategy or use different tools.",
+					allocator,
+				)
 			} else {
-				delete(pre.message)
-				tool_result, tool_err = tools.run(reg, c.name, c.arguments, mode_s, allocator)
-				post_payload := tool_result
-				if len(tool_err) > 0 {
-					post_payload = tool_err
+				pre := hooks.run(.PreToolUse, c.name, c.arguments, allocator)
+				if !pre.blocked && c.name == "vcs_commit" {
+					delete(pre.message)
+					pre = hooks.run(.PreCommit, c.name, c.arguments, allocator)
 				}
-				post := hooks.run(.PostToolUse, c.name, post_payload, allocator)
-				if post.blocked {
-					delete(tool_result)
-					delete(tool_err)
-					tool_result = ""
-					tool_err = post.message
+				if pre.blocked {
+					tool_err = pre.message
 				} else {
-					delete(post.message)
+					delete(pre.message)
+					tool_result, tool_err = tools.run(reg, c.name, c.arguments, mode_s, allocator)
+					post_payload := tool_result
+					if len(tool_err) > 0 {
+						post_payload = tool_err
+					}
+					post := hooks.run(.PostToolUse, c.name, post_payload, allocator)
+					if post.blocked {
+						delete(tool_result)
+						delete(tool_err)
+						tool_result = ""
+						tool_err = post.message
+					} else {
+						delete(post.message)
+					}
 				}
 			}
 			raw := tool_result

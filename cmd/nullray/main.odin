@@ -837,7 +837,7 @@ print_help :: proc() {
 	fmt.println("      --plan-in PATH      load Done Contract and apply (print edit)")
 	fmt.println("      --output-format F   text | json (print mode)")
 	fmt.println("      --print-strict      exit 1 on incomplete plan/verify/living subagents")
-	fmt.println("      --auto              autonomous edit (NULLRAY_AUTO=1, 40 steps)")
+	fmt.println("      --auto              autonomous edit (NULLRAY_AUTO=1, 80 steps)")
 	fmt.println("      --usage             print token/cost summary (print mode)")
 	fmt.println("      --timeout SEC       print-mode wall clock limit (default 600)")
 	fmt.println("      --bare              skip home MCP and non-workspace skills")

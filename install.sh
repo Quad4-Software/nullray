@@ -58,6 +58,7 @@ case "$os" in
 	Linux)
 		case "$arch" in
 			x86_64|amd64) artifact="linux_amd64" ;;
+			aarch64|arm64) artifact="linux_arm64" ;;
 			*) die "no prebuilt nullray for linux/$arch; build from source: git clone https://github.com/${REPO} && make" ;;
 		esac
 		;;
@@ -113,7 +114,7 @@ install -m 0755 "$tmp/$name" "$dest/nullray" || die "install to $dest failed"
 if "$dest/nullray" --version >/dev/null 2>&1; then
 	say "installed: $("$dest/nullray" --version | head -n1)"
 else
-	die "installed to $dest/nullray but it failed to run; on Linux install libcurl (libcurl4)"
+	die "installed to $dest/nullray but it failed to run; on Linux install libcurl (libcurl4 / libcurl.so.4)"
 fi
 
 case ":$PATH:" in

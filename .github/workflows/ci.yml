@@ -141,6 +141,52 @@ jobs:
           chmod +x scripts/print-smoke.sh
           ./scripts/print-smoke.sh
 
+  smoke-linux-arm64:
+    name: build and smoke (linux arm64)
+    runs-on: ubuntu-24.04-arm
+    timeout-minutes: 60
+    needs: test
+    steps:
+      - name: Harden runner
+        uses: step-security/harden-runner@e14015d583714f6e62063499dc959a02595150a1 # v2.21.1
+        with:
+          egress-policy: audit
+
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Install deps
+        run: sudo apt-get update && sudo apt-get install -y libcurl4-openssl-dev clang llvm
+
+      - name: Cache Odin toolchain
+        id: cache-odin
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: |
+            ~/Odin
+            ~/.cache/odin
+          key: odin-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('packaging/odin-pin') }}-${{ hashFiles('.github/workflows/ci.yml') }}
+          restore-keys: |
+            odin-${{ runner.os }}-${{ runner.arch }}-
+
+      - name: Ensure Odin
+        run: |
+          set -euo pipefail
+          chmod +x scripts/ensure-odin.sh
+          bash scripts/ensure-odin.sh "$HOME/Odin"
+          echo "$HOME/Odin" >> "$GITHUB_PATH"
+
+      - name: Build nullray
+        run: make
+
+      - name: Smoke
+        run: |
+          ./bin/nullray --self-test
+          ./bin/nullray --version
+          ./bin/nullray --doctor | head -20
+
   smoke-macos:
     name: build and smoke (macos)
     runs-on: macos-latest

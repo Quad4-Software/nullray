@@ -4,7 +4,7 @@
 |----------------|-----------------|
 | OS sandbox | Landlock and seccomp share the host kernel. They do not provide a virtual machine boundary. |
 | Linux paths | Canonicalization narrows symlink escapes but cannot remove check-use races. |
-| Linux syscalls | The seccomp backend is an amd64 deny list. It is not a complete syscall allowlist. |
+| Linux syscalls | The seccomp backend is an amd64 deny list. On arm64 Landlock still applies and seccomp is skipped. It is not a complete syscall allowlist. |
 | Network policy | A configured network mode is not proof of network namespace or firewall enforcement. |
 | Non-Linux | Warn mode may continue without OS confinement. Read the applied state before making a sandbox claim. |
 | Windows | Job Object support is a stub and AppContainer is not implemented. |

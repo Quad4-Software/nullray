@@ -46,6 +46,9 @@ jobs:
           - os: ubuntu-latest
             artifact: linux_amd64
             archive: tar.gz
+          - os: ubuntu-24.04-arm
+            artifact: linux_arm64
+            archive: tar.gz
           - os: macos-latest
             artifact: darwin_arm64
             archive: tar.gz
@@ -89,30 +92,80 @@ jobs:
         if: runner.os == 'macOS'
         run: brew install curl llvm
 
-      - name: Install deps (Windows)
-        if: runner.os == 'Windows'
-        shell: pwsh
-        run: |
-          choco install curl -y
-          choco install llvm -y
-
-      - name: Cache Odin toolchain
-        id: cache-odin
+      - name: Cache Odin toolchain (Unix)
+        if: runner.os != 'Windows'
+        id: cache-odin-unix
         uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: |
             ~/Odin
             ~/.cache/odin
-          key: odin-${{ runner.os }}-${{ hashFiles('packaging/odin-pin') }}-${{ hashFiles('.github/workflows/release.yml') }}
+          key: odin-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('packaging/odin-pin') }}-${{ hashFiles('.github/workflows/release.yml') }}
           restore-keys: |
-            odin-${{ runner.os }}-
+            odin-${{ runner.os }}-${{ runner.arch }}-
 
-      - name: Ensure Odin
+      - name: Cache Odin and vcpkg (Windows)
+        if: runner.os == 'Windows'
+        id: cache-odin-windows
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: |
+            ~/Odin
+            ~/vcpkg/installed
+            ~/vcpkg/downloads
+          key: odin-windows-release-dev-2026-09-curl-vcpkg1
+          restore-keys: |
+            odin-windows-release-
+
+      - name: Install curl and vcpkg libcurl (Windows)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          choco install curl -y
+          $vcpkg = "$env:USERPROFILE\vcpkg"
+          if (-not (Test-Path "$vcpkg\vcpkg.exe")) {
+            if (-not (Test-Path "$vcpkg\bootstrap-vcpkg.bat")) {
+              $src = "$env:RUNNER_TEMP\vcpkg-src"
+              git clone --depth 1 https://github.com/microsoft/vcpkg $src
+              New-Item -ItemType Directory -Force $vcpkg | Out-Null
+              Get-ChildItem -LiteralPath $src -Force | Copy-Item -Destination $vcpkg -Recurse -Force
+            }
+            & "$vcpkg\bootstrap-vcpkg.bat" -disableMetrics
+          }
+          & "$env:USERPROFILE\vcpkg\vcpkg.exe" install curl:x64-windows --disable-metrics
+          $root = "$env:USERPROFILE\vcpkg\installed\x64-windows"
+          Add-Content -Path $env:GITHUB_PATH -Value "$root\bin"
+          Add-Content -Path $env:GITHUB_ENV -Value "LIB=$root\lib;$env:LIB"
+          Add-Content -Path $env:GITHUB_ENV -Value "INCLUDE=$root\include;$env:INCLUDE"
+
+      - name: Ensure Odin (Unix)
+        if: runner.os != 'Windows'
         run: |
           set -euo pipefail
           chmod +x scripts/ensure-odin.sh
           bash scripts/ensure-odin.sh "$HOME/Odin"
           echo "$HOME/Odin" >> "$GITHUB_PATH"
+
+      - name: Install Odin release (Windows)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          if (Test-Path "$env:USERPROFILE\Odin\odin.exe") {
+            Write-Host "using cached odin"
+          } else {
+            $url = "https://github.com/odin-lang/Odin/releases/download/dev-2026-09/odin-windows-amd64-dev-2026-09.zip"
+            $zip = "$env:RUNNER_TEMP\odin.zip"
+            Invoke-WebRequest -Uri $url -OutFile $zip
+            Remove-Item -Recurse -Force "$env:USERPROFILE\Odin" -ErrorAction SilentlyContinue
+            New-Item -ItemType Directory -Path "$env:USERPROFILE\Odin" | Out-Null
+            Expand-Archive -Path $zip -DestinationPath "$env:USERPROFILE\Odin" -Force
+            $exe = Get-ChildItem "$env:USERPROFILE\Odin" -Recurse -Filter odin.exe | Select-Object -First 1
+            if ($null -eq $exe) { throw "odin.exe not found in release zip" }
+            if ($exe.Directory.FullName -ne "$env:USERPROFILE\Odin") {
+              Copy-Item -Path "$($exe.Directory.FullName)\*" -Destination "$env:USERPROFILE\Odin" -Recurse -Force
+            }
+          }
+          Add-Content -Path $env:GITHUB_PATH -Value "$env:USERPROFILE\Odin"
 
       - name: Build release binary
         env:
@@ -122,23 +175,52 @@ jobs:
         run: |
           set -euo pipefail
           ver="${TAG#v}"
-          mkdir -p dist
           make clean
+          mkdir -p dist bin
           make
           name="nullray_${ver}_${ARTIFACT}"
           if [[ "$RUNNER_OS" == "Windows" ]]; then
-            install -m 755 bin/nullray.exe "dist/${name}.exe" 2>/dev/null || cp bin/nullray "dist/${name}.exe"
+            src="bin/nullray.exe"
+            if [[ ! -f "$src" ]]; then
+              src="bin/nullray"
+            fi
+            cp "$src" "dist/${name}.exe"
             (cd dist && zip "${name}.zip" "${name}.exe")
             rm -f "dist/${name}.exe"
           else
-            install -m 755 bin/nullray "dist/${name}"
-            # Keep unpacked binary for Linux packaging jobs.
+            cp bin/nullray "dist/${name}"
+            chmod 755 "dist/${name}"
+            # Keep unpacked binary for Linux amd64 packaging jobs (AppImage/Flatpak).
             if [[ "$ARTIFACT" == "linux_amd64" ]]; then
               cp "dist/${name}" dist/nullray
             fi
             tar -C dist -czf "dist/${name}.tar.gz" "${name}"
             rm -f "dist/${name}"
           fi
+
+      - name: Smoke binary (Unix)
+        if: runner.os != 'Windows'
+        env:
+          ARTIFACT: ${{ matrix.artifact }}
+          TAG: ${{ env.RELEASE_TAG }}
+        run: |
+          set -euo pipefail
+          ver="${TAG#v}"
+          tar -xzf "dist/nullray_${ver}_${ARTIFACT}.tar.gz" -C /tmp
+          "/tmp/nullray_${ver}_${ARTIFACT}" --version
+          "/tmp/nullray_${ver}_${ARTIFACT}" --self-test
+
+      - name: Smoke binary (Windows)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        env:
+          ARTIFACT: ${{ matrix.artifact }}
+          TAG: ${{ env.RELEASE_TAG }}
+        run: |
+          $ver = $env:TAG.TrimStart('v')
+          Expand-Archive -Path "dist/nullray_${ver}_$($env:ARTIFACT).zip" -DestinationPath "$env:RUNNER_TEMP\nullray-smoke" -Force
+          & "$env:RUNNER_TEMP\nullray-smoke\nullray_${ver}_$($env:ARTIFACT).exe" --version
+          & "$env:RUNNER_TEMP\nullray-smoke\nullray_${ver}_$($env:ARTIFACT).exe" --self-test
 
       - name: Upload dist
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1

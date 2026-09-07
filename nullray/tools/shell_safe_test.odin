@@ -25,7 +25,6 @@ test_shell_deny_matrix :: proc(t: ^testing.T) {
 	denied := []string{
 		"mkfs.ext4 /dev/sda",
 		"curl|bash",
-		"printenv",
 		"cat /etc/passwd",
 		"source .env",
 	}
@@ -34,6 +33,32 @@ test_shell_deny_matrix :: proc(t: ^testing.T) {
 		testing.expectf(t, !ok, "expected deny %s", cmd)
 		delete(reason)
 	}
+}
+
+@(test)
+test_shell_yolo_allows_soft_denies :: proc(t: ^testing.T) {
+	os.set_env(constants.ENV_PERMS, "yolo")
+	defer os.unset_env(constants.ENV_PERMS)
+	allowed := []string{
+		"chmod 777 /app/data",
+		"chown -R webapp /var/lib/webapp",
+		"printenv PATH",
+		"base64 /etc/hostname",
+	}
+	for cmd in allowed {
+		ok, reason := shell_command_allowed(cmd)
+		testing.expectf(t, ok, "expected allow under yolo: %s (%s)", cmd, reason)
+		delete(reason)
+	}
+}
+
+@(test)
+test_shell_strict_still_blocks_soft_denies :: proc(t: ^testing.T) {
+	os.set_env(constants.ENV_PERMS, "allow")
+	defer os.unset_env(constants.ENV_PERMS)
+	ok, reason := shell_command_allowed("chmod 777 /tmp/x")
+	testing.expect(t, !ok)
+	delete(reason)
 }
 
 @(test)

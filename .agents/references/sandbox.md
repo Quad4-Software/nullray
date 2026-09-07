@@ -3,7 +3,7 @@
 | Capability | Linux | Windows | macOS |
 |------------|-------|---------|-------|
 | Filesystem confinement | Landlock when supported by the kernel | Not applied in the current build | Not available |
-| Syscall filtering | seccomp deny list on amd64 | Not available | Not available |
+| Syscall filtering | seccomp deny list on amd64 (skipped on arm64) | Not available | Not available |
 | Process containment | `NO_NEW_PRIVS` plus seccomp limits | Job Object helper is a stub | Not available |
 | AppContainer | Not applicable | Not implemented | Not applicable |
 | Secret path blocking and output redaction | Application policy | Application policy | Application policy |

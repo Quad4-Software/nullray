@@ -46,8 +46,24 @@ cd /tmp/nullray-tbench
 The adapter copies `bin/nullray` into the task container, installs `libcurl4`, then runs:
 
 ```text
-nullray --print --mode edit --perms yolo --bare --auto --workspace /app ...
+nullray --print --bare --no-subagents --mode edit --perms yolo --auto --print-strict --workspace /app ...
 ```
+
+Adapter env inside the task container (via docker-cp'd `/tmp/nullray.env`, not tmux argv):
+
+```text
+NULLRAY_SANDBOX=off
+NULLRAY_STRUCTURE=0
+NULLRAY_AUTO=1
+NULLRAY_AGENT_STEPS=100
+NULLRAY_MAX_TOKENS=8192
+NULLRAY_SHELL_TIMEOUT_MS=600000
+NULLRAY_STREAM=0
+NULLRAY_ELEVATE=deny
+NULLRAY_SUBAGENTS=0
+```
+
+Also set `BUILDX_BUILDER=default`. Share a flock file (for example `/tmp/nullray-bench-full/.docker-build.lock`) so Terminal-Bench and sysadmin image builds do not race.
 
 Use lowercase `--run-id` values (Docker Compose project names reject uppercase).
 

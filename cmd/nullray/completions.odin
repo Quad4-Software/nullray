@@ -378,7 +378,7 @@ Exit 1 on incomplete plan, verify failure, max_steps, loop, timeout,
 living subagents, or tool-only writes with verify enabled.
 .TP
 .B \-\-auto
-Autonomous edit mode (sets NULLRAY_AUTO=1, bumps steps to 40 when unset).
+Autonomous edit mode (sets NULLRAY_AUTO=1, bumps steps to 80 when unset).
 .TP
 .B \-\-timeout \fISEC\fR
 Print mode wall-clock timeout in seconds (default 600).
