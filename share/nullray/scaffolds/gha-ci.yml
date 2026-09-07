@@ -1,0 +1,24 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      # Keep harden-runner first and replace the SHA from versions.json.
+      - name: Harden runner
+        uses: step-security/harden-runner@__HARDEN_RUNNER_SHA__ # v2.21.1
+        with:
+          egress-policy: audit
+
+      - name: Check out repository
+        uses: actions/checkout@__CHECKOUT_SHA__ # v7.0.1
+
+      - name: Test
+        run: make test
