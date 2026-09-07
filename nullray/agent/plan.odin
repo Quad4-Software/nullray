@@ -66,15 +66,45 @@ resolve_plan_path :: proc(
 	return path
 }
 
+/*
+Create parent dirs for path without walking from /.
+
+Landlock often allows the workspace tree but not ancestors like /tmp.
+os.make_directory_all starts at the root and fails those opens, so we only
+mkdir missing suffixes under the deepest existing ancestor we can see.
+*/
 ensure_parent_dirs :: proc(path: string) -> string {
 	dir := filepath.dir(path)
 	if len(dir) == 0 || dir == "." {
 		return ""
 	}
-	if err := os.make_directory_all(dir); err != nil && err != .Exist {
-		return fmt.tprintf("mkdir %s: %v", dir, err)
+	if os.is_directory(dir) {
+		return ""
 	}
-	return ""
+
+	missing: [dynamic]string
+	defer delete(missing)
+	cur := dir
+	for {
+		parent := filepath.dir(cur)
+		if parent == cur || len(parent) == 0 {
+			if err := os.make_directory_all(dir); err != nil && err != .Exist {
+				return fmt.tprintf("mkdir %s: %v", dir, err)
+			}
+			return ""
+		}
+		append(&missing, cur)
+		if os.is_directory(parent) {
+			for i := len(missing) - 1; i >= 0; i -= 1 {
+				d := missing[i]
+				if err := os.make_directory(d); err != nil && err != .Exist {
+					return fmt.tprintf("mkdir %s: %v", d, err)
+				}
+			}
+			return ""
+		}
+		cur = parent
+	}
 }
 
 /*

@@ -51,3 +51,15 @@ test_save_plan_artifact :: proc(t: ^testing.T) {
 	defer delete(data)
 	testing.expect_value(t, string(data), "# Title\n\nsteps")
 }
+
+@(test)
+test_ensure_parent_dirs_nested :: proc(t: ^testing.T) {
+	root := "/tmp/nullray-plan-nested"
+	_ = os.make_directory_all(root)
+	nested, jerr := filepath.join({root, "a", "b", "c.md"}, context.temp_allocator)
+	testing.expect(t, jerr == nil)
+	merr := ensure_parent_dirs(nested)
+	testing.expect_value(t, merr, "")
+	parent := filepath.dir(nested)
+	testing.expect(t, os.is_directory(parent))
+}
