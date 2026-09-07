@@ -6,7 +6,7 @@
 # Pinned actions (bump tag and SHA together):
 #   step-security/harden-runner@v2.21.1  e14015d583714f6e62063499dc959a02595150a1
 #   actions/checkout@v7.0.1             3d3c42e5aac5ba805825da76410c181273ba90b1
-#   github/codeql-action@v4.31.6        fe4161a26a8629af62121b670040955b330f9af2
+#   github/codeql-action@v4.37.9        cdf488f595d80d6e07e03d4674febd5ab45fa938
 
 name: codeql
 
@@ -53,13 +53,13 @@ jobs:
           persist-credentials: false
 
       - name: Initialize CodeQL
-        uses: github/codeql-action/init@fe4161a26a8629af62121b670040955b330f9af2 # v4.31.6
+        uses: github/codeql-action/init@cdf488f595d80d6e07e03d4674febd5ab45fa938 # v4.37.9
         with:
           languages: ${{ matrix.language }}
           build-mode: ${{ matrix.build-mode }}
           config-file: ./.github/codeql/codeql-config.yml
 
       - name: Perform CodeQL analysis
-        uses: github/codeql-action/analyze@fe4161a26a8629af62121b670040955b330f9af2 # v4.31.6
+        uses: github/codeql-action/analyze@cdf488f595d80d6e07e03d4674febd5ab45fa938 # v4.37.9
         with:
           category: "/language:${{ matrix.language }}"
