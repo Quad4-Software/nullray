@@ -128,7 +128,7 @@ lease_write_file :: proc(b: ^Lease_Board, l: Lease) -> bool {
 	}
 	path, _ := filepath.join({b.dir, fmt.tprintf("%s.json", safe)}, context.temp_allocator)
 	body := fmt.tprintf(
-		`{"agent_id":%q,"path":%q,"reason":%q,"expires_at":%d,"heartbeat":%d}`+"\n",
+		`{{"agent_id":%q,"path":%q,"reason":%q,"expires_at":%d,"heartbeat":%d}}`+"\n",
 		l.agent_id,
 		l.path,
 		l.reason,

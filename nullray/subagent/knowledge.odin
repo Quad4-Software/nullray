@@ -142,7 +142,7 @@ knowledge_append_jsonl :: proc(k: ^Knowledge_Store, e: Knowledge_Entry) -> bool 
 	}
 	path, _ := filepath.join({k.dir, "knowledge.jsonl"}, context.temp_allocator)
 	line := fmt.tprintf(
-		`{"key":%q,"author":%q,"updated":%d,"value":%q}`+"\n",
+		`{{"key":%q,"author":%q,"updated":%d,"value":%q}}`+"\n",
 		e.key,
 		e.author_id,
 		e.updated_at,

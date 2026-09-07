@@ -45,7 +45,7 @@ client_initialize :: proc(session: ^Stdio_Session, allocator := context.allocato
 	last_err := ""
 	for version in MCP_PROTOCOL_VERSIONS {
 		params := fmt.aprintf(
-			`{"protocolVersion":%q,"capabilities":{"tools":{}},"clientInfo":{"name":"nullray","version":%q}}`,
+			`{{"protocolVersion":%q,"capabilities":{{"tools":{{}}}},"clientInfo":{{"name":"nullray","version":%q}}}}`,
 			version,
 			constants.VERSION,
 			allocator = context.temp_allocator,

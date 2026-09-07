@@ -52,16 +52,49 @@ run_print :: proc(cfg: Config) -> Result {
 	res.mode = strings.clone(agent.mode_string(agent.mode_from_env()))
 	res.exit_code = 2
 
+	plan_in := agent.plan_in_from_env()
+	defer delete(plan_in)
+	plan_out := agent.plan_out_from_env(context.temp_allocator)
+	if len(plan_in) > 0 && len(plan_out) > 0 {
+		res.err = strings.clone("plan-in and plan-out cannot be used together")
+		return res
+	}
+
+	plan_body := ""
+	defer delete(plan_body)
+	if len(plan_in) > 0 {
+		mode_early := agent.mode_from_env()
+		if mode_early != .Edit {
+			res.err = strings.clone(
+				fmt.tprintf("plan-in requires --mode edit (got %s)", agent.mode_string(mode_early)),
+			)
+			return res
+		}
+		body, perr := agent.load_plan_file(plan_in)
+		if len(perr) > 0 {
+			res.err = perr
+			return res
+		}
+		plan_body = body
+	}
+
 	prompt := strings.trim_space(cfg.prompt)
 	if len(prompt) == 0 {
-		res.err = strings.clone("print mode needs a prompt (args, --message-file, or stdin)")
-		return res
+		if len(plan_in) > 0 {
+			prompt = agent.DEFAULT_PLAN_APPLY_PROMPT
+		} else {
+			res.err = strings.clone("print mode needs a prompt (args, --message-file, or stdin)")
+			return res
+		}
 	}
 
 	agent.apply_auto_mode()
 
 	perms := tools.perms_from_env()
 	mode := agent.mode_from_env()
+	if len(plan_in) > 0 {
+		mode = .Edit
+	}
 	if mode == .Edit && perms == .Ask {
 		res.err = strings.clone("print mode with edit needs --perms allow or --perms yolo (no /allow)")
 		return res
@@ -119,6 +152,14 @@ run_print :: proc(cfg: Config) -> Result {
 		s.agent_mode = .Edit
 		session.session_sync_mode_env(&s)
 	}
+	if len(plan_in) > 0 {
+		if serr := session.session_seed_plan(&s, plan_in, plan_body); len(serr) > 0 {
+			res.err = strings.clone(serr)
+			return res
+		}
+		s.plan_contract_ok = true
+		session.session_set_mode(&s, .Edit)
+	}
 	session.session_rebuild_system_prompt(&s)
 
 	delete(res.mode)
@@ -164,8 +205,13 @@ run_print :: proc(cfg: Config) -> Result {
 
 	text := last_assistant_text(&s)
 	if len(text) == 0 {
-		res.err = strings.clone("no assistant reply")
-		return res
+		// Models often end on a tool-only turn with empty assistant content.
+		if session_had_tool_activity(&s) {
+			text = strings.clone("(ok: tools completed, no final assistant text)")
+		} else {
+			res.err = strings.clone("no assistant reply")
+			return res
+		}
 	}
 	res.text = text
 	res.usage = s.last_usage
@@ -217,7 +263,11 @@ emit_result :: proc(cfg: Config, res: Result) {
 		fmt.println(res.text)
 	}
 	if len(res.plan_path) > 0 {
-		fmt.eprintln("nullray: plan saved", res.plan_path)
+		if len(agent.plan_in_from_env(context.temp_allocator)) > 0 {
+			fmt.eprintln("nullray: plan loaded", res.plan_path)
+		} else {
+			fmt.eprintln("nullray: plan saved", res.plan_path)
+		}
 	}
 }
 
@@ -274,6 +324,19 @@ last_assistant_text :: proc(s: ^session.Session, allocator := context.allocator)
 		}
 	}
 	return ""
+}
+
+@(private)
+session_had_tool_activity :: proc(s: ^session.Session) -> bool {
+	for m in s.messages {
+		if m.role == .Tool {
+			return true
+		}
+		if m.role == .Assistant && len(m.tool_calls) > 0 {
+			return true
+		}
+	}
+	return false
 }
 
 @(private)
