@@ -1,4 +1,6 @@
-# Two identical builds must share the same SHA-256 digest.
+# Rebuild twice with fixed stamps: --version output, embedded stamps, and
+# --self-test must match. Odin codegen is not byte-deterministic, so digests
+# and sizes are not compared.
 #
 # Pinned actions (bump tag and SHA together):
 #   step-security/harden-runner@v2.21.1  e14015d583714f6e62063499dc959a02595150a1
