@@ -24,8 +24,11 @@ BUILD_DATE := $(shell date -u +%Y-%m-%d)
 BUILD_TIME := $(shell date -u +%H:%M:%S)
 DEFINES    := -define:NULLRAY_BUILD_DATE="$(BUILD_DATE)" -define:NULLRAY_BUILD_TIME="$(BUILD_TIME)"
 
-.PHONY: all clean install uninstall run test selftest chat-smoke print-smoke help completions man \
+.PHONY: all clean install uninstall run test selftest chat-smoke print-smoke coverage help completions man \
 	appimage flatpak docker-build debug
+
+TEST_SUITES := ui agent tools skills session store sandbox mcp provider
+TEST_FLAGS  := $(COLLECTION) -define:ODIN_TEST_THREADS=1 -debug
 
 all: $(OUT)
 
@@ -42,16 +45,26 @@ run: $(OUT)
 	./$(OUT)
 
 test:
-	$(ODIN) test $(ROOT)/nullray/ui $(COLLECTION) -define:ODIN_TEST_THREADS=1
-	$(ODIN) test $(ROOT)/nullray/agent $(COLLECTION) -define:ODIN_TEST_THREADS=1
-	$(ODIN) test $(ROOT)/nullray/tools $(COLLECTION) -define:ODIN_TEST_THREADS=1
-	$(ODIN) test $(ROOT)/nullray/store $(COLLECTION) -define:ODIN_TEST_THREADS=1
-	$(ODIN) test $(ROOT)/nullray/sandbox $(COLLECTION) -define:ODIN_TEST_THREADS=1
-	$(ODIN) test $(ROOT)/nullray/mcp $(COLLECTION) -define:ODIN_TEST_THREADS=1
-	$(ODIN) test $(ROOT)/nullray/provider $(COLLECTION) -define:ODIN_TEST_THREADS=1
+	@for s in $(TEST_SUITES); do \
+		$(ODIN) test $(ROOT)/nullray/$$s $(COLLECTION) -define:ODIN_TEST_THREADS=1 || exit 1; \
+	done
 	@$(MAKE) --no-print-directory selftest
 	@$(MAKE) --no-print-directory chat-smoke
 	@$(MAKE) --no-print-directory print-smoke
+
+# Local HTML coverage via kcov (Linux). Does not upload or gate CI.
+coverage:
+	@command -v kcov >/dev/null || { echo 'coverage: install kcov first'; exit 1; }
+	@mkdir -p bin coverage
+	@rm -rf coverage/raw-* coverage/html
+	@mkdir -p coverage/html
+	@for s in $(TEST_SUITES); do \
+		echo "coverage: $$s"; \
+		$(ODIN) test $(ROOT)/nullray/$$s $(TEST_FLAGS) -out:bin/test_$$s -keep-executable || exit 1; \
+		kcov --include-path=$(ROOT)/nullray coverage/raw-$$s bin/test_$$s || exit 1; \
+	done
+	@kcov --merge coverage/html coverage/raw-*
+	@echo "coverage: open coverage/html/index.html"
 
 selftest: $(OUT)
 	./$(OUT) --self-test
@@ -106,7 +119,7 @@ uninstall:
 	rm -rf $(DESTDIR)$(COMPDIR)
 
 clean:
-	rm -rf bin dist
+	rm -rf bin dist coverage
 	rm -f packaging/flatpak/nullray packaging/flatpak/nullray.svg
 
 appimage: $(OUT)
@@ -125,9 +138,10 @@ help:
 		'Targets:' \
 		'  all          build bin/nullray (default)' \
 		'  run          build and run' \
-		'  test         unit tests + selftest + chat-smoke' \
+		'  test         unit tests + selftest + chat-smoke + print-smoke' \
 		'  selftest     headless smoke only' \
 		'  chat-smoke   one-turn provider smoke' \
+		'  coverage     kcov HTML under coverage/ (needs kcov)' \
 		'  completions  write contrib/completions/' \
 		'  man          write man/nullray.1' \
 		'  install      install binary, man page, completions' \

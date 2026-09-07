@@ -128,9 +128,9 @@ make flatpak
 
 Multi-step tool loop with OpenAI-style tool_calls and TOOL text fallback.
 
-Tools: read, write, edit, apply_edits, grep, glob, shell, run_script.
+Tools: read, write, edit, apply_edits, grep, glob, shell, run_script, list_skills, load_skill, compact_context.
 
-Loads AGENTS.md and skills (cap 48, 24KB each).
+Loads AGENTS.md (lean cap) and a skills catalog (full bodies via load_skill). Cap 48 skills, 24KB each.
 
 Sessions live under ~/.config/nullray/sessions/ as JSONL plus .meta.json.
 
@@ -151,15 +151,19 @@ Per-session .lock files keep two live instances off the same transcript. Concurr
 | Action | How |
 |--------|-----|
 | Mode ask/plan/review/edit | /mode or NULLRAY_MODE |
+| Approve plan to edit | /approve |
+| Status (plan/verify/chars) | /status |
 | Shell ask/allow/yolo | /perms or NULLRAY_PERMS |
 | Approve shell once | /allow (after pending) |
 | Deny pending shell | /deny |
 | Autonomous | /auto on or NULLRAY_AUTO=1 |
 | One-shot (no TUI) | `--print` / `-P` with a prompt |
 | Plan .md artifact | plan mode writes `.nullray/plans/` or `--plan-out` |
+| Post-edit verify | /verify on\|off\|CMD or NULLRAY_VERIFY |
 | Stop / pause / continue | Esc, F3, /continue |
 | Improve prompt | F2 or /improve, Ctrl-Z undo |
 | Review pass | /review on or NULLRAY_REVIEW |
+| Style rubric | NULLRAY_RUBRIC=1 |
 | Undo last write | /undo |
 | Attach file | /attach path |
 | Copy reply | /copy |

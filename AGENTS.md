@@ -59,9 +59,13 @@ make
 make test
 ```
 
-make test runs odin test on ui, agent, tools, store, sandbox, mcp, and provider with -define:ODIN_TEST_THREADS=1, then --self-test, chat-smoke, and print-smoke. Prefer that define by hand too. Binary: bin/nullray. Needs Odin and libcurl.
+Verify: make test
 
-Modes: ask, plan, review, edit. Print mode: nullray --print (no TUI). Plan mode writes .md under .nullray/plans/ or --plan-out.
+make test runs odin test on ui, agent, tools, skills, session, store, sandbox, mcp, and provider with -define:ODIN_TEST_THREADS=1, then --self-test, chat-smoke, and print-smoke. Prefer that define by hand too. Binary: bin/nullray. Needs Odin and libcurl.
+
+Suite layers: package unit tests (adversarial focus in sandbox and tools/shell), headless --self-test, print-smoke (no provider), optional chat-smoke. Local coverage: make coverage (needs kcov) writes HTML under coverage/.
+
+Modes: ask, plan, review, edit. Print mode: nullray --print (no TUI). Plan mode writes .md under .nullray/plans/ or --plan-out. Post-edit verify uses plan Verify, AGENTS Verify, or make test (NULLRAY_VERIFY=0 to disable).
 
 ## Skills (read before editing)
 

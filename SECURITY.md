@@ -8,7 +8,7 @@
 
 ## Reporting a vulnerability
 
-Use GitHub private vulnerability reporting on this repository (Security Advisories → Report a vulnerability). That is the preferred channel.
+Use GitHub private vulnerability reporting on this repository (Security Advisories > Report a vulnerability). That is the preferred channel.
 
 If you cannot use GitHub reporting, email ivan@quad4.io with a clear description, impact, and steps to reproduce.
 

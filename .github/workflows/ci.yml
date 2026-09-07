@@ -42,6 +42,10 @@ jobs:
             path: nullray/agent
           - suite: tools
             path: nullray/tools
+          - suite: skills
+            path: nullray/skills
+          - suite: session
+            path: nullray/session
           - suite: store
             path: nullray/store
           - suite: sandbox

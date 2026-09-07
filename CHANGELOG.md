@@ -9,6 +9,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Progressive skills: YAML frontmatter catalog in the system prefix, `load_skill` / `list_skills`, auto-activate into the transcript (cache-safe).
+- Context pipeline: tool-result clearing, wired `NULLRAY_COMPACT_CHARS` auto-compact, slim tool catalog text, lean AGENTS.md cap, `read_file` offset/limit.
+- Done Contract plans (`## Verify` / `## Success` / `## Budget` / `## Failure`), `/approve`, edit-mode plan summary injection.
+- Post-edit verify stop gate (`NULLRAY_VERIFY`, `/verify`) with truncated output and circuit breaker.
+- Diff-aware review findings, optional `NULLRAY_RUBRIC`, deterministic controller hints, `compact_context` tool.
+- `/status` for mode, plan, verify, and input char budget.
 - Initial public release of nullray, an Odin TUI coding agent with Landlock/seccomp sandboxing.
 - OpenAI and OpenAI-compatible providers, plus Ollama, LM Studio, OpenRouter, and OpenCode.
 - Cerebras, Cohere, NVIDIA, and DashScope (Qwen) OpenAI-compat providers.
