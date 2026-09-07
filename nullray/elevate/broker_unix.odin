@@ -91,7 +91,7 @@ broker_stop :: proc() {
 		return
 	}
 	_ = os.process_kill(g_broker.process)
-	_, _ = os.process_wait(g_broker.process)
+	_, _ = os.process_wait(g_broker.process, time.Second * 5)
 	if len(g_broker.sock_path) > 0 {
 		_ = os.remove(g_broker.sock_path)
 		_ = os.remove(fmt.tprintf("%s.d", g_broker.sock_path))

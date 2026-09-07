@@ -107,6 +107,7 @@ main :: proc() {
 	apply_cli_env(&cli)
 
 	crash.install()
+	defer os.exit(0)
 
 	if cli.show_doctor {
 		os.exit(crash.doctor())

@@ -66,11 +66,17 @@ Event :: struct {
 }
 
 poll_event :: proc(timeout_ms: int = 50) -> (ev: Event, ok: bool) {
+	if _stdin_eof {
+		return Event{kind = .Ctrl_C}, true
+	}
 	if !stdin_ready(timeout_ms) {
 		return {}, false
 	}
 	b, got := term_read_byte()
 	if !got {
+		if _stdin_eof {
+			return Event{kind = .Ctrl_C}, true
+		}
 		return {}, false
 	}
 
@@ -341,6 +347,8 @@ read_csi_int :: proc() -> (n: int, ok: bool) {
 _pushback: u8
 @(private)
 _has_pushback: bool
+@(private)
+_stdin_eof: bool
 
 @(private)
 push_byte :: proc(b: u8) {
@@ -356,6 +364,7 @@ term_read_byte :: proc() -> (b: u8, ok: bool) {
 	buf: [1]u8
 	n, err := os.read(os.stdin, buf[:])
 	if err != nil || n <= 0 {
+		_stdin_eof = true
 		return 0, false
 	}
 	return buf[0], true

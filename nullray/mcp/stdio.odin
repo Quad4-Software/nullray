@@ -188,8 +188,7 @@ stdio_close :: proc(session: ^Stdio_Session) {
 	}
 	if session.process.pid != 0 {
 		_ = os.process_kill(session.process)
-		state, _ := os.process_wait(session.process, -1)
-		_ = state
+		_, _ = os.process_wait(session.process, time.Second * 5)
 		session.process = {}
 	}
 }

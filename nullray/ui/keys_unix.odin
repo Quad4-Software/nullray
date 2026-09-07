@@ -19,5 +19,5 @@ stdin_ready :: proc(timeout_ms: int) -> bool {
 		events = {.IN},
 	}
 	n := posix.poll(&pfd, 1, i32(timeout_ms))
-	return n > 0 && .IN in pfd.revents
+	return n > 0 && ((.IN in pfd.revents) || (.HUP in pfd.revents) || (.ERR in pfd.revents))
 }
