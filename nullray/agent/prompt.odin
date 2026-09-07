@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: 0BSD
 /*
 Coding agent system prompt, AGENTS.md load, and tool catalog injection.
 */
@@ -23,7 +24,7 @@ Goals:
 - Stop when the task is complete or blocked. Do not invent tool results.
 - Never dump large code blocks into chat when file tools are available unless the user asked to see code in chat.`
 
-build_system_prompt :: proc(extra_skills: string = "", allocator := context.allocator) -> string {
+build_system_prompt :: proc(extra_skills: string = "", tools_reg: ^tools.Registry = nil, allocator := context.allocator) -> string {
 	b: strings.Builder
 	strings.builder_init(&b, allocator)
 	strings.write_string(&b, CODING_AGENT_PREAMBLE)
@@ -36,7 +37,11 @@ build_system_prompt :: proc(extra_skills: string = "", allocator := context.allo
 		strings.write_string(&b, auto_sec)
 	}
 	strings.write_string(&b, "\n\n## Tools\n\n")
-	catalog := tools.describe_for_prompt(context.temp_allocator)
+	reg := tools_reg
+	if reg == nil {
+		reg = tools.registry()
+	}
+	catalog := tools.describe_for_prompt(reg, context.temp_allocator)
 	strings.write_string(&b, catalog)
 	strings.write_string(&b, "\n\nPrefer native function/tool calling when the API supports it. ")
 	strings.write_string(&b, "If the model cannot emit tool_calls, fall back to lines of the form:\n")

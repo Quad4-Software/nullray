@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: 0BSD
 /*
 Agent turn loop: config, stop checks, anti-loop, tool execution.
 */
@@ -27,6 +28,8 @@ Config :: struct {
 	stream:            bool,
 	reasoning_effort:  string,
 	max_tokens:        int,
+	mode:              Agent_Mode,
+	tools_registry:    ^tools.Registry,
 	on_event:          Event_Proc,
 	user:              rawptr,
 	stop_check:        Stop_Check,
@@ -85,6 +88,8 @@ default_config :: proc() -> Config {
 		stream = stream,
 		reasoning_effort = effort,
 		max_tokens = max_tokens,
+		mode = mode_from_env(),
+		tools_registry = tools.registry(),
 	}
 }
 
@@ -136,8 +141,13 @@ run_turn :: proc(req: Run_Request, cfg: Config, allocator := context.allocator) 
 	msgs := clone_messages(req.messages, allocator)
 	tools_on := req.tools_enabled && cfg.enable_tools
 	tools_json := ""
+	mode_s := mode_string(cfg.mode)
+	reg := cfg.tools_registry
+	if reg == nil {
+		reg = tools.registry()
+	}
 	if tools_on {
-		tools_json = tools.openai_tools_json(context.temp_allocator)
+		tools_json = tools.openai_tools_json(reg, mode_s, context.temp_allocator)
 	}
 
 	max_steps := 1
@@ -275,7 +285,7 @@ run_turn :: proc(req: Run_Request, cfg: Config, allocator := context.allocator) 
 				break
 			}
 			emit(cfg, .Tool_Start, c.arguments, c.name)
-			tool_result, tool_err := tools.run(c.name, c.arguments, allocator)
+			tool_result, tool_err := tools.run(reg, c.name, c.arguments, mode_s, allocator)
 			raw := tool_result
 			if len(tool_err) > 0 {
 				raw = tool_err

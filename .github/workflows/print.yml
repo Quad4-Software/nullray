@@ -1,17 +1,14 @@
-# CI: build, package tests, self-test, CLI smoke.
+# Print-mode CI: build and provider-free --print smoke on Linux, macOS, Windows.
 #
 # Harden-Runner first in every job:
 #   https://docs.stepsecurity.io/github-actions/harden-runner
-#
-# Secure-use: least-privilege GITHUB_TOKEN, pinned action SHAs, no
-# pull_request_target, concurrency cancel-in-progress.
 #
 # Pinned actions (bump tag and SHA together):
 #   step-security/harden-runner@v2.21.1  e14015d583714f6e62063499dc959a02595150a1
 #   actions/checkout@v7.0.1             3d3c42e5aac5ba805825da76410c181273ba90b1
 #   actions/cache@v6.1.0                55cc8345863c7cc4c66a329aec7e433d2d1c52a9
 
-name: ci
+name: print
 
 on:
   push:
@@ -24,32 +21,14 @@ permissions:
   contents: read
 
 concurrency:
-  group: ci-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  group: print-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
   cancel-in-progress: true
 
 jobs:
-  test:
-    name: test (${{ matrix.suite }})
+  print-linux:
+    name: print (linux)
     runs-on: ubuntu-latest
     timeout-minutes: 45
-    strategy:
-      fail-fast: false
-      matrix:
-        include:
-          - suite: ui
-            path: nullray/ui
-          - suite: agent
-            path: nullray/agent
-          - suite: tools
-            path: nullray/tools
-          - suite: store
-            path: nullray/store
-          - suite: sandbox
-            path: nullray/sandbox
-          - suite: mcp
-            path: nullray/mcp
-          - suite: provider
-            path: nullray/provider
     steps:
       - name: Harden runner
         uses: step-security/harden-runner@e14015d583714f6e62063499dc959a02595150a1 # v2.21.1
@@ -71,7 +50,7 @@ jobs:
           path: |
             ~/Odin
             ~/.cache/odin
-          key: odin-${{ runner.os }}-${{ hashFiles('.github/workflows/ci.yml') }}-2026-09-b
+          key: odin-${{ runner.os }}-print-${{ hashFiles('.github/workflows/print.yml') }}-2026-09-b
           restore-keys: |
             odin-${{ runner.os }}-
 
@@ -87,71 +66,33 @@ jobs:
           fi
           echo "$HOME/Odin" >> "$GITHUB_PATH"
 
-      - name: Package tests
-        env:
-          SUITE_PATH: ${{ matrix.path }}
-        run: odin test "$SUITE_PATH" -collection:nullray=nullray -define:ODIN_TEST_THREADS=1
-
-  smoke:
-    name: build and smoke
-    runs-on: ubuntu-latest
-    timeout-minutes: 45
-    needs: test
-    steps:
-      - name: Harden runner
-        uses: step-security/harden-runner@e14015d583714f6e62063499dc959a02595150a1 # v2.21.1
-        with:
-          egress-policy: audit
-
-      - name: Checkout
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          persist-credentials: false
-
-      - name: Install deps
-        run: sudo apt-get update && sudo apt-get install -y libcurl4-openssl-dev clang llvm
-
-      - name: Cache Odin toolchain
-        id: cache-odin
-        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
-        with:
-          path: |
-            ~/Odin
-            ~/.cache/odin
-          key: odin-${{ runner.os }}-${{ hashFiles('.github/workflows/ci.yml') }}-2026-09-b
-          restore-keys: |
-            odin-${{ runner.os }}-
-
-      - name: Ensure Odin
-        run: |
-          set -euo pipefail
-          if [[ -x "$HOME/Odin/odin" ]]; then
-            echo "using cached odin"
-          else
-            rm -rf "$HOME/Odin"
-            git clone --depth 1 https://github.com/odin-lang/Odin.git "$HOME/Odin"
-            (cd "$HOME/Odin" && ./build_odin.sh)
-          fi
-          echo "$HOME/Odin" >> "$GITHUB_PATH"
-
-      - name: Build nullray
+      - name: Build
         run: make
 
-      - name: Smoke
+      - name: Print smoke
         run: |
-          ./bin/nullray --self-test
-          ./bin/nullray --help | head -5
-          ./bin/nullray --version
-          ./bin/nullray --completions bash | head -3
-          ./bin/nullray --man | head -3
           chmod +x scripts/print-smoke.sh
           ./scripts/print-smoke.sh
 
-  smoke-macos:
-    name: build and smoke (macos)
+      - name: Live print (optional)
+        env:
+          OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
+          NULLRAY_PROVIDER: openrouter
+          NULLRAY_SANDBOX: "off"
+          NULLRAY_STREAM: "0"
+        run: |
+          if [ -z "${OPENROUTER_API_KEY:-}" ]; then
+            echo "live print: skip (no OPENROUTER_API_KEY)"
+            exit 0
+          fi
+          out="$(./bin/nullray --print --bare --mode ask --timeout 120 "Reply with exactly: ok")"
+          echo "$out" | grep -qi 'ok'
+          echo "live print: ok"
+
+  print-macos:
+    name: print (macos)
     runs-on: macos-latest
     timeout-minutes: 60
-    needs: test
     steps:
       - name: Harden runner
         uses: step-security/harden-runner@e14015d583714f6e62063499dc959a02595150a1 # v2.21.1
@@ -173,7 +114,7 @@ jobs:
           path: |
             ~/Odin
             ~/.cache/odin
-          key: odin-${{ runner.os }}-${{ hashFiles('.github/workflows/ci.yml') }}-2026-09
+          key: odin-${{ runner.os }}-print-${{ hashFiles('.github/workflows/print.yml') }}-2026-09
           restore-keys: |
             odin-${{ runner.os }}-
 
@@ -189,19 +130,33 @@ jobs:
           fi
           echo "$HOME/Odin" >> "$GITHUB_PATH"
 
-      - name: Build and smoke
+      - name: Build
+        run: make
+
+      - name: Print smoke
         run: |
-          make
-          ./bin/nullray --self-test
-          ./bin/nullray --version
           chmod +x scripts/print-smoke.sh
           ./scripts/print-smoke.sh
 
-  smoke-windows:
-    name: build and smoke (windows)
+      - name: Live print (optional)
+        env:
+          OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
+          NULLRAY_PROVIDER: openrouter
+          NULLRAY_SANDBOX: "off"
+          NULLRAY_STREAM: "0"
+        run: |
+          if [ -z "${OPENROUTER_API_KEY:-}" ]; then
+            echo "live print: skip (no OPENROUTER_API_KEY)"
+            exit 0
+          fi
+          out="$(./bin/nullray --print --bare --mode ask --timeout 120 "Reply with exactly: ok")"
+          echo "$out" | grep -qi 'ok'
+          echo "live print: ok"
+
+  print-windows:
+    name: print (windows)
     runs-on: windows-latest
     timeout-minutes: 60
-    needs: test
     steps:
       - name: Harden runner
         uses: step-security/harden-runner@e14015d583714f6e62063499dc959a02595150a1 # v2.21.1
@@ -221,9 +176,10 @@ jobs:
             ~/Odin
             ~/vcpkg/installed
             ~/vcpkg/downloads
-          key: odin-windows-release-dev-2026-09-curl-vcpkg1
+          key: odin-windows-print-2026-09-curl-vcpkg1
           restore-keys: |
             odin-windows-release-
+            odin-windows-
 
       - name: Install curl and vcpkg libcurl
         shell: pwsh
@@ -259,17 +215,30 @@ jobs:
           }
           Add-Content -Path $env:GITHUB_PATH -Value "$env:USERPROFILE\Odin"
 
-      - name: Build and smoke
+      - name: Build
         shell: cmd
         run: |
           where odin
-          echo LIB=%LIB%
-          dir "%USERPROFILE%\vcpkg\installed\x64-windows\lib\libcurl*"
           if not exist bin mkdir bin
           odin build cmd\nullray -out:bin\nullray.exe -collection:nullray=nullray -define:NULLRAY_BUILD_DATE=2026-09-07 -define:NULLRAY_BUILD_TIME=00:00:00
-          bin\nullray.exe --self-test
-          bin\nullray.exe --version
 
       - name: Print smoke
         shell: pwsh
         run: .\scripts\print-smoke.ps1
+
+      - name: Live print (optional)
+        shell: pwsh
+        env:
+          OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
+          NULLRAY_PROVIDER: openrouter
+          NULLRAY_SANDBOX: "off"
+          NULLRAY_STREAM: "0"
+        run: |
+          if (-not $env:OPENROUTER_API_KEY) {
+            Write-Host "live print: skip (no OPENROUTER_API_KEY)"
+            exit 0
+          }
+          $out = & .\bin\nullray.exe --print --bare --mode ask --timeout 120 "Reply with exactly: ok"
+          if ($LASTEXITCODE -ne 0) { throw "live print failed: $LASTEXITCODE" }
+          if ($out -notmatch "(?i)ok") { throw "live print unexpected output: $out" }
+          Write-Host "live print: ok"

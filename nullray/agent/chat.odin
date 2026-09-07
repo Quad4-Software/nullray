@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: 0BSD
 /*
 Single chat call with optional streaming bridge.
 */
@@ -38,8 +39,14 @@ single_chat :: proc(p: ^provider.Provider, msgs: []provider.Message, model, tool
 		max_tokens = cfg.max_tokens,
 	}
 	if cfg.stream {
+		if p.stream == nil {
+			return provider.Chat_Response{
+				ok = false,
+				err = strings.clone("streaming not supported by this provider", allocator),
+			}
+		}
 		dctx := Delta_Ctx{cfg = cfg}
-		res := provider.openai_chat_stream(p, req, delta_bridge, &dctx, allocator)
+		res := p.stream(p, req, delta_bridge, &dctx, allocator)
 		if !res.ok {
 			err := res.err
 			if len(err) == 0 {
@@ -74,4 +81,3 @@ clone_messages :: proc(msgs: []provider.Message, allocator := context.allocator)
 	}
 	return out
 }
-

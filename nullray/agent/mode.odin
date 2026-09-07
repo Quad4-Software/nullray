@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: 0BSD
 /*
 Agent interaction mode, switch policy, and review env helpers.
 */
@@ -12,6 +13,7 @@ import "nullray:constants"
 Agent_Mode :: enum {
 	Ask,
 	Plan,
+	Review,
 	Edit,
 }
 
@@ -34,6 +36,8 @@ mode_from_string :: proc(s: string) -> (Agent_Mode, bool) {
 		return .Ask, true
 	case "plan":
 		return .Plan, true
+	case "review":
+		return .Review, true
 	case "edit":
 		return .Edit, true
 	}
@@ -46,6 +50,8 @@ mode_string :: proc(m: Agent_Mode) -> string {
 		return "ask"
 	case .Plan:
 		return "plan"
+	case .Review:
+		return "review"
 	case .Edit:
 		return "edit"
 	}
@@ -96,7 +102,7 @@ policy_from_env :: proc() -> Mode_Policy {
 
 tools_for_mode :: proc(mode: Agent_Mode) -> (allow_write: bool, allow_shell: bool, allow_read: bool) {
 	switch mode {
-	case .Ask, .Plan:
+	case .Ask, .Plan, .Review:
 		return false, false, true
 	case .Edit:
 		return true, true, true
@@ -127,7 +133,32 @@ mode_prompt_section :: proc(mode: Agent_Mode, policy: Mode_Policy, allocator := 
 		)
 		strings.write_string(
 			&b,
-			"Outline steps and tradeoffs in chat. Do not edit files or run shell until the user switches to edit mode.\n",
+			"Write a complete markdown plan: title, goals, steps, files to touch, risks, and open questions.\n",
+		)
+		strings.write_string(
+			&b,
+			"In non-interactive runs, state assumptions instead of asking clarifying questions.\n",
+		)
+		strings.write_string(
+			&b,
+			"The runtime saves the plan to a .md file. Do not edit project source or run shell until edit mode.\n",
+		)
+	case .Review:
+		strings.write_string(
+			&b,
+			"Review mode: read-only. Review code, diffs, or PRs for correctness, security, and regressions.\n",
+		)
+		strings.write_string(
+			&b,
+			"Order findings by severity. Cite file:line when possible. Skip drive-by refactors and style nits.\n",
+		)
+		strings.write_string(
+			&b,
+			"End the reply with a single trailer line exactly one of: FINDINGS: none  or  FINDINGS: N  (N is a positive integer).\n",
+		)
+		strings.write_string(
+			&b,
+			"Do not call write/edit/shell tools.\n",
 		)
 	case .Edit:
 		strings.write_string(
@@ -145,7 +176,7 @@ mode_prompt_section :: proc(mode: Agent_Mode, policy: Mode_Policy, allocator := 
 	}
 	if policy == .Auto || policy == .Model {
 		strings.write_string(&b, "\nWhen a different mode fits better, emit a single line on its own:\n")
-		strings.write_string(&b, "MODE ask\nMODE plan\nMODE edit\n")
+		strings.write_string(&b, "MODE ask\nMODE plan\nMODE review\nMODE edit\n")
 		if policy == .Auto {
 			strings.write_string(&b, "The runtime may also switch modes based on user input heuristics.\n")
 		}
@@ -195,6 +226,9 @@ ASK_KEYWORDS :: []string{
 PLAN_KEYWORDS :: []string{"plan", "design", "approach", "architect", "strategy", "roadmap"}
 
 @(private)
+REVIEW_KEYWORDS :: []string{"review", "pr review", "look over", "code review", "audit"}
+
+@(private)
 EDIT_KEYWORDS :: []string{
 	"fix",
 	"implement",
@@ -213,6 +247,11 @@ EDIT_KEYWORDS :: []string{
 
 auto_suggest_mode :: proc(user_text: string) -> Agent_Mode {
 	lower := strings.to_lower(user_text, context.temp_allocator)
+	for kw in REVIEW_KEYWORDS {
+		if strings.contains(lower, kw) {
+			return .Review
+		}
+	}
 	for kw in ASK_KEYWORDS {
 		if strings.contains(lower, kw) {
 			return .Ask
