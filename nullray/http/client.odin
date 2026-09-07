@@ -10,7 +10,7 @@ import "core:fmt"
 import "core:strings"
 
 when ODIN_OS == .Windows {
-	foreign import lib {"system:libcurl"}
+	foreign import lib {"system:libcurl.lib"}
 } else {
 	foreign import lib {"system:curl"}
 }

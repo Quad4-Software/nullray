@@ -259,6 +259,8 @@ jobs:
         shell: cmd
         run: |
           where odin
+          echo LIB=%LIB%
+          dir "%USERPROFILE%\vcpkg\installed\x64-windows\lib\libcurl*"
           if not exist bin mkdir bin
           odin build cmd\nullray -out:bin\nullray.exe -collection:nullray=nullray -define:NULLRAY_BUILD_DATE=2026-09-07 -define:NULLRAY_BUILD_TIME=00:00:00
           bin\nullray.exe --self-test
