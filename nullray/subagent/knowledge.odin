@@ -5,6 +5,7 @@ Session-scoped shared knowledge store with authorship.
 
 package subagent
 
+import "core:encoding/json"
 import "core:fmt"
 import "core:os"
 import "core:path/filepath"
@@ -35,7 +36,95 @@ knowledge_init :: proc(k: ^Knowledge_Store, session_id: string) {
 	k.session = strings.clone(session_id)
 	ws := workspace_dir()
 	k.dir, _ = filepath.join({ws, constants.KNOWLEDGE_DIR, session_id})
-	_ = os.make_directory_all(k.dir)
+	if !knowledge_ephemeral() {
+		_ = os.make_directory_all(k.dir)
+	}
+	knowledge_load_jsonl(k)
+}
+
+@(private)
+knowledge_ephemeral :: proc() -> bool {
+	if value, ok := os.lookup_env(constants.ENV_EPHEMERAL, context.temp_allocator); ok {
+		switch strings.to_lower(value, context.temp_allocator) {
+		case "1", "true", "yes", "on":
+			return true
+		}
+	}
+	return false
+}
+
+@(private)
+knowledge_load_jsonl :: proc(k: ^Knowledge_Store) {
+	path, err := filepath.join({k.dir, "knowledge.jsonl"}, context.temp_allocator)
+	if err != nil {
+		return
+	}
+	data, read_err := os.read_entire_file(path, context.temp_allocator)
+	if read_err != nil {
+		return
+	}
+	for line in strings.split_lines(string(data), context.temp_allocator) {
+		if len(strings.trim_space(line)) == 0 {
+			continue
+		}
+		doc, parse_err := json.parse_string(line, .JSON, allocator = context.temp_allocator)
+		if parse_err != nil {
+			continue
+		}
+		obj, ok := doc.(json.Object)
+		if !ok {
+			continue
+		}
+		key_raw, key_ok := obj["key"]
+		value_raw, value_ok := obj["value"]
+		author_raw, author_ok := obj["author"]
+		if !key_ok || !value_ok || !author_ok {
+			continue
+		}
+		key_json, key_string := key_raw.(json.String)
+		value_json, value_string := value_raw.(json.String)
+		author_json, author_string := author_raw.(json.String)
+		if !key_string || !value_string || !author_string {
+			continue
+		}
+		key := string(key_json)
+		if _, exists := k.entries[key]; !exists && len(k.entries) >= constants.MAX_KNOWLEDGE_ENTRIES {
+			continue
+		}
+		if old, exists := k.entries[key]; exists {
+			delete(old.key)
+			delete(old.value)
+			delete(old.author_id)
+			for tag in old.tags {
+				delete(tag)
+			}
+			delete(old.tags)
+			for stored_key in k.entries {
+				if stored_key == key {
+					delete_key(&k.entries, stored_key)
+					delete(stored_key)
+					break
+				}
+			}
+		}
+		updated: i64
+		if updated_raw, found := obj["updated"]; found {
+			#partial switch value in updated_raw {
+			case json.Integer:
+				updated = i64(value)
+			case json.Float:
+				updated = i64(value)
+			}
+		}
+		entry := Knowledge_Entry{
+			key = strings.clone(key),
+			value = strings.clone(string(value_json)),
+			author_id = strings.clone(string(author_json)),
+			tags = make([dynamic]string),
+			updated_at = updated,
+		}
+		k.entries[strings.clone(key)] = entry
+	}
 }
 
 knowledge_destroy :: proc(k: ^Knowledge_Store) {
@@ -72,14 +161,7 @@ workspace_dir :: proc(allocator := context.temp_allocator) -> string {
 }
 
 looks_like_secret :: proc(value: string) -> bool {
-	low := strings.to_lower(value, context.temp_allocator)
-	if strings.contains(low, "api_key") || strings.contains(low, "secret=") || strings.contains(low, "password=") {
-		return true
-	}
-	if strings.has_prefix(strings.trim_space(value), "sk-") {
-		return true
-	}
-	return false
+	return sandbox.value_looks_secret(value)
 }
 
 knowledge_put :: proc(
@@ -119,7 +201,13 @@ knowledge_put :: proc(
 			delete(t)
 		}
 		delete(old.tags)
-		delete_key(&k.entries, key_trim)
+		for stored_key in k.entries {
+			if stored_key == key_trim {
+				delete_key(&k.entries, stored_key)
+				delete(stored_key)
+				break
+			}
+		}
 	}
 	e := Knowledge_Entry{
 		key = strings.clone(key_trim),
@@ -139,6 +227,9 @@ knowledge_put :: proc(
 knowledge_append_jsonl :: proc(k: ^Knowledge_Store, e: Knowledge_Entry) -> bool {
 	if len(k.dir) == 0 {
 		return false
+	}
+	if knowledge_ephemeral() {
+		return true
 	}
 	path, _ := filepath.join({k.dir, "knowledge.jsonl"}, context.temp_allocator)
 	line := fmt.tprintf(
