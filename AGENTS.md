@@ -50,6 +50,8 @@ nullray loads flat *.md and nested name/SKILL.md from workspace .agents/skills, 
 | packaging/flatpak | Flatpak manifest and desktop/metainfo |
 | packaging/appimage | Slim and SDK AppImage AppRun, desktop, tools.manifest |
 | packaging/odin-pin | Pinned Odin commit for CI, Docker, SDK |
+| web | GitHub Pages site (single index.html, no build) |
+| install.sh | POSIX installer, served at /install by pages.yml |
 | Dockerfile | Multi-stage rootless image (Debian trixie) |
 | docker-compose.yml | Interactive terminal attach |
 
@@ -124,6 +126,7 @@ Workflows under .github/workflows/.
 
 - `ci.yml`: package tests (Linux) plus build/self-test/print-smoke on Linux, macOS, Windows
 - `print.yml`: dedicated print-mode smoke on Linux, macOS, Windows (optional live `--print` when OPENROUTER_API_KEY is set)
+- `pages.yml`: deploys web/ to GitHub Pages on push to master, stages install.sh at /install. Custom domain nullray.xyz via web/CNAME, DNS on Bunny (CNAME to quad4-software.github.io)
 - Pin every third-party action to a full commit SHA with a version comment
 - First step of every job: step-security/harden-runner
 - No pull_request_target

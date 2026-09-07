@@ -1,0 +1,271 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>nullray</title>
+<meta name="description" content="nullray is a terminal coding agent written in Odin with a custom TUI. Simple, Lightweight, Fast.">
+<meta name="theme-color" content="#060608">
+<meta property="og:title" content="nullray">
+<meta property="og:description" content="Simple, Lightweight, Fast. A terminal coding agent written in Odin with a custom TUI.">
+<meta property="og:type" content="website">
+<meta property="og:url" content="https://nullray.xyz/">
+<link rel="canonical" href="https://nullray.xyz/">
+<meta name="twitter:card" content="summary">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 5 7'%3E%3Cpath d='M0 2h4v1H0zM0 3h1v4H0zM4 3h1v4H4z' fill='%23b48ead' shape-rendering='crispEdges'/%3E%3C/svg%3E">
+<style>
+  html, body {
+    margin: 0;
+    height: 100%;
+    background: #060608;
+    display: grid;
+    place-items: center;
+  }
+  .stack {
+    display: grid;
+    justify-items: center;
+    gap: 1.6rem;
+    animation: drift 60s linear infinite;
+  }
+  canvas {
+    image-rendering: pixelated;
+  }
+  #c { width: min(82vw, 640px) }
+  #s { width: min(72vw, 430px) }
+  .cmd {
+    color: #6e7681;
+    font-family: monospace;
+    font-size: .85rem;
+    margin: 0;
+    user-select: all;
+    cursor: pointer;
+  }
+  @keyframes drift {
+    to { filter: hue-rotate(360deg) }
+  }
+  noscript {
+    color: #888;
+    font-family: monospace;
+    font-size: 2rem;
+    letter-spacing: .3em;
+  }
+  .sr {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip: rect(0 0 0 0);
+    white-space: nowrap;
+  }
+</style>
+</head>
+<body>
+<div class="stack">
+  <canvas id="c" role="img" aria-label="nullray"></canvas>
+  <canvas id="s" role="img" aria-label="Simple, Lightweight, Fast"></canvas>
+  <p class="cmd" title="click to copy">&gt; curl -fsSL https://nullray.xyz/install | sh</p>
+</div>
+<noscript>nullray Simple, Lightweight, Fast</noscript>
+<h1 class="sr">nullray</h1>
+<p class="sr">Simple, Lightweight, Fast. A terminal coding agent written in Odin with a custom TUI.</p>
+<script>
+"use strict"
+
+var FONT = {
+  n: ["00000",
+      "00000",
+      "11110",
+      "10001",
+      "10001",
+      "10001",
+      "10001"],
+  u: ["00000",
+      "00000",
+      "10001",
+      "10001",
+      "10001",
+      "10011",
+      "01101"],
+  l: ["01100",
+      "00100",
+      "00100",
+      "00100",
+      "00100",
+      "00100",
+      "01110"],
+  r: ["00000",
+      "00000",
+      "10110",
+      "11001",
+      "10000",
+      "10000",
+      "10000"],
+  a: ["00000",
+      "00000",
+      "01110",
+      "00001",
+      "01111",
+      "10001",
+      "01111"],
+  y: ["00000",
+      "00000",
+      "10001",
+      "10001",
+      "01111",
+      "00001",
+      "01110"]
+}
+
+var TINY = {
+  A: ["010",
+      "101",
+      "111",
+      "101",
+      "101"],
+  E: ["111",
+      "100",
+      "110",
+      "100",
+      "111"],
+  F: ["111",
+      "100",
+      "110",
+      "100",
+      "100"],
+  G: ["011",
+      "100",
+      "101",
+      "101",
+      "011"],
+  H: ["101",
+      "101",
+      "111",
+      "101",
+      "101"],
+  I: ["111",
+      "010",
+      "010",
+      "010",
+      "111"],
+  L: ["100",
+      "100",
+      "100",
+      "100",
+      "111"],
+  M: ["101",
+      "111",
+      "101",
+      "101",
+      "101"],
+  P: ["110",
+      "101",
+      "110",
+      "100",
+      "100"],
+  S: ["011",
+      "100",
+      "010",
+      "001",
+      "110"],
+  T: ["111",
+      "010",
+      "010",
+      "010",
+      "010"],
+  W: ["101",
+      "101",
+      "101",
+      "111",
+      "101"],
+  ",": ["000",
+        "000",
+        "000",
+        "010",
+        "100"],
+  " ": ["000",
+        "000",
+        "000",
+        "000",
+        "000"]
+}
+
+var TEXT = "nullray"
+var SLOGAN = "SIMPLE, LIGHTWEIGHT, FAST"
+var ROWS = 7
+var GAP = 1
+
+var canvas = document.getElementById("c")
+var ctx = canvas.getContext("2d")
+
+var tag = document.getElementById("s")
+var tctx = tag.getContext("2d")
+
+function widthOf(text, font) {
+  var w = 0
+  for (var i = 0; i < text.length; i++) {
+    w += font[text[i]][0].length + GAP
+  }
+  return w - GAP
+}
+
+function paint(g, text, font, lightness, sat) {
+  var x = 0
+  for (var i = 0; i < text.length; i++) {
+    var glyph = font[text[i]]
+    for (var r = 0; r < glyph.length; r++) {
+      for (var c = 0; c < glyph[r].length; c++) {
+        if (glyph[r][c] === "1") {
+          g.fillStyle = "hsl(" + ((x + c) * 7 % 360) + ", " + sat + "%, " + lightness + "%)"
+          g.fillRect(x + c, r, 1, 1)
+        }
+      }
+    }
+    x += glyph[0].length + GAP
+  }
+  return x - GAP
+}
+
+var textW = widthOf(TEXT, FONT)
+canvas.width = textW + GAP + 5
+canvas.height = ROWS
+
+tag.width = widthOf(SLOGAN, TINY)
+tag.height = 5
+
+var cursorOn = true
+
+function draw() {
+  ctx.clearRect(0, 0, canvas.width, canvas.height)
+  var end = paint(ctx, TEXT, FONT, 62, 80)
+  if (cursorOn) {
+    ctx.fillStyle = "hsl(" + ((end + GAP) * 7 % 360) + ", 80%, 62%)"
+    ctx.fillRect(end + GAP, 0, 5, ROWS)
+  }
+}
+
+var cmd = document.querySelector(".cmd")
+var cmdText = cmd.textContent.replace(/^>\s*/, "")
+cmd.addEventListener("click", function () {
+  if (navigator.clipboard && navigator.clipboard.writeText) {
+    navigator.clipboard.writeText(cmdText)
+  } else {
+    var ta = document.createElement("textarea")
+    ta.value = cmdText
+    document.body.appendChild(ta)
+    ta.select()
+    document.execCommand("copy")
+    document.body.removeChild(ta)
+  }
+  cmd.textContent = "> copied"
+  setTimeout(function () { cmd.textContent = "> " + cmdText }, 1200)
+})
+
+draw()
+paint(tctx, SLOGAN, TINY, 55, 0)
+setInterval(function () {
+  cursorOn = !cursorOn
+  draw()
+}, 530)
+</script>
+</body>
+</html>

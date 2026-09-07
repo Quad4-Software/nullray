@@ -1,0 +1,74 @@
+# Pages: deploy web/ to GitHub Pages. install.sh is staged at /install so
+# the site can serve: curl -fsSL <pages-url>/install | sh
+#
+# Harden-Runner first in every job:
+#   https://docs.stepsecurity.io/github-actions/harden-runner
+#
+# Secure-use: least-privilege GITHUB_TOKEN, pinned action SHAs, no
+# pull_request_target.
+#
+# Pinned actions (bump tag and SHA together):
+#   step-security/harden-runner@v2.21.1      e14015d583714f6e62063499dc959a02595150a1
+#   actions/checkout@v7.0.1                  3d3c42e5aac5ba805825da76410c181273ba90b1
+#   actions/configure-pages@v6.0.0           45bfe0192ca1faeb007ade9deae92b16b8254a0d
+#   actions/upload-pages-artifact@v5.0.0     fc324d3547104276b827a68afc52ff2a11cc49c9
+#   actions/deploy-pages@v5.0.1              368f82528645a54fb793d4d04e342629a3f51346
+
+name: pages
+
+on:
+  push:
+    branches: [master]
+    paths:
+      - web/**
+      - install.sh
+      - .github/workflows/pages.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    name: deploy
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Harden runner
+        uses: step-security/harden-runner@e14015d583714f6e62063499dc959a02595150a1 # v2.21.1
+        with:
+          egress-policy: audit
+
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Configure Pages
+        uses: actions/configure-pages@45bfe0192ca1faeb007ade9deae92b16b8254a0d # v6.0.0
+
+      - name: Stage site
+        run: |
+          set -euo pipefail
+          mkdir -p _site
+          cp -r web/. _site/
+          install -m 644 install.sh _site/install
+
+      - name: Upload artifact
+        uses: actions/upload-pages-artifact@fc324d3547104276b827a68afc52ff2a11cc49c9 # v5.0.0
+        with:
+          path: _site
+
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@368f82528645a54fb793d4d04e342629a3f51346 # v5.0.1
