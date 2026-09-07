@@ -23,7 +23,7 @@ function Expect-Exit([int]$Want, [string[]]$ArgList) {
 Expect-Exit 2 @("--print")
 Expect-Exit 2 @("--print", "--mode", "edit", "--perms", "ask", "x")
 
-$help = & $Bin --help
+$help = & $Bin --help | Out-String
 if ($help -notmatch "--print") { throw "print-smoke: help missing --print" }
 if ($help -notmatch "ask \| plan \| review \| edit") { throw "print-smoke: help missing modes" }
 
