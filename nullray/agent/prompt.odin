@@ -19,6 +19,7 @@ Goals:
 - Solve the user's task by reading, editing, searching, and running commands as needed.
 - Prefer small precise edits (edit_file / apply_edits) over rewriting whole files.
 - Use grep_files and glob_files before large reads.
+- Use load_skill when a catalog skill matches the task. Prefer list_skills if unsure.
 - Use run_shell for builds and tests when sandbox allows.
 - Be concise in chat replies. Put durable notes in files when useful.
 - Stop when the task is complete or blocked. Do not invent tool results.
@@ -48,20 +49,29 @@ build_system_prompt :: proc(extra_skills: string = "", tools_reg: ^tools.Registr
 	strings.write_string(&b, "TOOL <name> {json args}\n")
 	strings.write_string(&b, "You may emit multiple TOOL lines in one reply. After tool results, continue until the task is done.\n")
 
-	agents := load_agents_md(context.temp_allocator)
+	agents, agents_path := load_agents_md(context.temp_allocator)
 	if len(agents) > 0 {
 		strings.write_string(&b, "\n\n## Project instructions (AGENTS.md)\n\n")
 		strings.write_string(&b, agents)
+		if len(agents_path) > 0 && len(agents) >= constants.MAX_AGENTS_PROMPT_CHARS {
+			strings.write_string(&b, "\n\n(Truncated. Read full file with read_file: ")
+			strings.write_string(&b, agents_path)
+			strings.write_string(&b, ")\n")
+		}
 	}
 
 	if len(extra_skills) > 0 {
-		strings.write_string(&b, "\n\n## Skills\n\n")
+		strings.write_string(&b, "\n\n## Skills catalog\n\n")
 		strings.write_string(&b, extra_skills)
 	}
 	return strings.to_string(b)
 }
 
-load_agents_md :: proc(allocator := context.allocator) -> string {
+/*
+Load AGENTS.md (or CLAUDE.md / nullray.md). Returns body and path.
+Lean cap: full file only up to MAX_AGENTS_PROMPT_CHARS, else truncated head + path.
+*/
+load_agents_md :: proc(allocator := context.allocator) -> (text: string, path: string) {
 	roots := make([dynamic]string, context.temp_allocator)
 	st := sandbox.state()
 	if st != nil && len(st.workspace) > 0 {
@@ -76,21 +86,27 @@ load_agents_md :: proc(allocator := context.allocator) -> string {
 	names := []string{"AGENTS.md", "CLAUDE.md", "nullray.md"}
 	for root in roots {
 		for name in names {
-			path, jerr := filepath.join({root, name}, context.temp_allocator)
+			fpath, jerr := filepath.join({root, name}, context.temp_allocator)
 			if jerr != nil {
 				continue
 			}
-			data, rerr := os.read_entire_file(path, allocator)
+			data, rerr := os.read_entire_file(fpath, allocator)
 			if rerr == nil && len(data) > 0 {
 				if len(data) > constants.MAX_TOOL_FILE_BYTES {
 					delete(data)
 					continue
 				}
-				return string(data)
+				path = strings.clone(fpath, allocator)
+				if len(data) > constants.MAX_AGENTS_PROMPT_CHARS {
+					head := strings.clone(string(data[:constants.MAX_AGENTS_PROMPT_CHARS]), allocator)
+					delete(data)
+					return head, path
+				}
+				return string(data), path
 			}
 		}
 	}
-	return ""
+	return "", ""
 }
 
 load_skills_prompt :: proc(allocator := context.allocator) -> string {
@@ -98,7 +114,29 @@ load_skills_prompt :: proc(allocator := context.allocator) -> string {
 	if len(loaded) == 0 {
 		return ""
 	}
-	out := skills.render_system_prompt(loaded[:], allocator)
+	out := skills.render_catalog(loaded[:], allocator)
 	skills.skills_destroy(&loaded)
 	return out
+}
+
+/*
+Build transcript notes for skills that match the latest user text.
+Caller owns returned strings (delete each, then the dynamic).
+*/
+auto_activate_skill_notes :: proc(
+	user_text: string,
+	allocator := context.allocator,
+) -> [dynamic]string {
+	notes := make([dynamic]string, allocator)
+	loaded, _ := skills.load_default(allocator)
+	defer skills.skills_destroy(&loaded)
+	ids := skills.match_skills(loaded[:], user_text, skills.MAX_ACTIVE_SKILLS, context.temp_allocator)
+	for id in ids {
+		sk, ok := skills.find_by_id(loaded[:], id)
+		if !ok {
+			continue
+		}
+		append(&notes, skills.format_skill_payload(sk, "auto", allocator))
+	}
+	return notes
 }

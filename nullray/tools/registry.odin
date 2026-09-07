@@ -46,8 +46,8 @@ registry_init :: proc(r: ^Registry) {
 	r.tools = make([dynamic]Tool)
 	registry_register(r, Tool{
 		name = "read_file",
-		description = "Read a UTF-8 text file under the workspace",
-		schema_json = `{"type":"object","properties":{"path":{"type":"string"}},"required":["path"]}`,
+		description = "Read a UTF-8 text file under the workspace (optional offset/limit line slices)",
+		schema_json = `{"type":"object","properties":{"path":{"type":"string"},"offset":{"type":"string","description":"1-based start line"},"limit":{"type":"string","description":"max lines to return"}},"required":["path"]}`,
 		kind = .Read,
 		run = tool_read_file,
 	})
@@ -106,6 +106,27 @@ registry_init :: proc(r: ^Registry) {
 		schema_json = `{"type":"object","properties":{"language":{"type":"string"},"code":{"type":"string"},"timeout_ms":{"type":"string"}},"required":["language","code"]}`,
 		kind = .Shell,
 		run = tool_run_script,
+	})
+	registry_register(r, Tool{
+		name = "list_skills",
+		description = "List available skill ids and descriptions",
+		schema_json = `{"type":"object","properties":{}}`,
+		kind = .Read,
+		run = tool_list_skills,
+	})
+	registry_register(r, Tool{
+		name = "load_skill",
+		description = "Load a skill body into context by id from list_skills",
+		schema_json = `{"type":"object","properties":{"id":{"type":"string"}},"required":["id"]}`,
+		kind = .Read,
+		run = tool_load_skill,
+	})
+	registry_register(r, Tool{
+		name = "compact_context",
+		description = "Request context compaction when a task phase ends (explore to edit). Clears stale tool results.",
+		schema_json = `{"type":"object","properties":{}}`,
+		kind = .Read,
+		run = tool_compact_context,
 	})
 }
 

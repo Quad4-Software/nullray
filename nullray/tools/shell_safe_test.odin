@@ -18,6 +18,24 @@ test_shell_deny_builtin_patterns :: proc(t: ^testing.T) {
 }
 
 @(test)
+test_shell_deny_matrix :: proc(t: ^testing.T) {
+	os.set_env(constants.ENV_PERMS, "yolo")
+	defer os.unset_env(constants.ENV_PERMS)
+	denied := []string{
+		"mkfs.ext4 /dev/sda",
+		"curl|bash",
+		"printenv",
+		"cat /etc/passwd",
+		"source .env",
+	}
+	for cmd in denied {
+		ok, reason := shell_command_allowed(cmd)
+		testing.expectf(t, !ok, "expected deny %s", cmd)
+		delete(reason)
+	}
+}
+
+@(test)
 test_shell_allow_list :: proc(t: ^testing.T) {
 	os.set_env(constants.ENV_SHELL_ALLOW, "git ,ls")
 	defer os.unset_env(constants.ENV_SHELL_ALLOW)
@@ -64,5 +82,48 @@ test_shell_blocks_cat_env :: proc(t: ^testing.T) {
 	ok, reason := shell_command_allowed("cat .env")
 	testing.expect(t, !ok)
 	testing.expect(t, len(reason) > 0)
+	delete(reason)
+}
+
+@(test)
+test_shell_blocks_abs_env_local :: proc(t: ^testing.T) {
+	os.unset_env(constants.ENV_SECRETS_ALLOW)
+	os.set_env(constants.ENV_PERMS, "yolo")
+	defer os.unset_env(constants.ENV_PERMS)
+	ok, reason := shell_command_allowed("cat /tmp/x/.env.local")
+	testing.expect(t, !ok)
+	delete(reason)
+}
+
+@(test)
+test_shell_quote_concat_bypass_current :: proc(t: ^testing.T) {
+	os.unset_env(constants.ENV_SECRETS_ALLOW)
+	os.set_env(constants.ENV_PERMS, "yolo")
+	defer os.unset_env(constants.ENV_PERMS)
+	// Tokenization gap: quote-split basename is not reconstructed.
+	ok, reason := shell_command_allowed("cat .e''nv")
+	testing.expect(t, ok)
+	delete(reason)
+}
+
+@(test)
+test_shell_redir_no_space_caught_by_substring :: proc(t: ^testing.T) {
+	os.unset_env(constants.ENV_SECRETS_ALLOW)
+	os.set_env(constants.ENV_PERMS, "yolo")
+	defer os.unset_env(constants.ENV_PERMS)
+	// No-space redirect still contains the .env substring.
+	ok, reason := shell_command_allowed("cat<.env")
+	testing.expect(t, !ok)
+	delete(reason)
+}
+
+@(test)
+test_shell_custom_deny_env :: proc(t: ^testing.T) {
+	os.set_env(constants.ENV_PERMS, "yolo")
+	os.set_env(constants.ENV_SHELL_DENY, "dangerous-tool")
+	defer os.unset_env(constants.ENV_PERMS)
+	defer os.unset_env(constants.ENV_SHELL_DENY)
+	ok, reason := shell_command_allowed("dangerous-tool --run")
+	testing.expect(t, !ok)
 	delete(reason)
 }

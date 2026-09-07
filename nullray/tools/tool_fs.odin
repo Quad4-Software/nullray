@@ -17,6 +17,14 @@ tool_read_file :: proc(args_json: string, allocator := context.allocator) -> (re
 		return "", perr
 	}
 	defer delete(path)
+	offset, oerr := json_arg_int_optional(args_json, "offset", 0, allocator)
+	if oerr != "" {
+		return "", oerr
+	}
+	limit, lerr := json_arg_int_optional(args_json, "limit", 0, allocator)
+	if lerr != "" {
+		return "", lerr
+	}
 	abs := resolve_path(path, allocator)
 	defer delete(abs)
 	if sandbox.path_is_secret_blocked(abs) {
@@ -33,7 +41,54 @@ tool_read_file :: proc(args_json: string, allocator := context.allocator) -> (re
 		delete(data)
 		return "", fmt.aprintf("file exceeds %d bytes", constants.MAX_TOOL_FILE_BYTES, allocator = allocator)
 	}
-	return string(data), ""
+	text := string(data)
+	if offset > 0 || limit > 0 {
+		sliced := slice_lines(text, offset, limit, context.temp_allocator)
+		out := strings.clone(sliced, allocator)
+		delete(data)
+		if len(out) > constants.MAX_READ_FILE_CHARS {
+			trimmed := strings.clone(out[:constants.MAX_READ_FILE_CHARS], allocator)
+			delete(out)
+			return trimmed, ""
+		}
+		return out, ""
+	}
+	if len(text) > constants.MAX_READ_FILE_CHARS {
+		head := strings.clone(text[:constants.MAX_READ_FILE_CHARS], allocator)
+		delete(data)
+		note := fmt.aprintf(
+			"\n\n[truncated at %d chars; use offset/limit to read more]",
+			constants.MAX_READ_FILE_CHARS,
+			allocator = allocator,
+		)
+		combined := strings.concatenate({head, note}, allocator)
+		delete(head)
+		delete(note)
+		return combined, ""
+	}
+	return text, ""
+}
+
+/*
+offset is 1-based start line. limit is max lines (0 = to end).
+*/
+slice_lines :: proc(text: string, offset, limit: int, allocator := context.allocator) -> string {
+	lines := strings.split_lines(text, context.temp_allocator)
+	start := 0
+	if offset > 1 {
+		start = offset - 1
+	}
+	if start > len(lines) {
+		start = len(lines)
+	}
+	end := len(lines)
+	if limit > 0 && start + limit < end {
+		end = start + limit
+	}
+	if start >= end {
+		return strings.clone("", allocator)
+	}
+	return strings.join(lines[start:end], "\n", allocator)
 }
 
 @(private)
@@ -87,4 +142,3 @@ tool_list_dir :: proc(args_json: string, allocator := context.allocator) -> (res
 	}
 	return strings.to_string(b), ""
 }
-

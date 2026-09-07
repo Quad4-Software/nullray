@@ -149,6 +149,23 @@ session_start_chat :: proc(s: ^Session, p: ^provider.Provider) {
 		cloned := provider.clone_message(m)
 		append(&flat, cloned)
 	}
+	// Progressive skills: inject matched bodies into the volatile tail (not system prefix).
+	last_user := ""
+	for i := len(s.messages) - 1; i >= 0; i -= 1 {
+		if s.messages[i].role == .User {
+			last_user = s.messages[i].content
+			break
+		}
+	}
+	if len(last_user) > 0 {
+		notes := agent.auto_activate_skill_notes(last_user)
+		for note in notes {
+			append(&flat, provider.Message{role = .User, content = note})
+		}
+		delete(notes)
+	}
+	// Clear-then-compact ladder before the model call.
+	session_prepare_context(&flat, p)
 	msgs := make([]provider.Message, len(flat))
 	copy(msgs, flat[:])
 	delete(flat)
@@ -208,6 +225,8 @@ chat_job :: proc(data: rawptr) {
 	cfg.enable_tools = args.tools_enabled
 	cfg.reasoning_effort = args.reasoning_effort
 	cfg.mode = args.session.agent_mode
+	cfg.plan_verify = args.session.plan_verify
+	cfg.verify_fail_count = args.session.verify_fail_count
 	if args.session.tools_registry != nil {
 		cfg.tools_registry = args.session.tools_registry
 	}
@@ -215,12 +234,25 @@ chat_job :: proc(data: rawptr) {
 	cfg.user = args.session
 	cfg.stop_check = session_stop_check
 
+	args.session.last_input_chars = messages_content_chars(args.messages)
+
 	req := agent.Run_Request{
 		prov = &args.prov,
 		messages = args.messages,
 		tools_enabled = args.tools_enabled,
 	}
 	result := agent.run_turn(req, cfg)
+	args.session.verify_fail_count = result.verify_fail_count
+	if result.stopped == "done" &&
+		result.verify_fail_count == 0 &&
+		args.session.agent_mode == .Edit &&
+		agent.turn_had_writes(result.messages[:]) {
+		vcmd, voff := agent.resolve_verify_command(args.session.plan_verify, context.temp_allocator)
+		if !voff && len(vcmd) > 0 {
+			session_add_verify_obligation(args.session, vcmd)
+			delete(vcmd)
+		}
+	}
 
 	if !result.ok {
 		msg := result.err
@@ -270,7 +302,7 @@ chat_job :: proc(data: rawptr) {
 	case "max_steps":
 		note = " (hit step limit)"
 	case "paused":
-		note = " (paused — /continue to resume)"
+		note = " (paused - /continue to resume)"
 	case "cancelled":
 		note = " (stopped)"
 	case "loop":
@@ -286,6 +318,15 @@ chat_job :: proc(data: rawptr) {
 		if st := sandbox.state(); st != nil {
 			ws = st.workspace
 		}
+		contract := agent.validate_plan_contract(out)
+		session_load_plan_contract(args.session, out)
+		if !contract.valid {
+			session_enqueue(args.session, Event{
+				kind = .Status,
+				text = strings.clone(fmt.tprintf("plan incomplete: %s", contract.err)),
+			})
+		}
+		agent.done_contract_destroy(&contract)
 		saved, perr := agent.save_plan_artifact(out, plan_out, out_path, ws)
 		if len(perr) > 0 {
 			session_enqueue(args.session, Event{kind = .Status, text = strings.clone(fmt.tprintf("plan save failed: %s", perr))})
@@ -299,19 +340,41 @@ chat_job :: proc(data: rawptr) {
 	}
 
 	do_review := agent.review_enabled_from_env() &&
-		(result.stopped == "done" || result.stopped == "max_steps") &&
+		(result.stopped == "done" || result.stopped == "max_steps" || result.stopped == "verify_failed") &&
 		args.tools_enabled &&
-		len(out) > 0
+		len(out) > 0 &&
+		args.session.agent_mode == .Edit
 	if do_review {
 		session_enqueue(args.session, Event{kind = .Status, text = strings.clone("reviewing...")})
-		review_text, review_err := agent.run_review(&args.prov, out)
+		diff := agent.collect_turn_diff(result.messages[:])
+		review_text, review_err := agent.run_review(&args.prov, diff)
+		delete(diff)
 		if len(review_err) > 0 {
 			delete(review_err)
 		} else if len(review_text) > 0 {
+			blocks, _ := agent.parse_block_findings(review_text)
 			combined := strings.concatenate({out, "\n\nreview:\n", review_text})
 			delete(out)
 			delete(review_text)
 			out = combined
+			if blocks > 0 && result.stopped == "done" {
+				session_enqueue(args.session, Event{
+					kind = .Status,
+					text = strings.clone(fmt.tprintf("review: %d blocking finding(s)", blocks)),
+				})
+			}
+		}
+		if agent.rubric_enabled_from_env() {
+			diff2 := agent.collect_turn_diff(result.messages[:])
+			rubric_text, rerr := agent.run_rubric(&args.prov, diff2)
+			delete(diff2)
+			delete(rerr)
+			if len(rubric_text) > 0 {
+				combined := strings.concatenate({out, "\n\nrubric:\n", rubric_text})
+				delete(out)
+				delete(rubric_text)
+				out = combined
+			}
 		}
 	}
 

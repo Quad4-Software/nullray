@@ -28,7 +28,18 @@ Mode_Policy :: enum {
 	Model,
 }
 
-REVIEW_PROMPT :: `Review the changes made for correctness, risks, and test coverage. Note any issues briefly.`
+REVIEW_PROMPT :: `You are a separate code reviewer. Review the DIFF only for correctness, risks, regressions, and test gaps.
+Reply with structured findings. Each finding on its own line:
+SEVERITY|path|reason
+SEVERITY is block, warn, or note.
+End with FINDINGS: N or FINDINGS: none.
+Do not rewrite the code. Be brief.`
+
+RUBRIC_PROMPT :: `Score the DIFF for readable structured code on these dimensions (0-100 each):
+structure, naming, comments_prose, ownership_idioms, test_honesty.
+Reply with lines: DIM=score
+Then TOTAL=weighted_average and PASS=yes|no (pass if TOTAL>=80).
+Be brief.`
 
 mode_from_string :: proc(s: string) -> (Agent_Mode, bool) {
 	switch strings.to_lower(strings.trim_space(s), context.temp_allocator) {
@@ -133,7 +144,15 @@ mode_prompt_section :: proc(mode: Agent_Mode, policy: Mode_Policy, allocator := 
 		)
 		strings.write_string(
 			&b,
-			"Write a complete markdown plan: title, goals, steps, files to touch, risks, and open questions.\n",
+			"Write a complete markdown plan with these sections (use these exact headings):\n",
+		)
+		strings.write_string(
+			&b,
+			"## Goal\n## Scope\n## Steps\n## Risks\n## Verify\n## Success\n## Budget\n## Failure\n",
+		)
+		strings.write_string(
+			&b,
+			"Verify must list exact shell commands. Budget must name a step or turn cap. Success and Failure are terminal conditions.\n",
 		)
 		strings.write_string(
 			&b,
@@ -141,7 +160,11 @@ mode_prompt_section :: proc(mode: Agent_Mode, policy: Mode_Policy, allocator := 
 		)
 		strings.write_string(
 			&b,
-			"The runtime saves the plan to a .md file. Do not edit project source or run shell until edit mode.\n",
+			"The runtime saves the plan to a .md file and validates required sections before edit mode.\n",
+		)
+		strings.write_string(
+			&b,
+			"Do not edit project source or run shell until edit mode.\n",
 		)
 	case .Review:
 		strings.write_string(

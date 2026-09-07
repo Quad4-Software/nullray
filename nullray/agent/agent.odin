@@ -33,6 +33,8 @@ Config :: struct {
 	on_event:          Event_Proc,
 	user:              rawptr,
 	stop_check:        Stop_Check,
+	plan_verify:       string,
+	verify_fail_count: int,
 }
 
 Event_Kind :: enum {
@@ -100,12 +102,13 @@ Run_Request :: struct {
 }
 
 Run_Result :: struct {
-	ok:       bool,
-	messages: [dynamic]provider.Message,
-	content:  string,
-	err:      string,
-	stopped:  string,
-	usage:    provider.Usage,
+	ok:                bool,
+	messages:          [dynamic]provider.Message,
+	content:           string,
+	err:               string,
+	stopped:           string,
+	usage:             provider.Usage,
+	verify_fail_count: int,
 }
 
 emit :: proc(cfg: Config, kind: Event_Kind, text: string, name := "") {
@@ -133,6 +136,47 @@ tool_fingerprint :: proc(calls: []provider.Tool_Call, allocator := context.temp_
 	return strings.to_string(b)
 }
 
+result_prefix_had_writes :: proc(messages: []provider.Message) -> bool {
+	return turn_had_writes(messages)
+}
+
+owned_stop :: proc(kind: string, allocator := context.allocator) -> string {
+	return strings.clone(kind, allocator)
+}
+
+clear_msgs_tool_results :: proc(msgs: ^[dynamic]provider.Message, keep: int) -> int {
+	if msgs == nil || keep < 0 {
+		return 0
+	}
+	tool_idxs := make([dynamic]int, context.temp_allocator)
+	for m, i in msgs {
+		if m.role == .Tool {
+			append(&tool_idxs, i)
+		}
+	}
+	if len(tool_idxs) <= keep {
+		return 0
+	}
+	cleared := 0
+	cutoff := len(tool_idxs) - keep
+	for ti in 0 ..< cutoff {
+		i := tool_idxs[ti]
+		m := msgs[i]
+		if strings.has_prefix(m.content, constants.TOOL_CLEAR_STUB_PREFIX) {
+			continue
+		}
+		name := m.name
+		if len(name) == 0 {
+			name = "tool"
+		}
+		stub := fmt.aprintf("%s %s %d bytes; re-call if needed]", constants.TOOL_CLEAR_STUB_PREFIX, name, len(m.content), allocator = msgs.allocator)
+		delete(m.content)
+		msgs[i].content = stub
+		cleared += 1
+	}
+	return cleared
+}
+
 run_turn :: proc(req: Run_Request, cfg: Config, allocator := context.allocator) -> Run_Result {
 	if req.prov == nil || req.prov.chat == nil {
 		return Run_Result{ok = false, err = strings.clone("no provider", allocator)}
@@ -147,7 +191,11 @@ run_turn :: proc(req: Run_Request, cfg: Config, allocator := context.allocator) 
 		reg = tools.registry()
 	}
 	if tools_on {
-		tools_json = tools.openai_tools_json(reg, mode_s, context.temp_allocator)
+		// Own across every chat step. Stream callbacks must not free this.
+		tools_json = tools.openai_tools_json(reg, mode_s, allocator)
+	}
+	defer if len(tools_json) > 0 {
+		delete(tools_json)
 	}
 
 	max_steps := 1
@@ -164,15 +212,16 @@ run_turn :: proc(req: Run_Request, cfg: Config, allocator := context.allocator) 
 	tool_fp_streak := 0
 	prev_asst := ""
 	asst_streak := 0
+	verify_fails := cfg.verify_fail_count
 
 	for step in 0 ..< max_steps {
 		switch check_stop(cfg) {
 		case .Cancel:
 			emit(cfg, .Status, "cancelled")
-			return Run_Result{ok = true, messages = msgs, content = last_content, stopped = "cancelled", usage = usage_sum}
+			return Run_Result{ok = true, messages = msgs, content = last_content, stopped = owned_stop("cancelled", allocator), usage = usage_sum}
 		case .Pause:
 			emit(cfg, .Status, "paused")
-			return Run_Result{ok = true, messages = msgs, content = last_content, stopped = "paused", usage = usage_sum}
+			return Run_Result{ok = true, messages = msgs, content = last_content, stopped = owned_stop("paused", allocator), usage = usage_sum}
 		case .None:
 		}
 
@@ -217,7 +266,7 @@ run_turn :: proc(req: Run_Request, cfg: Config, allocator := context.allocator) 
 				}
 				emit(cfg, .Status, "anti-loop: repeated reply")
 				append(&msgs, provider.Message{role = .Assistant, content = res.content, reasoning = res.reasoning})
-				return Run_Result{ok = true, messages = msgs, content = res.content, stopped = "loop", usage = usage_sum}
+				return Run_Result{ok = true, messages = msgs, content = res.content, stopped = owned_stop("loop", allocator), usage = usage_sum}
 			}
 		}
 
@@ -244,7 +293,7 @@ run_turn :: proc(req: Run_Request, cfg: Config, allocator := context.allocator) 
 				)
 				emit(cfg, .Status, "anti-loop: repeated tools")
 				append(&msgs, provider.Message{role = .Assistant, content = msg})
-				return Run_Result{ok = true, messages = msgs, content = msg, stopped = "loop", usage = usage_sum}
+				return Run_Result{ok = true, messages = msgs, content = msg, stopped = owned_stop("loop", allocator), usage = usage_sum}
 			}
 		}
 
@@ -277,7 +326,64 @@ run_turn :: proc(req: Run_Request, cfg: Config, allocator := context.allocator) 
 			} else {
 				provider.destroy_tool_calls(res.tool_calls)
 			}
-			return Run_Result{ok = true, messages = msgs, content = last_content, stopped = "done", usage = usage_sum}
+
+			// Verify stop gate when the model claims done after writes.
+			if tools_on &&
+				cfg.mode == .Edit &&
+				(result_prefix_had_writes(msgs[:]) || turn_had_writes(msgs[:])) {
+				vcmd, voff := resolve_verify_command(cfg.plan_verify, context.temp_allocator)
+				if !voff && len(vcmd) > 0 {
+					emit(cfg, .Status, "verify...")
+					vok, vout := run_verify_command(vcmd, allocator)
+					if !vok {
+						verify_fails += 1
+						max_fails := verify_max_fails_from_env()
+						if verify_fails >= max_fails {
+							fail_msg := fmt.aprintf(
+								"verify failed (circuit breaker after %d):\n%s",
+								verify_fails,
+								vout,
+								allocator = allocator,
+							)
+							delete(vout)
+							emit(cfg, .Status, "verify failed")
+							append(&msgs, provider.Message{role = .User, content = fail_msg})
+							return Run_Result{
+								ok = true,
+								messages = msgs,
+								content = fail_msg,
+								stopped = owned_stop("verify_failed", allocator),
+								usage = usage_sum,
+								verify_fail_count = verify_fails,
+							}
+						}
+						nudge := fmt.aprintf(
+							"Verify failed (%d/%d). Fix the failures, then stop when green.\n%s",
+							verify_fails,
+							max_fails,
+							vout,
+							allocator = allocator,
+						)
+						delete(vout)
+						emit(cfg, .Status, "verify failed - continuing")
+						append(&msgs, provider.Message{role = .User, content = nudge})
+						continue
+					}
+					delete(vout)
+					emit(cfg, .Status, "verify ok")
+					verify_fails = 0
+					// Note: session records obligation via job after turn when available.
+				}
+			}
+
+			return Run_Result{
+				ok = true,
+				messages = msgs,
+				content = last_content,
+				stopped = owned_stop("done", allocator),
+				usage = usage_sum,
+				verify_fail_count = verify_fails,
+			}
 		}
 
 		for c in calls {
@@ -301,6 +407,10 @@ run_turn :: proc(req: Run_Request, cfg: Config, allocator := context.allocator) 
 				tool_call_id = strings.clone(c.id, allocator),
 				name = strings.clone(c.name, allocator),
 			})
+			if c.name == "compact_context" {
+				// AdaptiveCompact: deterministic clear after phase-end request.
+				_ = clear_msgs_tool_results(&msgs, 2)
+			}
 		}
 
 		delete(res.model)
@@ -313,11 +423,11 @@ run_turn :: proc(req: Run_Request, cfg: Config, allocator := context.allocator) 
 		}
 
 		if check_stop(cfg) == .Cancel {
-			return Run_Result{ok = true, messages = msgs, content = last_content, stopped = "cancelled", usage = usage_sum}
+			return Run_Result{ok = true, messages = msgs, content = last_content, stopped = owned_stop("cancelled", allocator), usage = usage_sum}
 		}
 		if check_stop(cfg) == .Pause {
 			emit(cfg, .Status, "paused")
-			return Run_Result{ok = true, messages = msgs, content = last_content, stopped = "paused", usage = usage_sum}
+			return Run_Result{ok = true, messages = msgs, content = last_content, stopped = owned_stop("paused", allocator), usage = usage_sum}
 		}
 	}
 
@@ -326,9 +436,8 @@ run_turn :: proc(req: Run_Request, cfg: Config, allocator := context.allocator) 
 		messages = msgs,
 		content = last_content,
 		err = strings.clone("max agent steps reached", allocator),
-		stopped = "max_steps",
+		stopped = owned_stop("max_steps", allocator),
 		usage = usage_sum,
+		verify_fail_count = verify_fails,
 	}
 }
-
-

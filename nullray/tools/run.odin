@@ -62,6 +62,9 @@ run :: proc(r: ^Registry, name: string, args_json: string, mode: string, allocat
 	return t.run(args_json, allocator)
 }
 
+/*
+Names and one-line descriptions only. Full JSON schemas go in the API tools array.
+*/
 describe_for_prompt :: proc(r: ^Registry, allocator := context.allocator) -> string {
 	b: strings.Builder
 	strings.builder_init(&b, allocator)
@@ -75,8 +78,6 @@ describe_for_prompt :: proc(r: ^Registry, allocator := context.allocator) -> str
 		strings.write_string(&b, t.name)
 		strings.write_string(&b, ": ")
 		strings.write_string(&b, t.description)
-		strings.write_string(&b, " schema=")
-		strings.write_string(&b, t.schema_json)
 	}
 	return strings.to_string(b)
 }

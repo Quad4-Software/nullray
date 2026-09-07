@@ -48,6 +48,11 @@ Session :: struct {
 	commit_mu:           sync.Mutex,
 	skip_assistant_push: bool,
 	last_plan_path:      string,
+	plan_verify:         string,
+	plan_contract_ok:    bool,
+	verify_fail_count:   int,
+	last_input_chars:    int,
+	verify_obligations:  [dynamic]string,
 }
 
 session_init :: proc(s: ^Session) {
@@ -55,6 +60,7 @@ session_init :: proc(s: ^Session) {
 	s.messages = make([dynamic]provider.Message)
 	s.pending = make([dynamic]Event)
 	s.pending_commit = make([dynamic]provider.Message)
+	s.verify_obligations = make([dynamic]string)
 	s.status = strings.clone("ready")
 	s.tools_enabled = tools_enabled_from_env()
 	s.persist = !ephemeral_from_env()
@@ -137,6 +143,9 @@ session_destroy :: proc(s: ^Session) {
 	delete(s.group)
 	delete(s.reasoning_effort)
 	delete(s.last_plan_path)
+	delete(s.plan_verify)
+	session_clear_verify_obligations(s)
+	delete(s.verify_obligations)
 	strings.builder_destroy(&s.streaming)
 	strings.builder_destroy(&s.thinking)
 	s^ = {}
@@ -270,11 +279,47 @@ session_rebuild_system_prompt :: proc(s: ^Session) {
 }
 
 session_set_mode :: proc(s: ^Session, mode: agent.Agent_Mode) {
+	prev := s.agent_mode
+	if mode == .Edit && prev == .Plan && !s.plan_contract_ok {
+		if s.mode_policy == .Auto || s.mode_policy == .Model {
+			session_set_status(s, "plan incomplete (need Verify, Success, Budget) before edit")
+			return
+		}
+	}
 	s.agent_mode = mode
 	session_sync_mode_env(s)
 	session_rebuild_system_prompt(s)
 	session_save_meta(s)
+	if mode == .Edit && (len(s.plan_verify) > 0 || s.plan_contract_ok) {
+		c := agent.Done_Contract{
+			verify = s.plan_verify,
+			valid = s.plan_contract_ok,
+		}
+		note := agent.plan_summary_note(c, verify_max_remaining(s), context.temp_allocator)
+		session_push_user(s, note)
+	}
 	session_set_status(s, fmt.tprintf("mode %s", agent.mode_string(mode)))
+}
+
+verify_max_remaining :: proc(s: ^Session) -> int {
+	max_fails := agent.verify_max_fails_from_env()
+	left := max_fails - s.verify_fail_count
+	if left < 0 {
+		return 0
+	}
+	return left
+}
+
+session_load_plan_contract :: proc(s: ^Session, body: string) {
+	delete(s.plan_verify)
+	s.plan_verify = ""
+	s.plan_contract_ok = false
+	c := agent.validate_plan_contract(body)
+	defer agent.done_contract_destroy(&c)
+	if c.valid {
+		s.plan_contract_ok = true
+		s.plan_verify = strings.clone(c.verify)
+	}
 }
 
 session_apply_saved_model :: proc(s: ^Session, reg: ^provider.Registry) -> bool {
@@ -340,7 +385,14 @@ session_ready_status :: proc(s: ^Session) -> string {
 	if agent.auto_from_env() {
 		auto = " auto"
 	}
-	if s.last_usage.total_tokens <= 0 {
+	hide := false
+	if v, ok := os.lookup_env(constants.ENV_HIDE_SENSITIVE, context.temp_allocator); ok {
+		switch strings.to_lower(strings.trim_space(v), context.temp_allocator) {
+		case "1", "true", "on", "yes", "hide":
+			hide = true
+		}
+	}
+	if hide || s.last_usage.total_tokens <= 0 {
 		return fmt.tprintf("ready · %s · %s%s", mode, perms, auto)
 	}
 	return fmt.tprintf(

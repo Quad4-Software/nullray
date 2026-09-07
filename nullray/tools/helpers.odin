@@ -9,6 +9,7 @@ import "core:encoding/json"
 import "core:fmt"
 import "core:os"
 import "core:path/filepath"
+import "core:strconv"
 import "core:strings"
 import "nullray:sandbox"
 
@@ -57,6 +58,41 @@ json_arg_string_optional :: proc(
 		return "", fmt.aprintf("field %s must be a string", key, allocator = allocator)
 	}
 	return strings.clone(string(s), allocator), ""
+}
+
+json_arg_int_optional :: proc(
+	args_json: string,
+	key: string,
+	default: int,
+	allocator := context.allocator,
+) -> (value: int, err: string) {
+	doc, parse_err := json.parse_string(args_json, .JSON, allocator = context.temp_allocator)
+	if parse_err != nil {
+		return default, fmt.aprintf("bad tool args JSON: %v", parse_err, allocator = allocator)
+	}
+	obj, obj_ok := doc.(json.Object)
+	if !obj_ok {
+		return default, strings.clone("tool args must be a JSON object", allocator)
+	}
+	val, found := obj[key]
+	if !found {
+		return default, ""
+	}
+	switch v in val {
+	case json.Integer:
+		return int(v), ""
+	case json.Float:
+		return int(v), ""
+	case json.String:
+		n, ok := strconv.parse_int(string(v))
+		if !ok {
+			return default, fmt.aprintf("field %s must be an integer", key, allocator = allocator)
+		}
+		return n, ""
+	case json.Null, json.Boolean, json.Array, json.Object:
+		return default, fmt.aprintf("field %s must be an integer", key, allocator = allocator)
+	}
+	return default, fmt.aprintf("field %s must be an integer", key, allocator = allocator)
 }
 
 json_arg_bool_string :: proc(
