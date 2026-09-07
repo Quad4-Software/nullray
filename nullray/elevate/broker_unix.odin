@@ -191,9 +191,10 @@ run_elevate_broker_server :: proc(sock_path: string) -> int {
 	for {
 		fis, err := os.read_directory_by_path(req_dir, -1, context.temp_allocator)
 		if err != nil {
-			thread.yield()
+			time.sleep(20 * time.Millisecond)
 			continue
 		}
+		handled := false
 		for fi in fis {
 			name := fi.name
 			if !strings.has_prefix(name, "req-") || !strings.has_suffix(name, ".json") {
@@ -205,6 +206,7 @@ run_elevate_broker_server :: proc(sock_path: string) -> int {
 				continue
 			}
 			_ = os.remove(req_path)
+			handled = true
 			cmd, cwd, sudo_a, doas_a := parse_broker_request(string(data))
 			res := exec_capture(cmd, cwd, sudo_a, doas_a, context.temp_allocator)
 			resp := fmt.aprintf(
@@ -220,7 +222,11 @@ run_elevate_broker_server :: proc(sock_path: string) -> int {
 			_ = os.write_entire_file(resp_path, transmute([]byte)resp)
 			result_destroy(&res)
 		}
-		thread.yield()
+		if !handled {
+			time.sleep(20 * time.Millisecond)
+		} else {
+			thread.yield()
+		}
 	}
 }
 

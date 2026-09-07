@@ -18,7 +18,10 @@ elevate_init :: proc(exe_path: string, headless_mode: bool) {
 		set_self_exe(os.args[0])
 	}
 	when ODIN_OS != .Windows {
-		_ = broker_start(self_exe())
+		// Benches set NULLRAY_ELEVATE=deny. Skip the broker so it does not spin idle.
+		if elevate_mode_from_env() != .Deny {
+			_ = broker_start(self_exe())
+		}
 	}
 	g_started = true
 }

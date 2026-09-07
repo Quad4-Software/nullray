@@ -40,6 +40,19 @@
     user-select: all;
     cursor: pointer;
   }
+  .foot {
+    position: fixed;
+    left: 0;
+    right: 0;
+    bottom: 1.2rem;
+    display: grid;
+    justify-items: center;
+    pointer-events: none;
+  }
+  #f {
+    width: min(70vw, 280px);
+    opacity: .55;
+  }
   @keyframes drift {
     to { filter: hue-rotate(360deg) }
   }
@@ -65,7 +78,10 @@
   <canvas id="s" role="img" aria-label="Simple, Lightweight, Fast"></canvas>
   <p class="cmd" title="click to copy">&gt; curl -fsSL https://nullray.xyz/install | sh</p>
 </div>
-<noscript>nullray Simple, Lightweight, Fast</noscript>
+<div class="foot">
+  <canvas id="f" role="img" aria-label="Terminal Coding Agent"></canvas>
+</div>
+<noscript>nullray Simple, Lightweight, Fast. Terminal Coding Agent</noscript>
 <h1 class="sr">nullray</h1>
 <p class="sr">Simple, Lightweight, Fast. A terminal coding agent written in Odin with a custom TUI.</p>
 <script>
@@ -122,6 +138,16 @@ var TINY = {
       "111",
       "101",
       "101"],
+  C: ["011",
+      "100",
+      "100",
+      "100",
+      "011"],
+  D: ["110",
+      "101",
+      "101",
+      "101",
+      "110"],
   E: ["111",
       "100",
       "110",
@@ -157,11 +183,26 @@ var TINY = {
       "101",
       "101",
       "101"],
+  N: ["101",
+      "111",
+      "101",
+      "101",
+      "101"],
+  O: ["010",
+      "101",
+      "101",
+      "101",
+      "010"],
   P: ["110",
       "101",
       "110",
       "100",
       "100"],
+  R: ["110",
+      "101",
+      "110",
+      "101",
+      "101"],
   S: ["011",
       "100",
       "010",
@@ -191,6 +232,7 @@ var TINY = {
 
 var TEXT = "nullray"
 var SLOGAN = "SIMPLE, LIGHTWEIGHT, FAST"
+var FOOTER = "TERMINAL CODING AGENT"
 var ROWS = 7
 var GAP = 1
 
@@ -199,6 +241,9 @@ var ctx = canvas.getContext("2d")
 
 var tag = document.getElementById("s")
 var tctx = tag.getContext("2d")
+
+var foot = document.getElementById("f")
+var fctx = foot.getContext("2d")
 
 function widthOf(text, font) {
   var w = 0
@@ -232,6 +277,9 @@ canvas.height = ROWS
 tag.width = widthOf(SLOGAN, TINY)
 tag.height = 5
 
+foot.width = widthOf(FOOTER, TINY)
+foot.height = 5
+
 var cursorOn = true
 
 function draw() {
@@ -262,6 +310,7 @@ cmd.addEventListener("click", function () {
 
 draw()
 paint(tctx, SLOGAN, TINY, 55, 0)
+paint(fctx, FOOTER, TINY, 42, 0)
 setInterval(function () {
   cursorOn = !cursorOn
   draw()
