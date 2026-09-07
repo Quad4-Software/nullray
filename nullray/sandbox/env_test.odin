@@ -53,10 +53,15 @@ test_env_keep_deny_before_allow_google :: proc(t: ^testing.T) {
 }
 
 @(test)
-test_env_keep_prefix_overmatch_current :: proc(t: ^testing.T) {
-	// TERM and PATH are exact-or-prefix keeps today.
-	testing.expect(t, env_keep("TERMINATOR"))
-	testing.expect(t, env_keep("PATHOLOGY"))
+test_env_keep_docker_host_when_ops :: proc(t: ^testing.T) {
+	cfg: Config
+	cfg.keep_docker_host = true
+	testing.expect(t, env_keep("DOCKER_HOST", cfg))
+	testing.expect(t, !env_keep("DOCKER_HOST", Config{}))
+	cfg2: Config
+	cfg2.keep_kubeconfig = true
+	testing.expect(t, env_keep("KUBECONFIG", cfg2))
+	testing.expect(t, !env_keep("KUBECONFIG", Config{}))
 }
 
 @(test)

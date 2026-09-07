@@ -5,6 +5,9 @@ PREFIX ?= /usr/local
 BINDIR := $(PREFIX)/bin
 MANDIR := $(PREFIX)/share/man/man1
 COMPDIR := $(PREFIX)/share/nullray/completions
+BASHCOMPDIR := $(PREFIX)/share/bash-completion/completions
+ZSHCOMPDIR := $(PREFIX)/share/zsh/site-functions
+FISHCOMPDIR := $(PREFIX)/share/fish/vendor_completions.d
 
 ifeq ($(OS),Windows_NT)
   LINKER := -extra-linker-flags:"libcurl"
@@ -112,11 +115,20 @@ install: $(OUT) man completions
 	install -m 644 contrib/completions/nullray.ps1 $(DESTDIR)$(COMPDIR)/nullray.ps1
 	install -m 644 contrib/completions/nullray.elv $(DESTDIR)$(COMPDIR)/nullray.elv
 	install -m 644 contrib/completions/nullray.nu $(DESTDIR)$(COMPDIR)/nullray.nu
+	install -d $(DESTDIR)$(BASHCOMPDIR)
+	install -m 644 contrib/completions/nullray.bash $(DESTDIR)$(BASHCOMPDIR)/nullray
+	install -d $(DESTDIR)$(ZSHCOMPDIR)
+	install -m 644 contrib/completions/nullray.zsh $(DESTDIR)$(ZSHCOMPDIR)/_nullray
+	install -d $(DESTDIR)$(FISHCOMPDIR)
+	install -m 644 contrib/completions/nullray.fish $(DESTDIR)$(FISHCOMPDIR)/nullray.fish
 
 uninstall:
 	rm -f $(DESTDIR)$(BINDIR)/nullray
 	rm -f $(DESTDIR)$(MANDIR)/nullray.1
 	rm -rf $(DESTDIR)$(COMPDIR)
+	rm -f $(DESTDIR)$(BASHCOMPDIR)/nullray
+	rm -f $(DESTDIR)$(ZSHCOMPDIR)/_nullray
+	rm -f $(DESTDIR)$(FISHCOMPDIR)/nullray.fish
 
 clean:
 	rm -rf bin dist coverage

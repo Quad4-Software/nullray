@@ -37,8 +37,12 @@ nullray loads flat *.md and nested name/SKILL.md from workspace .agents/skills, 
 | nullray/mcp | MCP client (stdio JSON-RPC), App-owned registry |
 | nullray/provider | Registry, chat, and Provider.stream |
 | nullray/run | Headless --print agent runner |
-| nullray/sandbox | Landlock, seccomp, secrets, redaction |
+| nullray/sandbox | Landlock, seccomp, secrets, redaction, ops profiles |
 | nullray/elevate | Elevated auth: classify, askpass, broker, circuit |
+| nullray/hooks | hooks.json PreToolUse and session lifecycle |
+| nullray/memory | Project memory under .nullray/memory |
+| nullray/vcs | Local and gated network Git/Fossil tools |
+| nullray/secure | Dockerfile/compose/actions/OWASP/deps audits |
 | nullray/subagent | Roster, knowledge, leases, worktrees, model policy, spawn |
 | nullray/session | Live session, jobs, memory trim |
 | nullray/skills | Skill file loader |
@@ -90,7 +94,9 @@ Built-ins in nullray/provider/builtins.odin wrap openai_chat / openai_list_model
 
 Linux Landlock and seccomp in nullray/sandbox/. Non-Linux: sandbox_stub.odin (#+build !linux). Soft/Warn skips with a warn on other OS. Strict fails with sandbox requires linux.
 
-Elevated commands (sudo/doas/pkexec) use nullray/elevate with a pre-sandbox privilege broker. Landlock sets NO_NEW_PRIVS, so in-process sudo cannot gain privileges. Passwords stay on the TUI askpass path and never enter tool results or provider messages. NULLRAY_ELEVATE=ask|deny|ticket.
+Elevated commands (sudo/doas/pkexec) use nullray/elevate with a pre-sandbox privilege broker. Landlock sets NO_NEW_PRIVS, so in-process sudo cannot gain privileges. Passwords stay on the TUI askpass path and never enter tool results or provider messages. NULLRAY_ELEVATE=ask|deny|ticket. Headless: ticket or NULLRAY_ASKPASS.
+
+Ops profiles: NULLRAY_OPS=desktop|docker|kube|full (CSV). Prefer over NULLRAY_SANDBOX=off. EXTRA_RO/RW for absolute paths. VCS network: NULLRAY_VCS_NETWORK=1.
 
 ## Terminal
 

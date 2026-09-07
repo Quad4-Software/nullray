@@ -261,6 +261,48 @@ registry_init :: proc(r: ^Registry) {
 		kind = .Write,
 		run = tool_vcs_rebase,
 	})
+	registry_register(r, Tool{
+		name = "vcs_push",
+		description = "Push to remote (needs NULLRAY_VCS_NETWORK=1)",
+		schema_json = `{"type":"object","properties":{"remote":{"type":"string"},"ref":{"type":"string"},"force":{"type":"string","description":"true or false"}}}`,
+		kind = .Write,
+		run = tool_vcs_push,
+	})
+	registry_register(r, Tool{
+		name = "vcs_pull",
+		description = "Pull from remote (needs NULLRAY_VCS_NETWORK=1)",
+		schema_json = `{"type":"object","properties":{"remote":{"type":"string"},"ref":{"type":"string"}}}`,
+		kind = .Write,
+		run = tool_vcs_pull,
+	})
+	registry_register(r, Tool{
+		name = "vcs_fetch",
+		description = "Fetch from remote (needs NULLRAY_VCS_NETWORK=1)",
+		schema_json = `{"type":"object","properties":{"remote":{"type":"string"}}}`,
+		kind = .Write,
+		run = tool_vcs_fetch,
+	})
+	registry_register(r, Tool{
+		name = "vcs_pr_create",
+		description = "Create a GitHub PR via gh (needs NULLRAY_VCS_NETWORK=1)",
+		schema_json = `{"type":"object","properties":{"title":{"type":"string"},"body":{"type":"string"}},"required":["title"]}`,
+		kind = .Write,
+		run = tool_vcs_pr_create,
+	})
+	registry_register(r, Tool{
+		name = "vcs_pr_view",
+		description = "View the current GitHub PR via gh (needs NULLRAY_VCS_NETWORK=1)",
+		schema_json = `{"type":"object","properties":{}}`,
+		kind = .Read,
+		run = tool_vcs_pr_view,
+	})
+	registry_register(r, Tool{
+		name = "fetch_url",
+		description = "Fetch a public http(s) URL as text (size-capped, edit mode, no browser)",
+		schema_json = `{"type":"object","properties":{"url":{"type":"string"}},"required":["url"]}`,
+		kind = .Write,
+		run = tool_fetch_url,
+	})
 }
 
 registry_destroy :: proc(r: ^Registry) {

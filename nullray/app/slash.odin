@@ -7,6 +7,7 @@ package app
 
 import "core:fmt"
 import "core:os"
+import "core:strconv"
 import "core:strings"
 import "nullray:agent"
 import "nullray:config"
@@ -412,8 +413,12 @@ slash_cmd_status :: proc(a: ^App, args: string) {
 		verify = "(default)"
 	}
 	sandbox_applied := false
+	ops_line := "ops=off"
 	if sstate := sandbox.state(); sstate != nil {
 		sandbox_applied = sstate.applied
+		if len(sstate.ops_label) > 0 {
+			ops_line = fmt.tprintf("ops=%s", sstate.ops_label)
+		}
 	}
 	char_budget := session.compact_chars_from_env()
 	cost_line := "cost=unknown"
@@ -429,9 +434,10 @@ slash_cmd_status :: proc(a: ^App, args: string) {
 	session.session_set_status(
 		&a.session,
 		fmt.tprintf(
-			"mode=%s sandbox_applied=%v ask_simple=%v plan_ok=%v verify=%s fails=%d chars=%d/%d peak=%d tok=%d/%d %s stopped=%s plan=%s",
+			"mode=%s sandbox_applied=%v %s ask_simple=%v plan_ok=%v verify=%s fails=%d chars=%d/%d peak=%d tok=%d/%d %s stopped=%s plan=%s",
 			agent.mode_string(a.session.agent_mode),
 			sandbox_applied,
+			ops_line,
 			agent.ask_simple_from_env(),
 			a.session.plan_contract_ok,
 			verify,
@@ -446,6 +452,25 @@ slash_cmd_status :: proc(a: ^App, args: string) {
 			plan,
 		),
 	)
+}
+
+slash_cmd_ops :: proc(a: ^App, args: string) {
+	_ = args
+	cfg := sandbox.config_from_env()
+	defer sandbox.config_destroy(&cfg)
+	b: strings.Builder
+	strings.builder_init(&b, context.temp_allocator)
+	fmt.sbprintf(&b, "%s", sandbox.ops_summary_line(cfg, context.temp_allocator))
+	if sstate := sandbox.state(); sstate != nil {
+		fmt.sbprintf(&b, " applied=%v", sstate.applied)
+		if len(sstate.allow_sock) > 0 {
+			fmt.sbprintf(&b, " sock=%s", strings.join(sstate.allow_sock[:], ",", context.temp_allocator))
+		}
+	}
+	if len(cfg.extra_rw) > 0 {
+		fmt.sbprintf(&b, " rw=%s", strings.join(cfg.extra_rw[:], ",", context.temp_allocator))
+	}
+	session.session_set_status(&a.session, strings.to_string(b))
 }
 
 slash_cmd_usage :: proc(a: ^App, args: string) {
@@ -728,10 +753,32 @@ slash_cmd_undo :: proc(a: ^App, args: string) {
 }
 
 slash_cmd_checkpoint :: proc(a: ^App, args: string) {
-	_ = args
-	msg := tools.checkpoint_list()
-	session.session_set_status(&a.session, msg)
-	delete(msg)
+	trimmed := strings.trim_space(args)
+	if len(trimmed) == 0 || trimmed == "list" {
+		msg := tools.checkpoint_list()
+		session.session_set_status(&a.session, msg)
+		delete(msg)
+		return
+	}
+	fields := strings.fields(trimmed, context.temp_allocator)
+	if len(fields) >= 2 && (fields[0] == "restore" || fields[0] == "diff") {
+		id, ok := strconv.parse_int(fields[1])
+		if !ok {
+			session.session_set_status(&a.session, "usage: /checkpoint restore N|diff N")
+			return
+		}
+		if fields[0] == "restore" {
+			msg, _ := tools.checkpoint_restore(id)
+			session.session_set_status(&a.session, msg)
+			delete(msg)
+			return
+		}
+		msg, _ := tools.checkpoint_diff(id)
+		session.session_set_status(&a.session, msg)
+		delete(msg)
+		return
+	}
+	session.session_set_status(&a.session, "usage: /checkpoint [list|restore N|diff N]")
 }
 
 slash_cmd_copy :: proc(a: ^App, args: string) {

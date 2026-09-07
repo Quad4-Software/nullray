@@ -254,6 +254,18 @@ doctor :: proc() -> int {
 	dcfg := sandbox.config_from_env()
 	defer sandbox.config_destroy(&dcfg)
 	fmt.printf("sandbox config: mode=%v net=%v fs=%v\n", dcfg.mode, dcfg.net, dcfg.fs)
+	fmt.printf("sandbox extras: %s\n", sandbox.ops_summary_line(dcfg, context.temp_allocator))
+	if len(dcfg.extra_rw) > 0 {
+		fmt.printf("extra_rw: %s\n", strings.join(dcfg.extra_rw[:], ",", context.temp_allocator))
+	}
+	if len(dcfg.extra_ro) > 0 {
+		fmt.printf("extra_ro: %s\n", strings.join(dcfg.extra_ro[:], ",", context.temp_allocator))
+	}
+	if len(dcfg.extra_sock) > 0 {
+		fmt.printf("extra_sock: %s\n", strings.join(dcfg.extra_sock[:], ",", context.temp_allocator))
+	}
+	print_env("ops", constants.ENV_OPS)
+	print_env("secrets_allow", constants.ENV_SECRETS_ALLOW)
 	if sstate != nil && sstate.applied {
 		fmt.printf(
 			"sandbox state: applied=%v landlock_abi=%d net=%v seccomp=%v\n",

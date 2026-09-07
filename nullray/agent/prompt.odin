@@ -49,6 +49,15 @@ build_system_prompt :: proc(extra_skills: string = "", tools_reg: ^tools.Registr
 		strings.write_string(&b, "\n\n")
 		strings.write_string(&b, auto_sec)
 	}
+	if ops := sandbox.state(); ops != nil && len(ops.ops_label) > 0 {
+		strings.write_string(&b, "\n\n## Ops profile\n\n")
+		strings.write_string(&b, "Active NULLRAY_OPS grants: ")
+		strings.write_string(&b, ops.ops_label)
+		strings.write_string(&b, ". Prefer load_skill linux-admin, docker-ops, or kube-ops. Do not set NULLRAY_SANDBOX=off.")
+	} else if raw, ok := os.lookup_env(constants.ENV_OPS, context.temp_allocator); ok && len(strings.trim_space(raw)) > 0 {
+		strings.write_string(&b, "\n\n## Ops profile\n\n")
+		strings.write_string(&b, "NULLRAY_OPS is set. Prefer load_skill linux-admin, docker-ops, or kube-ops. Do not set NULLRAY_SANDBOX=off.")
+	}
 	strings.write_string(&b, "\n\n## Tools\n\n")
 	reg := tools_reg
 	if reg == nil {

@@ -79,6 +79,21 @@ run :: proc() -> int {
 		fails += 1
 	}
 
+	os.set_env(constants.ENV_OPS, "docker")
+	ops_cfg := sandbox.config_from_env()
+	if !ops_cfg.keep_docker_host || len(ops_cfg.extra_sock) == 0 {
+		fmt.eprintln("selftest: NULLRAY_OPS=docker should grant docker sock")
+		fails += 1
+	}
+	sandbox.config_destroy(&ops_cfg)
+	os.unset_env(constants.ENV_OPS)
+
+	blocked, _ := tools.fetch_url_blocked("http://127.0.0.1/")
+	if !blocked {
+		fmt.eprintln("selftest: fetch_url should block loopback")
+		fails += 1
+	}
+
 	os.set_env(constants.ENV_PRIVACY_REDACT, "1")
 	os.set_env("HOME", "/home/user1")
 	os.set_env("USER", "user1")

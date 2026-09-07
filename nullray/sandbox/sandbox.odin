@@ -44,6 +44,10 @@ apply :: proc(cfg: Config) -> Result {
 	g_state.tmp_dir = strings.clone(cfg.tmp_dir)
 	g_state.allow_rw = make([dynamic]string)
 	g_state.allow_ro = make([dynamic]string)
+	g_state.allow_sock = make([dynamic]string)
+	g_state.ops_label = strings.clone(cfg.ops_label)
+	g_state.keep_docker_host = cfg.keep_docker_host
+	g_state.keep_kubeconfig = cfg.keep_kubeconfig
 
 	append_unique_path(&g_state.allow_rw, cfg.config_dir)
 	append_unique_path(&g_state.allow_rw, cfg.tmp_dir)
@@ -62,13 +66,17 @@ apply :: proc(cfg: Config) -> Result {
 	for p in cfg.extra_rw {
 		append_unique_path(&g_state.allow_rw, p)
 	}
+	for p in cfg.extra_sock {
+		append_unique_path(&g_state.allow_sock, p)
+		append_unique_path(&g_state.allow_ro, p)
+	}
 
 	when ODIN_OS == .Linux {
 		msgs: [dynamic]string
 		msgs = make([dynamic]string, context.temp_allocator)
 
 		if cfg.privacy {
-			env_scrub()
+			env_scrub(cfg)
 			append(&msgs, "privacy scrub")
 		}
 

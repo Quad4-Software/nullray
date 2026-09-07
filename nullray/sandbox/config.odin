@@ -29,31 +29,39 @@ FS_Mode :: enum {
 }
 
 Config :: struct {
-	mode:           Mode,
-	net:            Net_Mode,
-	fs:             FS_Mode,
-	privacy:        bool,
-	workspace:      string,
-	config_dir:     string,
-	tmp_dir:        string,
-	extra_ro:       [dynamic]string,
-	extra_rw:       [dynamic]string,
-	seccomp:        bool,
-	landlock:       bool,
+	mode:             Mode,
+	net:              Net_Mode,
+	fs:               FS_Mode,
+	privacy:          bool,
+	workspace:        string,
+	config_dir:       string,
+	tmp_dir:          string,
+	extra_ro:         [dynamic]string,
+	extra_rw:         [dynamic]string,
+	extra_sock:       [dynamic]string,
+	ops_label:        string,
+	keep_docker_host: bool,
+	keep_kubeconfig:  bool,
+	seccomp:          bool,
+	landlock:         bool,
 }
 
 State :: struct {
-	applied:    bool,
-	abi:        int,
-	seccomp:    bool,
-	workspace:  string,
-	config_dir: string,
-	tmp_dir:    string,
-	allow_rw:   [dynamic]string,
-	allow_ro:   [dynamic]string,
-	mode:       Mode,
-	net:        Net_Mode,
-	fs:         FS_Mode,
+	applied:          bool,
+	abi:              int,
+	seccomp:          bool,
+	workspace:        string,
+	config_dir:       string,
+	tmp_dir:          string,
+	allow_rw:         [dynamic]string,
+	allow_ro:         [dynamic]string,
+	allow_sock:       [dynamic]string,
+	ops_label:        string,
+	keep_docker_host: bool,
+	keep_kubeconfig:  bool,
+	mode:             Mode,
+	net:              Net_Mode,
+	fs:               FS_Mode,
 }
 
 config_from_env :: proc(allocator := context.allocator) -> Config {
@@ -66,6 +74,7 @@ config_from_env :: proc(allocator := context.allocator) -> Config {
 	cfg.seccomp = true
 	cfg.extra_ro = make([dynamic]string, allocator)
 	cfg.extra_rw = make([dynamic]string, allocator)
+	cfg.extra_sock = make([dynamic]string, allocator)
 
 	if v, ok := os.lookup_env(constants.ENV_SANDBOX, context.temp_allocator); ok {
 		switch strings.to_lower(v, context.temp_allocator) {
@@ -115,6 +124,14 @@ config_from_env :: proc(allocator := context.allocator) -> Config {
 
 	cfg.config_dir = resolve_config_dir(allocator)
 	cfg.tmp_dir = resolve_tmp_dir(allocator)
+
+	if v, ok := os.lookup_env(constants.ENV_SANDBOX_EXTRA_RO, context.temp_allocator); ok && len(v) > 0 {
+		parse_extra_paths(v, &cfg.extra_ro, allocator)
+	}
+	if v, ok := os.lookup_env(constants.ENV_SANDBOX_EXTRA_RW, context.temp_allocator); ok && len(v) > 0 {
+		parse_extra_paths(v, &cfg.extra_rw, allocator)
+	}
+	ops_apply_to_config(&cfg, allocator)
 	return cfg
 }
 
@@ -122,6 +139,7 @@ config_destroy :: proc(cfg: ^Config) {
 	delete(cfg.workspace)
 	delete(cfg.config_dir)
 	delete(cfg.tmp_dir)
+	delete(cfg.ops_label)
 	for p in cfg.extra_ro {
 		delete(p)
 	}
@@ -130,6 +148,10 @@ config_destroy :: proc(cfg: ^Config) {
 		delete(p)
 	}
 	delete(cfg.extra_rw)
+	for p in cfg.extra_sock {
+		delete(p)
+	}
+	delete(cfg.extra_sock)
 	cfg^ = {}
 }
 
@@ -137,6 +159,7 @@ state_destroy :: proc(s: ^State) {
 	delete(s.workspace)
 	delete(s.config_dir)
 	delete(s.tmp_dir)
+	delete(s.ops_label)
 	for p in s.allow_rw {
 		delete(p)
 	}
@@ -145,6 +168,10 @@ state_destroy :: proc(s: ^State) {
 		delete(p)
 	}
 	delete(s.allow_ro)
+	for p in s.allow_sock {
+		delete(p)
+	}
+	delete(s.allow_sock)
 	s^ = {}
 }
 

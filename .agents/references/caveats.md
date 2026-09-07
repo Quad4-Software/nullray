@@ -20,3 +20,10 @@
 | Model output | Provider replies and tool output remain untrusted input. Validate paths, commands, diffs, and generated configuration before use. |
 | Checkpoints | File checkpoints help undo supported writes. They are not a complete backup and do not cover every external side effect. |
 | Project memory | Durable memory is size-limited and rejects secret-shaped values. Misclassified sensitive text can still be stored. |
+| Ops profiles | `NULLRAY_OPS` widens Landlock grants. It is not sandbox off, and it is not a safe cluster-admin mode. |
+| Docker sock | Granting docker.sock with unix resolve often equals host Docker root. Prefer audits before compose up. |
+| Desktop config RW | `$XDG_CONFIG_HOME` / `~/.config` RW can rewrite shell and compositor autostart. Treat as code execution. |
+| Kube allow | `NULLRAY_SECRETS_ALLOW` plus ops kube keeps `KUBECONFIG`. Cluster credentials can reach the model if tools read them. |
+| Extra paths | `NULLRAY_SANDBOX_EXTRA_RO` / `EXTRA_RW` accept absolute paths only. Relative paths are ignored. |
+| VCS network | Push/pull/fetch and PR tools stay off until `NULLRAY_VCS_NETWORK=1`. Force-push to main/master needs `NULLRAY_VCS_FORCE=1`. |
+| fetch_url | Read-only HTTP(S) with size caps. It is not a browser and does not execute JavaScript. |

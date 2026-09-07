@@ -1,0 +1,9 @@
+services:
+  app:
+    image: alpine:3.20@sha256:__ALPINE_320_SHA__ # pin before deploy
+    read_only: true
+    tmpfs:
+      - /tmp
+    ports:
+      - "127.0.0.1:8080:8080"
+    command: ["sleep", "infinity"]

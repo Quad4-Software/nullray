@@ -46,7 +46,7 @@ DENIED_ENV_PREFIXES :: []string{
 	"NODE_",
 }
 
-env_scrub :: proc() {
+env_scrub :: proc(cfg: Config = {}) {
 	entries, err := os.environ(context.temp_allocator)
 	if err != nil {
 		return
@@ -58,7 +58,7 @@ env_scrub :: proc() {
 			continue
 		}
 		key := e[:eq]
-		if env_keep(key) {
+		if env_keep(key, cfg) {
 			append(&keys, strings.clone(key, context.temp_allocator))
 		}
 	}
@@ -68,7 +68,7 @@ env_scrub :: proc() {
 			continue
 		}
 		key := e[:eq]
-		if !env_keep(key) {
+		if !env_keep(key, cfg) {
 			os.unset_env(key)
 		}
 	}
@@ -77,7 +77,13 @@ env_scrub :: proc() {
 }
 
 @(private)
-env_keep :: proc(key: string) -> bool {
+env_keep :: proc(key: string, cfg: Config = {}) -> bool {
+	if cfg.keep_docker_host && key == "DOCKER_HOST" {
+		return true
+	}
+	if cfg.keep_kubeconfig && (key == "KUBECONFIG" || key == "KUBE_CONFIG") {
+		return true
+	}
 	for d in DENIED_ENV_PREFIXES {
 		if strings.has_prefix(key, d) {
 			return false

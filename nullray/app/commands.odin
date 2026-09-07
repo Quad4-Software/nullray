@@ -7,6 +7,7 @@ package app
 
 import "core:fmt"
 import "core:strings"
+import "nullray:provider"
 
 Slash_Handler :: #type proc(a: ^App, args: string)
 
@@ -16,6 +17,8 @@ Slash_Command :: struct {
 	help:  string,
 	run:   Slash_Handler,
 }
+
+PROVIDER_SLASH_EXTRA := []string{"next", "prev", "setup"}
 
 SLASH_COMMANDS := []Slash_Command{
 	{"help", "/help", "show commands and shortcuts", slash_cmd_help},
@@ -41,12 +44,16 @@ SLASH_COMMANDS := []Slash_Command{
 	{"skill", "/skill [ID]", "alias for /skills", slash_cmd_skills},
 	{"keys", "/keys", "show key bindings", slash_cmd_keys},
 	{"setup", "/setup", "provider setup wizard", slash_cmd_setup},
+	{"provider", "/provider [ID|next|prev|setup]", "show or switch provider", slash_cmd_provider},
+	{"providers", "/providers", "list providers and readiness", slash_cmd_providers},
 	{"mode", "/mode ask|plan|review|edit", "agent interaction mode", slash_cmd_mode},
 	{"model", "/model [NAME|lock|unlock]", "show or set model; lock freezes agent switches", slash_cmd_model},
 	{"models", "/models", "list approved models and roles", slash_cmd_models},
 	{"agents", "/agents [off|on|list|knowledge|apply ...]", "subagent roster and controls", slash_cmd_agents},
 	{"approve", "/approve", "approve plan contract and switch to edit", slash_cmd_approve},
 	{"status", "/status", "show mode, plan, verify, tokens, context chars", slash_cmd_status},
+	{"ops", "/ops", "show NULLRAY_OPS grants and sandbox extras", slash_cmd_ops},
+	{"sandbox", "/sandbox", "alias for /ops", slash_cmd_ops},
 	{"usage", "/usage [json|export PATH]", "session token and cost summary", slash_cmd_usage},
 	{"perms", "/perms ask|allow|yolo", "shell permission level", slash_cmd_perms},
 	{"improve", "/improve", "rewrite draft prompt via model (opt-in)", slash_cmd_improve},
@@ -64,7 +71,7 @@ SLASH_COMMANDS := []Slash_Command{
 	{"allow", "/allow", "approve pending shell command once", slash_cmd_allow},
 	{"deny", "/deny", "drop pending shell command", slash_cmd_deny},
 	{"undo", "/undo", "undo last agent file write", slash_cmd_undo},
-	{"checkpoint", "/checkpoint", "list recent file checkpoints", slash_cmd_checkpoint},
+	{"checkpoint", "/checkpoint [list|restore N|diff N]", "list or restore file checkpoints", slash_cmd_checkpoint},
 	{"attach", "/attach PATH", "attach a file into the next prompt", slash_cmd_attach},
 	{"view", "/view PATH", "open a file in the side pane", slash_cmd_view},
 	{"close", "/close", "close the file view pane", slash_cmd_close},
@@ -80,14 +87,51 @@ slash_find :: proc(name: string) -> (^Slash_Command, bool) {
 	return nil, false
 }
 
+provider_slash_arg_matches :: proc(arg_prefix: string, allocator := context.temp_allocator) -> []Slash_Command {
+	pref := strings.to_lower(strings.trim_space(arg_prefix), context.temp_allocator)
+	out := make([dynamic]Slash_Command, 0, 8, allocator)
+	for id in provider.PROVIDER_IDS {
+		if len(pref) == 0 || strings.has_prefix(id, pref) {
+			append(&out, Slash_Command{
+				name = id,
+				usage = fmt.tprintf("/provider %s", id),
+				help = "switch provider",
+			})
+		}
+	}
+	for extra in PROVIDER_SLASH_EXTRA {
+		if len(pref) == 0 || strings.has_prefix(extra, pref) {
+			help := "cycle providers"
+			if extra == "setup" {
+				help = "open setup wizard"
+			} else if extra == "prev" {
+				help = "previous provider"
+			} else if extra == "next" {
+				help = "next provider"
+			}
+			append(&out, Slash_Command{
+				name = extra,
+				usage = fmt.tprintf("/provider %s", extra),
+				help = help,
+			})
+		}
+	}
+	return out[:]
+}
+
 slash_matches :: proc(prefix: string, allocator := context.temp_allocator) -> []Slash_Command {
-	p := strings.trim_space(prefix)
+	p := strings.trim_left_space(prefix)
 	if !strings.has_prefix(p, "/") {
 		return {}
 	}
 	body := p[1:]
 	space := strings.index_byte(body, ' ')
 	if space >= 0 {
+		name := body[:space]
+		rest := strings.trim_left_space(body[space + 1:])
+		if name == "provider" && strings.index_byte(rest, ' ') < 0 {
+			return provider_slash_arg_matches(rest, allocator)
+		}
 		return {}
 	}
 	out := make([dynamic]Slash_Command, 0, 8, allocator)
@@ -106,7 +150,7 @@ slash_matches :: proc(prefix: string, allocator := context.temp_allocator) -> []
 When the user typed /cmd with a trailing space or args, show usage for that command.
 */
 slash_arg_hint :: proc(prefix: string, allocator := context.temp_allocator) -> string {
-	p := strings.trim_space(prefix)
+	p := strings.trim_left_space(prefix)
 	if !strings.has_prefix(p, "/") {
 		return ""
 	}
@@ -120,6 +164,10 @@ slash_arg_hint :: proc(prefix: string, allocator := context.temp_allocator) -> s
 		return ""
 	}
 	name := body[:space]
+	if name == "provider" {
+		// Arg matches draw as a suggestion list instead of a one-line hint.
+		return ""
+	}
 	cmd, ok := slash_find(name)
 	if !ok {
 		return ""
@@ -140,6 +188,13 @@ slash_complete :: proc(prefix: string, sel: int) -> (completed: string, ok: bool
 		idx = len(matches) - 1
 	}
 	cmd := matches[idx]
+	p := strings.trim_left_space(prefix)
+	if strings.has_prefix(p, "/provider") {
+		body := p[1:]
+		if strings.index_byte(body, ' ') >= 0 {
+			return fmt.tprintf("/provider %s", cmd.name), true
+		}
+	}
 	if strings.contains(cmd.usage, " ") {
 		return fmt.tprintf("/%s ", cmd.name), true
 	}

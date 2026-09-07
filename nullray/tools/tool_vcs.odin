@@ -99,3 +99,75 @@ tool_vcs_rebase :: proc(args_json: string, allocator := context.allocator) -> (s
 	defer vcs.repo_destroy(&repo)
 	return vcs.rebase(repo, target, allow_dirty, allocator)
 }
+
+tool_vcs_push :: proc(args_json: string, allocator := context.allocator) -> (string, string) {
+	remote, err := json_arg_string_optional(args_json, "remote", "origin", allocator)
+	if err != "" {
+		return "", err
+	}
+	defer delete(remote)
+	ref, rerr := json_arg_string_optional(args_json, "ref", "", allocator)
+	if rerr != "" {
+		return "", rerr
+	}
+	defer delete(ref)
+	force_s, ferr := json_arg_string_optional(args_json, "force", "false", allocator)
+	if ferr != "" {
+		return "", ferr
+	}
+	defer delete(force_s)
+	force := strings.to_lower(force_s, context.temp_allocator) == "true"
+	repo := vcs_repo(allocator)
+	defer vcs.repo_destroy(&repo)
+	return vcs.push(repo, remote, ref, force, allocator)
+}
+
+tool_vcs_pull :: proc(args_json: string, allocator := context.allocator) -> (string, string) {
+	remote, err := json_arg_string_optional(args_json, "remote", "origin", allocator)
+	if err != "" {
+		return "", err
+	}
+	defer delete(remote)
+	ref, rerr := json_arg_string_optional(args_json, "ref", "", allocator)
+	if rerr != "" {
+		return "", rerr
+	}
+	defer delete(ref)
+	repo := vcs_repo(allocator)
+	defer vcs.repo_destroy(&repo)
+	return vcs.pull(repo, remote, ref, allocator)
+}
+
+tool_vcs_fetch :: proc(args_json: string, allocator := context.allocator) -> (string, string) {
+	remote, err := json_arg_string_optional(args_json, "remote", "origin", allocator)
+	if err != "" {
+		return "", err
+	}
+	defer delete(remote)
+	repo := vcs_repo(allocator)
+	defer vcs.repo_destroy(&repo)
+	return vcs.fetch(repo, remote, allocator)
+}
+
+tool_vcs_pr_create :: proc(args_json: string, allocator := context.allocator) -> (string, string) {
+	title, err := json_arg_string(args_json, "title", allocator)
+	if err != "" {
+		return "", err
+	}
+	defer delete(title)
+	body, berr := json_arg_string_optional(args_json, "body", "", allocator)
+	if berr != "" {
+		return "", berr
+	}
+	defer delete(body)
+	repo := vcs_repo(allocator)
+	defer vcs.repo_destroy(&repo)
+	return vcs.pr_create(repo, title, body, allocator)
+}
+
+tool_vcs_pr_view :: proc(args_json: string, allocator := context.allocator) -> (string, string) {
+	_ = args_json
+	repo := vcs_repo(allocator)
+	defer vcs.repo_destroy(&repo)
+	return vcs.pr_view(repo, allocator)
+}

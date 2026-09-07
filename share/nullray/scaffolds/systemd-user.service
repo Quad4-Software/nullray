@@ -1,0 +1,11 @@
+[Unit]
+Description=Example user service
+After=network.target
+
+[Service]
+Type=simple
+ExecStart=%h/bin/example
+Restart=on-failure
+
+[Install]
+WantedBy=default.target

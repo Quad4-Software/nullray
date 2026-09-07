@@ -275,6 +275,14 @@ landlock_apply :: proc(cfg: Config, state: ^State) -> (ok: bool, msg: string) {
 	for p in cfg.extra_rw {
 		_ = add_path(ruleset, p, rw_access)
 	}
+	// Unix sockets need RESOLVE_UNIX (ABI 9+). Do not grant that bit on directory roots.
+	sock_access := ro_access
+	if abi >= 9 {
+		sock_access |= LANDLOCK_ACCESS_FS_RESOLVE_UNIX
+	}
+	for p in cfg.extra_sock {
+		_ = add_path(ruleset, p, sock_access)
+	}
 
 	if attr.handled_access_net != 0 {
 		ports := []u64{11434, 1234, 443, 80}

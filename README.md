@@ -25,7 +25,7 @@ make install
 ./bin/nullray
 ```
 
-First TUI launch without a ready provider opens a setup overlay (reopen with /setup). Saves to ~/.config/nullray/env. Headless --print, --self-test, and CI never open the wizard.
+First TUI launch without a ready provider opens a setup overlay (reopen with /setup). Mid-session switch with /provider ID or /providers. Keys and base URLs stay in /setup. Saves to ~/.config/nullray/env. Headless --print, --self-test, and CI never open the wizard.
 
 ## Config
 
@@ -72,10 +72,48 @@ NULLRAY_MODEL=my-local-model
 nullray
 
 # Quick ask
-nullray -q "What does session_init do?"    
+nullray -q "What does session_init do?"
 
 # One-time commands
 nullray --print --mode ask "What does session_init do?"
+```
+
+## Ops and OS customize
+
+Prefer ops profiles over `NULLRAY_SANDBOX=off`:
+
+```sh
+# Edit ~/.config (Hyprland, Omarchy-style ricing) while keeping Landlock
+export NULLRAY_OPS=desktop
+
+# Drive Docker via unix sock (often root-equivalent)
+export NULLRAY_OPS=docker
+
+# Kubernetes needs an intentional secrets allow
+export NULLRAY_OPS=kube
+export NULLRAY_SECRETS_ALLOW="$HOME/.kube"
+
+# Combine
+export NULLRAY_OPS=desktop,docker
+```
+
+Extra absolute paths: `NULLRAY_SANDBOX_EXTRA_RO` / `NULLRAY_SANDBOX_EXTRA_RW`. See `/ops` and `--doctor`.
+
+Server print with sudo: `NULLRAY_ELEVATE=ticket` after a TUI approval, or `NULLRAY_ASKPASS`. Use `--perms allow` with `--print` for edit.
+
+## Network VCS and fetch
+
+```sh
+export NULLRAY_VCS_NETWORK=1   # vcs_push / pull / fetch / PR tools
+export NULLRAY_VCS_FORCE=1     # allow force-push to main/master
+```
+
+`fetch_url` fetches public http(s) text (edit mode, size-capped, no browser).
+
+## Install script
+
+```sh
+curl -fsSL https://nullray.xyz/install | sh
 ```
 
 ## Packages
@@ -102,6 +140,10 @@ docker run --rm -it \
 flatpak install --user ./nullray_*_linux_amd64.flatpak
 flatpak run xyz.nullray.code
 ```
+
+### Arch / Omarchy (AUR)
+
+See [packaging/aur/PKGBUILD](packaging/aur/PKGBUILD). After publish: Install → AUR → `nullray-bin`, or `omarchy pkg` / `yay -S nullray-bin`.
 
 ## License
 

@@ -41,7 +41,7 @@ _nullray() {
   cur="${COMP_WORDS[COMP_CWORD]}"
   prev="${COMP_WORDS[COMP_CWORD-1]}"
   opts="--help -h --version -V --ephemeral -e --self-test -t --audit --doctor --debug --print -P --ask -q --bare --fail-on-findings --provider -p --model -m --theme --mode --perms --sandbox --workspace -w --session --list-sessions --search-sessions --delete-session --export-session --import-session --as --list-skills --install-skill --uninstall-skill --skills --keys --message-file --out --plan-out --plan-in --output-format --print-strict --auto --usage --timeout --no-splash --no-subagents --splash --hide-sensitive --list-models --completions --man"
-  providers="ollama lmstudio openai openai-compat openrouter opencode opencode-go anthropic gemini groq deepseek mistral together fireworks xai azure"
+  providers="ollama lmstudio openai openai-compat openrouter opencode opencode-go anthropic gemini groq deepseek mistral together fireworks xai azure cerebras cohere nvidia dashscope"
   modes="ask plan review edit"
   perms="ask allow yolo"
   sandboxes="off soft warn strict on"
@@ -80,8 +80,8 @@ _nullray() {
     '--ask[simple Q and A]' '-q[simple Q and A]'
     '--bare[skip home MCP and non-workspace skills]'
     '--fail-on-findings[exit 1 when review findings present]'
-    '--provider[provider id]:provider:(ollama lmstudio openai openai-compat openrouter opencode opencode-go anthropic gemini groq deepseek mistral together fireworks xai azure)'
-    '-p[provider id]:provider:(ollama lmstudio openai openai-compat openrouter opencode opencode-go anthropic gemini groq deepseek mistral together fireworks xai azure)'
+    '--provider[provider id]:provider:(ollama lmstudio openai openai-compat openrouter opencode opencode-go anthropic gemini groq deepseek mistral together fireworks xai azure cerebras cohere nvidia dashscope)'
+    '-p[provider id]:provider:(ollama lmstudio openai openai-compat openrouter opencode opencode-go anthropic gemini groq deepseek mistral together fireworks xai azure cerebras cohere nvidia dashscope)'
     '--model[model id]:model:'
     '-m[model id]:model:'
     '--theme[ui theme]:theme:(ink ember moss slate rose mono dusk)'
@@ -135,7 +135,7 @@ complete -c nullray -l debug -d 'Verbose stderr lifecycle logs'
 complete -c nullray -s P -l print -d 'One-shot agent without TUI'
 complete -c nullray -l bare -d 'Skip home MCP and non-workspace skills'
 complete -c nullray -l fail-on-findings -d 'Exit 1 when review findings present'
-complete -c nullray -s p -l provider -d 'Provider id' -xa 'ollama lmstudio openai openai-compat openrouter opencode opencode-go anthropic gemini groq deepseek mistral together fireworks xai azure'
+complete -c nullray -s p -l provider -d 'Provider id' -xa 'ollama lmstudio openai openai-compat openrouter opencode opencode-go anthropic gemini groq deepseek mistral together fireworks xai azure cerebras cohere nvidia dashscope'
 complete -c nullray -s m -l model -d 'Model id' -r
 complete -c nullray -l theme -d 'UI theme' -xa 'ink ember moss slate rose mono dusk'
 complete -c nullray -l mode -d 'Agent mode' -xa 'ask plan review edit'

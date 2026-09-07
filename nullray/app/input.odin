@@ -256,31 +256,11 @@ app_on_event :: proc(ev: ui.Event, user: rawptr) -> bool {
 		return false
 	case .Provider_Next:
 		provider.registry_cycle(&a.registry, 1)
-		app_refresh_credits(a)
-		p := provider.registry_active(&a.registry)
-		if p != nil {
-			session.session_remember_model(&a.session, p.id, p.default_model)
-			msg := fmt.tprintf("provider %s", p.name)
-			if len(a.credits_label) > 0 {
-				msg = fmt.tprintf("%s · %s", msg, a.credits_label)
-			}
-			session.session_set_status(&a.session, msg)
-		}
-		app_mark_dirty(a)
+		app_activate_provider(a)
 		return false
 	case .Provider_Prev:
 		provider.registry_cycle(&a.registry, -1)
-		app_refresh_credits(a)
-		p := provider.registry_active(&a.registry)
-		if p != nil {
-			session.session_remember_model(&a.session, p.id, p.default_model)
-			msg := fmt.tprintf("provider %s", p.name)
-			if len(a.credits_label) > 0 {
-				msg = fmt.tprintf("%s · %s", msg, a.credits_label)
-			}
-			session.session_set_status(&a.session, msg)
-		}
-		app_mark_dirty(a)
+		app_activate_provider(a)
 		return false
 	case .Compact:
 		p := provider.registry_active(&a.registry)
