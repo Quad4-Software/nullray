@@ -7,6 +7,7 @@ Mistakes that burn time in this tree. Pair with memory and tui skills.
 | Mistake | Why |
 |---------|-----|
 | Keep temp_allocator pointers across frames, jobs, HTTP, or threads | loop_run free_all each iteration |
+| free_all(temp) inside SSE/HTTP callbacks | frees curl URL/POSTFIELDS and tools_json mid-request |
 | Write ANSI into Buffer cells | present owns escapes |
 | Skip CELL_WIDE_CONT after wide runes | corrupt diff and cursor |
 | Use len(s) as display columns | use rune_cols / string_cols |
