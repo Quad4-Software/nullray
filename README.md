@@ -18,7 +18,7 @@ make test
 make install
 ```
 
-PREFIX defaults to /usr/local. Needs Odin and libcurl. Without install, run ./bin/nullray. make install also puts man/nullray.1 and shell completions under share/nullray/completions/.
+`make install` uses `PREFIX` (default `/usr/local`). Use `make install PREFIX="$HOME/.local"` without sudo, and add `~/.local/bin` to `PATH`.
 
 ```sh
 ./bin/nullray --self-test
@@ -67,33 +67,40 @@ NULLRAY_MODEL=my-local-model
 
 ## Usage
 
-Modes: ask, plan, review, edit (/mode or NULLRAY_MODE). Shell perms: ask, allow, yolo. Plan mode writes under .nullray/plans/ or --plan-out. Done Contract needs Steps, Verify, Success, Budget. Headless apply: --plan-in / NULLRAY_PLAN_IN. Post-edit verify is off unless /verify on or NULLRAY_VERIFY.
-
 ```sh
+# Run Interactive TUI
+nullray
+
+# Quick ask
+nullray -q "What does session_init do?"    
+
+# One-time commands
 nullray --print --mode ask "What does session_init do?"
-nullray --print --mode plan --plan-out ./plan.md "Add ephemeral print mode"
-NULLRAY_VERIFY=1 nullray --print --plan-in ./plan.md --perms yolo --bare
-git diff origin/main...HEAD | nullray --print --bare --mode review --fail-on-findings "Review this PR diff"
-nullray --print --mode edit --perms yolo --auto "Fix the failing test"
 ```
 
 ## Packages
 
-Docker images on GHCR (master and v*.*.*, amd64/arm64)
+### Docker
 
 ```sh
 docker pull ghcr.io/quad4-software/nullray:latest
-docker compose run --rm nullray
-make docker-build
+docker run --rm -it \
+  --user 1000:1000 \
+  -v "$PWD:/workspace" \
+  -v nullray-config:/home/nullray/.config/nullray \
+  --cap-drop ALL \
+  --security-opt no-new-privileges:true \
+  --add-host host.docker.internal:host-gateway \
+  -e NULLRAY_PROVIDER=ollama \
+  -e OLLAMA_HOST=http://host.docker.internal:11434 \
+  ghcr.io/quad4-software/nullray:latest
 ```
 
-Release tags ship Flatpak (Freedesktop 25.08) and AppImages. Prefer the slim AppImage. nullray-sdk is the offline rebuild kit (source, pinned Odin, pack tools).
+### Flatpak
 
 ```sh
 flatpak install --user ./nullray_*_linux_amd64.flatpak
-flatpak run io.github.Quad4_Software.nullray
-chmod +x ./nullray_*_linux_amd64.AppImage && ./nullray_*_linux_amd64.AppImage
-make appimage && make appimage-sdk && make flatpak
+flatpak run xyz.nullray
 ```
 
 ## License
