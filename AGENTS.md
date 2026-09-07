@@ -50,7 +50,7 @@ nullray loads flat *.md and nested name/SKILL.md from workspace .agents/skills, 
 | packaging/flatpak | Flatpak manifest and desktop/metainfo |
 | packaging/appimage | Slim and SDK AppImage AppRun, desktop, tools.manifest |
 | packaging/odin-pin | Pinned Odin commit for CI, Docker, SDK |
-| web | GitHub Pages site (single index.html, no build) |
+| web | GitHub Pages site (index.html, CNAME) + Dockerfile for self-host (busybox httpd, rootless, ~2.5MB) |
 | install.sh | POSIX installer, served at /install by pages.yml |
 | Dockerfile | Multi-stage rootless image (Debian trixie) |
 | docker-compose.yml | Interactive terminal attach |
