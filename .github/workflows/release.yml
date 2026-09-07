@@ -387,7 +387,7 @@ jobs:
         run: |
           set -euo pipefail
           install -m 755 dist-linux/nullray packaging/flatpak/nullray
-          install -m 644 logo/nullray.svg packaging/flatpak/nullray.svg
+          install -m 644 logo/nullray-icon.svg packaging/flatpak/nullray.svg
 
       - name: Build Flatpak bundle
         uses: flatpak/flatpak-github-actions/flatpak-builder@79327416609af08178ad73b352877e51450790b3 # v6.8
