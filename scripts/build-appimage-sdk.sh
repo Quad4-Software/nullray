@@ -81,45 +81,38 @@ echo "${VERSION}" >"${APPDIR}/usr/share/nullray/SDK_VERSION"
 echo "${ODIN_COMMIT}" >"${APPDIR}/usr/share/nullray/ODIN_COMMIT"
 
 # Odin compiler tree (binary + base/core/vendor).
-rsync -a --delete \
-	--exclude '.git' \
-	--exclude '*.o' \
-	--exclude '*.obj' \
-	"${ODIN_ROOT}/" "${APPDIR}/usr/lib/odin/"
+if command -v rsync >/dev/null 2>&1; then
+	rsync -a \
+		--exclude '.git' \
+		--exclude '*.o' \
+		--exclude '*.obj' \
+		"${ODIN_ROOT}/" "${APPDIR}/usr/lib/odin/"
+else
+	cp -a "${ODIN_ROOT}/." "${APPDIR}/usr/lib/odin/"
+	rm -rf "${APPDIR}/usr/lib/odin/.git"
+fi
 chmod +x "${APPDIR}/usr/lib/odin/odin"
 ln -sfn ../lib/odin/odin "${APPDIR}/usr/bin/odin"
+echo "${ODIN_COMMIT}" >"${APPDIR}/usr/lib/odin/.nullray-odin-commit"
 
 # nullray sources needed to make + pack.
-rsync -a \
-	--exclude '.git' \
-	--exclude 'bin/' \
-	--exclude 'dist/' \
-	--exclude 'coverage/' \
-	--exclude '.nullray/' \
-	--exclude '*.AppImage' \
-	--exclude '*.flatpak' \
-	--exclude '.flatpak-builder/' \
-	--exclude 'flatpak_app/' \
-	--exclude 'repo/' \
-	--exclude 'showcase/' \
-	"${ROOT}/cmd" \
-	"${ROOT}/nullray" \
-	"${ROOT}/scripts" \
-	"${ROOT}/packaging" \
-	"${ROOT}/logo" \
-	"${ROOT}/Makefile" \
-	"${ROOT}/LICENSE" \
-	"${APPDIR}/usr/share/nullray/src/"
-
-# Keep packaging assets inside the src tree for make appimage from extract.
-mkdir -p "${APPDIR}/usr/share/nullray/src/packaging/appimage"
-cp -f "${ROOT}/packaging/appimage/AppRun" \
-	"${ROOT}/packaging/appimage/AppRun-sdk" \
-	"${ROOT}/packaging/appimage/nullray.desktop" \
-	"${ROOT}/packaging/appimage/nullray-sdk.desktop" \
-	"${ROOT}/packaging/appimage/tools.manifest" \
-	"${APPDIR}/usr/share/nullray/src/packaging/appimage/" 2>/dev/null || true
-cp -f "${ROOT}/packaging/odin-pin" "${APPDIR}/usr/share/nullray/src/packaging/odin-pin"
+SRC_DST="${APPDIR}/usr/share/nullray/src"
+copy_tree() {
+	local src="$1" dest="$2"
+	mkdir -p "${dest}"
+	if command -v rsync >/dev/null 2>&1; then
+		rsync -a --exclude '.git' "${src}/" "${dest}/"
+	else
+		cp -a "${src}/." "${dest}/"
+		rm -rf "${dest}/.git"
+	fi
+}
+copy_tree "${ROOT}/cmd" "${SRC_DST}/cmd"
+copy_tree "${ROOT}/nullray" "${SRC_DST}/nullray"
+copy_tree "${ROOT}/scripts" "${SRC_DST}/scripts"
+copy_tree "${ROOT}/packaging" "${SRC_DST}/packaging"
+copy_tree "${ROOT}/logo" "${SRC_DST}/logo"
+cp -f "${ROOT}/Makefile" "${ROOT}/LICENSE" "${SRC_DST}/"
 
 # Offline tool cache (also used while packing this image).
 if [[ -n "${NULLRAY_APPIMAGE_TOOLS:-}" && -d "${NULLRAY_APPIMAGE_TOOLS}" ]]; then

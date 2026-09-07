@@ -1,0 +1,228 @@
+#!/bin/sh
+# AppRun for the nullray SDK AppImage (airgap rebuild kit).
+# Extracts odin, source, and AppImage tools to a writable root, then runs nullray.
+set -eu
+
+HERE="$(dirname "$(readlink -f "$0")")"
+BIN="${HERE}/usr/bin/nullray"
+SHARE="${HERE}/usr/share/nullray"
+VERSION_FILE="${SHARE}/SDK_VERSION"
+VERSION="0.1.0"
+if [ -f "${VERSION_FILE}" ]; then
+	VERSION="$(tr -d '[:space:]' <"${VERSION_FILE}")"
+fi
+
+export PATH="${HERE}/usr/bin:${PATH:-}"
+if [ -d "${HERE}/usr/lib" ]; then
+	export LD_LIBRARY_PATH="${HERE}/usr/lib${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}"
+fi
+
+if [ ! -x "${BIN}" ]; then
+	echo "nullray-sdk: missing ${BIN}" >&2
+	exit 127
+fi
+
+default_sdk_root() {
+	data="${XDG_DATA_HOME:-${HOME}/.local/share}"
+	echo "${data}/nullray/sdk/${VERSION}"
+}
+
+SDK_ROOT="${NULLRAY_SDK_ROOT:-}"
+FORCE_EXTRACT=0
+RUN_EXTRACT_ONLY=0
+
+while [ "$#" -gt 0 ]; do
+	case "$1" in
+	--sdk-root)
+		[ "$#" -ge 2 ] || {
+			echo "nullray-sdk: --sdk-root needs a path" >&2
+			exit 2
+		}
+		SDK_ROOT="$2"
+		shift 2
+		;;
+	--sdk-root=*)
+		SDK_ROOT="${1#--sdk-root=}"
+		shift
+		;;
+	--sdk-extract | --sdk-extract=force)
+		FORCE_EXTRACT=1
+		RUN_EXTRACT_ONLY=1
+		shift
+		;;
+	--help-sdk)
+		cat <<EOF
+nullray-sdk AppImage (airgap rebuild kit)
+
+  --sdk-root PATH     writable extract root (or set NULLRAY_SDK_ROOT)
+  --sdk-extract       extract odin, source, and pack tools then exit
+  --help-sdk          this text
+
+Default extract root: \$XDG_DATA_HOME/nullray/sdk/${VERSION}
+After extract:
+  PATH=\$ROOT/odin:\$PATH
+  LD_LIBRARY_PATH=\$ROOT/lib:\$LD_LIBRARY_PATH
+  NULLRAY_APPIMAGE_TOOLS=\$ROOT/appimage-tools
+  make -C \$ROOT/src
+  make -C \$ROOT/src appimage
+EOF
+		exit 0
+		;;
+	*)
+		break
+		;;
+	esac
+done
+
+if [ -z "${SDK_ROOT}" ]; then
+	SDK_ROOT="$(default_sdk_root)"
+fi
+
+stamp_path="${SDK_ROOT}/.nullray-sdk-stamp"
+want_stamp() {
+	odin_c="unknown"
+	tools_h="none"
+	[ -f "${SHARE}/ODIN_COMMIT" ] && odin_c="$(tr -d '[:space:]' <"${SHARE}/ODIN_COMMIT")"
+	if [ -f "${SHARE}/appimage-tools/MANIFEST" ]; then
+		tools_h="$(sha256sum "${SHARE}/appimage-tools/MANIFEST" | awk '{print $1}')"
+	fi
+	printf 'version=%s\nodin=%s\ntools=%s\n' "${VERSION}" "${odin_c}" "${tools_h}"
+}
+
+needs_extract=0
+if [ "${FORCE_EXTRACT}" -eq 1 ]; then
+	needs_extract=1
+elif [ ! -f "${stamp_path}" ]; then
+	needs_extract=1
+elif [ "$(cat "${stamp_path}")" != "$(want_stamp)" ]; then
+	needs_extract=1
+fi
+
+do_extract() {
+	echo "nullray-sdk: extracting to ${SDK_ROOT}" >&2
+	mkdir -p "${SDK_ROOT}/bin" "${SDK_ROOT}/odin" "${SDK_ROOT}/src" \
+		"${SDK_ROOT}/appimage-tools" "${SDK_ROOT}/lib"
+	if [ -d "${HERE}/usr/lib/odin" ]; then
+		cp -a "${HERE}/usr/lib/odin/." "${SDK_ROOT}/odin/"
+		chmod +x "${SDK_ROOT}/odin/odin" 2>/dev/null || true
+	fi
+	# Shared libs linuxdeploy bundled for nullray/odin (libLLVM, libcurl, ...).
+	if [ -d "${HERE}/usr/lib" ]; then
+		find "${HERE}/usr/lib" -maxdepth 1 \( -name '*.so' -o -name '*.so.*' \) \
+			-exec cp -a {} "${SDK_ROOT}/lib/" \;
+	fi
+	if [ -d "${SHARE}/src" ]; then
+		cp -a "${SHARE}/src/." "${SDK_ROOT}/src/"
+	fi
+	if [ -d "${SHARE}/appimage-tools" ]; then
+		cp -a "${SHARE}/appimage-tools/." "${SDK_ROOT}/appimage-tools/"
+		chmod +x "${SDK_ROOT}/appimage-tools/"*.AppImage 2>/dev/null || true
+		chmod +x "${SDK_ROOT}/appimage-tools/runtime" 2>/dev/null || true
+	fi
+	if [ -x "${BIN}" ]; then
+		cp -f "${BIN}" "${SDK_ROOT}/bin/nullray"
+		chmod +x "${SDK_ROOT}/bin/nullray"
+	fi
+	want_stamp >"${stamp_path}"
+	echo "nullray-sdk: extract done" >&2
+	echo "  PATH=${SDK_ROOT}/odin:${SDK_ROOT}/bin:\$PATH" >&2
+	echo "  LD_LIBRARY_PATH=${SDK_ROOT}/lib:\$LD_LIBRARY_PATH" >&2
+	echo "  NULLRAY_APPIMAGE_TOOLS=${SDK_ROOT}/appimage-tools" >&2
+	echo "  make -C ${SDK_ROOT}/src" >&2
+}
+
+if [ "${needs_extract}" -eq 1 ]; then
+	do_extract
+fi
+
+export NULLRAY_SDK_ROOT="${SDK_ROOT}"
+export NULLRAY_APPIMAGE_TOOLS="${SDK_ROOT}/appimage-tools"
+export PATH="${SDK_ROOT}/odin:${SDK_ROOT}/bin:${HERE}/usr/bin:${PATH}"
+export LD_LIBRARY_PATH="${SDK_ROOT}/lib:${HERE}/usr/lib${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}"
+
+if [ "${RUN_EXTRACT_ONLY}" -eq 1 ]; then
+	exit 0
+fi
+
+case "${1:-}" in
+--version | -V | --help | -h | --self-test | -t | --completions | --man | --list-models)
+	exec "${BIN}" "$@"
+	;;
+esac
+
+if [ "${NULLRAY_APPIMAGE_NO_TERM:-0}" = "1" ]; then
+	exec "${BIN}" "$@"
+fi
+
+if [ -t 0 ] && [ -t 1 ]; then
+	exec "${BIN}" "$@"
+fi
+
+if [ -z "${DISPLAY:-}${WAYLAND_DISPLAY:-}" ]; then
+	exec "${BIN}" "$@"
+fi
+
+if command -v xdg-terminal-exec >/dev/null 2>&1; then
+	exec xdg-terminal-exec -- "${BIN}" "$@"
+fi
+
+run_term() {
+	term="$1"
+	shift
+	command -v "${term}" >/dev/null 2>&1 || return 1
+	case "${term}" in
+	kitty | alacritty | foot | st | xterm | uxterm | rxvt | urxvt)
+		exec "${term}" -e "${BIN}" "$@"
+		;;
+	wezterm)
+		exec wezterm start -- "${BIN}" "$@"
+		;;
+	gnome-terminal)
+		exec gnome-terminal -- "${BIN}" "$@"
+		;;
+	kgx | ptyxis)
+		exec "${term}" -- "${BIN}" "$@"
+		;;
+	konsole)
+		exec konsole -e "${BIN}" "$@"
+		;;
+	xfce4-terminal)
+		exec xfce4-terminal -x "${BIN}" "$@"
+		;;
+	mate-terminal)
+		exec mate-terminal -x "${BIN}" "$@"
+		;;
+	tilix)
+		exec tilix -e "${BIN}" "$@"
+		;;
+	x-terminal-emulator)
+		exec x-terminal-emulator -e "${BIN}" "$@"
+		;;
+	*)
+		return 1
+		;;
+	esac
+}
+
+for term in \
+	x-terminal-emulator \
+	kitty \
+	alacritty \
+	wezterm \
+	gnome-terminal \
+	kgx \
+	ptyxis \
+	konsole \
+	xfce4-terminal \
+	mate-terminal \
+	tilix \
+	foot \
+	xterm \
+	uxterm \
+	st; do
+	run_term "${term}" "$@" && exit 0
+done
+
+echo "nullray-sdk: no terminal found. Run from a shell:" >&2
+echo "  ${BIN}" "$@" >&2
+exit 1

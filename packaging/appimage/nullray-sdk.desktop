@@ -1,0 +1,12 @@
+[Desktop Entry]
+Type=Application
+Name=nullray-sdk
+GenericName=nullray airgap SDK
+Comment=Offline rebuild kit for nullray
+Exec=AppRun
+Icon=nullray-sdk
+Terminal=true
+Categories=Development;
+Keywords=agent;llm;tui;coding;sdk;airgap;
+StartupNotify=false
+X-AppImage-Version=0.1.0

@@ -25,7 +25,7 @@ BUILD_TIME := $(shell date -u +%H:%M:%S)
 DEFINES    := -define:NULLRAY_BUILD_DATE="$(BUILD_DATE)" -define:NULLRAY_BUILD_TIME="$(BUILD_TIME)"
 
 .PHONY: all clean install uninstall run test selftest chat-smoke print-smoke coverage help completions man \
-	appimage flatpak docker-build debug
+	appimage appimage-sdk sdk-smoke flatpak docker-build debug
 
 TEST_SUITES := ui agent tools skills session store sandbox mcp provider app config subagent elevate structure secure hooks vcs
 TEST_FLAGS  := $(COLLECTION) -define:ODIN_TEST_THREADS=1 -debug
@@ -126,6 +126,14 @@ appimage: $(OUT)
 	@mkdir -p dist
 	bash scripts/build-appimage.sh $(OUT) dist
 
+appimage-sdk: $(OUT)
+	@mkdir -p dist
+	bash scripts/build-appimage-sdk.sh $(OUT) dist
+
+sdk-smoke:
+	@chmod +x scripts/sdk-smoke.sh
+	bash scripts/sdk-smoke.sh
+
 flatpak: $(OUT)
 	@mkdir -p dist
 	bash scripts/build-flatpak.sh $(OUT) dist
@@ -145,7 +153,9 @@ help:
 		'  completions  write contrib/completions/' \
 		'  man          write man/nullray.1' \
 		'  install      install binary, man page, completions' \
-		'  appimage     build dist/*.AppImage (needs curl, FUSE3 tooling)' \
+		'  appimage     slim dist/*.AppImage (needs curl or NULLRAY_APPIMAGE_TOOLS)' \
+		'  appimage-sdk airgap SDK AppImage (odin + src + pack tools)' \
+		'  sdk-smoke    /tmp extract, rebuild, pack slim from SDK image' \
 		'  flatpak      build dist/*.flatpak (needs flatpak-builder)' \
 		'  docker-build build local Docker image nullray:local' \
 		'  clean        remove bin/ and dist/'
