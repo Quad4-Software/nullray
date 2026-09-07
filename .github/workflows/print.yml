@@ -175,9 +175,17 @@ jobs:
         shell: pwsh
         run: |
           choco install curl -y
-          if (-not (Test-Path "$env:USERPROFILE\vcpkg\vcpkg.exe")) {
-            git clone --depth 1 https://github.com/microsoft/vcpkg "$env:USERPROFILE\vcpkg"
-            & "$env:USERPROFILE\vcpkg\bootstrap-vcpkg.bat" -disableMetrics
+          $vcpkg = "$env:USERPROFILE\vcpkg"
+          if (-not (Test-Path "$vcpkg\vcpkg.exe")) {
+            if (-not (Test-Path "$vcpkg\bootstrap-vcpkg.bat")) {
+              # Cache restores installed/ and downloads/ only. Overlay a fresh
+              # clone so the cached dirs survive.
+              $src = "$env:RUNNER_TEMP\vcpkg-src"
+              git clone --depth 1 https://github.com/microsoft/vcpkg $src
+              New-Item -ItemType Directory -Force $vcpkg | Out-Null
+              Get-ChildItem -LiteralPath $src -Force | Copy-Item -Destination $vcpkg -Recurse -Force
+            }
+            & "$vcpkg\bootstrap-vcpkg.bat" -disableMetrics
           }
           & "$env:USERPROFILE\vcpkg\vcpkg.exe" install curl:x64-windows --disable-metrics
           $root = "$env:USERPROFILE\vcpkg\installed\x64-windows"
