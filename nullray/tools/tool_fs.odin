@@ -10,6 +10,7 @@ import "core:os"
 import "core:strings"
 import "nullray:constants"
 import "nullray:sandbox"
+import "nullray:subagent"
 
 tool_read_file :: proc(args_json: string, allocator := context.allocator) -> (result: string, err: string) {
 	path, perr := json_arg_string(args_json, "path", allocator)
@@ -107,6 +108,9 @@ tool_write_file :: proc(args_json: string, allocator := context.allocator) -> (r
 	defer delete(abs)
 	if !sandbox.path_allowed(sandbox.state(), abs, true) {
 		return "", strings.clone("path not allowed for write", allocator)
+	}
+	if lease_err := subagent.check_write_allowed(abs, allocator); len(lease_err) > 0 {
+		return "", lease_err
 	}
 	snapshot_before_write(abs)
 	if werr := os.write_entire_file(abs, transmute([]u8)content); werr != nil {

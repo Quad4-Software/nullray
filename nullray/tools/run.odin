@@ -7,6 +7,15 @@ package tools
 
 import "core:fmt"
 import "core:strings"
+import "nullray:subagent"
+
+subagent_runtime_enabled :: proc() -> bool {
+	rt := subagent.runtime()
+	if rt == nil {
+		return false
+	}
+	return subagent.runtime_enabled(rt)
+}
 
 /*
 Ask, plan, and review modes are read-only. Edit allows write and shell.
@@ -87,8 +96,15 @@ openai_tools_json :: proc(r: ^Registry, mode: string, allocator := context.alloc
 	strings.builder_init(&b, allocator)
 	strings.write_string(&b, "[")
 	first := true
+	sub_on := true
+	if rt := subagent_runtime_enabled(); !rt {
+		sub_on = false
+	}
 	if r != nil {
 		for t in r.tools {
+			if t.name == "task" && !sub_on {
+				continue
+			}
 			if ok, _ := tool_kind_allowed(r, t.name, mode); !ok {
 				continue
 			}

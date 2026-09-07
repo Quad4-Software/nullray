@@ -14,6 +14,7 @@ import "nullray:constants"
 import "nullray:mcp"
 import "nullray:provider"
 import "nullray:session"
+import "nullray:subagent"
 import "nullray:tools"
 
 Config :: struct {
@@ -97,6 +98,20 @@ run_print :: proc(cfg: Config) -> Result {
 	defer session.session_destroy(&s)
 	s.tools_registry = &tools_reg
 	s.tools_enabled = true
+
+	rt: subagent.Runtime
+	subagent.runtime_init(&rt, s.name, &tools_reg)
+	subagent.runtime_set(&rt)
+	defer {
+		subagent.runtime_set(nil)
+		subagent.runtime_destroy(&rt)
+	}
+	agent.register_subagent_runner()
+	subagent.runtime_set_provider(&rt, p)
+	delete(rt.main_model)
+	rt.main_model = strings.clone(p.default_model)
+	tools.register_subagent_tools(&tools_reg, subagent.runtime_enabled(&rt))
+
 	if ephemeral_forced() {
 		s.persist = false
 	}
@@ -214,7 +229,7 @@ print_json :: proc(res: Result) {
 	esc_mode := json_escape(res.mode, context.temp_allocator)
 	esc_stopped := json_escape(res.stopped, context.temp_allocator)
 	fmt.printf(
-		`{"ok":%v,"mode":"%s","text":"%s","plan_path":"%s","stopped":"%s","err":"%s","exit_code":%d,"usage":{"prompt_tokens":%d,"completion_tokens":%d,"total_tokens":%d}}`+"\n",
+		`{{"ok":%v,"mode":"%s","text":"%s","plan_path":"%s","stopped":"%s","err":"%s","exit_code":%d,"usage":{{"prompt_tokens":%d,"completion_tokens":%d,"total_tokens":%d}}}}`+"\n",
 		res.ok,
 		esc_mode,
 		esc_text,

@@ -14,6 +14,8 @@ import "nullray:http"
 import "nullray:provider"
 import "nullray:sandbox"
 import "nullray:store"
+import "nullray:subagent"
+import "nullray:tools"
 
 Job_Args :: struct {
 	session:           ^Session,
@@ -72,6 +74,9 @@ session_request_cancel :: proc(s: ^Session) {
 	s.pause_requested = false
 	sync.mutex_unlock(&s.control_mu)
 	http.cancel_request()
+	if rt := subagent.runtime(); rt != nil {
+		subagent.roster_cancel_children_of(&rt.roster, "main")
+	}
 	session_set_status(s, "stopping...")
 }
 
@@ -198,9 +203,11 @@ agent_event_cb :: proc(ev: agent.Event, user: rawptr) {
 	case .Reasoning_Delta:
 		session_enqueue(s, Event{kind = .Reasoning_Delta, text = strings.clone(ev.text)})
 	case .Tool_Start:
-		session_enqueue(s, Event{kind = .Tool_Call, text = strings.clone(fmt.tprintf("tool %s", ev.name)), name = strings.clone(ev.name)})
+		line := tools.tool_activity_line(ev.name, ev.text)
+		session_enqueue(s, Event{kind = .Tool_Call, text = line, name = strings.clone(ev.name)})
 	case .Tool_Done:
-		session_enqueue(s, Event{kind = .Status, text = strings.clone(fmt.tprintf("%s done", ev.name))})
+		done := fmt.aprintf("%s done", ev.name)
+		session_enqueue(s, Event{kind = .Status, text = done, name = strings.clone(ev.name)})
 	case .Tool_Message:
 		session_enqueue(s, Event{kind = .Tool_Result, text = strings.clone(ev.text), name = strings.clone(ev.name)})
 	case .Assistant_Message:

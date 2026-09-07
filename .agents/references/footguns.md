@@ -62,6 +62,10 @@ Stub: sandbox_stub.odin #+build !linux. apply uses when ODIN_OS == .Linux for ru
 - Secret paths blocked unless NULLRAY_SECRETS_ALLOW
 - Improve/review return owned strings to caller
 - Plan artifacts: agent.save_plan_artifact, default under .nullray/plans/
+- Subagent spawn never git stash. Lease writes before edit. Worktree children jail to worktree path.
+- NULLRAY_SUBAGENTS=0 omits task from tools JSON. Apply needs verify-all unless --force.
+- agent.register_subagent_runner before spawn (app_init / print)
+- Child transcripts stay on disk digests only in parent context
 
 ## Platform tags
 

@@ -11,6 +11,7 @@ import "core:os"
 import "core:strings"
 import "nullray:constants"
 import "nullray:sandbox"
+import "nullray:subagent"
 
 MAX_APPLY_EDITS :: 20
 
@@ -115,6 +116,12 @@ parse_edits_array :: proc(
 			delete(new_string)
 			return strings.clone("path not allowed for write", allocator)
 		}
+		if lease_err := subagent.check_write_allowed(abs, allocator); len(lease_err) > 0 {
+			delete(abs)
+			delete(old_string)
+			delete(new_string)
+			return lease_err
+		}
 		append(
 			pending,
 			Pending_Edit{
@@ -154,6 +161,11 @@ parse_files_array :: proc(
 			delete(abs)
 			delete(content)
 			return strings.clone("path not allowed for write", allocator)
+		}
+		if lease_err := subagent.check_write_allowed(abs, allocator); len(lease_err) > 0 {
+			delete(abs)
+			delete(content)
+			return lease_err
 		}
 		append(pending, Pending_File{abs = abs, content = content})
 	}

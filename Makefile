@@ -27,7 +27,7 @@ DEFINES    := -define:NULLRAY_BUILD_DATE="$(BUILD_DATE)" -define:NULLRAY_BUILD_T
 .PHONY: all clean install uninstall run test selftest chat-smoke print-smoke coverage help completions man \
 	appimage flatpak docker-build debug
 
-TEST_SUITES := ui agent tools skills session store sandbox mcp provider
+TEST_SUITES := ui agent tools skills session store sandbox mcp provider app config subagent
 TEST_FLAGS  := $(COLLECTION) -define:ODIN_TEST_THREADS=1 -debug
 
 all: $(OUT)

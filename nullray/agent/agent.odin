@@ -99,6 +99,7 @@ Run_Request :: struct {
 	prov:          ^provider.Provider,
 	messages:      []provider.Message,
 	tools_enabled: bool,
+	model:         string,
 }
 
 Run_Result :: struct {
@@ -205,7 +206,10 @@ run_turn :: proc(req: Run_Request, cfg: Config, allocator := context.allocator) 
 			max_steps = constants.MAX_AGENT_STEPS
 		}
 	}
-	model := req.prov.default_model
+	model := req.model
+	if len(model) == 0 {
+		model = req.prov.default_model
+	}
 	last_content := ""
 	usage_sum: provider.Usage
 	prev_tool_fp := ""
@@ -327,26 +331,24 @@ run_turn :: proc(req: Run_Request, cfg: Config, allocator := context.allocator) 
 				provider.destroy_tool_calls(res.tool_calls)
 			}
 
-			// Verify stop gate when the model claims done after writes.
+			// Verify stop gate when the model claims done after writes (opt-in).
 			if tools_on &&
 				cfg.mode == .Edit &&
 				(result_prefix_had_writes(msgs[:]) || turn_had_writes(msgs[:])) {
 				vcmd, voff := resolve_verify_command(cfg.plan_verify, context.temp_allocator)
 				if !voff && len(vcmd) > 0 {
-					emit(cfg, .Status, "verify...")
-					vok, vout := run_verify_command(vcmd, allocator)
+					vargs := fmt.aprintf(`{"command":%q}`, vcmd, allocator = context.temp_allocator)
+					emit(cfg, .Status, fmt.tprintf("verify: %s", vcmd))
+					emit(cfg, .Tool_Start, vargs, "verify")
+					vok, vout := run_verify_command(vcmd, reg, allocator)
+					emit(cfg, .Tool_Done, vout, "verify")
 					if !vok {
 						verify_fails += 1
 						max_fails := verify_max_fails_from_env()
 						if verify_fails >= max_fails {
-							fail_msg := fmt.aprintf(
-								"verify failed (circuit breaker after %d):\n%s",
-								verify_fails,
-								vout,
-								allocator = allocator,
-							)
+							fail_msg := format_verify_nudge(vcmd, verify_fails, max_fails, vout, true, allocator)
 							delete(vout)
-							emit(cfg, .Status, "verify failed")
+							emit(cfg, .Status, "verify failed (breaker)")
 							append(&msgs, provider.Message{role = .User, content = fail_msg})
 							return Run_Result{
 								ok = true,
@@ -357,22 +359,15 @@ run_turn :: proc(req: Run_Request, cfg: Config, allocator := context.allocator) 
 								verify_fail_count = verify_fails,
 							}
 						}
-						nudge := fmt.aprintf(
-							"Verify failed (%d/%d). Fix the failures, then stop when green.\n%s",
-							verify_fails,
-							max_fails,
-							vout,
-							allocator = allocator,
-						)
+						nudge := format_verify_nudge(vcmd, verify_fails, max_fails, vout, false, allocator)
 						delete(vout)
-						emit(cfg, .Status, "verify failed - continuing")
+						emit(cfg, .Status, fmt.tprintf("verify failed (%d/%d)", verify_fails, max_fails))
 						append(&msgs, provider.Message{role = .User, content = nudge})
 						continue
 					}
 					delete(vout)
 					emit(cfg, .Status, "verify ok")
 					verify_fails = 0
-					// Note: session records obligation via job after turn when available.
 				}
 			}
 

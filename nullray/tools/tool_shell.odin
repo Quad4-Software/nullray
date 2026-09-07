@@ -12,6 +12,7 @@ import "core:strings"
 import "core:time"
 import "nullray:constants"
 import "nullray:sandbox"
+import "nullray:subagent"
 
 tool_run_shell :: proc(args_json: string, allocator := context.allocator) -> (result: string, err: string) {
 	command, perr := json_arg_string(args_json, "command", allocator)
@@ -25,6 +26,10 @@ tool_run_shell :: proc(args_json: string, allocator := context.allocator) -> (re
 		return "", reason
 	}
 	defer delete(reason)
+
+	if shell_err := subagent.check_shell_allowed(command, allocator); len(shell_err) > 0 {
+		return "", shell_err
+	}
 
 	if !sandbox.shell_allowed(sandbox.state()) {
 		return "", strings.clone("shell not allowed by sandbox", allocator)
