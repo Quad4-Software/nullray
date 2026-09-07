@@ -8,7 +8,7 @@ OUT_DIR="${2:-${ROOT}/dist}"
 VERSION="${VERSION:-0.1.0}"
 ARCH="${ARCH:-x86_64}"
 MANIFEST_DIR="${ROOT}/packaging/flatpak"
-APP_ID="io.github.Quad4_Software.nullray"
+APP_ID="xyz.nullray"
 BUNDLE="${OUT_DIR}/nullray_${VERSION}_linux_amd64.flatpak"
 
 if [[ ! -f "${BINARY}" ]]; then
