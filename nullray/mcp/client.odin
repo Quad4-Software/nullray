@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: 0BSD
 /*
 MCP client handshake, tool listing, and tool invocation.
 
@@ -131,6 +132,7 @@ parse_initialize_protocol_version :: proc(result_json: string, allocator := cont
 client_list_tools :: proc(
 	session: ^Stdio_Session,
 	server_id: string,
+	tool_routes: ^map[string]Mcp_Tool_Route,
 	allocator := context.allocator,
 ) -> (
 	tools_out: []tools.Tool,
@@ -191,15 +193,18 @@ client_list_tools :: proc(
 		}
 
 		full_name := fmt.aprintf("mcp:%s:%s", server_id, tool_name, allocator = allocator)
-		g_tool_routes[full_name] = Mcp_Tool_Route{
-			server_id = strings.clone(server_id, allocator),
-			tool_name = strings.clone(tool_name, allocator),
+		if tool_routes != nil {
+			tool_routes[full_name] = Mcp_Tool_Route{
+				server_id = strings.clone(server_id, allocator),
+				tool_name = strings.clone(tool_name, allocator),
+			}
 		}
 
 		append(&out, tools.Tool{
 			name = full_name,
 			description = strings.clone(desc, allocator),
 			schema_json = schema,
+			kind = .Mcp,
 			run = nil,
 		})
 	}

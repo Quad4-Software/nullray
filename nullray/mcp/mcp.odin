@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: 0BSD
 /*
 MCP server registry, stdio client connections, and tool registration.
 */
@@ -37,7 +38,10 @@ Mcp_Tool_Route :: struct {
 }
 
 Registry :: struct {
-	servers: [dynamic]Server,
+	servers:     [dynamic]Server,
+	clients:     map[string]^Client,
+	tool_routes: map[string]Mcp_Tool_Route,
+	tools_reg:   ^tools.Registry,
 }
 
 Config_Server :: struct {
@@ -51,24 +55,28 @@ Config_File :: struct {
 }
 
 g_registry: Registry
-g_clients: map[string]^Client
-g_tool_routes: map[string]Mcp_Tool_Route
 
 registry :: proc() -> ^Registry {
 	return &g_registry
 }
 
-mcp_init :: proc() {
-	g_registry = {}
-	g_registry.servers = make([dynamic]Server)
-	g_clients = make(map[string]^Client)
-	g_tool_routes = make(map[string]Mcp_Tool_Route)
-	tools.set_external_run(mcp_run_tool)
+registry_init :: proc(r: ^Registry, tools_reg: ^tools.Registry) {
+	r^ = {}
+	r.servers = make([dynamic]Server)
+	r.clients = make(map[string]^Client)
+	r.tool_routes = make(map[string]Mcp_Tool_Route)
+	r.tools_reg = tools_reg
+	if tools_reg != nil {
+		tools.registry_set_external_run(tools_reg, mcp_run_tool, r)
+	}
 }
 
-mcp_destroy :: proc() {
+registry_destroy :: proc(r: ^Registry) {
+	if r == nil {
+		return
+	}
 	clients := make([dynamic]^Client, context.temp_allocator)
-	for _, client in g_clients {
+	for _, client in r.clients {
 		append(&clients, client)
 	}
 	for client in clients {
@@ -79,45 +87,61 @@ mcp_destroy :: proc() {
 		delete(client.server_id)
 		free(client)
 	}
-	clear(&g_clients)
-	delete(g_clients)
+	clear(&r.clients)
+	delete(r.clients)
 
 	route_keys := make([dynamic]string, context.temp_allocator)
-	for k in g_tool_routes {
+	for k in r.tool_routes {
 		append(&route_keys, k)
 	}
 	for k in route_keys {
-		route := g_tool_routes[k]
+		route := r.tool_routes[k]
 		delete(route.server_id)
 		delete(route.tool_name)
 		delete(k)
 	}
-	delete(g_tool_routes)
-	for s in g_registry.servers {
+	delete(r.tool_routes)
+	for s in r.servers {
 		delete(s.id)
 		delete(s.name)
 		delete(s.command_or_url)
 	}
-	delete(g_registry.servers)
-	g_registry = {}
-	tools.set_external_run(nil)
+	delete(r.servers)
+	if r.tools_reg != nil {
+		tools.registry_set_external_run(r.tools_reg, nil, nil)
+	}
+	r^ = {}
 }
 
-register :: proc(s: Server) {
-	for existing, i in g_registry.servers {
+mcp_init :: proc() {
+	registry_init(&g_registry, tools.registry())
+}
+
+mcp_destroy :: proc() {
+	registry_destroy(&g_registry)
+}
+
+register :: proc(r: ^Registry, s: Server) {
+	if r == nil {
+		return
+	}
+	for existing, i in r.servers {
 		if existing.id == s.id {
-			delete(g_registry.servers[i].id)
-			delete(g_registry.servers[i].name)
-			delete(g_registry.servers[i].command_or_url)
-			g_registry.servers[i] = s
+			delete(r.servers[i].id)
+			delete(r.servers[i].name)
+			delete(r.servers[i].command_or_url)
+			r.servers[i] = s
 			return
 		}
 	}
-	append(&g_registry.servers, s)
+	append(&r.servers, s)
 }
 
-find :: proc(id: string) -> (^Server, bool) {
-	for &s in g_registry.servers {
+find :: proc(r: ^Registry, id: string) -> (^Server, bool) {
+	if r == nil {
+		return nil, false
+	}
+	for &s in r.servers {
 		if s.id == id {
 			return &s, true
 		}
@@ -125,16 +149,19 @@ find :: proc(id: string) -> (^Server, bool) {
 	return nil, false
 }
 
-list :: proc() -> []Server {
-	return g_registry.servers[:]
+list :: proc(r: ^Registry) -> []Server {
+	if r == nil {
+		return {}
+	}
+	return r.servers[:]
 }
 
-connect :: proc(server_id: string, allocator := context.allocator) -> (client: ^Client, ok: bool, err: string) {
-	srv, found := find(server_id)
+connect :: proc(r: ^Registry, server_id: string, allocator := context.allocator) -> (client: ^Client, ok: bool, err: string) {
+	srv, found := find(r, server_id)
 	if !found {
 		return nil, false, fmt.aprintf("unknown MCP server: %s", server_id, allocator = allocator)
 	}
-	if existing, exists := g_clients[server_id]; exists && existing.connected {
+	if existing, exists := r.clients[server_id]; exists && existing.connected {
 		return existing, true, ""
 	}
 
@@ -164,25 +191,25 @@ connect :: proc(server_id: string, allocator := context.allocator) -> (client: ^
 		return nil, false, init_err
 	}
 
-	mcp_tools, list_err := client_list_tools(session, server_id, allocator)
+	mcp_tools, list_err := client_list_tools(session, server_id, &r.tool_routes, allocator)
 	if list_err != "" {
 		stdio_close(session)
 		free(session)
 		return nil, false, list_err
 	}
 	for t in mcp_tools {
-		tools.register(t)
+		tools.registry_register(r.tools_reg, t)
 	}
 
 	c := new(Client, allocator)
 	c.server_id = strings.clone(server_id, allocator)
 	c.session = session
 	c.connected = true
-	g_clients[server_id] = c
+	r.clients[server_id] = c
 	return c, true, ""
 }
 
-disconnect :: proc(client: ^Client) {
+disconnect :: proc(r: ^Registry, client: ^Client) {
 	if client == nil {
 		return
 	}
@@ -191,17 +218,22 @@ disconnect :: proc(client: ^Client) {
 		free(client.session)
 		client.session = nil
 	}
-	delete_key(&g_clients, client.server_id)
+	if r != nil {
+		delete_key(&r.clients, client.server_id)
+	}
 	delete(client.server_id)
 	client.connected = false
 	free(client)
 }
 
-list_server_tools :: proc(server_id: string) -> []tools.Tool {
+list_server_tools :: proc(r: ^Registry, server_id: string) -> []tools.Tool {
 	out := make([dynamic]tools.Tool, context.temp_allocator)
-	for name, route in g_tool_routes {
+	if r == nil {
+		return out[:]
+	}
+	for name, route in r.tool_routes {
 		if route.server_id == server_id {
-			if t, ok := tools.find(name); ok {
+			if t, ok := tools.registry_find(r.tools_reg, name); ok {
 				append(&out, t^)
 			}
 		}
@@ -219,7 +251,7 @@ config_path :: proc(allocator := context.allocator) -> string {
 	return joined
 }
 
-load_config_from_file :: proc(path: string, allocator := context.allocator) -> (loaded: int, err: string) {
+load_config_from_file :: proc(r: ^Registry, path: string, allocator := context.allocator) -> (loaded: int, err: string) {
 	data, read_err := os.read_entire_file(path, allocator)
 	if read_err != nil {
 		if read_err == os.General_Error.Not_Exist {
@@ -247,7 +279,7 @@ load_config_from_file :: proc(path: string, allocator := context.allocator) -> (
 			if len(name) == 0 {
 				name = entry.id
 			}
-			register(Server{
+			register(r, Server{
 				id = strings.clone(entry.id, allocator),
 				name = strings.clone(name, allocator),
 				command_or_url = strings.clone(entry.command, allocator),
@@ -279,7 +311,7 @@ load_config_from_file :: proc(path: string, allocator := context.allocator) -> (
 		if len(name) == 0 {
 			name = id
 		}
-		register(Server{
+		register(r, Server{
 			id = strings.clone(id, allocator),
 			name = strings.clone(name, allocator),
 			command_or_url = strings.clone(command, allocator),
@@ -290,11 +322,15 @@ load_config_from_file :: proc(path: string, allocator := context.allocator) -> (
 	return loaded, ""
 }
 
-mcp_autoload :: proc() {
+mcp_autoload :: proc(r: ^Registry = nil) {
+	reg := r
+	if reg == nil {
+		reg = &g_registry
+	}
 	path := config_path()
 	defer delete(path)
 
-	loaded, lerr := load_config_from_file(path)
+	loaded, lerr := load_config_from_file(reg, path)
 	if lerr != "" {
 		fmt.eprintf("nullray: mcp config: %s\n", lerr)
 		delete(lerr)
@@ -304,8 +340,8 @@ mcp_autoload :: proc() {
 		return
 	}
 
-	for s in g_registry.servers {
-		_, ok, cerr := connect(s.id)
+	for s in reg.servers {
+		_, ok, cerr := connect(reg, s.id)
 		if !ok {
 			fmt.eprintf("nullray: mcp server %s: %s\n", s.id, cerr)
 			delete(cerr)
@@ -313,12 +349,16 @@ mcp_autoload :: proc() {
 	}
 }
 
-mcp_run_tool :: proc(name: string, args_json: string, allocator := context.allocator) -> (result: string, err: string) {
-	route, ok := g_tool_routes[name]
+mcp_run_tool :: proc(user: rawptr, name: string, args_json: string, allocator := context.allocator) -> (result: string, err: string) {
+	r := cast(^Registry)user
+	if r == nil {
+		return "", strings.clone("mcp registry missing", allocator)
+	}
+	route, ok := r.tool_routes[name]
 	if !ok {
 		return "", fmt.aprintf("unknown mcp tool: %s (check ~/.config/nullray/mcp.json)", name, allocator = allocator)
 	}
-	client, cok := g_clients[route.server_id]
+	client, cok := r.clients[route.server_id]
 	if !cok || client == nil || !client.connected || client.session == nil {
 		return "", fmt.aprintf(
 			"mcp server '%s' not connected (start server or fix command in mcp.json)",

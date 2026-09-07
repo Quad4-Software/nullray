@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: 0BSD
 /*
 App shell: lifecycle, credits, dirty flag, tick.
 */
@@ -12,6 +13,7 @@ import "core:time"
 import "nullray:agent"
 import "nullray:config"
 import "nullray:constants"
+import "nullray:mcp"
 import "nullray:provider"
 import "nullray:sandbox"
 import "nullray:session"
@@ -22,6 +24,8 @@ import "nullray:ui"
 App :: struct {
 	loop:           ^ui.Loop,
 	registry:       provider.Registry,
+	tools_reg:      tools.Registry,
+	mcp_reg:        mcp.Registry,
 	session:        session.Session,
 	input:          strings.Builder,
 	cursor:         int,
@@ -31,6 +35,7 @@ App :: struct {
 	follow:         bool,
 	credits_label:  string,
 	show_help:      bool,
+	help_scroll:    int,
 	suggest_sel:    int,
 	binds:          config.Binds,
 	keys_preset:    config.Key_Preset,
@@ -44,13 +49,19 @@ App :: struct {
 	banner_sess:    int,
 	banner_live:    int,
 	banner_refresh: time.Tick,
+	anim_tick:      time.Tick,
 }
 
 app_init :: proc(a: ^App, loop: ^ui.Loop) {
 	a^ = {}
 	a.loop = loop
+	tools.registry_init(&a.tools_reg)
+	mcp.registry_init(&a.mcp_reg, &a.tools_reg)
+	mcp.mcp_autoload(&a.mcp_reg)
 	provider.registry_init(&a.registry)
 	session.session_init(&a.session)
+	a.session.tools_registry = &a.tools_reg
+	session.session_rebuild_system_prompt(&a.session)
 	_ = session.session_apply_saved_model(&a.session, &a.registry)
 	strings.builder_init(&a.input)
 	a.spinner = ui.spinner_init()
@@ -73,7 +84,7 @@ app_init :: proc(a: ^App, loop: ^ui.Loop) {
 	if sid, recovered := session.crash_lock_recover(cfg_dir); recovered {
 		if session.session_switch(&a.session, sid) {
 			_ = session.session_apply_saved_model(&a.session, &a.registry)
-			session.session_set_status(&a.session, fmt.tprintf("recovered session %s", sid))
+			session.session_set_status(&a.session, fmt.tprintf("recovered session %s after crash", sid))
 		}
 		delete(sid)
 		session.crash_lock_clear(cfg_dir)
@@ -108,6 +119,8 @@ app_destroy :: proc(a: ^App) {
 	session.crash_lock_clear(cfg_dir)
 	provider.registry_destroy(&a.registry)
 	session.session_destroy(&a.session)
+	mcp.registry_destroy(&a.mcp_reg)
+	tools.registry_destroy(&a.tools_reg)
 	strings.builder_destroy(&a.input)
 	delete(a.credits_label)
 	delete(a.improve_undo)
@@ -163,13 +176,13 @@ app_refresh_banner :: proc(a: ^App) {
 	a.banner_live = session.count_live_agents(cfg_dir)
 	items := store.list_sessions(context.temp_allocator)
 	a.banner_sess = len(items)
-	store.destroy_session_infos(items)
+	store.destroy_session_infos(items, context.temp_allocator)
 	a.banner_refresh = time.tick_now()
 }
 
 app_is_dirty :: proc(user: rawptr) -> bool {
 	a := cast(^App)user
-	return a.dirty || a.session.busy || a.session.has_streaming || a.session.has_thinking || splash_active(a)
+	return a.dirty || splash_active(a)
 }
 
 
@@ -188,17 +201,25 @@ app_on_tick :: proc(user: rawptr) -> bool {
 		}
 	}
 	was_busy := a.session.busy
-	changed = session.session_poll(&a.session) || changed
+	poll_changed := session.session_poll(&a.session)
+	changed = poll_changed || changed
 	if was_busy && !a.session.busy {
 		app_refresh_credits(a)
 		changed = true
 		a.follow = true
 		a.scroll = 0
 	}
+	// Redraw on new deltas, or on spinner/caret cadence while busy.
+	// Avoid full transcript layout every poll tick with no UI change.
 	if a.session.busy || a.session.has_streaming || a.session.has_thinking {
-		changed = true
-		if a.follow {
-			a.scroll = 0
+		anim_due := time.tick_diff(a.anim_tick, time.tick_now()) >=
+			time.Duration(constants.SPINNER_FRAME_MS) * time.Millisecond
+		if poll_changed || anim_due {
+			a.anim_tick = time.tick_now()
+			changed = true
+			if a.follow {
+				a.scroll = 0
+			}
 		}
 	}
 	if changed {
@@ -206,4 +227,3 @@ app_on_tick :: proc(user: rawptr) -> bool {
 	}
 	return changed
 }
-
