@@ -49,5 +49,5 @@ coverage/
 *.rpm
 *.AppImage
 
-# Local logo previews (approve before committing assets)
+# Local logo scratch (committed assets live in logo/)
 .logo-preview/
