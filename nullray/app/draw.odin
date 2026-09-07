@@ -6,11 +6,14 @@ Transcript collection and TUI paint.
 package app
 
 import "core:fmt"
+import "core:path/filepath"
 import "core:strings"
+import "nullray:agent"
 import "nullray:config"
 import "nullray:constants"
 import "nullray:provider"
 import "nullray:session"
+import "nullray:subagent"
 import "nullray:tools"
 import "nullray:ui"
 
@@ -287,6 +290,11 @@ app_collect_blocks :: proc(a: ^App, accent: ui.Color, allocator := context.temp_
 				pfx_fg = t.error
 				body_style = {}
 			}
+		} else if m.role == .User && strings.has_prefix(m.content, agent.VERIFY_USER_PREFIX) {
+			label = "verify"
+			fg = t.warn
+			pfx_fg = t.warn
+			gutter = false
 		}
 
 		if m.role == .Assistant && len(m.reasoning) > 0 {
@@ -319,26 +327,45 @@ app_collect_blocks :: proc(a: ^App, accent: ui.Color, allocator := context.temp_
 		}
 	}
 
-	if a.session.has_thinking || a.session.has_streaming || a.session.busy {
+	if a.session.has_thinking || a.session.has_streaming || a.session.busy || len(a.session.live_tool) > 0 {
 		app_append_gap(&blocks)
 	}
 
 	if a.session.has_thinking {
+		think_body := strings.to_string(a.session.thinking)
+		think_body = app_reveal_prefix(think_body, a.reveal_think)
 		append(&blocks, Transcript_Block{
 			prefix = "think  ",
-			body = strings.to_string(a.session.thinking),
+			body = think_body,
 			prefix_fg = t.muted,
 			body_fg = t.muted,
 			prefix_style = {.Dim},
 			body_style = {.Dim},
 		})
 	}
+	if len(a.session.live_tool) > 0 {
+		run_body := a.session.live_tool_detail
+		if len(run_body) == 0 {
+			run_body = fmt.tprintf("running %s", a.session.live_tool)
+		}
+		append(&blocks, Transcript_Block{
+			prefix = "run  ",
+			body = fmt.tprintf("%s %s", ui.spinner_frame(&a.spinner), run_body),
+			prefix_fg = t.accent,
+			body_fg = t.accent_dim,
+			prefix_style = {.Bold},
+			body_style = {},
+			gutter = false,
+		})
+	}
 	if a.session.has_streaming {
 		stream_accent := ui.color_lerp(t.accent_dim, t.accent, ui.anim_pulse(1200))
+		stream_body := strings.to_string(a.session.streaming)
+		stream_body = app_reveal_prefix(stream_body, a.reveal_stream)
 		app_append_md_content(
 			&blocks,
 			"nullray  ",
-			strings.to_string(a.session.streaming),
+			stream_body,
 			stream_accent,
 			t.assistant_fg,
 			true,
@@ -346,7 +373,7 @@ app_collect_blocks :: proc(a: ^App, accent: ui.Color, allocator := context.temp_
 			false,
 			true,
 		)
-	} else if a.session.busy && !a.session.has_thinking {
+	} else if a.session.busy && len(a.session.live_tool) == 0 && !a.session.has_thinking {
 		append(&blocks, Transcript_Block{
 			prefix = "nullray  ",
 			body = fmt.tprintf("%s waiting…", ui.spinner_frame(&a.spinner)),
@@ -356,7 +383,7 @@ app_collect_blocks :: proc(a: ^App, accent: ui.Color, allocator := context.temp_
 			body_style = {.Dim},
 			gutter = true,
 		})
-	} else if a.session.busy {
+	} else if a.session.busy && len(a.session.live_tool) == 0 {
 		append(&blocks, Transcript_Block{
 			prefix = "nullray  ",
 			body = "…",
@@ -376,8 +403,14 @@ app_draw_blocks :: proc(
 	heights: []int,
 	msg_top, msg_h, skip_lines: int,
 	caret_fg, caret_bg: ui.Color,
+	area_x: int,
+	area_w: int,
 ) {
 	t := ui.theme()
+	content_w := area_w
+	if content_w <= 0 {
+		content_w = buf.width
+	}
 	skip := skip_lines
 	y := msg_top
 	remain := msg_h
@@ -403,7 +436,7 @@ app_draw_blocks :: proc(
 		}
 
 		if block.is_code {
-			used := app_draw_code_block(buf, block, y, remain, local_skip)
+			used := app_draw_code_block(buf, block, y, remain, local_skip, area_x, content_w)
 			y += used
 			remain -= used
 			continue
@@ -414,19 +447,19 @@ app_draw_blocks :: proc(
 			bg = block.row_bg
 			fill_h := min(h - local_skip, remain)
 			if fill_h > 0 {
-				ui.buffer_fill_rect(buf, 0, y, buf.width, fill_h, ' ', block.body_fg, bg)
+				ui.buffer_fill_rect(buf, area_x, y, content_w, fill_h, ' ', block.body_fg, bg)
 			}
 		}
 
-		bw := block_body_width(buf.width, block.prefix)
-		px := CONTENT_X + ui.string_cols(block.prefix)
+		bw := block_body_width(content_w, block.prefix)
+		px := area_x + CONTENT_X + ui.string_cols(block.prefix)
 
 		if local_skip == 0 {
 			if block.gutter {
-				ui.buffer_put(buf, 0, y, '▏', block.prefix_fg, bg)
+				ui.buffer_put(buf, area_x, y, '▏', block.prefix_fg, bg)
 			}
 			if len(block.prefix) > 0 {
-				ui.buffer_text(buf, CONTENT_X, y, block.prefix, block.prefix_fg, bg, block.prefix_style)
+				ui.buffer_text(buf, area_x + CONTENT_X, y, block.prefix, block.prefix_fg, bg, block.prefix_style)
 			}
 		}
 
@@ -461,27 +494,38 @@ app_draw_blocks :: proc(
 }
 
 @(private)
-app_draw_code_block :: proc(buf: ^ui.Buffer, block: Transcript_Block, y, remain, local_skip: int) -> int {
+app_draw_code_block :: proc(
+	buf: ^ui.Buffer,
+	block: Transcript_Block,
+	y, remain, local_skip: int,
+	area_x: int,
+	area_w: int,
+) -> int {
 	t := ui.theme()
 	if remain <= 0 {
 		return 0
 	}
-	x0 := 1
-	inner_w := max(1, buf.width - 4)
+	content_w := area_w
+	if content_w <= 0 {
+		content_w = buf.width
+	}
+	x0 := area_x + 1
+	inner_w := max(1, content_w - 4)
 	total := max(1, ui.wrap_line_count(block.body, inner_w))
 	lines := ui.word_wrap_lines(block.body, inner_w, context.temp_allocator, CODE_PREVIEW_LINES)
 	shown_body := min(total, CODE_PREVIEW_LINES)
 	code_bg := t.code_bg
 	used := 0
 	vis := 0
+	x_end := area_x + content_w - 1
 
 	if local_skip == 0 && used < remain {
-		ui.buffer_fill_rect(buf, x0, y, buf.width - x0 - 1, 1, ' ', t.muted, code_bg)
+		ui.buffer_fill_rect(buf, x0, y, max(1, x_end - x0), 1, ' ', t.muted, code_bg)
 		hdr := fmt.tprintf("┌ %s ", block.lang)
-		ui.buffer_text_clip(buf, x0 + 1, y, buf.width - 2, hdr, t.accent, code_bg, {.Bold})
+		ui.buffer_text_clip(buf, x0 + 1, y, x_end, hdr, t.accent, code_bg, {.Bold})
 		rule_x := x0 + 1 + ui.string_cols(hdr)
-		if rule_x < buf.width - 2 {
-			for cx := rule_x; cx < buf.width - 2; cx += 1 {
+		if rule_x < x_end {
+			for cx := rule_x; cx < x_end; cx += 1 {
 				ui.buffer_put(buf, cx, y, '─', t.border, code_bg)
 			}
 		}
@@ -506,12 +550,12 @@ app_draw_code_block :: proc(buf: ^ui.Buffer, block: Transcript_Block, y, remain,
 			line = lines[li]
 		}
 		row := y + used
-		ui.buffer_fill_rect(buf, x0, row, buf.width - x0 - 1, 1, ' ', t.fg, code_bg)
+		ui.buffer_fill_rect(buf, x0, row, max(1, x_end - x0), 1, ' ', t.fg, code_bg)
 		ui.buffer_text(buf, x0 + 1, row, "│ ", t.border, code_bg)
 		spans := ui.highlight_line(block.lang, line, context.temp_allocator)
 		cx := x0 + 3
 		if len(spans) == 0 {
-			ui.buffer_text_clip(buf, cx, row, buf.width - 2, line, t.assistant_fg, code_bg)
+			ui.buffer_text_clip(buf, cx, row, x_end, line, t.assistant_fg, code_bg)
 		} else {
 			for sp in spans {
 				if sp.start >= len(line) || sp.end <= sp.start {
@@ -519,9 +563,9 @@ app_draw_code_block :: proc(buf: ^ui.Buffer, block: Transcript_Block, y, remain,
 				}
 				end := min(sp.end, len(line))
 				chunk := line[sp.start:end]
-				ui.buffer_text_clip(buf, cx, row, buf.width - 2, chunk, ui.hl_color(sp.kind, t), code_bg)
+				ui.buffer_text_clip(buf, cx, row, x_end, chunk, ui.hl_color(sp.kind, t), code_bg)
 				cx += ui.string_cols(chunk)
-				if cx >= buf.width - 2 {
+				if cx >= x_end {
 					break
 				}
 			}
@@ -533,15 +577,15 @@ app_draw_code_block :: proc(buf: ^ui.Buffer, block: Transcript_Block, y, remain,
 	footer_vis := 1 + shown_body
 	if used < remain && !(local_skip > 0 && vis < local_skip) {
 		row := y + used
-		ui.buffer_fill_rect(buf, x0, row, buf.width - x0 - 1, 1, ' ', t.muted, code_bg)
+		ui.buffer_fill_rect(buf, x0, row, max(1, x_end - x0), 1, ' ', t.muted, code_bg)
 		foot := "└"
 		if total > CODE_PREVIEW_LINES {
 			foot = fmt.tprintf("└ … %d more", total - CODE_PREVIEW_LINES)
 		}
-		ui.buffer_text_clip(buf, x0 + 1, row, buf.width - 2, foot, t.muted, code_bg, {.Dim})
+		ui.buffer_text_clip(buf, x0 + 1, row, x_end, foot, t.muted, code_bg, {.Dim})
 		rule_x := x0 + 1 + ui.string_cols(foot) + 1
-		if total <= CODE_PREVIEW_LINES && rule_x < buf.width - 2 {
-			for cx := rule_x; cx < buf.width - 2; cx += 1 {
+		if total <= CODE_PREVIEW_LINES && rule_x < x_end {
+			for cx := rule_x; cx < x_end; cx += 1 {
 				ui.buffer_put(buf, cx, row, '─', t.border, code_bg)
 			}
 		}
@@ -555,6 +599,11 @@ app_draw :: proc(buf: ^ui.Buffer, user: rawptr) {
 	a := cast(^App)user
 	if splash_active(a) {
 		app_draw_splash(buf, a)
+		a.dirty = false
+		return
+	}
+	if a.show_setup {
+		app_draw_setup(buf, a)
 		a.dirty = false
 		return
 	}
@@ -578,6 +627,12 @@ app_draw :: proc(buf: ^ui.Buffer, user: rawptr) {
 			sess = "default"
 		}
 		right := fmt.tprintf("%s · %s · %s", p.name, p.default_model, sess)
+		if agents := subagent.roster_compact_line(&a.subagents.roster, context.temp_allocator); len(agents) > 0 {
+			right = fmt.tprintf("%s · %s", right, agents)
+		}
+		if subagent.policy_is_locked() || a.subagents.model_locked {
+			right = fmt.tprintf("%s · lock", right)
+		}
 		if len(a.session.group) > 0 {
 			right = fmt.tprintf("%s · g:%s", right, a.session.group)
 		}
@@ -604,26 +659,39 @@ app_draw :: proc(buf: ^ui.Buffer, user: rawptr) {
 	msg_bottom := buf.height - 4
 	msg_h := max(msg_bottom - msg_top + 1, 1)
 
-	blocks := app_collect_blocks(a, accent)
-	heights := make([]int, len(blocks), context.temp_allocator)
-	total_h := 0
-	for b, i in blocks {
-		heights[i] = block_height(b, buf.width)
-		total_h += heights[i]
+	lay := app_view_layout(a, buf.width, buf.height)
+
+	if !(lay.open && lay.overlay) {
+		content_w := buf.width
+		if lay.open && !lay.overlay {
+			content_w = max(1, lay.split_x)
+		}
+
+		blocks := app_collect_blocks(a, accent)
+		heights := make([]int, len(blocks), context.temp_allocator)
+		total_h := 0
+		for b, i in blocks {
+			heights[i] = block_height(b, content_w)
+			total_h += heights[i]
+		}
+
+		if a.follow {
+			a.scroll = 0
+		}
+		max_scroll := max(0, total_h - msg_h)
+		if a.scroll > max_scroll {
+			a.scroll = max_scroll
+		}
+		if a.scroll == 0 {
+			a.follow = true
+		}
+		skip := max(0, total_h - msg_h - a.scroll)
+		app_draw_blocks(buf, blocks, heights, msg_top, msg_h, skip, t.accent, t.bg, 0, content_w)
 	}
 
-	if a.follow {
-		a.scroll = 0
+	if lay.open {
+		app_draw_view_pane(buf, a, lay)
 	}
-	max_scroll := max(0, total_h - msg_h)
-	if a.scroll > max_scroll {
-		a.scroll = max_scroll
-	}
-	if a.scroll == 0 {
-		a.follow = true
-	}
-	skip := max(0, total_h - msg_h - a.scroll)
-	app_draw_blocks(buf, blocks, heights, msg_top, msg_h, skip, t.accent, t.bg)
 
 	ui.buffer_hline(buf, 0, buf.height - 3, buf.width, '─', t.border, t.bg)
 
@@ -641,15 +709,39 @@ app_draw :: proc(buf: ^ui.Buffer, user: rawptr) {
 	} else if strings.has_prefix(a.session.status, "error") {
 		status_left = a.session.status
 		status_fg = t.error
+	} else if a.view_open {
+		base := filepath.base(a.view_path)
+		if len(a.view_recent) > 1 {
+			status_left = fmt.tprintf("view: %s (%d/%d)", base, a.view_idx + 1, len(a.view_recent))
+		} else {
+			status_left = fmt.tprintf("view: %s", base)
+		}
+		if a.view_focus {
+			status_left = fmt.tprintf("%s · focus", status_left)
+		}
+		status_fg = t.accent
 	} else if a.session.last_usage.total_tokens > 0 {
 		status_left = session.session_ready_status(&a.session)
 	}
 	help := "type / · ? help · ^q quit"
+	if a.view_open {
+		help = "Tab focus · [ ] files · Esc close"
+	} else if a.sel_has || a.sel_dragging {
+		help = "drag select · /copy · Esc clear"
+	}
 	ui.draw_status_bar_ex(buf, buf.height - 2, status_left, help, status_fg, t.muted, t.status_bg)
+
+	cap_x1 := buf.width - 1
+	if lay.open && !lay.overlay {
+		cap_x1 = max(0, lay.split_x - 1)
+	}
+	app_sel_capture_buffer(a, buf, msg_top, msg_bottom, 0, cap_x1)
 
 	text := strings.to_string(a.input)
 	ui.draw_input_line(buf, buf.height - 1, "❯ ", text, a.cursor, t.fg, t.input_bg, t.accent)
 	app_draw_suggestions(buf, a)
+	app_apply_selection_style(buf, a)
+	app_draw_toasts(buf, a)
 
 	a.dirty = false
 }
@@ -683,11 +775,21 @@ app_draw_help :: proc(buf: ^ui.Buffer, a: ^App) {
 @(private)
 app_draw_suggestions :: proc(buf: ^ui.Buffer, a: ^App) {
 	text := strings.to_string(a.input)
+	t := ui.theme()
+	hint := slash_arg_hint(text)
+	if len(hint) > 0 {
+		y := buf.height - 3
+		if y < 2 {
+			y = 2
+		}
+		ui.buffer_fill_rect(buf, 0, y, buf.width, 1, ' ', t.highlight_fg, t.highlight_bg)
+		ui.buffer_text_clip(buf, 1, y, buf.width - 1, hint, t.accent, t.highlight_bg, {.Bold})
+		return
+	}
 	matches := slash_matches(text)
 	if len(matches) == 0 {
 		return
 	}
-	t := ui.theme()
 	max_show := min(len(matches), 6)
 	start_y := buf.height - 3 - max_show
 	if start_y < 2 {
@@ -703,7 +805,7 @@ app_draw_suggestions :: proc(buf: ^ui.Buffer, a: ^App) {
 	for i in 0 ..< max_show {
 		cmd := matches[i]
 		y := start_y + i
-		line := fmt.tprintf("/%-12s %s", cmd.name, cmd.help)
+		line := fmt.tprintf("%-28s %s", cmd.usage, cmd.help)
 		bg := t.highlight_bg
 		fg := t.highlight_fg
 		style: ui.Style

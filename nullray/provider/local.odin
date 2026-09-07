@@ -10,7 +10,18 @@ import "core:strings"
 import "nullray:http"
 
 ollama_list_models :: proc(p: ^Provider, allocator := context.allocator) -> (models: []Model_Info, err: string) {
-	models, err = openai_list_models(p, allocator)
+	return ollama_list_models_timeout(p, 30, allocator)
+}
+
+ollama_list_models_timeout :: proc(
+	p: ^Provider,
+	timeout_sec: int,
+	allocator := context.allocator,
+) -> (
+	models: []Model_Info,
+	err: string,
+) {
+	models, err = openai_list_models_timeout(p, timeout_sec, allocator)
 	if err == "" && len(models) > 0 {
 		return models, ""
 	}
@@ -22,7 +33,7 @@ ollama_list_models :: proc(p: ^Provider, allocator := context.allocator) -> (mod
 
 	root := openai_compat_root(p.base_url)
 	url := http.join_url(root, "/api/tags")
-	res := http.get(url, nil, 30, context.temp_allocator)
+	res := http.get(url, nil, timeout_sec, context.temp_allocator)
 	if !res.ok {
 		if len(saved_err) > 0 {
 			return nil, saved_err
@@ -43,6 +54,39 @@ ollama_list_models :: proc(p: ^Provider, allocator := context.allocator) -> (mod
 
 lmstudio_list_models :: proc(p: ^Provider, allocator := context.allocator) -> (models: []Model_Info, err: string) {
 	return openai_list_models(p, allocator)
+}
+
+lmstudio_list_models_timeout :: proc(
+	p: ^Provider,
+	timeout_sec: int,
+	allocator := context.allocator,
+) -> (
+	models: []Model_Info,
+	err: string,
+) {
+	return openai_list_models_timeout(p, timeout_sec, allocator)
+}
+
+// Short probe used by TUI setup. Does not run in headless paths.
+probe_local_provider :: proc(id: string, timeout_sec := 2) -> bool {
+	p: Provider
+	switch id {
+	case "ollama":
+		p = make_ollama()
+		defer provider_destroy(&p)
+		models, err := ollama_list_models_timeout(&p, timeout_sec)
+		defer destroy_models(models)
+		defer delete(err)
+		return err == "" && len(models) > 0
+	case "lmstudio":
+		p = make_lmstudio()
+		defer provider_destroy(&p)
+		models, err := lmstudio_list_models_timeout(&p, timeout_sec)
+		defer destroy_models(models)
+		defer delete(err)
+		return err == "" && len(models) > 0
+	}
+	return false
 }
 
 openai_compat_root :: proc(base_url: string, allocator := context.temp_allocator) -> string {
@@ -112,6 +156,11 @@ destroy_models :: proc(models: []Model_Info) {
 	for m in models {
 		delete(m.id)
 		delete(m.name)
+		delete(m.reasoning_default)
+		for e in m.reasoning_efforts {
+			delete(e)
+		}
+		delete(m.reasoning_efforts)
 	}
 	delete(models)
 }

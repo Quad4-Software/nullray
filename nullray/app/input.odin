@@ -71,6 +71,10 @@ app_on_event :: proc(ev: ui.Event, user: rawptr) -> bool {
 		return false
 	}
 
+	if a.show_setup {
+		return app_setup_on_event(a, ev)
+	}
+
 	if a.show_help {
 		if ev.kind == .Esc || ev.kind == .F1 || config.binds_resolve(a.binds, ev.kind) == .Help {
 			app_toggle_help(a)
@@ -108,6 +112,81 @@ app_on_event :: proc(ev: ui.Event, user: rawptr) -> bool {
 	}
 
 	suggesting := len(slash_matches(strings.to_string(a.input))) > 0
+
+	if !suggesting && !(a.view_open && a.view_focus) {
+		#partial switch ev.kind {
+		case .Up:
+			if app_history_up(a) {
+				return false
+			}
+		case .Down:
+			if app_history_down(a) {
+				return false
+			}
+		}
+	}
+
+	if a.view_open && !suggesting {
+		if ev.kind == .Tab {
+			a.view_focus = !a.view_focus
+			app_mark_dirty(a)
+			return false
+		}
+		if ev.kind == .Esc && len(strings.to_string(a.input)) == 0 {
+			app_view_close(a)
+			session.session_set_status(&a.session, "view closed")
+			return false
+		}
+		if a.view_focus {
+			lay := app_view_layout(a, a.loop.term.width, a.loop.term.height)
+			#partial switch ev.kind {
+			case .Page_Up, .Up, .Mouse_Wheel_Up:
+				step := 1
+				if ev.kind == .Page_Up {
+					step = max(8, lay.pane_h / 2)
+				} else if ev.kind == .Mouse_Wheel_Up {
+					step = 3
+				}
+				app_view_scroll_by(a, -step, lay.pane_h)
+				return false
+			case .Page_Down, .Down, .Mouse_Wheel_Down:
+				step := 1
+				if ev.kind == .Page_Down {
+					step = max(8, lay.pane_h / 2)
+				} else if ev.kind == .Mouse_Wheel_Down {
+					step = 3
+				}
+				app_view_scroll_by(a, step, lay.pane_h)
+				return false
+			case .Left:
+				app_view_switch(a, -1)
+				return false
+			case .Right:
+				app_view_switch(a, 1)
+				return false
+			case .Rune:
+				if ev.ch == '[' {
+					app_view_switch(a, -1)
+					return false
+				}
+				if ev.ch == ']' {
+					app_view_switch(a, 1)
+					return false
+				}
+			}
+		} else if ev.kind == .Mouse_Wheel_Up || ev.kind == .Mouse_Wheel_Down {
+			lay := app_view_layout(a, a.loop.term.width, a.loop.term.height)
+			if lay.open && !lay.overlay && ev.mx >= lay.pane_x {
+				step := 3
+				if ev.kind == .Mouse_Wheel_Up {
+					app_view_scroll_by(a, -step, lay.pane_h)
+				} else {
+					app_view_scroll_by(a, step, lay.pane_h)
+				}
+				return false
+			}
+		}
+	}
 
 	if suggesting {
 		#partial switch ev.kind {
@@ -222,19 +301,43 @@ app_on_event :: proc(ev: ui.Event, user: rawptr) -> bool {
 		return false
 	case .Scroll_Up:
 		if !suggesting {
-			app_scroll_by(a, 1)
+			if a.view_open && a.view_focus {
+				lay := app_view_layout(a, a.loop.term.width, a.loop.term.height)
+				app_view_scroll_by(a, -1, lay.pane_h)
+			} else if app_history_up(a) {
+				return false
+			} else {
+				app_scroll_by(a, 1)
+			}
 		}
 		return false
 	case .Scroll_Down:
 		if !suggesting {
-			app_scroll_by(a, -1)
+			if a.view_open && a.view_focus {
+				lay := app_view_layout(a, a.loop.term.width, a.loop.term.height)
+				app_view_scroll_by(a, 1, lay.pane_h)
+			} else if app_history_down(a) {
+				return false
+			} else {
+				app_scroll_by(a, -1)
+			}
 		}
 		return false
 	case .Page_Up:
-		app_scroll_by(a, max(8, a.loop.term.height / 2))
+		if a.view_open && a.view_focus {
+			lay := app_view_layout(a, a.loop.term.width, a.loop.term.height)
+			app_view_scroll_by(a, -max(8, lay.pane_h / 2), lay.pane_h)
+		} else {
+			app_scroll_by(a, max(8, a.loop.term.height / 2))
+		}
 		return false
 	case .Page_Down:
-		app_scroll_by(a, -max(8, a.loop.term.height / 2))
+		if a.view_open && a.view_focus {
+			lay := app_view_layout(a, a.loop.term.width, a.loop.term.height)
+			app_view_scroll_by(a, max(8, lay.pane_h / 2), lay.pane_h)
+		} else {
+			app_scroll_by(a, -max(8, a.loop.term.height / 2))
+		}
 		return false
 	case .Follow_Bottom:
 		app_follow_bottom(a)
@@ -332,14 +435,46 @@ app_on_event :: proc(ev: ui.Event, user: rawptr) -> bool {
 	case .Mouse_Press:
 		if ev.my >= a.loop.term.height - 3 {
 			app_follow_bottom(a)
+			return false
+		}
+		if ev.ch == 0 && app_mouse_in_transcript(a, ev.mx, ev.my) {
+			app_sel_start(a, ev.mx, ev.my)
+			return false
+		}
+	case .Mouse_Drag:
+		if a.sel_dragging && ev.ch == 0 {
+			app_sel_update(a, ev.mx, ev.my)
+			return false
+		}
+	case .Mouse_Release:
+		if a.sel_dragging && ev.ch == 0 {
+			moved := ev.mx != a.sel_ax || ev.my != a.sel_ay
+			if !moved {
+				a.sel_dragging = false
+				_ = app_sel_click_message(a, ev.my)
+			} else {
+				app_sel_finish(a, ev.mx, ev.my, true)
+			}
+			return false
 		}
 	case .Rune:
 		// Allow typing while busy so /allow and /deny can be entered mid-turn.
 		if ev.ch >= 0x20 {
+			if a.sel_has {
+				app_sel_clear(a)
+			}
 			app_insert_rune(a, ev.ch)
 		}
 	case .Esc:
-		if len(strings.to_string(a.input)) > 0 {
+		if a.sel_has || a.sel_dragging {
+			app_sel_clear(a)
+			app_mark_dirty(a)
+			return false
+		}
+		if a.view_open && len(strings.to_string(a.input)) == 0 {
+			app_view_close(a)
+			session.session_set_status(&a.session, "view closed")
+		} else if len(strings.to_string(a.input)) > 0 {
 			strings.builder_reset(&a.input)
 			a.cursor = 0
 			a.suggest_sel = 0
@@ -347,6 +482,20 @@ app_on_event :: proc(ev: ui.Event, user: rawptr) -> bool {
 		}
 	}
 	return false
+}
+
+@(private)
+app_mouse_in_transcript :: proc(a: ^App, mx, my: int) -> bool {
+	h := a.loop.term.height
+	w := a.loop.term.width
+	if my < 2 || my > h - 4 {
+		return false
+	}
+	lay := app_view_layout(a, w, h)
+	if lay.open && !lay.overlay && mx >= lay.split_x {
+		return false
+	}
+	return true
 }
 
 @(private)
@@ -619,12 +768,17 @@ app_submit :: proc(a: ^App) {
 	a.cursor = 0
 	a.scroll = 0
 	a.follow = true
+	a.input_hist_idx = -1
+	delete(a.input_draft)
+	a.input_draft = ""
 
 	if app_handle_slash(a, text) {
 		app_mark_dirty(a)
 		return
 	}
 
+	app_history_push(a, text)
+	app_reveal_reset(a)
 	session.session_push_user(&a.session, text)
 	p := provider.registry_active(&a.registry)
 	session.session_start_chat(&a.session, p)

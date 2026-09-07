@@ -26,6 +26,7 @@ Dense file map for nullray/ui, nullray/app, nullray/config.
 | File | Owns |
 |------|------|
 | app.odin | App, init/destroy, dirty, on_tick |
+| setup.odin | TUI setup wizard overlay |
 | draw.odin | app_draw, blocks, help overlay |
 | input.odin | app_on_event, line edit, scroll, submit |
 | splash.odin | splash timer + draw |

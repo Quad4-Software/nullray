@@ -1,7 +1,8 @@
 // SPDX-License-Identifier: 0BSD
 /*
-Load KEY=value pairs from ~/.config/nullray/env into the process environment.
-Does not overwrite keys already set.
+Load and merge KEY=value pairs in ~/.config/nullray/env.
+load_env_file does not overwrite keys already set in the process.
+merge_env_keys upserts keys, preserves comments, and set_env for the process.
 */
 
 package config
@@ -12,6 +13,11 @@ import "core:path/filepath"
 import "core:strings"
 import "nullray:constants"
 import "nullray:sandbox"
+
+Env_KV :: struct {
+	key: string,
+	val: string,
+}
 
 env_path :: proc(allocator := context.allocator) -> string {
 	base := sandbox.resolve_config_dir(context.temp_allocator)
@@ -59,4 +65,92 @@ load_env_file :: proc() -> (loaded: int, err: string) {
 	}
 	_ = constants.APP_NAME
 	return loaded, ""
+}
+
+setup_done_from_env :: proc() -> bool {
+	if v, ok := os.lookup_env(constants.ENV_SETUP_DONE, context.temp_allocator); ok {
+		switch strings.to_lower(strings.trim_space(v), context.temp_allocator) {
+		case "1", "true", "yes", "on":
+			return true
+		}
+	}
+	return false
+}
+
+// Merge keys into an env file body. Preserves comments, blanks, and unknown keys.
+merge_env_body :: proc(existing: string, kvs: []Env_KV, allocator := context.allocator) -> string {
+	lines := strings.split_lines(existing, context.temp_allocator)
+	out := make([dynamic]string, context.temp_allocator)
+	seen := make(map[string]bool, context.temp_allocator)
+
+	for raw in lines {
+		line := raw
+		trim := strings.trim_space(line)
+		if len(trim) == 0 || strings.has_prefix(trim, "#") {
+			append(&out, line)
+			continue
+		}
+		eq := strings.index_byte(trim, '=')
+		if eq <= 0 {
+			append(&out, line)
+			continue
+		}
+		key := strings.trim_space(trim[:eq])
+		replaced := false
+		for kv in kvs {
+			if kv.key == key {
+				append(&out, fmt.tprintf("%s=%s", kv.key, kv.val))
+				seen[key] = true
+				replaced = true
+				break
+			}
+		}
+		if !replaced {
+			append(&out, line)
+		}
+	}
+	for kv in kvs {
+		if seen[kv.key] {
+			continue
+		}
+		append(&out, fmt.tprintf("%s=%s", kv.key, kv.val))
+		seen[kv.key] = true
+	}
+	return strings.join(out[:], "\n", allocator)
+}
+
+merge_env_keys :: proc(kvs: []Env_KV, path := "", apply_process := true) -> (err: string) {
+	p := path
+	owned_path: string
+	if len(p) == 0 {
+		owned_path = env_path()
+		p = owned_path
+	}
+	defer if len(owned_path) > 0 {
+		delete(owned_path)
+	}
+
+	dir := filepath.dir(p)
+	_ = os.make_directory_all(dir)
+
+	existing := ""
+	if data, rerr := os.read_entire_file(p, context.temp_allocator); rerr == nil {
+		existing = string(data)
+	} else if rerr != os.General_Error.Not_Exist {
+		return fmt.aprintf("read env failed: %v", rerr)
+	}
+
+	body := merge_env_body(existing, kvs, context.temp_allocator)
+	if !strings.has_suffix(body, "\n") {
+		body = fmt.tprintf("%s\n", body)
+	}
+	if werr := os.write_entire_file(p, transmute([]byte)body); werr != nil {
+		return fmt.aprintf("write env failed: %v", werr)
+	}
+	if apply_process {
+		for kv in kvs {
+			os.set_env(kv.key, kv.val)
+		}
+	}
+	return ""
 }

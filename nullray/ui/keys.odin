@@ -52,6 +52,8 @@ Key :: enum {
 	Mouse_Wheel_Up,
 	Mouse_Wheel_Down,
 	Mouse_Press,
+	Mouse_Release,
+	Mouse_Drag,
 }
 
 Event :: struct {
@@ -167,13 +169,13 @@ decode_csi :: proc() -> (ev: Event, ok: bool) {
 		if !parsed {
 			return Event{kind = .Esc}, true
 		}
-		// Release events end with 'm'
-		if final == 'm' {
-			return {}, false
-		}
 		mx := col - 1
 		my := row - 1
-		// Wheel bits: 64 up, 65 down (plus optional modifiers)
+		// Shift (bit 4): leave for terminal native selection when possible.
+		// Still consume the event since the terminal already sent it.
+		if (btn & 0x04) != 0 {
+			return {}, false
+		}
 		wheel := btn & 0x40
 		if wheel != 0 {
 			if (btn & 0x01) != 0 {
@@ -181,11 +183,14 @@ decode_csi :: proc() -> (ev: Event, ok: bool) {
 			}
 			return Event{kind = .Mouse_Wheel_Up, mx = mx, my = my}, true
 		}
-		// Motion with button (bit 32) ignore
-		if (btn & 0x20) != 0 {
-			return {}, false
+		button := rune(btn & 0x03)
+		if final == 'm' {
+			return Event{kind = .Mouse_Release, mx = mx, my = my, ch = button}, true
 		}
-		return Event{kind = .Mouse_Press, mx = mx, my = my, ch = rune(btn & 0x03)}, true
+		if (btn & 0x20) != 0 {
+			return Event{kind = .Mouse_Drag, mx = mx, my = my, ch = button}, true
+		}
+		return Event{kind = .Mouse_Press, mx = mx, my = my, ch = button}, true
 	}
 
 	// Legacy mouse: ESC [ M Cb Cx Cy

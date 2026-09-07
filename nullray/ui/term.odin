@@ -38,7 +38,7 @@ term_init :: proc(t: ^Term, preferred_color := "") -> bool {
 	}
 	strings.write_string(&t.out, "\x1b[2J\x1b[H\x1b[?25l")
 	if t.mouse {
-		strings.write_string(&t.out, "\x1b[?1000h\x1b[?1006h")
+		strings.write_string(&t.out, "\x1b[?1000h\x1b[?1002h\x1b[?1006h")
 	}
 	if !term_is_limited() {
 		strings.write_string(&t.out, "\x1b[?2004h")
@@ -54,7 +54,7 @@ term_close :: proc(t: ^Term) {
 			strings.write_string(&t.out, "\x1b[?2004l")
 		}
 		if t.mouse {
-			strings.write_string(&t.out, "\x1b[?1006l\x1b[?1000l")
+			strings.write_string(&t.out, "\x1b[?1006l\x1b[?1002l\x1b[?1000l")
 		}
 		strings.write_string(&t.out, "\x1b[0m\x1b[?25h")
 		if t.alt_screen {

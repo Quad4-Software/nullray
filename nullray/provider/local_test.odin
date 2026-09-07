@@ -6,6 +6,22 @@ import "core:testing"
 import "nullray:constants"
 
 @(test)
+test_parse_openai_models_reasoning_meta :: proc(t: ^testing.T) {
+	body := `{"data":[{"id":"google/gemini-flash","reasoning":{"supported_efforts":["high","medium","low"],"default_effort":"medium","default_enabled":true,"mandatory":true}},{"id":"plain/model"}]}`
+	models, err := parse_openai_models_body(body)
+	testing.expect_value(t, err, "")
+	testing.expect_value(t, len(models), 2)
+	testing.expect(t, models[0].has_reasoning_meta)
+	testing.expect_value(t, models[0].reasoning_default, "medium")
+	testing.expect(t, models[0].reasoning_default_on)
+	testing.expect(t, models[0].reasoning_mandatory)
+	testing.expect_value(t, len(models[0].reasoning_efforts), 3)
+	testing.expect_value(t, models[0].reasoning_efforts[0], "high")
+	testing.expect(t, !models[1].has_reasoning_meta)
+	destroy_models(models)
+}
+
+@(test)
 test_parse_openai_models_body :: proc(t: ^testing.T) {
 	body := `{"object":"list","data":[{"id":"gemma3:4b"},{"id":"llama3.2"}]}`
 	models, err := parse_openai_models_body(body)

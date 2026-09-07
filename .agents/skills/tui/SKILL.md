@@ -60,12 +60,18 @@ While splash_active, any key or mouse ends splash early (event is not applied to
 
 Ink templates are ASCII `#`. When `term_utf8_ok` (UTF-8 locale, Windows, or default modern host), paint U+2588 full block. Explicit legacy locales (C, POSIX, ISO-8859, KOI8) keep `#`. `TERM=dumb` does not force ASCII. Colors still go through cells. No ANSI escapes in the buffer.
 
+## Setup overlay
+
+TUI-only (`app_maybe_begin_setup` from `app_init`). Draw/input priority: splash → setup → help → chat.
+
+`/setup` reopens. Auto-open when `setup_needed` (no `NULLRAY_SETUP_DONE`, no usable cloud key, no live local probe). Persist via `config.merge_env_keys` to `~/.config/nullray/env`. Never call from `--print` or `--self-test`.
+
 ## Ownership (UI)
 
 | Lifetime | Examples |
 |----------|----------|
 | frame temp | md_parse, highlight_line, fmt.tprintf, slash_matches |
-| App permanent | credits_label, improve_undo, input Builder |
+| App permanent | credits_label, improve_undo, input Builder, setup_* strings and models |
 | Term/Buffer | cells, prev (destroy in close/resize) |
 
 clipboard_paste returns owned text. delete after insert.

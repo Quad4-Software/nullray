@@ -14,7 +14,9 @@ import "nullray:constants"
 import "nullray:provider"
 import "nullray:sandbox"
 import "nullray:session"
+import "nullray:skills"
 import "nullray:store"
+import "nullray:subagent"
 import "nullray:tools"
 import "nullray:ui"
 
@@ -55,6 +57,11 @@ slash_cmd_keys :: proc(a: ^App, args: string) {
 	session.session_set_status(&a.session, "keys")
 }
 
+slash_cmd_setup :: proc(a: ^App, args: string) {
+	_ = args
+	app_setup_open(a, false)
+}
+
 slash_cmd_themes :: proc(a: ^App, args: string) {
 	_ = args
 	names := ui.theme_names()
@@ -72,6 +79,25 @@ slash_cmd_themes :: proc(a: ^App, args: string) {
 	session.session_push_assistant(&a.session, out)
 	delete(out)
 	session.session_set_status(&a.session, "themes")
+}
+
+slash_cmd_skills :: proc(a: ^App, args: string) {
+	id := strings.trim_space(args)
+	if len(id) == 0 {
+		list := skills.skills_list_text()
+		session.session_push_assistant(&a.session, list)
+		delete(list)
+		session.session_set_status(&a.session, "skills")
+		return
+	}
+	text, ok := skills.skills_show_text(id)
+	if !ok {
+		session.session_set_status(&a.session, fmt.tprintf("unknown skill: %s · type /skills", id))
+		return
+	}
+	session.session_push_assistant(&a.session, text)
+	delete(text)
+	session.session_set_status(&a.session, fmt.tprintf("skill %s", id))
 }
 
 slash_cmd_theme :: proc(a: ^App, args: string) {
@@ -241,6 +267,120 @@ slash_cmd_mode :: proc(a: ^App, args: string) {
 	session.session_set_mode(&a.session, m)
 }
 
+slash_cmd_model :: proc(a: ^App, args: string) {
+	rest := strings.trim_space(args)
+	p := provider.registry_active(&a.registry)
+	if len(rest) == 0 {
+		lock := subagent.policy_is_locked() || a.subagents.model_locked
+		model := p != nil ? p.default_model : a.session.model
+		session.session_set_status(&a.session, fmt.tprintf("model %s lock=%s", model, lock ? "on" : "off"))
+		return
+	}
+	low := strings.to_lower(rest, context.temp_allocator)
+	if low == "lock" {
+		subagent.policy_set_lock(true)
+		a.subagents.model_locked = true
+		if p != nil {
+			delete(a.subagents.main_model)
+			a.subagents.main_model = strings.clone(p.default_model)
+		}
+		session.session_set_status(&a.session, "model locked")
+		return
+	}
+	if low == "unlock" {
+		subagent.policy_set_lock(false)
+		a.subagents.model_locked = false
+		session.session_set_status(&a.session, "model unlocked")
+		return
+	}
+	if subagent.policy_is_locked() || a.subagents.model_locked {
+		session.session_set_status(&a.session, "model locked (use /model unlock)")
+		return
+	}
+	resolved, err := subagent.policy_resolve("main", rest, p != nil ? p.default_model : "", "", context.temp_allocator)
+	if err != "" {
+		session.session_set_status(&a.session, err)
+		return
+	}
+	if p != nil {
+		delete(p.default_model)
+		p.default_model = strings.clone(resolved)
+		session.session_remember_model(&a.session, p.id, p.default_model)
+	}
+	delete(a.subagents.main_model)
+	a.subagents.main_model = strings.clone(resolved)
+	subagent.runtime_set_provider(&a.subagents, p)
+	session.session_set_status(&a.session, fmt.tprintf("model %s", resolved))
+}
+
+slash_cmd_models :: proc(a: ^App, args: string) {
+	_ = args
+	text := subagent.policy_list_text(context.temp_allocator)
+	session.session_set_status(&a.session, text)
+}
+
+slash_cmd_agents :: proc(a: ^App, args: string) {
+	rest := strings.trim_space(args)
+	parts := strings.fields(rest, context.temp_allocator)
+	if len(parts) == 0 || parts[0] == "list" {
+		text := subagent.roster_status_text(&a.subagents.roster, context.temp_allocator)
+		enabled := subagent.runtime_enabled(&a.subagents)
+		session.session_set_status(&a.session, fmt.tprintf("subagents %s\n%s", enabled ? "on" : "off", text))
+		return
+	}
+	switch parts[0] {
+	case "off":
+		subagent.runtime_set_session_off(&a.subagents, true)
+		tools.register_subagent_tools(&a.tools_reg, false)
+		session.session_set_status(&a.session, "subagents off")
+	case "on":
+		subagent.runtime_set_session_off(&a.subagents, false)
+		tools.register_subagent_tools(&a.tools_reg, subagent.runtime_enabled(&a.subagents))
+		session.session_set_status(&a.session, "subagents on")
+	case "knowledge":
+		text := subagent.knowledge_list(&a.subagents.knowledge, "", context.temp_allocator)
+		session.session_set_status(&a.session, text)
+	case "cancel":
+		if len(parts) < 2 {
+			session.session_set_status(&a.session, "usage: /agents cancel ID")
+			return
+		}
+		subagent.roster_request_cancel(&a.subagents.roster, parts[1])
+		session.session_set_status(&a.session, fmt.tprintf("cancel requested for %s", parts[1]))
+	case "apply":
+		force := false
+		group := ""
+		for i in 1 ..< len(parts) {
+			if parts[i] == "--force" {
+				force = true
+			} else {
+				group = parts[i]
+			}
+		}
+		if len(group) == 0 {
+			session.session_set_status(&a.session, "usage: /agents apply GROUP [--force]")
+			return
+		}
+		ok, reason := subagent.roster_apply_allowed(&a.subagents.roster, group, force)
+		if !ok {
+			session.session_set_status(&a.session, reason)
+			return
+		}
+		ws := ""
+		if st := sandbox.state(); st != nil {
+			ws = st.workspace
+		}
+		merged, merr := subagent.roster_apply_worktrees(&a.subagents.roster, group, ws, context.temp_allocator)
+		if merr != "" {
+			session.session_set_status(&a.session, merr)
+			return
+		}
+		session.session_set_status(&a.session, fmt.tprintf("apply ok (merged %d) force=%v", merged, force))
+	case:
+		session.session_set_status(&a.session, "usage: /agents [list|on|off|knowledge|cancel ID|apply GROUP [--force]]")
+	}
+}
+
 slash_cmd_approve :: proc(a: ^App, args: string) {
 	_ = args
 	if len(a.session.last_plan_path) == 0 {
@@ -293,11 +433,16 @@ slash_cmd_verify :: proc(a: ^App, args: string) {
 	if len(rest) == 0 {
 		v, off := agent.verify_command_from_env(context.temp_allocator)
 		if off {
-			session.session_set_status(&a.session, "verify off")
+			session.session_set_status(&a.session, "verify off (default). /verify on or /verify make test")
 			return
 		}
 		if len(v) == 0 {
-			session.session_set_status(&a.session, "verify default (plan/AGENTS/make test)")
+			resolved, _ := agent.resolve_verify_command(a.session.plan_verify, context.temp_allocator)
+			if len(resolved) > 0 {
+				session.session_set_status(&a.session, fmt.tprintf("verify on -> %s", resolved))
+			} else {
+				session.session_set_status(&a.session, "verify on (plan/AGENTS/make test)")
+			}
 			return
 		}
 		session.session_set_status(&a.session, fmt.tprintf("verify %s", v))
@@ -309,8 +454,13 @@ slash_cmd_verify :: proc(a: ^App, args: string) {
 		os.set_env(constants.ENV_VERIFY, "0")
 		session.session_set_status(&a.session, "verify off")
 	case "on", "1", "true", "yes":
-		os.unset_env(constants.ENV_VERIFY)
-		session.session_set_status(&a.session, "verify on (default command)")
+		os.set_env(constants.ENV_VERIFY, "1")
+		resolved, _ := agent.resolve_verify_command(a.session.plan_verify, context.temp_allocator)
+		if len(resolved) > 0 {
+			session.session_set_status(&a.session, fmt.tprintf("verify on -> %s", resolved))
+		} else {
+			session.session_set_status(&a.session, "verify on")
+		}
 	case:
 		os.set_env(constants.ENV_VERIFY, rest)
 		session.session_set_status(&a.session, fmt.tprintf("verify %s", rest))
@@ -372,6 +522,58 @@ slash_cmd_continue :: proc(a: ^App, args: string) {
 	extra := strings.trim_space(args)
 	p := provider.registry_active(&a.registry)
 	session.session_resume(&a.session, p, extra)
+	app_mark_dirty(a)
+}
+
+slash_cmd_retry :: proc(a: ^App, args: string) {
+	_ = args
+	if a.session.busy {
+		session.session_set_status(&a.session, "busy · stop first or wait")
+		return
+	}
+	p := provider.registry_active(&a.registry)
+	if p == nil {
+		session.session_set_status(&a.session, "no provider")
+		return
+	}
+	app_reveal_reset(a)
+	if session.session_retry_last(&a.session, p) {
+		app_toast_ok(a, "retrying last turn")
+		session.session_set_status(&a.session, "retrying...")
+	} else {
+		app_toast(a, "nothing to retry", .Warn)
+		session.session_set_status(&a.session, "nothing to retry")
+	}
+	app_mark_dirty(a)
+}
+
+slash_cmd_reset :: proc(a: ^App, args: string) {
+	rest := strings.to_lower(strings.trim_space(args), context.temp_allocator)
+	if rest == "confirm" || rest == "yes" {
+		if !a.reset_pending && rest == "yes" {
+			session.session_set_status(&a.session, "type /reset then /reset confirm")
+			return
+		}
+		ok := app_reset_all_state(a)
+		if ok {
+			app_toast_warn(a, "reset complete · setup next")
+		} else {
+			app_toast_error(a, "reset failed")
+		}
+		return
+	}
+	if rest == "cancel" || rest == "no" {
+		a.reset_pending = false
+		session.session_set_status(&a.session, "reset cancelled")
+		app_toast(a, "reset cancelled", .Info)
+		return
+	}
+	a.reset_pending = true
+	session.session_set_status(
+		&a.session,
+		"DANGER: wipe sessions+env+keys · type /reset confirm",
+	)
+	app_toast_warn(a, "confirm with /reset confirm")
 	app_mark_dirty(a)
 }
 
@@ -477,6 +679,10 @@ slash_cmd_undo :: proc(a: ^App, args: string) {
 
 slash_cmd_copy :: proc(a: ^App, args: string) {
 	_ = args
+	if a.sel_has {
+		_ = app_sel_copy(a)
+		return
+	}
 	last := ""
 	for i := len(a.session.messages) - 1; i >= 0; i -= 1 {
 		if a.session.messages[i].role == .Assistant {
@@ -485,12 +691,15 @@ slash_cmd_copy :: proc(a: ^App, args: string) {
 		}
 	}
 	if len(last) == 0 {
+		app_toast(a, "nothing to copy", .Warn)
 		session.session_set_status(&a.session, "nothing to copy")
 		return
 	}
 	if ui.clipboard_copy(last) {
+		app_toast_ok(a, "copied to clipboard")
 		session.session_set_status(&a.session, "last reply on clipboard")
 	} else {
+		app_toast_error(a, "clipboard copy failed")
 		session.session_set_status(&a.session, "clipboard copy failed")
 	}
 }
@@ -519,4 +728,28 @@ slash_cmd_attach :: proc(a: ^App, args: string) {
 	chunk := fmt.tprintf("\n\n[attached:%s]\n%s\n", path, body)
 	app_insert_text(a, chunk)
 	session.session_set_status(&a.session, fmt.tprintf("attached %s", path))
+}
+
+slash_cmd_view :: proc(a: ^App, args: string) {
+	path := strings.trim_space(args)
+	if len(path) == 0 {
+		if a.view_open {
+			app_view_close(a)
+			session.session_set_status(&a.session, "view closed")
+			return
+		}
+		session.session_set_status(&a.session, "usage: /view path")
+		return
+	}
+	_ = app_view_open(a, path)
+}
+
+slash_cmd_close :: proc(a: ^App, args: string) {
+	_ = args
+	if !a.view_open {
+		session.session_set_status(&a.session, "no file view open")
+		return
+	}
+	app_view_close(a)
+	session.session_set_status(&a.session, "view closed")
 }

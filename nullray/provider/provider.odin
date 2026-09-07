@@ -59,8 +59,13 @@ Usage :: struct {
 }
 
 Model_Info :: struct {
-	id:   string,
-	name: string,
+	id:                   string,
+	name:                 string,
+	reasoning_efforts:    []string,
+	reasoning_default:    string,
+	reasoning_default_on: bool,
+	reasoning_mandatory:  bool,
+	has_reasoning_meta:   bool,
 }
 
 Delta_Kind :: enum {

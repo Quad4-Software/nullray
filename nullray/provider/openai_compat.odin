@@ -108,13 +108,24 @@ build_openai_chat_body :: proc(
 }
 
 openai_list_models :: proc(p: ^Provider, allocator := context.allocator) -> (models: []Model_Info, err: string) {
+	return openai_list_models_timeout(p, 30, allocator)
+}
+
+openai_list_models_timeout :: proc(
+	p: ^Provider,
+	timeout_sec: int,
+	allocator := context.allocator,
+) -> (
+	models: []Model_Info,
+	err: string,
+) {
 	if p == nil || len(p.base_url) == 0 {
 		return nil, strings.clone("provider base URL missing (set NULLRAY_BASE_URL or OPENAI_BASE_URL)", allocator)
 	}
 	headers := make([dynamic]string, context.temp_allocator)
 	append_provider_headers(&headers, p)
 	url := http.join_url(p.base_url, "/models")
-	res := http.get(url, headers[:], 30, context.temp_allocator)
+	res := http.get(url, headers[:], timeout_sec, context.temp_allocator)
 	if !res.ok {
 		return nil, strings.clone(res.err, allocator)
 	}
@@ -647,7 +658,42 @@ parse_openai_models_body :: proc(body: string, allocator := context.allocator) -
 		if len(id) == 0 {
 			continue
 		}
-		append(&out, Model_Info{id = strings.clone(id, allocator), name = strings.clone(id, allocator)})
+		info := Model_Info{
+			id = strings.clone(id, allocator),
+			name = strings.clone(id, allocator),
+		}
+		if rv, rok := mobj["reasoning"]; rok {
+			if robj, rook := rv.(json.Object); rook {
+				info.has_reasoning_meta = true
+				if dv, dok2 := robj["default_effort"]; dok2 {
+					if s, sok := dv.(json.String); sok {
+						info.reasoning_default = strings.clone(string(s), allocator)
+					}
+				}
+				if dv, dok2 := robj["default_enabled"]; dok2 {
+					if b, bok := dv.(json.Boolean); bok {
+						info.reasoning_default_on = bool(b)
+					}
+				}
+				if dv, dok2 := robj["mandatory"]; dok2 {
+					if b, bok := dv.(json.Boolean); bok {
+						info.reasoning_mandatory = bool(b)
+					}
+				}
+				if ev, eok := robj["supported_efforts"]; eok {
+					if ear, eaok := ev.(json.Array); eaok {
+						effs := make([dynamic]string, allocator)
+						for eitem in ear {
+							if s, sok := eitem.(json.String); sok {
+								append(&effs, strings.clone(string(s), allocator))
+							}
+						}
+						info.reasoning_efforts = effs[:]
+					}
+				}
+			}
+		}
+		append(&out, info)
 	}
 	return out[:], ""
 }

@@ -18,6 +18,7 @@ import "nullray:provider"
 import "nullray:sandbox"
 import "nullray:session"
 import "nullray:store"
+import "nullray:subagent"
 import "nullray:tools"
 import "nullray:ui"
 
@@ -27,6 +28,7 @@ App :: struct {
 	tools_reg:      tools.Registry,
 	mcp_reg:        mcp.Registry,
 	session:        session.Session,
+	subagents:      subagent.Runtime,
 	input:          strings.Builder,
 	cursor:         int,
 	dirty:          bool,
@@ -51,6 +53,45 @@ App :: struct {
 	banner_live:    int,
 	banner_refresh: time.Tick,
 	anim_tick:      time.Tick,
+	view_open:      bool,
+	view_path:      string,
+	view_body:      string,
+	view_scroll:    int,
+	view_focus:     bool,
+	view_recent:    [dynamic]string,
+	view_idx:       int,
+	show_setup:         bool,
+	setup_forced:       bool,
+	setup_step:         Setup_Step,
+	setup_provider_sel: int,
+	setup_scroll:       int,
+	setup_field:        int,
+	setup_base:         string,
+	setup_key:          string,
+	setup_model:        string,
+	setup_filter:       string,
+	setup_status:       string,
+	setup_effort:       string,
+	setup_thinking_on:  bool,
+	setup_models:       []provider.Model_Info,
+	setup_model_sel:    int,
+	ollama_live:        bool,
+	lmstudio_live:      bool,
+	toasts:             [dynamic]Toast,
+	sel_dragging:       bool,
+	sel_has:            bool,
+	sel_ax:             int,
+	sel_ay:             int,
+	sel_bx:             int,
+	sel_by:             int,
+	sel_rows:           [dynamic]string,
+	sel_rows_top:       int,
+	input_history:      [dynamic]string,
+	input_hist_idx:     int,
+	input_draft:        string,
+	reveal_stream:      int,
+	reveal_think:       int,
+	reset_pending:      bool,
 }
 
 app_init :: proc(a: ^App, loop: ^ui.Loop) {
@@ -62,6 +103,15 @@ app_init :: proc(a: ^App, loop: ^ui.Loop) {
 	provider.registry_init(&a.registry)
 	session.session_init(&a.session)
 	a.session.tools_registry = &a.tools_reg
+	subagent.runtime_init(&a.subagents, a.session.name, &a.tools_reg)
+	subagent.runtime_set(&a.subagents)
+	agent.register_subagent_runner()
+	tools.register_subagent_tools(&a.tools_reg, subagent.runtime_enabled(&a.subagents))
+	if p := provider.registry_active(&a.registry); p != nil {
+		subagent.runtime_set_provider(&a.subagents, p)
+		delete(a.subagents.main_model)
+		a.subagents.main_model = strings.clone(p.default_model)
+	}
 	session.session_rebuild_system_prompt(&a.session)
 	_ = session.session_apply_saved_model(&a.session, &a.registry)
 	strings.builder_init(&a.input)
@@ -92,12 +142,16 @@ app_init :: proc(a: ^App, loop: ^ui.Loop) {
 		session.crash_lock_clear(cfg_dir)
 	}
 	session.crash_lock_write(cfg_dir, a.session.name)
+	a.input_hist_idx = -1
 	app_refresh_provider_status(a)
+	app_maybe_begin_setup(a)
 }
 
 app_destroy :: proc(a: ^App) {
 	cfg_dir := sandbox.resolve_config_dir(context.temp_allocator)
 	session.crash_lock_clear(cfg_dir)
+	subagent.runtime_set(nil)
+	subagent.runtime_destroy(&a.subagents)
 	provider.registry_destroy(&a.registry)
 	session.session_destroy(&a.session)
 	mcp.registry_destroy(&a.mcp_reg)
@@ -105,6 +159,12 @@ app_destroy :: proc(a: ^App) {
 	strings.builder_destroy(&a.input)
 	delete(a.credits_label)
 	delete(a.improve_undo)
+	app_setup_clear(a)
+	app_view_destroy(a)
+	app_toasts_destroy(a)
+	app_sel_destroy(a)
+	app_history_destroy(a)
+	delete(a.input_draft)
 }
 
 app_refresh_provider_status :: proc(a: ^App) {
@@ -226,13 +286,16 @@ app_refresh_banner :: proc(a: ^App) {
 
 app_is_dirty :: proc(user: rawptr) -> bool {
 	a := cast(^App)user
-	return a.dirty || splash_active(a)
+	return a.dirty || splash_active(a) || a.show_setup || len(a.toasts) > 0 || a.sel_dragging
 }
 
 
 app_on_tick :: proc(user: rawptr) -> bool {
 	a := cast(^App)user
 	changed := false
+	if app_toasts_expire(a) {
+		changed = true
+	}
 	if splash_active(a) {
 		changed = true
 		app_mark_dirty(a)
@@ -245,17 +308,34 @@ app_on_tick :: proc(user: rawptr) -> bool {
 		}
 	}
 	was_busy := a.session.busy
+	if session.session_tick_status_hold(&a.session) {
+		changed = true
+	}
 	poll_changed := session.session_poll(&a.session)
 	changed = poll_changed || changed
+	if app_reveal_tick(a) {
+		changed = true
+	}
 	if was_busy && !a.session.busy {
+		app_reveal_reset(a)
 		app_refresh_credits(a)
 		changed = true
 		a.follow = true
 		a.scroll = 0
+		paths := collect_turn_write_paths(a.session.messages[:], context.allocator)
+		if len(paths) > 0 {
+			app_view_set_recent(a, paths)
+			last := paths[len(paths) - 1]
+			_ = app_view_open(a, last)
+			destroy_write_paths(paths)
+			changed = true
+		} else {
+			destroy_write_paths(paths)
+		}
 	}
-	// Redraw on new deltas, or on spinner/caret cadence while busy.
+	// Redraw on new deltas, or on spinner/caret/reveal cadence while busy.
 	// Avoid full transcript layout every poll tick with no UI change.
-	if a.session.busy || a.session.has_streaming || a.session.has_thinking {
+	if a.session.busy || a.session.has_streaming || a.session.has_thinking || len(a.session.pending_status) > 0 {
 		anim_due := time.tick_diff(a.anim_tick, time.tick_now()) >=
 			time.Duration(constants.SPINNER_FRAME_MS) * time.Millisecond
 		if poll_changed || anim_due {
