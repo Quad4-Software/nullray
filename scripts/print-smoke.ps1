@@ -30,6 +30,10 @@ Expect-Exit 2 @("--print", "--bare", "--mode", "review", "--fail-on-findings")
 $plan = Join-Path $env:TEMP "nullray-print-smoke-plan.md"
 Expect-Exit 2 @("--print", "--mode", "plan", "--plan-out", $plan)
 Expect-Exit 2 @("--print", "--output-format", "json", "--timeout", "5")
+Expect-Exit 2 @("--print", "--print-strict")
+Expect-Exit 2 @("--print", "--usage")
+if ($help -notmatch "--print-strict") { throw "print-smoke: help missing --print-strict" }
+if ($help -notmatch "--usage") { throw "print-smoke: help missing --usage" }
 $missing = Join-Path $env:TEMP "nullray-print-smoke-missing-plan.md"
 Expect-Exit 2 @("--print", "--plan-in", $missing)
 Expect-Exit 2 @("--print", "--plan-in", $missing, "--plan-out", $plan)

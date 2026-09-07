@@ -40,7 +40,7 @@ _nullray() {
   COMPREPLY=()
   cur="${COMP_WORDS[COMP_CWORD]}"
   prev="${COMP_WORDS[COMP_CWORD-1]}"
-  opts="--help -h --version -V --ephemeral -e --self-test -t --audit --doctor --debug --print -P --ask -q --bare --fail-on-findings --provider -p --model -m --theme --mode --perms --sandbox --workspace -w --session --list-sessions --search-sessions --delete-session --export-session --import-session --as --list-skills --install-skill --uninstall-skill --skills --keys --message-file --out --plan-out --plan-in --output-format --timeout --no-splash --no-subagents --splash --hide-sensitive --list-models --completions --man"
+  opts="--help -h --version -V --ephemeral -e --self-test -t --audit --doctor --debug --print -P --ask -q --bare --fail-on-findings --provider -p --model -m --theme --mode --perms --sandbox --workspace -w --session --list-sessions --search-sessions --delete-session --export-session --import-session --as --list-skills --install-skill --uninstall-skill --skills --keys --message-file --out --plan-out --plan-in --output-format --print-strict --usage --timeout --no-splash --no-subagents --splash --hide-sensitive --list-models --completions --man"
   providers="ollama lmstudio openai openai-compat openrouter opencode opencode-go anthropic gemini groq deepseek mistral together fireworks xai azure"
   modes="ask plan review edit"
   perms="ask allow yolo"
@@ -107,6 +107,8 @@ _nullray() {
     '--plan-out[plan artifact path]:file:_files'
     '--plan-in[load Done Contract plan]:file:_files'
     '--output-format[print output format]:format:(text json)'
+    '--print-strict[strict print exit codes]'
+    '--usage[print token usage summary]'
     '--timeout[print timeout seconds]:seconds:'
     '--no-splash[skip startup splash]' \
     '--no-subagents[disable subagent task tool]' \
@@ -156,6 +158,8 @@ complete -c nullray -l out -d 'Write final reply or export dir' -r -F
 complete -c nullray -l plan-out -d 'Plan artifact path' -r -F
 complete -c nullray -l plan-in -d 'Load Done Contract plan' -r -F
 complete -c nullray -l output-format -d 'Print output format' -xa 'text json'
+complete -c nullray -l print-strict -d 'Strict print exit codes'
+complete -c nullray -l usage -d 'Print token usage summary'
 complete -c nullray -l timeout -d 'Print timeout seconds' -r
 complete -c nullray -l no-splash -d 'Skip startup splash'
 complete -c nullray -l no-subagents -d 'Disable subagent task tool'
@@ -176,7 +180,7 @@ COMPLETIONS_POWERSHELL :: `Register-ArgumentCompleter -CommandName nullray -Scri
     '--delete-session','--export-session','--import-session','--as',
     '--list-skills','--install-skill','--uninstall-skill','--skills',
     '--keys','--message-file','--out','--plan-out','--plan-in',
-    '--output-format','--timeout','--no-splash','--no-subagents','--splash','--hide-sensitive','--list-models','--completions','--man'
+    '--output-format','--print-strict','--usage','--timeout','--no-splash','--no-subagents','--splash','--hide-sensitive','--list-models','--completions','--man'
   )
   $opts | Where-Object { $_ -like "$wordToComplete*" } | ForEach-Object {
     [System.Management.Automation.CompletionResult]::new($_, $_, 'ParameterName', $_)
@@ -194,7 +198,7 @@ set edit:completion:arg-completer[nullray] = {|@args|
     --delete-session --export-session --import-session --as
     --list-skills --install-skill --uninstall-skill --skills
     --keys --message-file --out --plan-out --plan-in
-    --output-format --timeout --no-splash --no-subagents --splash --hide-sensitive --list-models --completions --man
+    --output-format --print-strict --usage --timeout --no-splash --no-subagents --splash --hide-sensitive --list-models --completions --man
   ]
   put $@flags
 }
@@ -209,7 +213,7 @@ COMPLETIONS_NUSHELL :: `def "nu-complete nullray flags" [] {
     --delete-session --export-session --import-session --as
     --list-skills --install-skill --uninstall-skill --skills
     --keys --message-file --out --plan-out --plan-in
-    --output-format --timeout --no-splash --no-subagents --splash --hide-sensitive --list-models --completions --man
+    --output-format --print-strict --usage --timeout --no-splash --no-subagents --splash --hide-sensitive --list-models --completions --man
   ]
 }
 export extern nullray [

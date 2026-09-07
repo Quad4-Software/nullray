@@ -35,6 +35,8 @@ Cli :: struct {
 	splash:           bool,
 	no_subagents:     bool,
 	hide_sensitive:   bool,
+	print_strict:     bool,
+	print_usage:      bool,
 	print_mode:       bool,
 	ask_simple:       bool,
 	bare:             bool,
@@ -234,6 +236,8 @@ run_print_mode :: proc(cli: ^Cli) -> int {
 		bare = cli.bare,
 		fail_on_findings = cli.fail_on_findings,
 		timeout_sec = cli.timeout_sec,
+		print_strict = cli.print_strict,
+		print_usage = cli.print_usage,
 	}
 	res := run.run_print(rcfg)
 	defer run.result_destroy(&res)
@@ -479,6 +483,10 @@ parse_cli :: proc(args: []string) -> Cli {
 			cli.splash = true
 		case "--hide-sensitive":
 			cli.hide_sensitive = true
+		case "--print-strict":
+			cli.print_strict = true
+		case "--usage":
+			cli.print_usage = true
 		case "--completions":
 			v, ok := take_value(args, &i)
 			if !ok {
@@ -629,6 +637,12 @@ apply_cli_env :: proc(cli: ^Cli) {
 	}
 	if cli.hide_sensitive {
 		os.set_env(constants.ENV_HIDE_SENSITIVE, "1")
+	}
+	if cli.print_strict {
+		os.set_env(constants.ENV_PRINT_STRICT, "1")
+	}
+	if cli.print_usage {
+		os.set_env(constants.ENV_PRINT_USAGE, "1")
 	}
 	if cli.debug {
 		os.set_env(constants.ENV_DEBUG, "1")
@@ -815,6 +829,8 @@ print_help :: proc() {
 	fmt.println("      --plan-out PATH     plan mode artifact path")
 	fmt.println("      --plan-in PATH      load Done Contract and apply (print edit)")
 	fmt.println("      --output-format F   text | json (print mode)")
+	fmt.println("      --print-strict      exit 1 on incomplete plan/verify/living subagents")
+	fmt.println("      --usage             print token/cost summary (print mode)")
 	fmt.println("      --timeout SEC       print-mode wall clock limit (default 600)")
 	fmt.println("      --bare              skip home MCP and non-workspace skills")
 	fmt.println("                          (NULLRAY_SKILLS / --skills still load)")
@@ -838,6 +854,7 @@ print_help :: proc() {
 	fmt.println("           NULLRAY_HTTP_RETRIES NULLRAY_FALLBACK_MODELS NULLRAY_OPENROUTER_IGNORE")
 	fmt.println("           NULLRAY_MCP_ALLOW_ANY NULLRAY_MCP_APPROVE_DRIFT NULLRAY_WORKSPACE_TRUST")
 	fmt.println("           NULLRAY_HIDE_SENSITIVE NULLRAY_BARE NULLRAY_PRINT_TIMEOUT NULLRAY_OUT")
+	fmt.println("           NULLRAY_PRINT_STRICT NULLRAY_PRINT_USAGE NULLRAY_USAGE NULLRAY_USAGE_PERSIST")
 	fmt.println("           NULLRAY_PLAN_OUT NULLRAY_PLAN_IN NULLRAY_COLOR NULLRAY_ALT_SCREEN NULLRAY_MOUSE")
 	fmt.println("           NULLRAY_DEBUG OPENAI_API_KEY OPENAI_BASE_URL OLLAMA_HOST")
 	fmt.println("           LM_STUDIO_HOST LM_API_TOKEN")

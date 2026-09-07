@@ -39,6 +39,10 @@ echo "$help_out" | grep -q 'ask | plan | review | edit'
 expect_exit 2 "$BIN" --print --bare --mode review --fail-on-findings
 expect_exit 2 "$BIN" --print --mode plan --plan-out /tmp/nullray-print-smoke-plan.md
 expect_exit 2 "$BIN" --print --output-format json --timeout 5
+expect_exit 2 "$BIN" --print --print-strict
+expect_exit 2 "$BIN" --print --usage
+echo "$help_out" | grep -q -- '--print-strict'
+echo "$help_out" | grep -q -- '--usage'
 expect_exit 2 "$BIN" --print --plan-in /tmp/nullray-print-smoke-missing-plan.md
 expect_exit 2 "$BIN" --print --plan-in /tmp/nullray-print-smoke-missing-plan.md --plan-out /tmp/nullray-print-smoke-plan.md
 expect_exit 2 "$BIN" --print --plan-in /tmp/nullray-print-smoke-missing-plan.md --mode ask

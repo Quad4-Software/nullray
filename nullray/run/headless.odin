@@ -25,17 +25,25 @@ Config :: struct {
 	bare:             bool,
 	fail_on_findings: bool,
 	timeout_sec:      int,
+	print_strict:     bool,
+	print_usage:      bool,
 }
 
 Result :: struct {
-	ok:         bool,
-	text:       string,
-	plan_path:  string,
-	stopped:    string,
-	mode:       string,
-	err:        string,
-	exit_code:  int,
-	usage:      provider.Usage,
+	ok:                   bool,
+	text:                 string,
+	plan_path:            string,
+	stopped:              string,
+	mode:                 string,
+	err:                  string,
+	exit_code:            int,
+	usage:                provider.Usage,
+	session_usage:        provider.Usage,
+	input_chars:          int,
+	peak_input_chars:     int,
+	usage_turns:          int,
+	subagent_total_tokens: int,
+	tool_only:            bool,
 }
 
 result_destroy :: proc(r: ^Result) {
@@ -134,6 +142,7 @@ run_print :: proc(cfg: Config) -> Result {
 
 	rt: subagent.Runtime
 	subagent.runtime_init(&rt, s.name, &tools_reg)
+	subagent.runtime_set_session(&rt, s.session_path, s.persist)
 	subagent.runtime_set(&rt)
 	defer {
 		subagent.runtime_set(nil)
@@ -204,23 +213,53 @@ run_print :: proc(cfg: Config) -> Result {
 	}
 
 	text := last_assistant_text(&s)
+	tool_only := false
 	if len(text) == 0 {
 		// Models often end on a tool-only turn with empty assistant content.
 		if session_had_tool_activity(&s) {
 			text = strings.clone("(ok: tools completed, no final assistant text)")
+			tool_only = true
 		} else {
 			res.err = strings.clone("no assistant reply")
 			return res
 		}
 	}
 	res.text = text
+	res.tool_only = tool_only
 	res.usage = s.last_usage
-	res.stopped = strings.clone("done")
+	res.session_usage = s.session_usage
+	res.input_chars = s.last_input_chars
+	res.peak_input_chars = s.peak_input_chars
+	res.usage_turns = s.usage_turns
+	res.subagent_total_tokens = s.subagent_total_tokens
+	stopped := s.last_stopped
+	if len(stopped) == 0 {
+		stopped = "done"
+	}
+	delete(res.stopped)
+	res.stopped = strings.clone(stopped)
 	res.ok = true
 	res.exit_code = 0
 
 	if len(s.last_plan_path) > 0 {
 		res.plan_path = strings.clone(s.last_plan_path)
+	}
+
+	living := subagent.roster_living_count(&rt.roster)
+	if living > 0 {
+		fmt.eprintf("nullray: %d subagent(s) still running\n", living)
+	}
+
+	strict := cfg.print_strict || print_strict_from_env()
+	if strict {
+		if fail, reason := print_strict_fail(&s, res, living, tool_only); fail {
+			res.ok = false
+			res.exit_code = 1
+			if len(res.err) == 0 {
+				res.err = strings.clone(reason)
+			}
+			fmt.eprintln("nullray:", reason)
+		}
 	}
 
 	if len(cfg.out_path) > 0 && s.agent_mode != .Plan {
@@ -245,6 +284,55 @@ run_print :: proc(cfg: Config) -> Result {
 	return res
 }
 
+@(private)
+print_strict_from_env :: proc() -> bool {
+	if v, ok := os.lookup_env(constants.ENV_PRINT_STRICT, context.temp_allocator); ok {
+		switch strings.to_lower(strings.trim_space(v), context.temp_allocator) {
+		case "1", "true", "yes", "on":
+			return true
+		}
+	}
+	return false
+}
+
+@(private)
+print_usage_from_env :: proc() -> bool {
+	if v, ok := os.lookup_env(constants.ENV_PRINT_USAGE, context.temp_allocator); ok {
+		switch strings.to_lower(strings.trim_space(v), context.temp_allocator) {
+		case "1", "true", "yes", "on":
+			return true
+		}
+	}
+	return false
+}
+
+@(private)
+print_strict_fail :: proc(s: ^session.Session, res: Result, living: int, tool_only: bool) -> (bool, string) {
+	if s.agent_mode == .Plan && !s.plan_contract_ok {
+		return true, "print-strict: plan Done Contract incomplete"
+	}
+	if s.verify_fail_count > 0 || res.stopped == "verify_failed" {
+		return true, "print-strict: verify failed"
+	}
+	switch res.stopped {
+	case "max_steps", "loop", "timeout":
+		return true, fmt.tprintf("print-strict: stopped with %s", res.stopped)
+	}
+	if living > 0 {
+		return true, fmt.tprintf("print-strict: %d subagent(s) still running", living)
+	}
+	if tool_only && s.agent_mode == .Edit {
+		had_writes := agent.turn_had_writes(s.messages[:])
+		if had_writes {
+			_, voff := agent.resolve_verify_command(s.plan_verify, context.temp_allocator)
+			if !voff {
+				return true, "print-strict: tool-only turn with writes and verify enabled"
+			}
+		}
+	}
+	return false, ""
+}
+
 emit_result :: proc(cfg: Config, res: Result) {
 	format := strings.to_lower(strings.trim_space(cfg.output_format), context.temp_allocator)
 	if len(format) == 0 {
@@ -254,21 +342,49 @@ emit_result :: proc(cfg: Config, res: Result) {
 	}
 	if format == "json" {
 		print_json(res)
-		return
-	}
-	if len(res.err) > 0 && !res.ok {
-		fmt.eprintln("nullray:", res.err)
-	}
-	if len(res.text) > 0 {
-		fmt.println(res.text)
-	}
-	if len(res.plan_path) > 0 {
-		if len(agent.plan_in_from_env(context.temp_allocator)) > 0 {
-			fmt.eprintln("nullray: plan loaded", res.plan_path)
-		} else {
-			fmt.eprintln("nullray: plan saved", res.plan_path)
+	} else {
+		if len(res.err) > 0 && !res.ok {
+			fmt.eprintln("nullray:", res.err)
+		}
+		if len(res.text) > 0 {
+			fmt.println(res.text)
+		}
+		if len(res.plan_path) > 0 {
+			if len(agent.plan_in_from_env(context.temp_allocator)) > 0 {
+				fmt.eprintln("nullray: plan loaded", res.plan_path)
+			} else {
+				fmt.eprintln("nullray: plan saved", res.plan_path)
+			}
 		}
 	}
+	if cfg.print_usage || print_usage_from_env() {
+		emit_usage(res, format == "json")
+	}
+}
+
+@(private)
+emit_usage :: proc(res: Result, json_already: bool) {
+	if json_already {
+		return
+	}
+	cost := "unknown"
+	if res.session_usage.cost_known {
+		cost = fmt.tprintf("%.6f", res.session_usage.cost_usd)
+	}
+	fmt.eprintf(
+		"nullray: usage turn=%d/%d/%d session=%d/%d/%d reasoning=%d chars=%d/%d cost=%s subagent_tok=%d\n",
+		res.usage.prompt_tokens,
+		res.usage.completion_tokens,
+		res.usage.total_tokens,
+		res.session_usage.prompt_tokens,
+		res.session_usage.completion_tokens,
+		res.session_usage.total_tokens,
+		res.session_usage.reasoning_tokens,
+		res.input_chars,
+		res.peak_input_chars,
+		cost,
+		res.subagent_total_tokens,
+	)
 }
 
 @(private)
@@ -279,7 +395,7 @@ print_json :: proc(res: Result) {
 	esc_mode := json_escape(res.mode, context.temp_allocator)
 	esc_stopped := json_escape(res.stopped, context.temp_allocator)
 	fmt.printf(
-		`{{"ok":%v,"mode":"%s","text":"%s","plan_path":"%s","stopped":"%s","err":"%s","exit_code":%d,"usage":{{"prompt_tokens":%d,"completion_tokens":%d,"total_tokens":%d}}}}`+"\n",
+		`{{"ok":%v,"mode":"%s","text":"%s","plan_path":"%s","stopped":"%s","err":"%s","exit_code":%d,"usage":{{"prompt_tokens":%d,"completion_tokens":%d,"total_tokens":%d,"reasoning_tokens":%d,"cost_usd":%.6f,"cost_known":%v,"input_chars":%d}},"session_usage":{{"turns":%d,"prompt_tokens":%d,"completion_tokens":%d,"total_tokens":%d,"reasoning_tokens":%d,"cost_usd":%.6f,"cost_known":%v,"peak_input_chars":%d,"subagent_total_tokens":%d}}}}`+"\n",
 		res.ok,
 		esc_mode,
 		esc_text,
@@ -290,6 +406,19 @@ print_json :: proc(res: Result) {
 		res.usage.prompt_tokens,
 		res.usage.completion_tokens,
 		res.usage.total_tokens,
+		res.usage.reasoning_tokens,
+		res.usage.cost_usd,
+		res.usage.cost_known,
+		res.input_chars,
+		res.usage_turns,
+		res.session_usage.prompt_tokens,
+		res.session_usage.completion_tokens,
+		res.session_usage.total_tokens,
+		res.session_usage.reasoning_tokens,
+		res.session_usage.cost_usd,
+		res.session_usage.cost_known,
+		res.peak_input_chars,
+		res.subagent_total_tokens,
 	)
 }
 
