@@ -68,13 +68,13 @@ NULLRAY_MODEL=my-local-model
 ## Usage
 
 ```sh
-# Run Interactive TUI
+# Interactive TUI
 nullray
 
 # Quick ask
 nullray -q "What does session_init do?"
 
-# One-time commands
+# One-shot print
 nullray --print --mode ask "What does session_init do?"
 ```
 
@@ -143,7 +143,11 @@ flatpak run xyz.nullray.code
 
 ### Arch / Omarchy (AUR)
 
-See [packaging/aur/PKGBUILD](packaging/aur/PKGBUILD). After publish: Install → AUR → `nullray-bin`, or `omarchy pkg` / `yay -S nullray-bin`.
+```sh
+yay -S nullray-bin
+```
+
+Recipe: [packaging/aur/PKGBUILD](packaging/aur/PKGBUILD).
 
 ## License
 

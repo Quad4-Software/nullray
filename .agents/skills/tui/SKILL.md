@@ -62,7 +62,7 @@ Ink templates are ASCII `#`. When `term_utf8_ok` (UTF-8 locale, Windows, or defa
 
 ## Setup overlay
 
-TUI-only (`app_maybe_begin_setup` from `app_init`). Draw/input priority: splash → setup → help → chat.
+TUI-only (`app_maybe_begin_setup` from `app_init`). Draw/input priority: splash -> setup -> help -> chat.
 
 `/setup` reopens. Auto-open when `setup_needed` (no `NULLRAY_SETUP_DONE`, no usable cloud key, no live local probe). Persist via `config.merge_env_keys` to `~/.config/nullray/env`. Never call from `--print` or `--self-test`.
 

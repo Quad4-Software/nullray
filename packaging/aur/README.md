@@ -9,5 +9,3 @@ Publish after a GitHub release exists:
 3. Update sha256sums from the release checksums.txt (replace SKIP)
 4. makepkg --printsrcinfo > .SRCINFO
 5. git add PKGBUILD .SRCINFO && git commit -m "nullray-bin pkgver" && git push
-
-Omarchy users can Install → AUR → nullray-bin once the package is published.
