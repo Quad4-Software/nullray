@@ -21,12 +21,32 @@ nullray/
   ui/                   Terminal backends, buffer, keys, markdown
 .github/workflows/      ci, release, dependency-review, codeql
 .agents/
-  skills/               Agent skills (odin-idioms, memory, ci-pinned-actions)
-  references/           This layout and providers table
+  skills/               prose, tui, odin-idioms, memory, ci-pinned-actions
+  references/           layout, providers, tui, footguns
 contrib/completions/    Shell completion scripts
 man/                    nullray.1
 logo/                   Brand assets
 scripts/                Logo generator, release notes
 ```
 
-Build: `make` → `bin/nullray` via `-collection:nullray=$(ROOT)/nullray`.
+Build:
+
+```
+make
+```
+
+Output: bin/nullray via -collection:nullray=$(ROOT)/nullray.
+
+## Agent docs
+
+| Path | Role |
+|------|------|
+| references/layout.md | this map |
+| references/providers.md | provider ids and env keys |
+| references/tui.md | ui/app/config file map |
+| references/footguns.md | hard never-dos and ownership traps |
+| skills/prose/ | docs and comment style |
+| skills/tui/ | cell buffer, loop, keys, splash |
+| skills/odin-idioms/ | packages, #+build, errors |
+| skills/memory/ | destroy pairs and allocators |
+| skills/ci-pinned-actions/ | workflow SHA pins |

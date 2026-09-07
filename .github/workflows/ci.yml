@@ -198,9 +198,6 @@ jobs:
     runs-on: windows-latest
     timeout-minutes: 60
     needs: test
-    defaults:
-      run:
-        shell: bash
     steps:
       - name: Harden runner
         uses: step-security/harden-runner@e14015d583714f6e62063499dc959a02595150a1 # v2.21.1
@@ -212,37 +209,44 @@ jobs:
         with:
           persist-credentials: false
 
-      - name: Install deps
+      - name: Install curl
         shell: pwsh
-        run: |
-          choco install curl -y
-          choco install llvm -y
+        run: choco install curl -y
 
-      - name: Cache Odin toolchain
+      - name: Cache Odin release
         id: cache-odin
         uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
-          path: |
-            ~/Odin
-            ~/.cache/odin
-          key: odin-${{ runner.os }}-${{ hashFiles('.github/workflows/ci.yml') }}-2026-09
+          path: ~/Odin
+          key: odin-windows-release-dev-2026-09
           restore-keys: |
-            odin-${{ runner.os }}-
+            odin-windows-release-
 
-      - name: Ensure Odin
+      - name: Install Odin release
+        shell: pwsh
         run: |
-          set -euo pipefail
-          if [[ -x "$HOME/Odin/odin" ]]; then
-            echo "using cached odin"
-          else
-            rm -rf "$HOME/Odin"
-            git clone --depth 1 https://github.com/odin-lang/Odin.git "$HOME/Odin"
-            (cd "$HOME/Odin" && ./build_odin.sh)
-          fi
-          echo "$HOME/Odin" >> "$GITHUB_PATH"
+          if (Test-Path "$env:USERPROFILE\Odin\odin.exe") {
+            Write-Host "using cached odin"
+          } else {
+            $url = "https://github.com/odin-lang/Odin/releases/download/dev-2026-09/odin-windows-amd64-dev-2026-09.zip"
+            $zip = "$env:RUNNER_TEMP\odin.zip"
+            Invoke-WebRequest -Uri $url -OutFile $zip
+            Remove-Item -Recurse -Force "$env:USERPROFILE\Odin" -ErrorAction SilentlyContinue
+            New-Item -ItemType Directory -Path "$env:USERPROFILE\Odin" | Out-Null
+            Expand-Archive -Path $zip -DestinationPath "$env:USERPROFILE\Odin" -Force
+            $exe = Get-ChildItem "$env:USERPROFILE\Odin" -Recurse -Filter odin.exe | Select-Object -First 1
+            if ($null -eq $exe) { throw "odin.exe not found in release zip" }
+            if ($exe.Directory.FullName -ne "$env:USERPROFILE\Odin") {
+              Copy-Item -Path "$($exe.Directory.FullName)\*" -Destination "$env:USERPROFILE\Odin" -Recurse -Force
+            }
+          }
+          Add-Content -Path $env:GITHUB_PATH -Value "$env:USERPROFILE\Odin"
 
       - name: Build and smoke
+        shell: cmd
         run: |
-          make
-          ./bin/nullray --self-test
-          ./bin/nullray --version
+          where odin
+          if not exist bin mkdir bin
+          odin build cmd\nullray -out:bin\nullray.exe -collection:nullray=nullray -extra-linker-flags:"libcurl" -define:NULLRAY_BUILD_DATE=2026-09-07 -define:NULLRAY_BUILD_TIME=00:00:00
+          bin\nullray.exe --self-test
+          bin\nullray.exe --version

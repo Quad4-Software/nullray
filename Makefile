@@ -6,8 +6,20 @@ BINDIR := $(PREFIX)/bin
 MANDIR := $(PREFIX)/share/man/man1
 COMPDIR := $(PREFIX)/share/nullray/completions
 
+ifeq ($(OS),Windows_NT)
+  LINKER := -extra-linker-flags:"libcurl"
+else ifeq ($(shell uname -s 2>/dev/null),Darwin)
+  CURL_PREFIX := $(shell brew --prefix curl 2>/dev/null)
+  ifneq ($(CURL_PREFIX),)
+    LINKER := -extra-linker-flags:"-L$(CURL_PREFIX)/lib -lcurl"
+  else
+    LINKER := -extra-linker-flags:"-lcurl"
+  endif
+else
+  LINKER := -extra-linker-flags:"-lcurl"
+endif
+
 COLLECTION := -collection:nullray=$(ROOT)/nullray
-LINKER     := -extra-linker-flags:"-lcurl"
 BUILD_DATE := $(shell date -u +%Y-%m-%d)
 BUILD_TIME := $(shell date -u +%H:%M:%S)
 DEFINES    := -define:NULLRAY_BUILD_DATE="$(BUILD_DATE)" -define:NULLRAY_BUILD_TIME="$(BUILD_TIME)"
