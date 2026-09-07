@@ -100,7 +100,7 @@ docker run --rm -it \
 
 ```sh
 flatpak install --user ./nullray_*_linux_amd64.flatpak
-flatpak run xyz.nullray
+flatpak run xyz.nullray.code
 ```
 
 ## License
