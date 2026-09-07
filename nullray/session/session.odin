@@ -10,6 +10,7 @@ import "core:os"
 import "core:path/filepath"
 import "core:strings"
 import "core:sync"
+import "core:time"
 import "nullray:agent"
 import "nullray:constants"
 import "nullray:provider"
@@ -20,6 +21,8 @@ Session :: struct {
 	messages:           [dynamic]provider.Message,
 	busy:               bool,
 	status:             string,
+	pending_status:     string,
+	status_set_at:      time.Tick,
 	pending:            [dynamic]Event,
 	pending_mu:         sync.Mutex,
 	model:              string,
@@ -53,6 +56,8 @@ Session :: struct {
 	verify_fail_count:   int,
 	last_input_chars:    int,
 	verify_obligations:  [dynamic]string,
+	live_tool:           string,
+	live_tool_detail:    string,
 }
 
 session_init :: proc(s: ^Session) {
@@ -62,6 +67,7 @@ session_init :: proc(s: ^Session) {
 	s.pending_commit = make([dynamic]provider.Message)
 	s.verify_obligations = make([dynamic]string)
 	s.status = strings.clone("ready")
+	s.status_set_at = time.tick_now()
 	s.tools_enabled = tools_enabled_from_env()
 	s.persist = !ephemeral_from_env()
 	strings.builder_init(&s.streaming)
@@ -135,6 +141,7 @@ session_destroy :: proc(s: ^Session) {
 	delete(s.pending_commit)
 	sync.mutex_unlock(&s.commit_mu)
 	delete(s.status)
+	delete(s.pending_status)
 	delete(s.model)
 	delete(s.provider_id)
 	delete(s.system_prompt)
@@ -144,6 +151,8 @@ session_destroy :: proc(s: ^Session) {
 	delete(s.reasoning_effort)
 	delete(s.last_plan_path)
 	delete(s.plan_verify)
+	delete(s.live_tool)
+	delete(s.live_tool_detail)
 	session_clear_verify_obligations(s)
 	delete(s.verify_obligations)
 	strings.builder_destroy(&s.streaming)
@@ -188,8 +197,96 @@ normalize_reasoning_effort :: proc(raw: string) -> (string, bool) {
 }
 
 session_set_status :: proc(s: ^Session, text: string) {
+	if text == s.status {
+		delete(s.pending_status)
+		s.pending_status = ""
+		return
+	}
+	if s.busy && !status_is_urgent(text) && len(s.status) > 0 {
+		age := time.tick_diff(s.status_set_at, time.tick_now())
+		if age < time.Duration(constants.STATUS_HOLD_MS) * time.Millisecond {
+			delete(s.pending_status)
+			s.pending_status = strings.clone(text)
+			return
+		}
+	}
+	delete(s.pending_status)
+	s.pending_status = ""
 	delete(s.status)
 	s.status = strings.clone(text)
+	s.status_set_at = time.tick_now()
+}
+
+@(private)
+status_is_urgent :: proc(text: string) -> bool {
+	if strings.has_prefix(text, "error") {
+		return true
+	}
+	if strings.has_prefix(text, "ready") {
+		return true
+	}
+	if strings.has_prefix(text, "stopping") || strings.has_prefix(text, "pausing") {
+		return true
+	}
+	if strings.has_prefix(text, "running ") {
+		return true
+	}
+	if strings.has_prefix(text, "verify") {
+		return true
+	}
+	if strings.has_prefix(text, "tool ") {
+		return true
+	}
+	return false
+}
+
+session_set_live_tool :: proc(s: ^Session, name, detail: string) {
+	delete(s.live_tool)
+	delete(s.live_tool_detail)
+	s.live_tool = strings.clone(name)
+	s.live_tool_detail = strings.clone(detail)
+}
+
+session_clear_live_tool :: proc(s: ^Session) {
+	delete(s.live_tool)
+	delete(s.live_tool_detail)
+	s.live_tool = ""
+	s.live_tool_detail = ""
+}
+
+session_tick_status_hold :: proc(s: ^Session) -> bool {
+	if len(s.pending_status) == 0 {
+		return false
+	}
+	age := time.tick_diff(s.status_set_at, time.tick_now())
+	if age < time.Duration(constants.STATUS_HOLD_MS) * time.Millisecond {
+		return false
+	}
+	next := s.pending_status
+	s.pending_status = ""
+	delete(s.status)
+	s.status = next
+	s.status_set_at = time.tick_now()
+	return true
+}
+
+session_retry_last :: proc(s: ^Session, p: ^provider.Provider) -> bool {
+	if s.busy || p == nil {
+		return false
+	}
+	has_user := false
+	for i := len(s.messages) - 1; i >= 0; i -= 1 {
+		if s.messages[i].role == .User {
+			has_user = true
+			break
+		}
+	}
+	if !has_user {
+		return false
+	}
+	session_clear_streaming(s)
+	session_start_chat(s, p)
+	return true
 }
 
 session_push_user :: proc(s: ^Session, text: string) {

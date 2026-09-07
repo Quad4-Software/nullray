@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: 0BSD
 /*
 Post-edit verify stop gate with truncated output and circuit breaker.
+Off by default. Opt in with NULLRAY_VERIFY=1|/verify on|CMD.
 */
 
 package agent
@@ -13,18 +14,25 @@ import "nullray:constants"
 import "nullray:provider"
 import "nullray:tools"
 
+VERIFY_USER_PREFIX :: "[nullray verify]"
+
 verify_command_from_env :: proc(allocator := context.allocator) -> (cmd: string, disabled: bool) {
-	if v, ok := os.lookup_env(constants.ENV_VERIFY, context.temp_allocator); ok {
-		lower := strings.to_lower(v, context.temp_allocator)
-		switch lower {
-		case "0", "false", "off", "no", "disable":
-			return "", true
-		}
-		if len(strings.trim_space(v)) > 0 {
-			return strings.clone(v, allocator), false
-		}
+	v, ok := os.lookup_env(constants.ENV_VERIFY, context.temp_allocator)
+	if !ok {
+		return "", true
 	}
-	return "", false
+	trimmed := strings.trim_space(v)
+	if len(trimmed) == 0 {
+		return "", true
+	}
+	lower := strings.to_lower(trimmed, context.temp_allocator)
+	switch lower {
+	case "0", "false", "off", "no", "disable":
+		return "", true
+	case "1", "true", "on", "yes", "enable":
+		return "", false
+	}
+	return strings.clone(trimmed, allocator), false
 }
 
 verify_max_fails_from_env :: proc() -> int {
@@ -101,17 +109,30 @@ shell_output_ok :: proc(output: string) -> bool {
 }
 
 /*
-Run verify via run_shell. Returns ok and truncated output.
+Run verify via run_shell on the session tools registry. Returns ok and truncated output.
 */
 run_verify_command :: proc(
 	cmd: string,
+	reg: ^tools.Registry,
 	allocator := context.allocator,
 ) -> (ok: bool, output: string) {
 	if len(strings.trim_space(cmd)) == 0 {
 		return true, strings.clone("verify skipped (empty)", allocator)
 	}
+	if reg == nil {
+		return false, strings.clone(
+			"verify failed: no tools registry (internal). Use /verify off or set NULLRAY_VERIFY=0.",
+			allocator,
+		)
+	}
+	if _, found := tools.registry_find(reg, "run_shell"); !found {
+		return false, strings.clone(
+			"verify failed: run_shell is not registered. Use /verify off or set NULLRAY_VERIFY=0.",
+			allocator,
+		)
+	}
 	args := fmt.aprintf(`{"command":%q}`, cmd, allocator = context.temp_allocator)
-	result, err := tools.run(tools.registry(), "run_shell", args, "edit", allocator)
+	result, err := tools.run(reg, "run_shell", args, "edit", allocator)
 	if len(err) > 0 {
 		out := truncate_bytes(err, constants.MAX_VERIFY_OUTPUT_BYTES, allocator)
 		delete(result)
@@ -122,6 +143,35 @@ run_verify_command :: proc(
 	out := truncate_bytes(result, constants.MAX_VERIFY_OUTPUT_BYTES, allocator)
 	delete(result)
 	return ok, out
+}
+
+format_verify_nudge :: proc(
+	cmd: string,
+	fail_n: int,
+	max_fails: int,
+	output: string,
+	breaker: bool,
+	allocator := context.allocator,
+) -> string {
+	if breaker {
+		return fmt.aprintf(
+			"%s circuit breaker after %d fails\ncommand: %s\n---\n%s\n---\nStop. Tell the user verify is blocked until they fix the project or /verify off.",
+			VERIFY_USER_PREFIX,
+			fail_n,
+			cmd,
+			output,
+			allocator = allocator,
+		)
+	}
+	return fmt.aprintf(
+		"%s failed (%d/%d)\ncommand: %s\n---\n%s\n---\nFix the failures, then stop when verify is green. Do not invent a tool named run_shell beyond the registered tools.",
+		VERIFY_USER_PREFIX,
+		fail_n,
+		max_fails,
+		cmd,
+		output,
+		allocator = allocator,
+	)
 }
 
 turn_had_writes :: proc(messages: []provider.Message) -> bool {

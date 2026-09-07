@@ -65,27 +65,42 @@ session_poll :: proc(s: ^Session) -> (changed: bool) {
 	for ev in batch {
 		switch ev.kind {
 		case .None:
-		case .Status, .Tool_Call:
+		case .Status:
+			session_set_status(s, ev.text)
+			if strings.has_prefix(ev.text, "verify ok") ||
+				strings.has_prefix(ev.text, "verify failed") ||
+				strings.has_suffix(ev.text, " done") {
+				session_clear_live_tool(s)
+			}
+			changed = true
+		case .Tool_Call:
+			session_set_live_tool(s, ev.name, ev.text)
 			session_set_status(s, ev.text)
 			changed = true
 		case .Stream_Clear:
 			session_clear_streaming(s)
 			changed = true
 		case .Assistant_Delta:
+			session_clear_live_tool(s)
 			session_append_delta(s, ev.text)
 			session_set_status(s, "streaming")
 			changed = true
 		case .Reasoning_Delta:
+			session_clear_live_tool(s)
 			session_append_thinking(s, ev.text)
 			session_set_status(s, "thinking")
 			changed = true
 		case .Tool_Result:
 			session_clear_streaming(s)
-			// Live status only. Native tool rows are committed from the job result.
-			session_set_status(s, fmt.tprintf("tool %s", ev.name))
+			if len(ev.name) > 0 {
+				session_set_status(s, fmt.tprintf("%s done", ev.name))
+			} else {
+				session_set_status(s, "tool done")
+			}
 			changed = true
 		case .Job_Started:
 			s.busy = true
+			session_clear_live_tool(s)
 			session_clear_streaming(s)
 			session_set_status(s, ev.text)
 			changed = true
@@ -97,6 +112,7 @@ session_poll :: proc(s: ^Session) -> (changed: bool) {
 			changed = true
 		case .Assistant_Done:
 			s.busy = false
+			session_clear_live_tool(s)
 			think := strings.to_string(s.thinking)
 			r := ev.reasoning
 			if len(r) == 0 {
@@ -147,6 +163,7 @@ session_poll :: proc(s: ^Session) -> (changed: bool) {
 			changed = true
 		case .Error:
 			s.busy = false
+			session_clear_live_tool(s)
 			session_clear_streaming(s)
 			session_set_status(s, fmt.tprintf("error: %s", ev.text))
 			changed = true
