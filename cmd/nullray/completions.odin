@@ -40,7 +40,7 @@ _nullray() {
   COMPREPLY=()
   cur="${COMP_WORDS[COMP_CWORD]}"
   prev="${COMP_WORDS[COMP_CWORD-1]}"
-  opts="--help -h --version -V --ephemeral -e --self-test -t --doctor --debug --print -P --bare --fail-on-findings --provider -p --model -m --theme --mode --perms --sandbox --workspace -w --session --list-sessions --search-sessions --delete-session --export-session --import-session --as --keys --message-file --out --plan-out --output-format --timeout --no-splash --splash --hide-sensitive --list-models --completions --man"
+  opts="--help -h --version -V --ephemeral -e --self-test -t --doctor --debug --print -P --bare --fail-on-findings --provider -p --model -m --theme --mode --perms --sandbox --workspace -w --session --list-sessions --search-sessions --delete-session --export-session --import-session --as --list-skills --install-skill --uninstall-skill --skills --keys --message-file --out --plan-out --output-format --timeout --no-splash --no-subagents --splash --hide-sensitive --list-models --completions --man"
   providers="ollama lmstudio openai openai-compat openrouter opencode opencode-go anthropic gemini groq deepseek mistral together fireworks xai azure"
   modes="ask plan review edit"
   perms="ask allow yolo"
@@ -56,7 +56,7 @@ _nullray() {
     --output-format) COMPREPLY=( $(compgen -W "text json" -- "$cur") ); return ;;
     --completions) COMPREPLY=( $(compgen -W "bash zsh fish powershell elvish nushell" -- "$cur") ); return ;;
     --theme) COMPREPLY=( $(compgen -W "ink ember moss slate rose mono dusk" -- "$cur") ); return ;;
-    --workspace|-w|--session|--search-sessions|--delete-session|--export-session|--import-session|--as|--model|-m|--message-file|--out|--plan-out) COMPREPLY=( $(compgen -f -- "$cur") ); return ;;
+    --workspace|-w|--session|--search-sessions|--delete-session|--export-session|--import-session|--as|--model|-m|--message-file|--out|--plan-out|--install-skill|--uninstall-skill|--skills) COMPREPLY=( $(compgen -f -- "$cur") ); return ;;
   esac
   if [[ "$cur" == -* ]]; then
     COMPREPLY=( $(compgen -W "$opts" -- "$cur") )
@@ -94,14 +94,19 @@ _nullray() {
     '--delete-session[delete named session]:session:'
     '--export-session[export session to --out dir]:session:'
     '--import-session[import session from path]:path:_files'
-    '--as[import destination name]:name:'
+    '--as[import or install destination name]:name:'
+    '--list-skills[list loaded skills]'
+    '--install-skill[install skill .md or package]:path:_files'
+    '--uninstall-skill[uninstall config skill]:id:'
+    '--skills[extra skill root dirs]:path:_files -/'
     '--keys[keybind preset]:keys:(default neovim emacs)'
     '--message-file[prompt file]:file:_files'
     '--out[write final reply or export dir]:file:_files'
     '--plan-out[plan artifact path]:file:_files'
     '--output-format[print output format]:format:(text json)'
     '--timeout[print timeout seconds]:seconds:'
-    '--no-splash[skip startup splash]'
+    '--no-splash[skip startup splash]' \
+    '--no-subagents[disable subagent task tool]' \
     '--splash[force startup splash]'
     '--hide-sensitive[hide account and API key balances]'
     '--list-models[list models for active provider]'
@@ -136,7 +141,11 @@ complete -c nullray -l search-sessions -d 'Search sessions' -r
 complete -c nullray -l delete-session -d 'Delete named session' -r
 complete -c nullray -l export-session -d 'Export session to --out dir' -r
 complete -c nullray -l import-session -d 'Import session from path' -r -F
-complete -c nullray -l as -d 'Import destination name' -r
+complete -c nullray -l as -d 'Name for import-session or install-skill' -r
+complete -c nullray -l list-skills -d 'List loaded skills'
+complete -c nullray -l install-skill -d 'Install skill into config' -r -F
+complete -c nullray -l uninstall-skill -d 'Uninstall config skill' -r
+complete -c nullray -l skills -d 'Extra skill root dirs' -r -F
 complete -c nullray -l keys -d 'Keybind preset' -xa 'default neovim emacs'
 complete -c nullray -l message-file -d 'Prompt from file' -r -F
 complete -c nullray -l out -d 'Write final reply or export dir' -r -F
@@ -144,6 +153,7 @@ complete -c nullray -l plan-out -d 'Plan artifact path' -r -F
 complete -c nullray -l output-format -d 'Print output format' -xa 'text json'
 complete -c nullray -l timeout -d 'Print timeout seconds' -r
 complete -c nullray -l no-splash -d 'Skip startup splash'
+complete -c nullray -l no-subagents -d 'Disable subagent task tool'
 complete -c nullray -l splash -d 'Force startup splash'
 complete -c nullray -l hide-sensitive -d 'Hide account and API key balances'
 complete -c nullray -l list-models -d 'List models for active provider'
@@ -159,8 +169,9 @@ COMPLETIONS_POWERSHELL :: `Register-ArgumentCompleter -CommandName nullray -Scri
     '--provider','-p','--model','-m','--theme','--mode','--perms','--sandbox',
     '--workspace','-w','--session','--list-sessions','--search-sessions',
     '--delete-session','--export-session','--import-session','--as',
+    '--list-skills','--install-skill','--uninstall-skill','--skills',
     '--keys','--message-file','--out','--plan-out',
-    '--output-format','--timeout','--no-splash','--splash','--hide-sensitive','--list-models','--completions','--man'
+    '--output-format','--timeout','--no-splash','--no-subagents','--splash','--hide-sensitive','--list-models','--completions','--man'
   )
   $opts | Where-Object { $_ -like "$wordToComplete*" } | ForEach-Object {
     [System.Management.Automation.CompletionResult]::new($_, $_, 'ParameterName', $_)
@@ -176,8 +187,9 @@ set edit:completion:arg-completer[nullray] = {|@args|
     --provider -p --model -m --theme --mode --perms --sandbox
     --workspace -w --session --list-sessions --search-sessions
     --delete-session --export-session --import-session --as
+    --list-skills --install-skill --uninstall-skill --skills
     --keys --message-file --out --plan-out
-    --output-format --timeout --no-splash --splash --hide-sensitive --list-models --completions --man
+    --output-format --timeout --no-splash --no-subagents --splash --hide-sensitive --list-models --completions --man
   ]
   put $@flags
 }
@@ -190,8 +202,9 @@ COMPLETIONS_NUSHELL :: `def "nu-complete nullray flags" [] {
     --provider -p --model -m --theme --mode --perms --sandbox
     --workspace -w --session --list-sessions --search-sessions
     --delete-session --export-session --import-session --as
+    --list-skills --install-skill --uninstall-skill --skills
     --keys --message-file --out --plan-out
-    --output-format --timeout --no-splash --splash --hide-sensitive --list-models --completions --man
+    --output-format --timeout --no-splash --no-subagents --splash --hide-sensitive --list-models --completions --man
   ]
 }
 export extern nullray [
@@ -240,6 +253,33 @@ Defaults to ephemeral session and mode ask. Prompt from remaining args,
 .TP
 .B \-\-bare
 Skip home MCP autoload and non-workspace skills (CI reproducibility).
+Explicit
+.B NULLRAY_SKILLS
+and
+.B \-\-skills
+roots still load.
+.TP
+.B \-\-list\-skills
+List loaded skills (id, description, source) and exit.
+.TP
+.B \-\-install\-skill \fIPATH\fR
+Copy a skill
+.I .md
+file or package directory (with
+.IR SKILL.md )
+into
+.IR ~/.config/nullray/skills/ .
+Optional
+.B \-\-as \fIID\fR
+sets the destination id.
+.TP
+.B \-\-uninstall\-skill \fIID\fR
+Remove a skill installed under the config skills directory.
+.TP
+.B \-\-skills \fIPATH\fR
+Add extra skill root directories (comma-separated, flag repeatable).
+Same as
+.BR NULLRAY_SKILLS .
 .TP
 .B \-\-fail\-on\-findings
 In review mode, exit 1 when the reply ends with FINDINGS: N and N > 0.
@@ -288,8 +328,10 @@ DIR.
 Import a .jsonl (or a directory containing one) into the sessions store.
 .TP
 .B \-\-as \fINAME\fR
-Destination session name for
-.B \-\-import\-session.
+Destination name for
+.B \-\-import\-session
+or
+.B \-\-install\-skill.
 .TP
 .B \-\-keys \fIPRESET\fR
 Keybind preset: default, neovim, or emacs.
@@ -331,13 +373,16 @@ Config file:
 Common variables: NULLRAY_PROVIDER, NULLRAY_MODEL, NULLRAY_THEME, NULLRAY_MODE, NULLRAY_PERMS,
 NULLRAY_SANDBOX, NULLRAY_WORKSPACE, NULLRAY_SESSION, NULLRAY_EPHEMERAL, NULLRAY_SPLASH,
 NULLRAY_KEYS, NULLRAY_STREAM, NULLRAY_HTTP_RETRIES, NULLRAY_FALLBACK_MODELS,
-NULLRAY_OPENROUTER_IGNORE, NULLRAY_BARE, NULLRAY_PRINT_TIMEOUT, NULLRAY_OUT, NULLRAY_PLAN_OUT,
+NULLRAY_OPENROUTER_IGNORE, NULLRAY_BARE, NULLRAY_SKILLS, NULLRAY_PRINT_TIMEOUT, NULLRAY_OUT, NULLRAY_PLAN_OUT,
 NULLRAY_COLOR, NULLRAY_ALT_SCREEN, NULLRAY_MOUSE, NULLRAY_DEBUG,
 OPENROUTER_API_KEY, OLLAMA_HOST, LM_STUDIO_HOST, LM_API_TOKEN.
 .SH FILES
 .TP
 .I ~/.config/nullray/env
 Key=value environment overrides.
+.TP
+.I ~/.config/nullray/skills/
+User-installed skills (flat .md or name/SKILL.md packages).
 .TP
 .I ~/.config/nullray/keys.ini
 Key bindings and optional preset= line.
@@ -358,6 +403,9 @@ nullray --print --mode review --fail-on-findings "Review the staged diff"
 git diff | nullray --print --mode review --bare "Review this PR diff"
 nullray --list-models
 nullray --list-sessions
+nullray --list-skills
+nullray --install-skill ./pack/my-skill --as demo
+nullray --skills ~/extra-skills --print "hello"
 nullray --export-session mywork --out ./backup
 nullray --import-session ./backup/mywork.jsonl --as restored
 nullray --completions zsh > ~/.zsh/completions/_nullray

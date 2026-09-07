@@ -14,6 +14,7 @@ import "nullray:run"
 import "nullray:sandbox"
 import "nullray:selftest"
 import "nullray:session"
+import "nullray:skills"
 import "nullray:store"
 import "nullray:ui"
 
@@ -29,6 +30,7 @@ Cli :: struct {
 	debug:            bool,
 	no_splash:        bool,
 	splash:           bool,
+	no_subagents:     bool,
 	hide_sensitive:   bool,
 	print_mode:       bool,
 	bare:             bool,
@@ -53,6 +55,10 @@ Cli :: struct {
 	export_session:   string,
 	import_session:   string,
 	as_name:          string,
+	list_skills:      bool,
+	install_skill:    string,
+	uninstall_skill:  string,
+	skills_paths:     string,
 	prompt:           string,
 	err:              string,
 }
@@ -109,6 +115,15 @@ main :: proc() {
 	}
 	if len(cli.import_session) > 0 {
 		os.exit(run_import_session(cli.import_session, cli.as_name))
+	}
+	if cli.list_skills {
+		os.exit(run_list_skills())
+	}
+	if len(cli.install_skill) > 0 {
+		os.exit(run_install_skill(cli.install_skill, cli.as_name))
+	}
+	if len(cli.uninstall_skill) > 0 {
+		os.exit(run_uninstall_skill(cli.uninstall_skill))
 	}
 
 	if cli.list_models {
@@ -257,10 +272,39 @@ parse_cli :: proc(args: []string) -> Cli {
 		case "--as":
 			v, ok := take_value(args, &i)
 			if !ok {
-				cli.err = "--as needs a session name"
+				cli.err = "--as needs a session or skill name"
 				return cli
 			}
 			cli.as_name = v
+		case "--list-skills":
+			cli.list_skills = true
+		case "--install-skill":
+			v, ok := take_value(args, &i)
+			if !ok {
+				cli.err = "--install-skill needs a path"
+				return cli
+			}
+			cli.install_skill = v
+		case "--uninstall-skill":
+			v, ok := take_value(args, &i)
+			if !ok {
+				cli.err = "--uninstall-skill needs a skill id"
+				return cli
+			}
+			cli.uninstall_skill = v
+		case "--skills":
+			v, ok := take_value(args, &i)
+			if !ok {
+				cli.err = "--skills needs a path or path list"
+				return cli
+			}
+			if len(cli.skills_paths) > 0 {
+				next := fmt.aprintf("%s,%s", cli.skills_paths, v)
+				delete(cli.skills_paths)
+				cli.skills_paths = next
+			} else {
+				cli.skills_paths = strings.clone(v)
+			}
 		case "--print", "-P":
 			cli.print_mode = true
 		case "--bare":
@@ -381,6 +425,8 @@ parse_cli :: proc(args: []string) -> Cli {
 			cli.timeout_sec = n
 		case "--no-splash":
 			cli.no_splash = true
+		case "--no-subagents":
+			cli.no_subagents = true
 		case "--splash":
 			cli.splash = true
 		case "--hide-sensitive":
@@ -448,6 +494,9 @@ apply_cli_env :: proc(cli: ^Cli) {
 	if cli.bare {
 		os.set_env(constants.ENV_BARE, "1")
 	}
+	if len(cli.skills_paths) > 0 {
+		os.set_env(constants.ENV_SKILLS, cli.skills_paths)
+	}
 	if cli.fail_on_findings {
 		os.set_env(constants.ENV_FAIL_ON_FINDINGS, "1")
 	}
@@ -497,6 +546,9 @@ apply_cli_env :: proc(cli: ^Cli) {
 		os.set_env(constants.ENV_SPLASH, "0")
 	} else if cli.splash {
 		os.set_env(constants.ENV_SPLASH, "1")
+	}
+	if cli.no_subagents {
+		os.set_env(constants.ENV_SUBAGENTS, "0")
 	}
 	if cli.hide_sensitive {
 		os.set_env(constants.ENV_HIDE_SENSITIVE, "1")
@@ -588,6 +640,37 @@ run_import_session :: proc(src: string, as_name: string) -> int {
 	return 0
 }
 
+run_list_skills :: proc() -> int {
+	text := skills.skills_list_text()
+	defer delete(text)
+	fmt.println(text)
+	return 0
+}
+
+run_install_skill :: proc(src: string, as_name: string) -> int {
+	id, dest, err := skills.install_skill(src, as_name)
+	if len(err) > 0 {
+		fmt.eprintln("nullray:", err)
+		delete(err)
+		return 1
+	}
+	defer delete(id)
+	defer delete(dest)
+	fmt.printf("installed skill %s -> %s\n", id, dest)
+	return 0
+}
+
+run_uninstall_skill :: proc(id: string) -> int {
+	ok, err := skills.uninstall_skill(id)
+	if !ok {
+		fmt.eprintln("nullray:", err)
+		delete(err)
+		return 1
+	}
+	fmt.printf("uninstalled skill %s\n", skills.sanitize_skill_id(id, context.temp_allocator))
+	return 0
+}
+
 print_version :: proc() {
 	fmt.printf("%s %s (built %s %s)\n", constants.APP_NAME, constants.VERSION, constants.BUILD_DATE, constants.BUILD_TIME)
 }
@@ -620,7 +703,11 @@ print_help :: proc() {
 	fmt.println("      --delete-session N  delete a named session")
 	fmt.println("      --export-session N  export session to --out DIR")
 	fmt.println("      --import-session P  import session from path or dir")
-	fmt.println("      --as NAME           destination name for --import-session")
+	fmt.println("      --as NAME           name for --import-session or --install-skill")
+	fmt.println("      --list-skills       list loaded skills and exit")
+	fmt.println("      --install-skill P   copy skill .md or package into config skills")
+	fmt.println("      --uninstall-skill N remove a skill from config skills")
+	fmt.println("      --skills PATH       extra skill root(s), comma-separated (repeatable)")
 	fmt.println("      --keys PRESET       default | neovim | emacs")
 	fmt.println("      --message-file PATH prompt from file (print mode)")
 	fmt.println("      --out PATH          write final reply to file (or export dir)")
@@ -628,8 +715,10 @@ print_help :: proc() {
 	fmt.println("      --output-format F   text | json (print mode)")
 	fmt.println("      --timeout SEC       print-mode wall clock limit (default 600)")
 	fmt.println("      --bare              skip home MCP and non-workspace skills")
+	fmt.println("                          (NULLRAY_SKILLS / --skills still load)")
 	fmt.println("      --fail-on-findings  exit 1 when review FINDINGS: N > 0")
 	fmt.println("      --no-splash         skip startup splash")
+	fmt.println("      --no-subagents      disable subagent task tool")
 	fmt.println("      --splash            force startup splash")
 	fmt.println("      --hide-sensitive    hide account and API key balances")
 	fmt.println("      --list-models       list models for active provider and exit")

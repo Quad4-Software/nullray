@@ -72,6 +72,14 @@ nullray --import-session PATH [--as NAME]
 
 On TUI quit, nullray prints `To resume this session: nullray --session <name>` when the session was persisted.
 
+## First-run setup
+
+Interactive TUI only. Headless `--print`, `--self-test`, and CI never open the wizard.
+
+On first launch without a ready provider (no `NULLRAY_SETUP_DONE`, no usable API key, and no live Ollama/LM Studio), nullray opens a setup overlay after the splash. Reopen anytime with `/setup`.
+
+Steps: pick provider (live local hosts are marked), edit base URL and key (known defaults prefilled from config then builtins), pick a model from `list_models` (or type one), set reasoning/thinking, confirm. Saves into `~/.config/nullray/env`. Shell exports still override the file on the next process start.
+
 ## Docker
 
 Images publish to GHCR on master and on `v*.*.*` tags (linux/amd64 + linux/arm64). Base is digest-pinned Debian trixie-slim, multi-stage, rootless uid 1000.
@@ -132,6 +140,18 @@ Tools: read, write, edit, apply_edits, grep, glob, shell, run_script, list_skill
 
 Loads AGENTS.md (lean cap) and a skills catalog (full bodies via load_skill). Cap 48 skills, 24KB each.
 
+Skills load from workspace `.agents/skills`, config `~/.config/nullray/skills/`, `~/.agents`, plus extra roots from `NULLRAY_SKILLS` or `--skills` (comma-separated, first wins on id).
+
+```text
+--list-skills
+--install-skill PATH [--as ID]
+--uninstall-skill ID
+--skills PATH
+NULLRAY_SKILLS=/path/a,/path/b
+```
+
+`--install-skill` copies a flat `.md` or a package dir with `SKILL.md` into `~/.config/nullray/skills/`. `--uninstall-skill` only removes from that config dir.
+
 Sessions live under ~/.config/nullray/sessions/ as JSONL plus .meta.json.
 
 ```text
@@ -159,13 +179,15 @@ Per-session .lock files keep two live instances off the same transcript. Concurr
 | Autonomous | /auto on or NULLRAY_AUTO=1 |
 | One-shot (no TUI) | `--print` / `-P` with a prompt |
 | Plan .md artifact | plan mode writes `.nullray/plans/` or `--plan-out` |
-| Post-edit verify | /verify on\|off\|CMD or NULLRAY_VERIFY |
+| Post-edit verify | off by default. `/verify on\|off\|CMD` or `NULLRAY_VERIFY=1` / `CMD` |
 | Stop / pause / continue | Esc, F3, /continue |
 | Improve prompt | F2 or /improve, Ctrl-Z undo |
 | Review pass | /review on or NULLRAY_REVIEW |
 | Style rubric | NULLRAY_RUBRIC=1 |
 | Undo last write | /undo |
 | Attach file | /attach path |
+| List or show skills | /skills [id] or --list-skills |
+| Install / uninstall skill | --install-skill PATH, --uninstall-skill ID |
 | Copy reply | /copy |
 | Paste | Ctrl-V / Ctrl-Y / bracketed paste |
 | Newline in input | Ctrl-J (Enter sends) |
@@ -192,6 +214,7 @@ NULLRAY_MODEL=google/gemini-3.8-flash
 NULLRAY_REASONING=low
 NULLRAY_MODE=edit
 NULLRAY_PERMS=allow
+NULLRAY_SKILLS=
 NULLRAY_IMPROVE_MODEL=
 NULLRAY_REVIEW_MODEL=
 NULLRAY_CACHE=1
@@ -244,10 +267,6 @@ NULLRAY_MODEL=my-local-model
 ```
 
 Ollama lists models via /v1/models with fallback to /api/tags. MCP config is ~/.config/nullray/mcp.json. Handshake versions span 2024-10-07 through 2025-11-25.
-
-## Branding
-
-Assets live in logo/. Regenerate the splash GIF with `python3 scripts/gen_splash_gif.py`.
 
 ## License
 
