@@ -20,6 +20,9 @@ Mistakes that burn time in this tree. Pair with memory and tui skills.
 | Skip destroy pairs | app_destroy, loop_close, buffer_destroy, registry_destroy, session_destroy, tools.registry_destroy, mcp.registry_destroy |
 | ODIN_TEST_THREADS != 1 with shared globals | Makefile sets =1 |
 | Strict sandbox on non-Linux | fails with sandbox requires linux |
+| Label OpenRouter /credits as turn cost | credits are balance remaining, not generation cost |
+| Invent cost_usd from token counts | only parse provider cost fields, else cost_known=false |
+| Expect term_emergency_restore CSI in print | gated on g_em_active (raw mode) |
 
 ## Ownership
 
@@ -64,6 +67,10 @@ Landlock sets NO_NEW_PRIVS. Elevated cmds need the pre-sandbox broker (nullray/e
 - Secret paths blocked unless NULLRAY_SECRETS_ALLOW
 - Improve/review return owned strings to caller
 - Plan artifacts: agent.save_plan_artifact, default under .nullray/plans/
+- Done Contract gate includes Steps (not only Verify/Success/Budget)
+- Print-strict is opt-in (NULLRAY_PRINT_STRICT / --print-strict). Default print-smoke stays exit 0 on soft incompleteness.
+- Usage files next to sessions may show project intensity. hide-sensitive hides UI cost/credits only.
+- Ephemeral print skips .usage.jsonl unless NULLRAY_USAGE_PERSIST=1
 - Subagent spawn never git stash. Lease writes before edit. Worktree children jail to worktree path.
 - NULLRAY_SUBAGENTS=0 omits task from tools JSON. Apply needs verify-all unless --force.
 - agent.register_subagent_runner before spawn (app_init / print)

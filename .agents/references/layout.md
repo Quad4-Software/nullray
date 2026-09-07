@@ -33,10 +33,11 @@ man/                    nullray.1
 logo/                   Brand assets
 packaging/
   flatpak/              Flatpak manifest, desktop, metainfo
-  appimage/             AppImage desktop entry
+  appimage/             Slim and SDK AppRun, desktop, tools.manifest
+  odin-pin              Pinned Odin commit for CI, Docker, SDK
 Dockerfile              Multi-stage rootless Debian trixie image
 docker-compose.yml      Interactive terminal attach
-scripts/                Logo generator, release notes, AppImage/Flatpak builders
+scripts/                AppImage/Flatpak builders, ensure-odin, sdk-smoke, release notes
 ```
 
 Build:

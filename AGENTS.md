@@ -48,7 +48,8 @@ nullray loads flat *.md and nested name/SKILL.md from workspace .agents/skills, 
 | cmd/nullray | Binary |
 | cmd/nullray_chat_smoke | One-turn provider smoke |
 | packaging/flatpak | Flatpak manifest and desktop/metainfo |
-| packaging/appimage | AppImage desktop entry |
+| packaging/appimage | Slim and SDK AppImage AppRun, desktop, tools.manifest |
+| packaging/odin-pin | Pinned Odin commit for CI, Docker, SDK |
 | Dockerfile | Multi-stage rootless image (Debian trixie) |
 | docker-compose.yml | Interactive terminal attach |
 
@@ -67,7 +68,7 @@ make test runs odin test on ui, agent, tools, skills, session, store, sandbox, m
 
 Suite layers: package unit tests (adversarial focus in sandbox and tools/shell), headless --self-test, print-smoke (no provider), optional chat-smoke. Local coverage: make coverage (needs kcov) writes HTML under coverage/.
 
-Modes: ask, plan, review, edit. Print mode: nullray --print (no TUI). Plan mode writes .md under .nullray/plans/ or --plan-out. Apply with --plan-in / NULLRAY_PLAN_IN (headless auto-approves into edit, empty prompt becomes Execute the approved plan). Post-edit verify is off by default. Opt in with NULLRAY_VERIFY=1, /verify on, or NULLRAY_VERIFY=<cmd>. When on, uses plan Verify, AGENTS Verify, or make test.
+Modes: ask, plan, review, edit. Print mode: nullray --print (no TUI). Plan mode writes .md under .nullray/plans/ or --plan-out. Done Contract needs Steps, Verify, Success, and Budget (incomplete plans skip --plan-out). Apply with --plan-in / NULLRAY_PLAN_IN (headless auto-approves into edit, empty prompt becomes Execute the approved plan). Post-edit verify is off by default. Opt in with NULLRAY_VERIFY=1, /verify on, or NULLRAY_VERIFY=<cmd>. When on, uses plan Verify, AGENTS Verify, or make test. Print exit: --print-strict / NULLRAY_PRINT_STRICT fails incomplete plan, verify_failed, max_steps/loop/timeout, living subagents, and tool-only writes with verify on. Session metrics: .usage.jsonl + meta summary, /usage, --usage / NULLRAY_PRINT_USAGE. Cost only when the provider sends it (never invent from /credits). NULLRAY_USAGE=0 disables persist. Ephemeral needs NULLRAY_USAGE_PERSIST=1 to write usage.
 
 ## Skills (read before editing)
 
