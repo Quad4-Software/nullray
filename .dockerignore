@@ -11,6 +11,8 @@ flatpak_app
 repo
 **/.DS_Store
 **/__pycache__
+*.py[cod]
+*$py.class
 agent-tools
 *.md
 !LICENSE

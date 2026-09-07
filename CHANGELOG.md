@@ -6,6 +6,9 @@ Format follows Keep a Changelog and Semantic Versioning.
 
 ## [0.1.1] - 2026-09-07
 
+### Added
+- Nullray wordmark and square profile logo assets (nullray-word, nullray-profile).
+
 ### Fixed
 - OpenCode Go and Zen chat requests send a stable x-opencode-session header so routing and cache affinity work.
 - HTTP User-Agent uses nullray/VERSION instead of a stale nullray/0.6 string.

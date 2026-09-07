@@ -43,6 +43,9 @@ runtime/
 *.prof
 coverage/
 .cache/
+__pycache__/
+*.py[cod]
+*$py.class
 
 # Packaging leftovers
 *.tar
