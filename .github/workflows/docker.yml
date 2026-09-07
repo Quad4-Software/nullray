@@ -1,0 +1,160 @@
+# Build and publish nullray container images to GHCR.
+#
+# Harden-Runner first in every job:
+#   https://docs.stepsecurity.io/github-actions/harden-runner
+#
+# Pinned actions (bump tag and SHA together):
+#   step-security/harden-runner@v2.21.1           e14015d583714f6e62063499dc959a02595150a1
+#   actions/checkout@v7.0.1                      3d3c42e5aac5ba805825da76410c181273ba90b1
+#   docker/setup-qemu-action@v3.6.0              29109295f81e9208d7d86ff1c6c12d2833863392
+#   docker/setup-buildx-action@v4.3.0            37fe631027851001ddb9b187196cc803df7f5f0e
+#   docker/login-action@v4.6.0                   dbcb813823bdd20940b903addbd779551569679f
+#   docker/metadata-action@v6.2.0                dc802804100637a589fabce1cb79ff13a1411302
+#   docker/build-push-action@v7.3.0              53b7df96c91f9c12dcc8a07bcb9ccacbed38856a
+#   anchore/sbom-action@v0.24.2                  3ad7283483fc7af8ff2b4ea19663c2d5ca935e26
+#   actions/upload-artifact@v7.0.1               043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+
+name: docker
+
+on:
+  push:
+    branches: [master]
+    tags: ["v*.*.*"]
+  pull_request:
+    branches: [master]
+    paths:
+      - Dockerfile
+      - docker-compose.yml
+      - .dockerignore
+      - .github/workflows/docker.yml
+      - cmd/**
+      - nullray/**
+      - Makefile
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: docker-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  IMAGE_NAME: nullray
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    permissions:
+      contents: read
+      packages: write
+      attestations: write
+      id-token: write
+    outputs:
+      digest: ${{ steps.build.outputs.digest }}
+      image: ${{ steps.meta.outputs.tags }}
+    steps:
+      - name: Harden runner
+        uses: step-security/harden-runner@e14015d583714f6e62063499dc959a02595150a1 # v2.21.1
+        with:
+          egress-policy: audit
+
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@29109295f81e9208d7d86ff1c6c12d2833863392 # v3.6.0
+
+      - name: Set up Buildx
+        uses: docker/setup-buildx-action@37fe631027851001ddb9b187196cc803df7f5f0e # v4.3.0
+
+      - name: Image name (lowercase)
+        id: image
+        run: |
+          owner="$(echo '${{ github.repository_owner }}' | tr '[:upper:]' '[:lower:]')"
+          echo "name=ghcr.io/${owner}/${IMAGE_NAME}" >> "$GITHUB_OUTPUT"
+
+      - name: Log in to GHCR
+        if: github.event_name != 'pull_request'
+        uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f # v4.6.0
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Docker metadata
+        id: meta
+        uses: docker/metadata-action@dc802804100637a589fabce1cb79ff13a1411302 # v6.2.0
+        with:
+          images: ${{ steps.image.outputs.name }}
+          tags: |
+            type=raw,value=latest,enable={{is_default_branch}}
+            type=semver,pattern={{version}}
+            type=semver,pattern={{major}}.{{minor}}
+            type=sha,prefix=sha-,format=short
+            type=ref,event=branch
+
+      - name: Build (PR amd64 only)
+        if: github.event_name == 'pull_request'
+        uses: docker/build-push-action@53b7df96c91f9c12dcc8a07bcb9ccacbed38856a # v7.3.0
+        with:
+          context: .
+          file: ./Dockerfile
+          platforms: linux/amd64
+          push: false
+          load: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Build and push
+        id: build
+        if: github.event_name != 'pull_request'
+        uses: docker/build-push-action@53b7df96c91f9c12dcc8a07bcb9ccacbed38856a # v7.3.0
+        with:
+          context: .
+          file: ./Dockerfile
+          platforms: linux/amd64,linux/arm64
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          provenance: mode=max
+          sbom: true
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Image SBOM (CycloneDX)
+        if: github.event_name != 'pull_request'
+        uses: anchore/sbom-action@3ad7283483fc7af8ff2b4ea19663c2d5ca935e26 # v0.24.2
+        with:
+          image: ${{ steps.image.outputs.name }}@${{ steps.build.outputs.digest }}
+          format: cyclonedx-json
+          artifact-name: nullray-image.cdx.json
+          output-file: nullray-image.cdx.json
+          upload-artifact: true
+          upload-release-assets: false
+
+      - name: Image SBOM (SPDX)
+        if: github.event_name != 'pull_request'
+        uses: anchore/sbom-action@3ad7283483fc7af8ff2b4ea19663c2d5ca935e26 # v0.24.2
+        with:
+          image: ${{ steps.image.outputs.name }}@${{ steps.build.outputs.digest }}
+          format: spdx-json
+          artifact-name: nullray-image.spdx.json
+          output-file: nullray-image.spdx.json
+          upload-artifact: true
+          upload-release-assets: false
+
+      - name: Upload image digests
+        if: github.event_name != 'pull_request'
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: nullray-image-digest
+          path: |
+            nullray-image.cdx.json
+            nullray-image.spdx.json
+          if-no-files-found: ignore

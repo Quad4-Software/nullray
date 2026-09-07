@@ -1,0 +1,32 @@
+# Flatpak manifest. CI stages a prebuilt linux amd64 binary as ./nullray
+# next to this file before flatpak-builder runs.
+app-id: io.github.Quad4_Software.nullray
+runtime: org.freedesktop.Platform
+runtime-version: "25.08"
+sdk: org.freedesktop.Sdk
+command: nullray
+finish-args:
+  # Network for model providers and MCP transports that need it.
+  - --share=network
+  # Home so the agent can edit projects. Config lives under XDG.
+  - --filesystem=home
+  - --filesystem=xdg-config/nullray:create
+  # Talk to host terminal session bus helpers when present.
+  - --share=ipc
+modules:
+  - name: nullray
+    buildsystem: simple
+    build-commands:
+      - install -Dm755 nullray /app/bin/nullray
+      - install -Dm644 io.github.Quad4_Software.nullray.desktop /app/share/applications/io.github.Quad4_Software.nullray.desktop
+      - install -Dm644 io.github.Quad4_Software.nullray.metainfo.xml /app/share/metainfo/io.github.Quad4_Software.nullray.metainfo.xml
+      - install -Dm644 nullray.svg /app/share/icons/hicolor/scalable/apps/io.github.Quad4_Software.nullray.svg
+    sources:
+      - type: file
+        path: nullray
+      - type: file
+        path: io.github.Quad4_Software.nullray.desktop
+      - type: file
+        path: io.github.Quad4_Software.nullray.metainfo.xml
+      - type: file
+        path: nullray.svg

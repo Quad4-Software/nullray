@@ -1,0 +1,37 @@
+# Attach as a terminal: docker compose run --rm nullray
+# Host Ollama: OLLAMA_HOST defaults to host.docker.internal:11434
+
+services:
+  nullray:
+    image: ghcr.io/quad4-software/nullray:latest
+    build:
+      context: .
+      dockerfile: Dockerfile
+    stdin_open: true
+    tty: true
+    working_dir: /workspace
+    user: "1000:1000"
+    environment:
+      TERM: ${TERM:-xterm-256color}
+      COLORTERM: ${COLORTERM:-truecolor}
+      NULLRAY_PROVIDER: ${NULLRAY_PROVIDER:-ollama}
+      NULLRAY_MODEL: ${NULLRAY_MODEL:-}
+      OLLAMA_HOST: ${OLLAMA_HOST:-http://host.docker.internal:11434}
+      OPENROUTER_API_KEY: ${OPENROUTER_API_KEY:-}
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+      NULLRAY_SANDBOX: ${NULLRAY_SANDBOX:-warn}
+    volumes:
+      - ${NULLRAY_WORKSPACE:-.}:/workspace
+      - nullray-config:/home/nullray/.config/nullray
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    read_only: true
+    tmpfs:
+      - /tmp:size=64m,mode=1777
+
+volumes:
+  nullray-config:

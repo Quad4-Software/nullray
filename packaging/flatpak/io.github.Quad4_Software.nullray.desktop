@@ -1,0 +1,11 @@
+[Desktop Entry]
+Type=Application
+Name=nullray
+GenericName=Coding agent
+Comment=Lightweight TUI coding agent
+Exec=nullray
+Icon=io.github.Quad4_Software.nullray
+Terminal=true
+Categories=Development;Utility;
+Keywords=agent;llm;tui;coding;
+StartupNotify=false

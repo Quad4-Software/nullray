@@ -36,6 +36,9 @@ runtime/
 *.lock
 *.jsonl
 
+# Local agent plan artifacts
+.nullray/
+
 # Test / coverage noise
 *.prof
 coverage/
@@ -48,6 +51,11 @@ coverage/
 *.deb
 *.rpm
 *.AppImage
+*.flatpak
+packaging/flatpak/nullray
+packaging/flatpak/nullray.svg
+.flatpak-builder/
+flatpak_app/
 
 # Local logo scratch (committed assets live in logo/)
 .logo-preview/

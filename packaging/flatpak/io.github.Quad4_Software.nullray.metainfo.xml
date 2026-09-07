@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<component type="desktop-application">
+  <id>io.github.Quad4_Software.nullray</id>
+  <name>nullray</name>
+  <summary>Lightweight TUI coding agent</summary>
+  <metadata_license>0BSD</metadata_license>
+  <project_license>0BSD</project_license>
+  <developer id="io.quad4">
+    <name>Quad4 Software</name>
+  </developer>
+  <url type="homepage">https://github.com/Quad4-Software/nullray</url>
+  <url type="bugtracker">https://github.com/Quad4-Software/nullray/issues</url>
+  <description>
+    <p>
+      nullray is a small coding agent with a custom terminal UI, local and
+      remote model providers, MCP support, and an optional Linux sandbox.
+    </p>
+  </description>
+  <launchable type="desktop-id">io.github.Quad4_Software.nullray.desktop</launchable>
+  <categories>
+    <category>Development</category>
+    <category>Utility</category>
+  </categories>
+  <provides>
+    <binary>nullray</binary>
+  </provides>
+  <content_rating type="oars-1.1"/>
+  <releases>
+    <release version="0.1.0" date="2026-09-07"/>
+  </releases>
+</component>

@@ -1,4 +1,5 @@
-# Tag release: build linux/macOS/Windows artifacts, checksums, notes.md, GitHub release.
+# Tag release: linux/macOS/Windows archives, AppImage, Flatpak, SBOMs,
+# checksums, notes.md, GitHub release.
 #
 # Harden-Runner first in every job:
 #   https://docs.stepsecurity.io/github-actions/harden-runner
@@ -7,12 +8,14 @@
 # force-moved. Cut a new patch if a release is wrong.
 #
 # Pinned actions (bump tag and SHA together):
-#   step-security/harden-runner@v2.21.1  e14015d583714f6e62063499dc959a02595150a1
-#   actions/checkout@v7.0.1             3d3c42e5aac5ba805825da76410c181273ba90b1
-#   actions/cache@v6.1.0                55cc8345863c7cc4c66a329aec7e433d2d1c52a9
-#   actions/upload-artifact@v7.0.1      043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
-#   actions/download-artifact@v8.0.1    3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c
-#   softprops/action-gh-release@v3.0.3   e598afbe1493e6b1bafb1f389cabb956eab91231
+#   step-security/harden-runner@v2.21.1                      e14015d583714f6e62063499dc959a02595150a1
+#   actions/checkout@v7.0.1                                 3d3c42e5aac5ba805825da76410c181273ba90b1
+#   actions/cache@v6.1.0                                    55cc8345863c7cc4c66a329aec7e433d2d1c52a9
+#   actions/upload-artifact@v7.0.1                          043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+#   actions/download-artifact@v8.0.1                        3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c
+#   softprops/action-gh-release@v3.0.3                       e598afbe1493e6b1bafb1f389cabb956eab91231
+#   anchore/sbom-action@v0.24.2                             3ad7283483fc7af8ff2b4ea19663c2d5ca935e26
+#   flatpak/flatpak-github-actions/flatpak-builder@v6.8     79327416609af08178ad73b352877e51450790b3
 
 name: release
 
@@ -134,6 +137,10 @@ jobs:
             rm -f "dist/${name}.exe"
           else
             install -m 755 bin/nullray "dist/${name}"
+            # Keep unpacked binary for Linux packaging jobs.
+            if [[ "$ARTIFACT" == "linux_amd64" ]]; then
+              cp "dist/${name}" dist/nullray
+            fi
             tar -C dist -czf "dist/${name}.tar.gz" "${name}"
             rm -f "dist/${name}"
           fi
@@ -145,10 +152,115 @@ jobs:
           path: dist/
           if-no-files-found: error
 
-  publish:
+  appimage:
     runs-on: ubuntu-latest
     needs: build
-    timeout-minutes: 30
+    timeout-minutes: 45
+    env:
+      RELEASE_TAG: ${{ github.event_name == 'workflow_dispatch' && inputs.tag || github.ref_name }}
+    steps:
+      - name: Harden runner
+        uses: step-security/harden-runner@e14015d583714f6e62063499dc959a02595150a1 # v2.21.1
+        with:
+          egress-policy: audit
+
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Download linux artifact
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: nullray-${{ env.RELEASE_TAG }}-linux_amd64
+          path: dist-linux
+
+      - name: Install AppImage deps
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            curl file librsvg2-bin libfuse2t64 ca-certificates
+          sudo apt-get install -y --no-install-recommends fuse3 || true
+
+      - name: Build AppImage
+        env:
+          VERSION: ${{ env.RELEASE_TAG }}
+        run: |
+          set -euo pipefail
+          ver="${VERSION#v}"
+          export VERSION="$ver"
+          chmod +x scripts/build-appimage.sh
+          mkdir -p dist
+          bash scripts/build-appimage.sh dist-linux/nullray dist
+
+      - name: Upload AppImage
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: nullray-${{ env.RELEASE_TAG }}-appimage
+          path: dist/*.AppImage
+          if-no-files-found: error
+
+  flatpak:
+    runs-on: ubuntu-24.04
+    needs: build
+    timeout-minutes: 60
+    container:
+      image: ghcr.io/flathub-infra/flatpak-github-actions:freedesktop-25.08
+      options: --privileged
+    env:
+      RELEASE_TAG: ${{ github.event_name == 'workflow_dispatch' && inputs.tag || github.ref_name }}
+    steps:
+      - name: Harden runner
+        uses: step-security/harden-runner@e14015d583714f6e62063499dc959a02595150a1 # v2.21.1
+        with:
+          egress-policy: audit
+
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Download linux artifact
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: nullray-${{ env.RELEASE_TAG }}-linux_amd64
+          path: dist-linux
+
+      - name: Stage Flatpak sources
+        run: |
+          set -euo pipefail
+          install -m 755 dist-linux/nullray packaging/flatpak/nullray
+          install -m 644 logo/nullray.svg packaging/flatpak/nullray.svg
+
+      - name: Build Flatpak bundle
+        uses: flatpak/flatpak-github-actions/flatpak-builder@79327416609af08178ad73b352877e51450790b3 # v6.8
+        with:
+          bundle: nullray.flatpak
+          manifest-path: packaging/flatpak/io.github.Quad4_Software.nullray.yml
+          cache-key: flatpak-${{ github.sha }}
+          upload-artifact: false
+          arch: x86_64
+
+      - name: Rename bundle
+        env:
+          TAG: ${{ env.RELEASE_TAG }}
+        run: |
+          set -euo pipefail
+          ver="${TAG#v}"
+          mkdir -p dist
+          mv nullray.flatpak "dist/nullray_${ver}_linux_amd64.flatpak"
+
+      - name: Upload Flatpak
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: nullray-${{ env.RELEASE_TAG }}-flatpak
+          path: dist/*.flatpak
+          if-no-files-found: error
+
+  publish:
+    runs-on: ubuntu-latest
+    needs: [build, appimage, flatpak]
+    timeout-minutes: 45
     permissions:
       contents: write
     env:
@@ -172,19 +284,73 @@ jobs:
           path: dist-all
           merge-multiple: true
 
+      - name: Collect release files
+        env:
+          TAG: ${{ env.RELEASE_TAG }}
+        run: |
+          set -euo pipefail
+          ver="${TAG#v}"
+          mkdir -p dist
+          find dist-all -type f \( \
+            -name '*.tar.gz' -o -name '*.zip' -o -name '*.AppImage' -o -name '*.flatpak' \
+          \) -exec cp -v {} dist/ \;
+          # Drop unpackaged linux helper binary from archive job if present.
+          rm -f dist/nullray
+
+      - name: SBOM archives (CycloneDX)
+        uses: anchore/sbom-action@3ad7283483fc7af8ff2b4ea19663c2d5ca935e26 # v0.24.2
+        with:
+          path: dist
+          format: cyclonedx-json
+          artifact-name: nullray-${{ env.RELEASE_TAG }}.cdx.json
+          output-file: dist/nullray-${{ env.RELEASE_TAG }}.cdx.json
+          upload-artifact: false
+          upload-release-assets: false
+
+      - name: SBOM archives (SPDX)
+        uses: anchore/sbom-action@3ad7283483fc7af8ff2b4ea19663c2d5ca935e26 # v0.24.2
+        with:
+          path: dist
+          format: spdx-json
+          artifact-name: nullray-${{ env.RELEASE_TAG }}.spdx.json
+          output-file: dist/nullray-${{ env.RELEASE_TAG }}.spdx.json
+          upload-artifact: false
+          upload-release-assets: false
+
+      - name: Per-binary SBOMs
+        run: |
+          set -euo pipefail
+          SYFT_VER=1.51.1
+          SYFT_TGZ="syft_${SYFT_VER}_linux_amd64.tar.gz"
+          SYFT_SHA256=8fcb33017a0dc1058298c923c436d19dfa68ae93968e0b423248542e3afb9fc3
+          curl -fsSL -o "/tmp/${SYFT_TGZ}" \
+            "https://github.com/anchore/syft/releases/download/v${SYFT_VER}/${SYFT_TGZ}"
+          echo "${SYFT_SHA256}  /tmp/${SYFT_TGZ}" | sha256sum -c -
+          tar -C /tmp -xzf "/tmp/${SYFT_TGZ}" syft
+          chmod +x /tmp/syft
+          for f in dist/*.tar.gz dist/*.zip dist/*.AppImage dist/*.flatpak; do
+            [[ -f "$f" ]] || continue
+            base="$(basename "$f")"
+            stem="${base%.tar.gz}"
+            stem="${stem%.zip}"
+            stem="${stem%.AppImage}"
+            stem="${stem%.flatpak}"
+            /tmp/syft scan "file:${f}" \
+              -o "cyclonedx-json=dist/${stem}.cdx.json" \
+              -o "spdx-json=dist/${stem}.spdx.json"
+          done
+
       - name: Package checksums and notes
         env:
           TAG: ${{ env.RELEASE_TAG }}
           REPO: ${{ github.repository }}
         run: |
           set -euo pipefail
-          mkdir -p dist
-          find dist-all -type f \( -name '*.tar.gz' -o -name '*.zip' \) -exec cp {} dist/ \;
           (
             cd dist
             sha256sum ./* > checksums.txt
           )
-          bash scripts/release-notes.sh "$TAG" "$REPO" dist/notes.md
+          bash scripts/release-notes.sh "$TAG" "$REPO" dist/notes.md dist
 
       - name: Publish GitHub release
         uses: softprops/action-gh-release@e598afbe1493e6b1bafb1f389cabb956eab91231 # v3.0.3
@@ -198,6 +364,10 @@ jobs:
           files: |
             dist/*.tar.gz
             dist/*.zip
+            dist/*.AppImage
+            dist/*.flatpak
+            dist/*.cdx.json
+            dist/*.spdx.json
             dist/checksums.txt
             dist/notes.md
         env:

@@ -1,0 +1,108 @@
+#!/bin/sh
+# AppRun for the nullray TUI AppImage.
+# In a terminal: run nullray there.
+# Double-click / launcher (no TTY, display present): open the host default terminal.
+# Does not bundle a terminal emulator.
+
+set -eu
+
+HERE="$(dirname "$(readlink -f "$0")")"
+BIN="${HERE}/usr/bin/nullray"
+
+export PATH="${HERE}/usr/bin:${PATH:-}"
+if [ -d "${HERE}/usr/lib" ]; then
+	export LD_LIBRARY_PATH="${HERE}/usr/lib${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}"
+fi
+
+if [ ! -x "${BIN}" ]; then
+	echo "nullray: missing ${BIN}" >&2
+	exit 127
+fi
+
+# Headless flags never need a terminal window.
+case "${1:-}" in
+	--version|-V|--help|-h|--self-test|-t|--completions|--man|--list-models)
+		exec "${BIN}" "$@"
+		;;
+esac
+
+if [ "${NULLRAY_APPIMAGE_NO_TERM:-0}" = "1" ]; then
+	exec "${BIN}" "$@"
+fi
+
+# Already in a terminal.
+if [ -t 0 ] && [ -t 1 ]; then
+	exec "${BIN}" "$@"
+fi
+
+# No GUI session: run directly (ssh, CI, pipes).
+if [ -z "${DISPLAY:-}${WAYLAND_DISPLAY:-}" ]; then
+	exec "${BIN}" "$@"
+fi
+
+# Double-click / desktop launcher: open host default terminal.
+if command -v xdg-terminal-exec >/dev/null 2>&1; then
+	exec xdg-terminal-exec -- "${BIN}" "$@"
+fi
+
+run_term() {
+	term="$1"
+	shift
+	command -v "${term}" >/dev/null 2>&1 || return 1
+	case "${term}" in
+		kitty|alacritty|foot|st|xterm|uxterm|rxvt|urxvt)
+			exec "${term}" -e "${BIN}" "$@"
+			;;
+		wezterm)
+			exec wezterm start -- "${BIN}" "$@"
+			;;
+		gnome-terminal)
+			exec gnome-terminal -- "${BIN}" "$@"
+			;;
+		kgx|ptyxis)
+			exec "${term}" -- "${BIN}" "$@"
+			;;
+		konsole)
+			exec konsole -e "${BIN}" "$@"
+			;;
+		xfce4-terminal)
+			exec xfce4-terminal -x "${BIN}" "$@"
+			;;
+		mate-terminal)
+			exec mate-terminal -x "${BIN}" "$@"
+			;;
+		tilix)
+			exec tilix -e "${BIN}" "$@"
+			;;
+		x-terminal-emulator)
+			exec x-terminal-emulator -e "${BIN}" "$@"
+			;;
+		*)
+			return 1
+			;;
+	esac
+}
+
+for term in \
+	x-terminal-emulator \
+	kitty \
+	alacritty \
+	wezterm \
+	gnome-terminal \
+	kgx \
+	ptyxis \
+	konsole \
+	xfce4-terminal \
+	mate-terminal \
+	tilix \
+	foot \
+	xterm \
+	uxterm \
+	st
+do
+	run_term "${term}" "$@" && exit 0
+done
+
+echo "nullray: no terminal found. Install xdg-terminal-exec or a terminal emulator, or run from a shell:" >&2
+echo "  ${BIN}" "$@" >&2
+exit 1

@@ -1,0 +1,12 @@
+[Desktop Entry]
+Type=Application
+Name=nullray
+GenericName=Coding agent
+Comment=Lightweight TUI coding agent
+Exec=AppRun
+Icon=nullray
+Terminal=true
+Categories=Development;
+Keywords=agent;llm;tui;coding;
+StartupNotify=false
+X-AppImage-Version=0.1.0
