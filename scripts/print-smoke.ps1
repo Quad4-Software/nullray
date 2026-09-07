@@ -11,11 +11,12 @@ if (-not $Bin) {
   else { throw "print-smoke: bin/nullray.exe not found (build first)" }
 }
 
-function Expect-Exit([int]$Want, [string[]]$Args) {
-  & $Bin @Args 1>$null 2>$null
+function Expect-Exit([int]$Want, [string[]]$ArgList) {
+  $out = & $Bin @ArgList 2>&1 | Out-String
   $got = $LASTEXITCODE
   if ($got -ne $Want) {
-    throw "print-smoke: expected exit $Want from $($Args -join ' ') (got $got)"
+    if ($out) { Write-Host "  binary output: $($out.Trim())" }
+    throw "print-smoke: expected exit $Want from $($ArgList -join ' ') (got $got)"
   }
 }
 

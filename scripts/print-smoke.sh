@@ -19,10 +19,12 @@ expect_exit() {
   local want="$1"
   shift
   set +e
-  "$@" >/dev/null 2>&1
+  local out
+  out="$("$@" 2>&1)"
   local got=$?
   set -e
   if [[ "$got" -ne "$want" ]]; then
+    [[ -n "$out" ]] && printf '%s\n' "$out" >&2
     echo "print-smoke: expected exit $want from: $* (got $got)" >&2
     exit 1
   fi
