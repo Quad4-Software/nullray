@@ -21,6 +21,8 @@ Cli :: struct {
 	show_help:   bool,
 	show_version: bool,
 	show_man:    bool,
+	no_splash:   bool,
+	splash:      bool,
 	completions: string,
 	provider:    string,
 	model:       string,
@@ -30,6 +32,7 @@ Cli :: struct {
 	sandbox:     string,
 	workspace:   string,
 	session:     string,
+	keys:        string,
 	err:         string,
 }
 
@@ -186,6 +189,21 @@ parse_cli :: proc(args: []string) -> Cli {
 				return cli
 			}
 			cli.session = v
+		case "--keys":
+			v, ok := take_value(args, &i)
+			if !ok {
+				cli.err = "--keys needs default|neovim|emacs"
+				return cli
+			}
+			if _, pok := config.preset_from_name(v); !pok {
+				cli.err = "--keys needs default|neovim|emacs"
+				return cli
+			}
+			cli.keys = v
+		case "--no-splash":
+			cli.no_splash = true
+		case "--splash":
+			cli.splash = true
 		case "--completions":
 			v, ok := take_value(args, &i)
 			if !ok {
@@ -242,6 +260,14 @@ apply_cli_env :: proc(cli: ^Cli) {
 	if len(cli.session) > 0 {
 		os.set_env(constants.ENV_SESSION, cli.session)
 	}
+	if len(cli.keys) > 0 {
+		os.set_env(constants.ENV_KEYS, cli.keys)
+	}
+	if cli.no_splash {
+		os.set_env(constants.ENV_SPLASH, "0")
+	} else if cli.splash {
+		os.set_env(constants.ENV_SPLASH, "1")
+	}
 }
 
 run_list_models :: proc() -> int {
@@ -291,7 +317,9 @@ print_help :: proc() {
 	fmt.println("  -e, --ephemeral         do not load or save session transcripts")
 	fmt.println("  -t, --self-test         headless smoke (tools, mcp, draw, shell deny)")
 	fmt.println("  -p, --provider ID       ollama | lmstudio | openai | openai-compat |")
-	fmt.println("                          openrouter | opencode | opencode-go")
+	fmt.println("                          openrouter | opencode | opencode-go |")
+	fmt.println("                          anthropic | gemini | groq | deepseek |")
+	fmt.println("                          mistral | together | fireworks | xai | azure")
 	fmt.println("  -m, --model NAME        override default model")
 	fmt.println("      --theme NAME        ink | ember | moss | slate | rose | mono | dusk")
 	fmt.println("      --mode MODE         ask | plan | edit")
@@ -299,6 +327,9 @@ print_help :: proc() {
 	fmt.println("      --sandbox MODE      on | off | landlock | seccomp | ...")
 	fmt.println("  -w, --workspace PATH    workspace root for tools/sandbox")
 	fmt.println("      --session NAME      resume or create named session")
+	fmt.println("      --keys PRESET       default | neovim | emacs")
+	fmt.println("      --no-splash         skip startup splash")
+	fmt.println("      --splash            force startup splash")
 	fmt.println("      --list-models       list models for active provider and exit")
 	fmt.println("      --completions SHELL print completion script and exit")
 	fmt.println("      --man               print man page source and exit")
@@ -306,8 +337,8 @@ print_help :: proc() {
 	fmt.println("env file:  ~/.config/nullray/env")
 	fmt.println("env vars:  NULLRAY_PROVIDER NULLRAY_MODEL NULLRAY_THEME NULLRAY_MODE NULLRAY_PERMS")
 	fmt.println("           NULLRAY_SANDBOX NULLRAY_WORKSPACE NULLRAY_SESSION NULLRAY_EPHEMERAL")
-	fmt.println("           NULLRAY_STREAM OPENROUTER_API_KEY OPENAI_API_KEY OPENAI_BASE_URL")
-	fmt.println("           OLLAMA_HOST LM_STUDIO_HOST LM_API_TOKEN")
+	fmt.println("           NULLRAY_SPLASH NULLRAY_KEYS NULLRAY_STREAM OPENROUTER_API_KEY")
+	fmt.println("           OPENAI_API_KEY OPENAI_BASE_URL OLLAMA_HOST LM_STUDIO_HOST LM_API_TOKEN")
 	fmt.println("")
 	fmt.println("completions: nullray --completions bash|zsh|fish|powershell|elvish|nushell")
 	fmt.println("man page:    nullray --man | man -l -")

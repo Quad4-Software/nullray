@@ -8,8 +8,8 @@
 #
 # Pinned actions (bump tag and SHA together):
 #   step-security/harden-runner@v2.21.1  e14015d583714f6e62063499dc959a02595150a1
-#   actions/checkout@v6.0.1             8e8c483db84b4bee98b60c0593521ed34d9990e8
-#   actions/cache@v4.2.3                5a3ec84eff668545956fd18022155c47e93e2684
+#   actions/checkout@v7.0.1             3d3c42e5aac5ba805825da76410c181273ba90b1
+#   actions/cache@v6.1.0                55cc8345863c7cc4c66a329aec7e433d2d1c52a9
 
 name: ci
 
@@ -57,7 +57,7 @@ jobs:
           egress-policy: audit
 
       - name: Checkout
-        uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
 
@@ -66,7 +66,7 @@ jobs:
 
       - name: Cache Odin toolchain
         id: cache-odin
-        uses: actions/cache@5a3ec84eff668545956fd18022155c47e93e2684 # v4.2.3
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: |
             ~/Odin
@@ -101,7 +101,7 @@ jobs:
           egress-policy: audit
 
       - name: Checkout
-        uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
 
@@ -110,7 +110,7 @@ jobs:
 
       - name: Cache Odin toolchain
         id: cache-odin
-        uses: actions/cache@5a3ec84eff668545956fd18022155c47e93e2684 # v4.2.3
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: |
             ~/Odin
@@ -138,3 +138,99 @@ jobs:
           ./bin/nullray --version
           ./bin/nullray --completions bash | head -3
           ./bin/nullray --man | head -3
+
+  smoke-macos:
+    name: build and smoke (macos)
+    runs-on: macos-latest
+    timeout-minutes: 60
+    needs: test
+    steps:
+      - name: Harden runner
+        uses: step-security/harden-runner@e14015d583714f6e62063499dc959a02595150a1 # v2.21.1
+        with:
+          egress-policy: audit
+
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Install deps
+        run: brew install curl llvm
+
+      - name: Cache Odin toolchain
+        id: cache-odin
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: |
+            ~/Odin
+            ~/.cache/odin
+          key: odin-${{ runner.os }}-${{ hashFiles('.github/workflows/ci.yml') }}-2026-09
+          restore-keys: |
+            odin-${{ runner.os }}-
+
+      - name: Build Odin
+        if: steps.cache-odin.outputs.cache-hit != 'true'
+        run: |
+          git clone --depth 1 https://github.com/odin-lang/Odin.git "$HOME/Odin"
+          (cd "$HOME/Odin" && ./build_odin.sh)
+
+      - name: Add Odin to PATH
+        run: echo "$HOME/Odin" >> "$GITHUB_PATH"
+
+      - name: Build and smoke
+        run: |
+          make
+          ./bin/nullray --self-test
+          ./bin/nullray --version
+
+  smoke-windows:
+    name: build and smoke (windows)
+    runs-on: windows-latest
+    timeout-minutes: 60
+    needs: test
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - name: Harden runner
+        uses: step-security/harden-runner@e14015d583714f6e62063499dc959a02595150a1 # v2.21.1
+        with:
+          egress-policy: audit
+
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Install deps
+        shell: pwsh
+        run: |
+          choco install curl -y
+          choco install llvm -y
+
+      - name: Cache Odin toolchain
+        id: cache-odin
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: |
+            ~/Odin
+            ~/.cache/odin
+          key: odin-${{ runner.os }}-${{ hashFiles('.github/workflows/ci.yml') }}-2026-09
+          restore-keys: |
+            odin-${{ runner.os }}-
+
+      - name: Build Odin
+        if: steps.cache-odin.outputs.cache-hit != 'true'
+        run: |
+          git clone --depth 1 https://github.com/odin-lang/Odin.git "$HOME/Odin"
+          (cd "$HOME/Odin" && ./build_odin.sh)
+
+      - name: Add Odin to PATH
+        run: echo "$HOME/Odin" >> "$GITHUB_PATH"
+
+      - name: Build and smoke
+        run: |
+          make
+          ./bin/nullray --self-test
+          ./bin/nullray --version

@@ -39,17 +39,19 @@ _nullray() {
   COMPREPLY=()
   cur="${COMP_WORDS[COMP_CWORD]}"
   prev="${COMP_WORDS[COMP_CWORD-1]}"
-  opts="--help -h --version -V --ephemeral -e --self-test -t --provider -p --model -m --theme --mode --perms --sandbox --workspace -w --session --list-models --completions --man"
-  providers="ollama lmstudio openai openai-compat openrouter opencode opencode-go"
+  opts="--help -h --version -V --ephemeral -e --self-test -t --provider -p --model -m --theme --mode --perms --sandbox --workspace -w --session --keys --no-splash --splash --list-models --completions --man"
+  providers="ollama lmstudio openai openai-compat openrouter opencode opencode-go anthropic gemini groq deepseek mistral together fireworks xai azure"
   modes="ask plan edit"
   perms="ask allow yolo"
   sandboxes="on off landlock seccomp"
+  keys="default neovim emacs"
 
   case "$prev" in
     --provider|-p) COMPREPLY=( $(compgen -W "$providers" -- "$cur") ); return ;;
     --mode) COMPREPLY=( $(compgen -W "$modes" -- "$cur") ); return ;;
     --perms) COMPREPLY=( $(compgen -W "$perms" -- "$cur") ); return ;;
     --sandbox) COMPREPLY=( $(compgen -W "$sandboxes" -- "$cur") ); return ;;
+    --keys) COMPREPLY=( $(compgen -W "$keys" -- "$cur") ); return ;;
     --completions) COMPREPLY=( $(compgen -W "bash zsh fish powershell elvish nushell" -- "$cur") ); return ;;
     --theme) COMPREPLY=( $(compgen -W "ink ember moss slate rose mono dusk" -- "$cur") ); return ;;
     --workspace|-w|--session|--model|-m) COMPREPLY=( $(compgen -f -- "$cur") ); return ;;
@@ -69,8 +71,8 @@ _nullray() {
     '--version[show version]' '-V[show version]'
     '--ephemeral[do not load or save transcripts]' '-e[do not load or save transcripts]'
     '--self-test[headless smoke]' '-t[headless smoke]'
-    '--provider[provider id]:provider:(ollama lmstudio openai openai-compat openrouter opencode opencode-go)'
-    '-p[provider id]:provider:(ollama lmstudio openai openai-compat openrouter opencode opencode-go)'
+    '--provider[provider id]:provider:(ollama lmstudio openai openai-compat openrouter opencode opencode-go anthropic gemini groq deepseek mistral together fireworks xai azure)'
+    '-p[provider id]:provider:(ollama lmstudio openai openai-compat openrouter opencode opencode-go anthropic gemini groq deepseek mistral together fireworks xai azure)'
     '--model[model id]:model:'
     '-m[model id]:model:'
     '--theme[ui theme]:theme:(ink ember moss slate rose mono dusk)'
@@ -80,6 +82,9 @@ _nullray() {
     '--workspace[workspace path]:dir:_files -/'
     '-w[workspace path]:dir:_files -/'
     '--session[session name]:session:'
+    '--keys[keybind preset]:keys:(default neovim emacs)'
+    '--no-splash[skip startup splash]'
+    '--splash[force startup splash]'
     '--list-models[list models for active provider]'
     '--completions[print shell completions]:shell:(bash zsh fish powershell elvish nushell)'
     '--man[print man page source]'
@@ -94,7 +99,7 @@ complete -c nullray -s h -l help -d 'Show help'
 complete -c nullray -s V -l version -d 'Show version'
 complete -c nullray -s e -l ephemeral -d 'Do not load or save transcripts'
 complete -c nullray -s t -l self-test -d 'Headless smoke'
-complete -c nullray -s p -l provider -d 'Provider id' -xa 'ollama lmstudio openai openai-compat openrouter opencode opencode-go'
+complete -c nullray -s p -l provider -d 'Provider id' -xa 'ollama lmstudio openai openai-compat openrouter opencode opencode-go anthropic gemini groq deepseek mistral together fireworks xai azure'
 complete -c nullray -s m -l model -d 'Model id' -r
 complete -c nullray -l theme -d 'UI theme' -xa 'ink ember moss slate rose mono dusk'
 complete -c nullray -l mode -d 'Agent mode' -xa 'ask plan edit'
@@ -102,6 +107,9 @@ complete -c nullray -l perms -d 'Shell policy' -xa 'ask allow yolo'
 complete -c nullray -l sandbox -d 'Sandbox mode' -xa 'on off landlock seccomp'
 complete -c nullray -s w -l workspace -d 'Workspace path' -r -F
 complete -c nullray -l session -d 'Session name' -r
+complete -c nullray -l keys -d 'Keybind preset' -xa 'default neovim emacs'
+complete -c nullray -l no-splash -d 'Skip startup splash'
+complete -c nullray -l splash -d 'Force startup splash'
 complete -c nullray -l list-models -d 'List models for active provider'
 complete -c nullray -l completions -d 'Print shell completions' -xa 'bash zsh fish powershell elvish nushell'
 complete -c nullray -l man -d 'Print man page source'
@@ -112,7 +120,7 @@ COMPLETIONS_POWERSHELL :: `Register-ArgumentCompleter -CommandName nullray -Scri
   $opts = @(
     '--help','-h','--version','-V','--ephemeral','-e','--self-test','-t',
     '--provider','-p','--model','-m','--theme','--mode','--perms','--sandbox',
-    '--workspace','-w','--session','--list-models','--completions','--man'
+    '--workspace','-w','--session','--keys','--no-splash','--splash','--list-models','--completions','--man'
   )
   $opts | Where-Object { $_ -like "$wordToComplete*" } | ForEach-Object {
     [System.Management.Automation.CompletionResult]::new($_, $_, 'ParameterName', $_)
@@ -125,7 +133,7 @@ set edit:completion:arg-completer[nullray] = {|@args|
   var flags = [
     --help -h --version -V --ephemeral -e --self-test -t
     --provider -p --model -m --theme --mode --perms --sandbox
-    --workspace -w --session --list-models --completions --man
+    --workspace -w --session --keys --no-splash --splash --list-models --completions --man
   ]
   put $@flags
 }
@@ -135,7 +143,7 @@ COMPLETIONS_NUSHELL :: `def "nu-complete nullray flags" [] {
   [
     --help -h --version -V --ephemeral -e --self-test -t
     --provider -p --model -m --theme --mode --perms --sandbox
-    --workspace -w --session --list-models --completions --man
+    --workspace -w --session --keys --no-splash --splash --list-models --completions --man
   ]
 }
 export extern nullray [
@@ -171,7 +179,8 @@ Do not load or save session transcripts.
 Run headless smoke checks and exit.
 .TP
 .BR \-p ", " \-\-provider " " \fIID\fR
-Select provider: ollama, lmstudio, openai, openai-compat, openrouter, opencode, opencode-go.
+Select provider: ollama, lmstudio, openai, openai-compat, openrouter, opencode,
+opencode-go, anthropic, gemini, groq, deepseek, mistral, together, fireworks, xai, azure.
 .TP
 .BR \-m ", " \-\-model " " \fINAME\fR
 Override the default model for the active provider.
@@ -194,6 +203,15 @@ Workspace root for tools and sandbox.
 .B \-\-session \fINAME\fR
 Resume or create a named session.
 .TP
+.B \-\-keys \fIPRESET\fR
+Keybind preset: default, neovim, or emacs.
+.TP
+.B \-\-no\-splash
+Skip the startup splash animation.
+.TP
+.B \-\-splash
+Force the startup splash animation.
+.TP
 .B \-\-list\-models
 List models from the active provider and exit.
 .TP
@@ -207,12 +225,15 @@ Config file:
 .I ~/.config/nullray/env
 .PP
 Common variables: NULLRAY_PROVIDER, NULLRAY_MODEL, NULLRAY_THEME, NULLRAY_MODE, NULLRAY_PERMS,
-NULLRAY_SANDBOX, NULLRAY_WORKSPACE, NULLRAY_SESSION, NULLRAY_EPHEMERAL, NULLRAY_STREAM,
-OPENROUTER_API_KEY, OLLAMA_HOST, LM_STUDIO_HOST, LM_API_TOKEN.
+NULLRAY_SANDBOX, NULLRAY_WORKSPACE, NULLRAY_SESSION, NULLRAY_EPHEMERAL, NULLRAY_SPLASH,
+NULLRAY_KEYS, NULLRAY_STREAM, OPENROUTER_API_KEY, OLLAMA_HOST, LM_STUDIO_HOST, LM_API_TOKEN.
 .SH FILES
 .TP
 .I ~/.config/nullray/env
 Key=value environment overrides.
+.TP
+.I ~/.config/nullray/keys.ini
+Key bindings and optional preset= line.
 .TP
 .I ~/.config/nullray/sessions/
 Session transcripts and metadata.

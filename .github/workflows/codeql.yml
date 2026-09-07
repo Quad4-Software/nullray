@@ -5,7 +5,7 @@
 #
 # Pinned actions (bump tag and SHA together):
 #   step-security/harden-runner@v2.21.1  e14015d583714f6e62063499dc959a02595150a1
-#   actions/checkout@v6.0.1             8e8c483db84b4bee98b60c0593521ed34d9990e8
+#   actions/checkout@v7.0.1             3d3c42e5aac5ba805825da76410c181273ba90b1
 #   github/codeql-action@v4.31.6        fe4161a26a8629af62121b670040955b330f9af2
 
 name: codeql
@@ -48,7 +48,7 @@ jobs:
           egress-policy: audit
 
       - name: Checkout
-        uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
 

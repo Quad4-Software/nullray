@@ -22,7 +22,7 @@ app_handle_slash :: proc(a: ^App, text: string) -> bool {
 		return true
 	}
 	if text == "/keys" {
-		help := config.binds_help_text(a.binds)
+		help := config.binds_help_text(a.binds, a.keys_preset)
 		session.session_push_assistant(&a.session, help)
 		delete(help)
 		session.session_set_status(&a.session, "keys")

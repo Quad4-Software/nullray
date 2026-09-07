@@ -8,7 +8,9 @@
 
 ## Reporting a vulnerability
 
-Email **ivan@quad4.io** with a clear description, impact, and steps to reproduce.
+Use GitHub private vulnerability reporting on this repository (Security Advisories → Report a vulnerability). That is the preferred channel.
+
+If you cannot use GitHub reporting, email ivan@quad4.io with a clear description, impact, and steps to reproduce.
 
 Do not open a public issue for exploitable findings until a fix is available or we agree on disclosure.
 
@@ -16,7 +18,7 @@ We aim to acknowledge reports within a few days and ship fixes on a reasonable t
 
 ## Scope
 
-In scope: the `nullray` binary, sandbox (Landlock/seccomp), tool permissions, session storage under `~/.config/nullray/`, and GitHub Actions workflows in this repository.
+In scope: the nullray binary, sandbox (Landlock/seccomp), tool permissions, session storage under `~/.config/nullray/`, and GitHub Actions workflows in this repository.
 
 Out of scope: third-party model providers, MCP servers you configure yourself, and general OS compromise outside the agent sandbox.
 

@@ -147,34 +147,67 @@ state_destroy :: proc(s: ^State) {
 }
 
 resolve_config_dir :: proc(allocator := context.allocator) -> string {
-	if xdg, ok := os.lookup_env("XDG_CONFIG_HOME", context.temp_allocator); ok && len(xdg) > 0 {
-		if joined, jerr := filepath.join({xdg, constants.CONFIG_DIR_NAME}, allocator); jerr == nil {
+	when ODIN_OS == .Windows {
+		if appdata, ok := os.lookup_env("APPDATA", context.temp_allocator); ok && len(appdata) > 0 {
+			if joined, jerr := filepath.join({appdata, constants.CONFIG_DIR_NAME}, allocator); jerr == nil {
+				return joined
+			}
+		}
+		if home, hok := os.lookup_env("USERPROFILE", context.temp_allocator); hok && len(home) > 0 {
+			if joined, jerr := filepath.join({home, ".config", constants.CONFIG_DIR_NAME}, allocator); jerr == nil {
+				return joined
+			}
+		}
+		if local, lok := os.lookup_env("LOCALAPPDATA", context.temp_allocator); lok && len(local) > 0 {
+			if joined, jerr := filepath.join({local, "Temp", "nullray-config"}, allocator); jerr == nil {
+				return joined
+			}
+		}
+		return strings.clone(`C:\Temp\nullray-config`, allocator)
+	} else {
+		if xdg, ok := os.lookup_env("XDG_CONFIG_HOME", context.temp_allocator); ok && len(xdg) > 0 {
+			if joined, jerr := filepath.join({xdg, constants.CONFIG_DIR_NAME}, allocator); jerr == nil {
+				return joined
+			}
+		}
+		home, hok := os.lookup_env("HOME", context.temp_allocator)
+		if hok {
+			if joined, jerr := filepath.join({home, ".config", constants.CONFIG_DIR_NAME}, allocator); jerr == nil {
+				return joined
+			}
+		}
+		if joined, jerr := filepath.join({"/tmp", "nullray-config"}, allocator); jerr == nil {
 			return joined
 		}
+		return strings.clone("/tmp/nullray-config", allocator)
 	}
-	home, hok := os.lookup_env("HOME", context.temp_allocator)
-	if hok {
-		if joined, jerr := filepath.join({home, ".config", constants.CONFIG_DIR_NAME}, allocator); jerr == nil {
-			return joined
-		}
-	}
-	if joined, jerr := filepath.join({"/tmp", "nullray-config"}, allocator); jerr == nil {
-		return joined
-	}
-	return strings.clone("/tmp/nullray-config", allocator)
 }
 
 resolve_tmp_dir :: proc(allocator := context.allocator) -> string {
 	if v, ok := os.lookup_env(constants.ENV_TMPDIR, context.temp_allocator); ok && len(v) > 0 {
 		return strings.clone(v, allocator)
 	}
-	if xdg, ok := os.lookup_env("XDG_RUNTIME_DIR", context.temp_allocator); ok && len(xdg) > 0 {
-		if joined, jerr := filepath.join({xdg, "nullray"}, allocator); jerr == nil {
-			return joined
+	when ODIN_OS == .Windows {
+		if local, ok := os.lookup_env("LOCALAPPDATA", context.temp_allocator); ok && len(local) > 0 {
+			if joined, jerr := filepath.join({local, "Temp", "nullray"}, allocator); jerr == nil {
+				return joined
+			}
 		}
+		if tmp, tok := os.lookup_env("TEMP", context.temp_allocator); tok && len(tmp) > 0 {
+			if joined, jerr := filepath.join({tmp, "nullray"}, allocator); jerr == nil {
+				return joined
+			}
+		}
+		return strings.clone(`C:\Temp\nullray`, allocator)
+	} else {
+		if xdg, ok := os.lookup_env("XDG_RUNTIME_DIR", context.temp_allocator); ok && len(xdg) > 0 {
+			if joined, jerr := filepath.join({xdg, "nullray"}, allocator); jerr == nil {
+				return joined
+			}
+		}
+		uid := os.get_uid()
+		return fmt.aprintf("/tmp/nullray-%d", uid, allocator = allocator)
 	}
-	uid := os.get_uid()
-	return fmt.aprintf("/tmp/nullray-%d", uid, allocator = allocator)
 }
 
 ensure_dirs :: proc(cfg: Config) -> bool {

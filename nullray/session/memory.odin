@@ -116,6 +116,39 @@ crash_lock_clear :: proc(config_dir: string) {
 }
 
 /*
+Count runtime locks whose pid is still alive (other nullray instances plus this one).
+*/
+count_live_agents :: proc(config_dir: string) -> int {
+	dir := runtime_dir(config_dir, context.temp_allocator)
+	n := 0
+	entries, err := os.read_all_directory_by_path(dir, context.temp_allocator)
+	if err != nil {
+		return 0
+	}
+	defer os.file_info_slice_delete(entries, context.temp_allocator)
+	for e in entries {
+		name := e.name
+		if !strings.has_prefix(name, "nullray-") || !strings.has_suffix(name, ".lock") {
+			continue
+		}
+		path, _ := filepath.join({dir, name}, context.temp_allocator)
+		data, rerr := os.read_entire_file(path, context.temp_allocator)
+		if rerr != nil || len(data) == 0 {
+			continue
+		}
+		lines := strings.split_lines(string(data), context.temp_allocator)
+		if len(lines) < 1 {
+			continue
+		}
+		pid, pok := strconv.parse_int(strings.trim_space(lines[0]))
+		if pok && process_alive(pid) {
+			n += 1
+		}
+	}
+	return n
+}
+
+/*
 Recover a session only from a dead process lock. Living instances are left alone
 so multiple nullray sessions can run at once.
 */
@@ -171,13 +204,4 @@ read_dead_lock :: proc(path: string, allocator := context.allocator) -> (session
 		return "", false
 	}
 	return strings.clone(sid, allocator), true
-}
-
-@(private)
-process_alive :: proc(pid: int) -> bool {
-	if pid <= 0 {
-		return false
-	}
-	path := fmt.tprintf("/proc/%d", pid)
-	return os.exists(path)
 }

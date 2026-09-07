@@ -5,7 +5,6 @@ Key and event decoding from raw terminal input.
 package ui
 
 import "core:os"
-import "core:sys/posix"
 
 Key :: enum {
 	None,
@@ -29,8 +28,12 @@ Key :: enum {
 	F3,
 	F4,
 	Ctrl_A,
+	Ctrl_B,
 	Ctrl_C,
 	Ctrl_D,
+	Ctrl_E,
+	Ctrl_F,
+	Ctrl_K,
 	Ctrl_L,
 	Ctrl_N,
 	Ctrl_P,
@@ -38,6 +41,7 @@ Key :: enum {
 	Ctrl_R,
 	Ctrl_T,
 	Ctrl_U,
+	Ctrl_W,
 	Ctrl_Z,
 	Ctrl_V,
 	Ctrl_Y,
@@ -99,10 +103,18 @@ poll_event :: proc(timeout_ms: int = 50) -> (ev: Event, ok: bool) {
 	switch b {
 	case 0x01:
 		return Event{kind = .Ctrl_A}, true
+	case 0x02:
+		return Event{kind = .Ctrl_B}, true
 	case 0x03:
 		return Event{kind = .Ctrl_C}, true
 	case 0x04:
 		return Event{kind = .Ctrl_D}, true
+	case 0x05:
+		return Event{kind = .Ctrl_E}, true
+	case 0x06:
+		return Event{kind = .Ctrl_F}, true
+	case 0x0b:
+		return Event{kind = .Ctrl_K}, true
 	case 0x0c:
 		return Event{kind = .Ctrl_L}, true
 	case 0x0e:
@@ -117,6 +129,8 @@ poll_event :: proc(timeout_ms: int = 50) -> (ev: Event, ok: bool) {
 		return Event{kind = .Ctrl_T}, true
 	case 0x15:
 		return Event{kind = .Ctrl_U}, true
+	case 0x17:
+		return Event{kind = .Ctrl_W}, true
 	case 0x1a:
 		return Event{kind = .Ctrl_Z}, true
 	case 0x16:
@@ -326,19 +340,6 @@ _has_pushback: bool
 push_byte :: proc(b: u8) {
 	_pushback = b
 	_has_pushback = true
-}
-
-@(private)
-stdin_ready :: proc(timeout_ms: int) -> bool {
-	if _has_pushback {
-		return true
-	}
-	pfd := posix.pollfd{
-		fd = posix.STDIN_FILENO,
-		events = {.IN},
-	}
-	n := posix.poll(&pfd, 1, i32(timeout_ms))
-	return n > 0 && .IN in pfd.revents
 }
 
 term_read_byte :: proc() -> (b: u8, ok: bool) {

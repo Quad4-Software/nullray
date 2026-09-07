@@ -54,9 +54,15 @@ tool_run_shell :: proc(args_json: string, allocator := context.allocator) -> (re
 	{
 		defer os.close(stdout_w)
 		defer os.close(stderr_w)
+		argv: [3]string
+		when ODIN_OS == .Windows {
+			argv = {"cmd.exe", "/C", command}
+		} else {
+			argv = {"/bin/sh", "-c", command}
+		}
 		desc := os.Process_Desc{
 			working_dir = workspace,
-			command = []string{"/bin/sh", "-c", command},
+			command = argv[:],
 			stdout = stdout_w,
 			stderr = stderr_w,
 		}

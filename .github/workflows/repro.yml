@@ -1,0 +1,63 @@
+# Two identical builds must share the same SHA-256 digest.
+#
+# Pinned actions (bump tag and SHA together):
+#   step-security/harden-runner@v2.21.1  e14015d583714f6e62063499dc959a02595150a1
+#   actions/checkout@v7.0.1             3d3c42e5aac5ba805825da76410c181273ba90b1
+#   actions/cache@v6.1.0                55cc8345863c7cc4c66a329aec7e433d2d1c52a9
+
+name: repro
+
+on:
+  push:
+    branches: [master]
+  pull_request:
+    branches: [master]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: repro-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  digest:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - name: Harden runner
+        uses: step-security/harden-runner@e14015d583714f6e62063499dc959a02595150a1 # v2.21.1
+        with:
+          egress-policy: audit
+
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Install deps
+        run: sudo apt-get update && sudo apt-get install -y libcurl4-openssl-dev clang llvm
+
+      - name: Cache Odin toolchain
+        id: cache-odin
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: |
+            ~/Odin
+            ~/.cache/odin
+          key: odin-${{ runner.os }}-${{ hashFiles('.github/workflows/repro.yml') }}-2026-09
+          restore-keys: |
+            odin-${{ runner.os }}-
+
+      - name: Build Odin
+        if: steps.cache-odin.outputs.cache-hit != 'true'
+        run: |
+          git clone --depth 1 https://github.com/odin-lang/Odin.git "$HOME/Odin"
+          (cd "$HOME/Odin" && ./build_odin.sh)
+
+      - name: Add Odin to PATH
+        run: echo "$HOME/Odin" >> "$GITHUB_PATH"
+
+      - name: Reproducibility check
+        run: bash scripts/repro-check.sh

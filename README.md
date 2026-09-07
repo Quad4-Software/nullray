@@ -7,16 +7,14 @@ Lightweight coding agent with a custom TUI built with Odin.
 ## Features
 
 - Simple, Lightweight, Fast with a small memory footprint
-- Landlock/seccomp sandbox
+- Landlock/seccomp sandbox on Linux (soft skip on other OS)
 - Custom TUI
 - Privacy-focused
 - MCP and Skills support
 
-Supported providers: OpenAI, OpenAI-compatible, OpenRouter, LM Studio, Ollama, OpenCode
+Supported providers: OpenAI, OpenAI-compatible, Anthropic, Gemini, Groq, DeepSeek, Mistral, Together, Fireworks, xAI, Azure OpenAI, OpenRouter, LM Studio, Ollama, OpenCode
 
-Supported platforms: Linux
-
-Windows and macOS coming soon.
+Supported platforms: Linux, macOS, Windows
 
 ## Build / install
 
@@ -37,7 +35,7 @@ From a tree without install:
 ./bin/nullray
 ```
 
-Needs Odin, libcurl, and Linux Landlock. CI is in .github/workflows/ci.yml.
+Needs Odin and libcurl. On Linux, Landlock is used when the kernel supports it. CI is in .github/workflows/.
 
 ### Completions and man page
 
@@ -54,6 +52,7 @@ Useful flags:
 ```text
 --provider --model --theme --mode --perms
 --sandbox --workspace --session --list-models --ephemeral
+--keys --no-splash
 ```
 
 ## Agent
@@ -119,6 +118,15 @@ Prompt cache for OpenRouter uses system cache_control plus prompt_cache_key. Set
 |----------|-------|
 | openai | Official API. OPENAI_API_KEY |
 | openai-compat | Any Chat Completions base URL |
+| anthropic | OpenAI-compat layer. ANTHROPIC_API_KEY |
+| gemini | Google OpenAI-compat. GEMINI_API_KEY or GOOGLE_API_KEY |
+| groq | GROQ_API_KEY |
+| deepseek | DEEPSEEK_API_KEY |
+| mistral | MISTRAL_API_KEY |
+| together | TOGETHER_API_KEY |
+| fireworks | FIREWORKS_API_KEY |
+| xai | XAI_API_KEY |
+| azure | AZURE_OPENAI_ENDPOINT + AZURE_OPENAI_API_KEY (api-key header) |
 | ollama | Local. OLLAMA_HOST |
 | lmstudio | Local. LM_API_TOKEN defaults to lm-studio |
 | openrouter | OPENROUTER_API_KEY |
@@ -145,12 +153,8 @@ Ollama lists models via /v1/models with fallback to /api/tags. MCP config is ~/.
 
 ## Branding
 
-Assets live in logo/. Regenerate with:
-
-```sh
-python3 scripts/gen_logo.py
-```
+Assets live in logo/.
 
 ## License
 
-0BSD. See LICENSE.
+0BSD [LICENSE](LICENSE)

@@ -1,10 +1,16 @@
 /*
 Startup splash: colored ASCII Nullray wordmark reveal.
+
+Uses plain ASCII hashes so terminals that are not UTF-8 stay readable.
+Auto-finishes on a timer. Input is ignored until it ends.
 */
 
 package app
 
+import "core:os"
+import "core:strings"
 import "core:time"
+import "nullray:constants"
 import "nullray:ui"
 
 SPLASH_MS :: 1400
@@ -12,67 +18,67 @@ SPLASH_GLYPH_MS :: 110
 
 SPLASH_GLYPHS := [7][7]string{
 	{
-		"█   █",
-		"██  █",
-		"█ █ █",
-		"█  ██",
-		"█   █",
-		"█   █",
-		"█   █",
+		"#   #",
+		"##  #",
+		"# # #",
+		"#  ##",
+		"#   #",
+		"#   #",
+		"#   #",
 	},
 	{
 		"     ",
 		"     ",
-		"█   █",
-		"█   █",
-		"█   █",
-		"█  ██",
-		" ██ █",
+		"#   #",
+		"#   #",
+		"#   #",
+		"#  ##",
+		" ## #",
 	},
 	{
-		"██   ",
-		" █   ",
-		" █   ",
-		" █   ",
-		" █   ",
-		" █   ",
-		"███  ",
+		"##   ",
+		" #   ",
+		" #   ",
+		" #   ",
+		" #   ",
+		" #   ",
+		"###  ",
 	},
 	{
-		"██   ",
-		" █   ",
-		" █   ",
-		" █   ",
-		" █   ",
-		" █   ",
-		"███  ",
-	},
-	{
-		"     ",
-		"     ",
-		"█ ██ ",
-		"██  █",
-		"█    ",
-		"█    ",
-		"█    ",
+		"##   ",
+		" #   ",
+		" #   ",
+		" #   ",
+		" #   ",
+		" #   ",
+		"###  ",
 	},
 	{
 		"     ",
 		"     ",
-		" ███ ",
-		"    █",
-		" ████",
-		"█   █",
-		" ████",
+		"# ## ",
+		"##  #",
+		"#    ",
+		"#    ",
+		"#    ",
 	},
 	{
 		"     ",
 		"     ",
-		"█   █",
-		"█   █",
-		" ████",
-		"    █",
-		" ███ ",
+		" ### ",
+		"    #",
+		" ####",
+		"#   #",
+		" ####",
+	},
+	{
+		"     ",
+		"     ",
+		"#   #",
+		"#   #",
+		" ####",
+		"    #",
+		" ### ",
 	},
 }
 
@@ -84,6 +90,18 @@ SPLASH_COLORS := [7]ui.Color{
 	{255, 140, 70},
 	{255, 190, 80},
 	{255, 230, 140},
+}
+
+splash_enabled_from_env :: proc() -> bool {
+	if v, ok := os.lookup_env(constants.ENV_SPLASH, context.temp_allocator); ok {
+		switch strings.to_lower(strings.trim_space(v), context.temp_allocator) {
+		case "0", "false", "off", "no", "disable", "disabled":
+			return false
+		case "1", "true", "on", "yes":
+			return true
+		}
+	}
+	return true
 }
 
 // Ink-edge gaps match scripts/gen_logo.py (ll pair tighter).

@@ -83,13 +83,20 @@ openai_list_models :: proc(p: ^Provider, allocator := context.allocator) -> (mod
 append_provider_headers :: proc(headers: ^[dynamic]string, p: ^Provider) {
 	append(headers, "Content-Type: application/json")
 	if len(p.api_key) > 0 {
-		append(headers, fmt.tprintf("Authorization: Bearer %s", p.api_key))
+		if p.id == "azure" {
+			append(headers, fmt.tprintf("api-key: %s", p.api_key))
+		} else {
+			append(headers, fmt.tprintf("Authorization: Bearer %s", p.api_key))
+		}
 	}
 	if p.id == "openrouter" {
 		append(headers, "HTTP-Referer: https://github.com/Quad4-Software/nullray")
 		append(headers, fmt.tprintf("X-Title: %s", constants.APP_NAME))
 	}
-	if p.id == "openai" || p.id == "openai-compat" {
+	if p.id == "anthropic" {
+		append(headers, "anthropic-version: 2023-06-01")
+	}
+	if p.id == "openai" || p.id == "openai-compat" || p.id == "azure" {
 		if org, ok := os.lookup_env(constants.ENV_OPENAI_ORG, context.temp_allocator); ok && len(org) > 0 {
 			append(headers, fmt.tprintf("OpenAI-Organization: %s", org))
 		}

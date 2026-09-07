@@ -42,8 +42,7 @@ app_on_event :: proc(ev: ui.Event, user: rawptr) -> bool {
 	a := cast(^App)user
 
 	if splash_active(a) {
-		a.splash_on = false
-		app_mark_dirty(a)
+		// Timer-only splash. Drop input so typed keys are not applied after it ends.
 		return false
 	}
 
@@ -108,6 +107,10 @@ app_on_event :: proc(ev: ui.Event, user: rawptr) -> bool {
 				}
 			}
 		}
+	}
+
+	if app_handle_line_edit(a, ev) {
+		return false
 	}
 
 	action := config.binds_resolve(a.binds, ev.kind)
@@ -271,6 +274,16 @@ app_on_event :: proc(ev: ui.Event, user: rawptr) -> bool {
 			a.cursor += 1
 			app_mark_dirty(a)
 		}
+	case .Home:
+		if a.keys_preset != .Default {
+			a.cursor = 0
+			app_mark_dirty(a)
+		}
+	case .End:
+		if a.keys_preset != .Default {
+			a.cursor = len(strings.to_string(a.input))
+			app_mark_dirty(a)
+		}
 	case .Mouse_Wheel_Up:
 		app_scroll_by(a, 3)
 	case .Mouse_Wheel_Down:
@@ -292,6 +305,124 @@ app_on_event :: proc(ev: ui.Event, user: rawptr) -> bool {
 		}
 	}
 	return false
+}
+
+@(private)
+app_handle_line_edit :: proc(a: ^App, ev: ui.Event) -> bool {
+	switch a.keys_preset {
+	case .Default:
+		return false
+	case .Neovim:
+		#partial switch ev.kind {
+		case .Ctrl_W:
+			app_kill_word_back(a)
+			return true
+		case .Ctrl_U:
+			app_kill_to_start(a)
+			return true
+		}
+	case .Emacs:
+		#partial switch ev.kind {
+		case .Ctrl_A:
+			a.cursor = 0
+			app_mark_dirty(a)
+			return true
+		case .Ctrl_E:
+			a.cursor = len(strings.to_string(a.input))
+			app_mark_dirty(a)
+			return true
+		case .Ctrl_B:
+			if a.cursor > 0 {
+				a.cursor -= 1
+				app_mark_dirty(a)
+			}
+			return true
+		case .Ctrl_F:
+			if a.cursor < len(strings.to_string(a.input)) {
+				a.cursor += 1
+				app_mark_dirty(a)
+			}
+			return true
+		case .Ctrl_K:
+			app_kill_to_end(a)
+			return true
+		case .Ctrl_W:
+			app_kill_word_back(a)
+			return true
+		case .Ctrl_D:
+			app_delete_forward(a)
+			return true
+		case .Ctrl_U:
+			app_kill_to_start(a)
+			return true
+		}
+	}
+	return false
+}
+
+@(private)
+app_kill_word_back :: proc(a: ^App) {
+	text := strings.to_string(a.input)
+	if a.cursor <= 0 || len(text) == 0 {
+		return
+	}
+	i := a.cursor
+	for i > 0 && text[i - 1] == ' ' {
+		i -= 1
+	}
+	for i > 0 && text[i - 1] != ' ' {
+		i -= 1
+	}
+	left := text[:i]
+	right := text[a.cursor:]
+	strings.builder_reset(&a.input)
+	strings.write_string(&a.input, left)
+	strings.write_string(&a.input, right)
+	a.cursor = i
+	a.suggest_sel = 0
+	app_mark_dirty(a)
+}
+
+@(private)
+app_kill_to_start :: proc(a: ^App) {
+	text := strings.to_string(a.input)
+	if a.cursor <= 0 {
+		return
+	}
+	right := text[a.cursor:]
+	strings.builder_reset(&a.input)
+	strings.write_string(&a.input, right)
+	a.cursor = 0
+	a.suggest_sel = 0
+	app_mark_dirty(a)
+}
+
+@(private)
+app_kill_to_end :: proc(a: ^App) {
+	text := strings.to_string(a.input)
+	if a.cursor >= len(text) {
+		return
+	}
+	left := text[:a.cursor]
+	strings.builder_reset(&a.input)
+	strings.write_string(&a.input, left)
+	a.suggest_sel = 0
+	app_mark_dirty(a)
+}
+
+@(private)
+app_delete_forward :: proc(a: ^App) {
+	text := strings.to_string(a.input)
+	if a.cursor >= len(text) {
+		return
+	}
+	left := text[:a.cursor]
+	right := text[a.cursor + 1:]
+	strings.builder_reset(&a.input)
+	strings.write_string(&a.input, left)
+	strings.write_string(&a.input, right)
+	a.suggest_sel = 0
+	app_mark_dirty(a)
 }
 
 @(private)

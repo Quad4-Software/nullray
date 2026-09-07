@@ -440,6 +440,12 @@ app_draw :: proc(buf: ^ui.Buffer, user: rawptr) {
 	ver := fmt.tprintf("? · %s", constants.VERSION)
 	ui.draw_status_bar(buf, 0, title, ver, t.title, t.status_bg)
 	a.help_btn_x = max(1, buf.width - ui.string_cols(ver) - 1)
+
+	mid_x := max(string_cols_safe(title) + 2, 1)
+	counts := fmt.tprintf("%d sess · %d live", a.banner_sess, a.banner_live)
+	count_end := mid_x + ui.string_cols(counts) + 2
+	ui.buffer_text_clip(buf, mid_x, 0, min(count_end, a.help_btn_x - 1), counts, t.accent, t.status_bg)
+
 	if p != nil {
 		sess := a.session.name
 		if len(sess) == 0 {
@@ -455,7 +461,8 @@ app_draw :: proc(buf: ^ui.Buffer, user: rawptr) {
 		if len(a.credits_label) > 0 {
 			right = fmt.tprintf("%s · %s", right, a.credits_label)
 		}
-		ui.buffer_text_clip(buf, max(string_cols_safe(title) + 3, 1), 0, a.help_btn_x - 1, right, t.muted, t.status_bg)
+		info_x := max(count_end + 1, mid_x)
+		ui.buffer_text_clip(buf, info_x, 0, a.help_btn_x - 1, right, t.muted, t.status_bg)
 	}
 	// Emphasize the ? hit target
 	ui.buffer_text(buf, a.help_btn_x, 0, "?", t.accent, t.status_bg, {.Bold})
@@ -515,7 +522,7 @@ app_draw :: proc(buf: ^ui.Buffer, user: rawptr) {
 @(private)
 app_draw_help :: proc(buf: ^ui.Buffer, a: ^App) {
 	t := ui.theme()
-	binds_help := config.binds_help_text(a.binds, context.temp_allocator)
+	binds_help := config.binds_help_text(a.binds, a.keys_preset, context.temp_allocator)
 	body := help_overlay_text(binds_help, context.temp_allocator)
 	y := 2
 	for line in strings.split_lines(body, context.temp_allocator) {

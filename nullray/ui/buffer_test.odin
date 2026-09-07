@@ -79,6 +79,6 @@ test_sanitize_control_runes :: proc(t: ^testing.T) {
 
 @(test)
 test_string_cols_ascii :: proc(t: ^testing.T) {
-	testing.expect_value(t, string_cols("nullray"), 3)
+	testing.expect_value(t, string_cols("nullray"), 7)
 	testing.expect_value(t, string_cols(""), 0)
 }

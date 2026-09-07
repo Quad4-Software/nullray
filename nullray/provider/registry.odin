@@ -23,6 +23,15 @@ registry_init :: proc(r: ^Registry) {
 	registry_register(r, make_openrouter())
 	registry_register(r, make_opencode())
 	registry_register(r, make_opencode_go())
+	registry_register(r, make_anthropic())
+	registry_register(r, make_gemini())
+	registry_register(r, make_groq())
+	registry_register(r, make_deepseek())
+	registry_register(r, make_mistral())
+	registry_register(r, make_together())
+	registry_register(r, make_fireworks())
+	registry_register(r, make_xai())
+	registry_register(r, make_azure())
 	registry_select_from_env(r)
 }
 
@@ -82,6 +91,14 @@ normalize_provider_id :: proc(id: string, allocator := context.temp_allocator) -
 		return "openai-compat"
 	case "oai":
 		return "openai"
+	case "claude":
+		return "anthropic"
+	case "google", "google-gemini":
+		return "gemini"
+	case "azure-openai", "azure_openai":
+		return "azure"
+	case "grok":
+		return "xai"
 	}
 	return s
 }

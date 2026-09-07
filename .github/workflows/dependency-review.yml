@@ -5,8 +5,8 @@
 #
 # Pinned actions (bump tag and SHA together):
 #   step-security/harden-runner@v2.21.1           e14015d583714f6e62063499dc959a02595150a1
-#   actions/checkout@v6.0.1                      8e8c483db84b4bee98b60c0593521ed34d9990e8
-#   actions/dependency-review-action@v4.8.1      40c09b7dc99638e5ddb0bfd91c1673effc064d8a
+#   actions/checkout@v7.0.1                      3d3c42e5aac5ba805825da76410c181273ba90b1
+#   actions/dependency-review-action@v5.0.0      a1d282b36b6f3519aa1f3fc636f609c47dddb294
 
 name: dependency-review
 
@@ -28,9 +28,9 @@ jobs:
           egress-policy: audit
 
       - name: Checkout
-        uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
 
       - name: Dependency review
-        uses: actions/dependency-review-action@40c09b7dc99638e5ddb0bfd91c1673effc064d8a # v4.8.1
+        uses: actions/dependency-review-action@a1d282b36b6f3519aa1f3fc636f609c47dddb294 # v5.0.0

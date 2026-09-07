@@ -15,6 +15,7 @@ import "nullray:constants"
 import "nullray:provider"
 import "nullray:sandbox"
 import "nullray:session"
+import "nullray:store"
 import "nullray:tools"
 import "nullray:ui"
 
@@ -32,6 +33,7 @@ App :: struct {
 	show_help:      bool,
 	suggest_sel:    int,
 	binds:          config.Binds,
+	keys_preset:    config.Key_Preset,
 	help_btn_x:     int,
 	improve_undo:   string,
 	improving:      bool,
@@ -39,6 +41,9 @@ App :: struct {
 	credits_busy:   bool,
 	splash_on:      bool,
 	splash_start:   time.Tick,
+	banner_sess:    int,
+	banner_live:    int,
+	banner_refresh: time.Tick,
 }
 
 app_init :: proc(a: ^App, loop: ^ui.Loop) {
@@ -51,10 +56,11 @@ app_init :: proc(a: ^App, loop: ^ui.Loop) {
 	a.spinner = ui.spinner_init()
 	a.dirty = true
 	a.follow = true
-	a.splash_on = true
+	a.splash_on = splash_enabled_from_env()
 	a.splash_start = time.tick_now()
-	a.binds = config.load_binds()
+	a.binds, a.keys_preset = config.load_binds()
 	_ = config.write_default_keys_file()
+	app_refresh_banner(a)
 	agent.apply_auto_mode()
 	if agent.auto_from_env() {
 		a.session.agent_mode = .Edit
@@ -150,6 +156,17 @@ app_mark_dirty :: proc(a: ^App) {
 	a.dirty = true
 }
 
+BANNER_REFRESH_MS :: 2000
+
+app_refresh_banner :: proc(a: ^App) {
+	cfg_dir := sandbox.resolve_config_dir(context.temp_allocator)
+	a.banner_live = session.count_live_agents(cfg_dir)
+	items := store.list_sessions(context.temp_allocator)
+	a.banner_sess = len(items)
+	store.destroy_session_infos(items)
+	a.banner_refresh = time.tick_now()
+}
+
 app_is_dirty :: proc(user: rawptr) -> bool {
 	a := cast(^App)user
 	return a.dirty || a.session.busy || a.session.has_streaming || a.session.has_thinking || splash_active(a)
@@ -162,6 +179,13 @@ app_on_tick :: proc(user: rawptr) -> bool {
 	if splash_active(a) {
 		changed = true
 		app_mark_dirty(a)
+	}
+	if time.tick_diff(a.banner_refresh, time.tick_now()) >= time.Duration(BANNER_REFRESH_MS) * time.Millisecond {
+		prev_s, prev_l := a.banner_sess, a.banner_live
+		app_refresh_banner(a)
+		if a.banner_sess != prev_s || a.banner_live != prev_l {
+			changed = true
+		}
 	}
 	was_busy := a.session.busy
 	changed = session.session_poll(&a.session) || changed

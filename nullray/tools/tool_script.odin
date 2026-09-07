@@ -17,33 +17,45 @@ import "nullray:sandbox"
 SCRIPT_TMP_DIR :: ".nullray-tmp"
 
 bwrap_available :: proc() -> bool {
-	path_env, ok := os.lookup_env("PATH", context.temp_allocator)
-	if !ok {
+	when ODIN_OS == .Windows {
+		return false
+	} else {
+		path_env, ok := os.lookup_env("PATH", context.temp_allocator)
+		if !ok {
+			return false
+		}
+		path_copy := path_env
+		for dir in strings.split_iterator(&path_copy, ":") {
+			if len(dir) == 0 {
+				continue
+			}
+			candidate, jerr := filepath.join({dir, "bwrap"}, context.temp_allocator)
+			if jerr != nil {
+				continue
+			}
+			if os.exists(candidate) {
+				return true
+			}
+		}
 		return false
 	}
-	path_copy := path_env
-	for dir in strings.split_iterator(&path_copy, ":") {
-		if len(dir) == 0 {
-			continue
-		}
-		candidate, jerr := filepath.join({dir, "bwrap"}, context.temp_allocator)
-		if jerr != nil {
-			continue
-		}
-		if os.exists(candidate) {
-			return true
-		}
-	}
-	return false
 }
 
 @(private)
 script_language :: proc(language: string) -> (interpreter: string, ext: string, ok: bool) {
 	switch strings.to_lower(strings.trim_space(language), context.temp_allocator) {
 	case "sh", "bash":
-		return "/bin/sh", ".sh", true
+		when ODIN_OS == .Windows {
+			return "bash.exe", ".sh", true
+		} else {
+			return "/bin/sh", ".sh", true
+		}
 	case "python", "python3":
-		return "/usr/bin/python3", ".py", true
+		when ODIN_OS == .Windows {
+			return "python", ".py", true
+		} else {
+			return "/usr/bin/python3", ".py", true
+		}
 	}
 	return "", "", false
 }

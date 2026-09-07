@@ -20,8 +20,7 @@ session_try_lock :: proc(session_jsonl: string) -> (ok: bool, holder: string) {
 		if len(lines) > 0 {
 			pid, pok := strconv.parse_int(strings.trim_space(lines[0]))
 			if pok && pid > 0 {
-				alive := os.exists(fmt.tprintf("/proc/%d", pid))
-				if alive && pid != os.get_pid() {
+				if pid_alive(pid) && pid != os.get_pid() {
 					return false, fmt.tprintf("pid %d", pid)
 				}
 			}
