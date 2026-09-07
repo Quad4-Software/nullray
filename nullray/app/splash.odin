@@ -1,8 +1,10 @@
+// SPDX-License-Identifier: 0BSD
 /*
-Startup splash: colored ASCII Nullray wordmark reveal.
+Startup splash: colored Nullray wordmark reveal.
 
-Uses plain ASCII hashes so terminals that are not UTF-8 stay readable.
-Auto-finishes on a timer. Input is ignored until it ends.
+Glyph templates stay ASCII (# ink). When the terminal looks UTF-8 capable,
+ink cells paint as U+2588 full block. Limited and legacy TERM keep #.
+Auto-finishes on a timer. Any key or mouse dismisses it early.
 */
 
 package app
@@ -15,6 +17,9 @@ import "nullray:ui"
 
 SPLASH_MS :: 1400
 SPLASH_GLYPH_MS :: 110
+
+// Full block. Same cell width as # on capable terminals.
+SPLASH_BLOCK :: rune(0x2588)
 
 SPLASH_GLYPHS := [7][7]string{
 	{
@@ -147,6 +152,16 @@ splash_word_width :: proc(letters: int) -> int {
 	return w
 }
 
+splash_ink_rune :: proc(template: rune) -> rune {
+	if template == ' ' {
+		return ' '
+	}
+	if ui.term_utf8_ok() {
+		return SPLASH_BLOCK
+	}
+	return '#'
+}
+
 app_draw_splash :: proc(buf: ^ui.Buffer, a: ^App) {
 	t := ui.theme()
 	ui.buffer_clear(buf, t.bg, t.fg)
@@ -155,7 +170,7 @@ app_draw_splash :: proc(buf: ^ui.Buffer, a: ^App) {
 	word_w := splash_word_width(letters)
 	word_h := 7
 	start_x := max(0, (buf.width - word_w) / 2)
-	start_y := max(0, (buf.height - word_h) / 2 - 1)
+	start_y := max(0, (buf.height - word_h) / 2 - 2)
 
 	x := start_x
 	for i in 0 ..< letters {
@@ -165,7 +180,7 @@ app_draw_splash :: proc(buf: ^ui.Buffer, a: ^App) {
 		for row in 0 ..< 7 {
 			line := SPLASH_GLYPHS[i][row]
 			for cx := 0; cx < len(line); cx += 1 {
-				ch := rune(line[cx])
+				ch := splash_ink_rune(rune(line[cx]))
 				if ch == ' ' {
 					continue
 				}
@@ -178,8 +193,18 @@ app_draw_splash :: proc(buf: ^ui.Buffer, a: ^App) {
 		}
 	}
 
-	sub := "coding agent"
-	sx := max(0, (buf.width - len(sub)) / 2)
-	sy := min(buf.height - 2, start_y + word_h + 2)
-	ui.buffer_text(buf, sx, sy, sub, t.muted, t.bg, {.Dim})
+	slogan := "Simple, Lightweight, Fast"
+	sx := max(0, (buf.width - len(slogan)) / 2)
+	sy := min(buf.height - 3, start_y + word_h + 2)
+	ui.buffer_text(buf, sx, sy, slogan, t.muted, t.bg, {.Dim})
+
+	ver := constants.VERSION
+	vx := max(0, (buf.width - len(ver)) / 2)
+	vy := min(buf.height - 2, sy + 1)
+	ui.buffer_text(buf, vx, vy, ver, t.muted, t.bg, {.Dim})
+
+	hint := "any key"
+	hx := max(0, (buf.width - len(hint)) / 2)
+	hy := min(buf.height - 1, vy + 2)
+	ui.buffer_text(buf, hx, hy, hint, t.muted, t.bg, {.Dim})
 }

@@ -11,26 +11,38 @@ import "core:strings"
 import "nullray:constants"
 
 Term :: struct {
-	raw:      bool,
-	width:    int,
-	height:   int,
-	out:      strings.Builder,
-	prev:     Buffer,
-	has_prev: bool,
-	mode:     Color_Mode,
-	plat:     Term_Plat,
+	raw:        bool,
+	width:      int,
+	height:     int,
+	out:        strings.Builder,
+	prev:       Buffer,
+	has_prev:   bool,
+	mode:       Color_Mode,
+	plat:       Term_Plat,
+	alt_screen: bool,
+	mouse:      bool,
 }
 
 term_init :: proc(t: ^Term, preferred_color := "") -> bool {
 	t^ = {}
 	t.mode = detect_color_mode(preferred_color)
+	t.alt_screen = term_feature_enabled(constants.ENV_ALT_SCREEN, !term_is_limited())
+	t.mouse = term_feature_enabled(constants.ENV_MOUSE, !term_is_limited())
 	strings.builder_init(&t.out)
 	if !term_plat_enter_raw(t) {
 		return false
 	}
 	t.raw = true
-	// Alt screen, hide cursor, SGR mouse + wheel reporting
-	strings.write_string(&t.out, "\x1b[?1049h\x1b[2J\x1b[H\x1b[?25l\x1b[?1000h\x1b[?1006h\x1b[?2004h")
+	if t.alt_screen {
+		strings.write_string(&t.out, "\x1b[?1049h")
+	}
+	strings.write_string(&t.out, "\x1b[2J\x1b[H\x1b[?25l")
+	if t.mouse {
+		strings.write_string(&t.out, "\x1b[?1000h\x1b[?1006h")
+	}
+	if !term_is_limited() {
+		strings.write_string(&t.out, "\x1b[?2004h")
+	}
 	term_flush(t)
 	term_query_size(t)
 	return true
@@ -38,7 +50,16 @@ term_init :: proc(t: ^Term, preferred_color := "") -> bool {
 
 term_close :: proc(t: ^Term) {
 	if t.raw {
-		strings.write_string(&t.out, "\x1b[?2004l\x1b[?1006l\x1b[?1000l\x1b[0m\x1b[?25h\x1b[?1049l")
+		if !term_is_limited() {
+			strings.write_string(&t.out, "\x1b[?2004l")
+		}
+		if t.mouse {
+			strings.write_string(&t.out, "\x1b[?1006l\x1b[?1000l")
+		}
+		strings.write_string(&t.out, "\x1b[0m\x1b[?25h")
+		if t.alt_screen {
+			strings.write_string(&t.out, "\x1b[?1049l")
+		}
 		term_flush(t)
 		term_plat_leave_raw(t)
 		t.raw = false
@@ -59,6 +80,12 @@ term_query_size :: proc(t: ^Term) {
 	}
 	t.width = parse_int_env("COLUMNS", constants.DEFAULT_TERM_COLS)
 	t.height = parse_int_env("LINES", constants.DEFAULT_TERM_ROWS)
+	if t.width < 20 {
+		t.width = constants.DEFAULT_TERM_COLS
+	}
+	if t.height < 5 {
+		t.height = constants.DEFAULT_TERM_ROWS
+	}
 }
 
 term_flush :: proc(t: ^Term) {
@@ -197,20 +224,111 @@ detect_color_mode :: proc(preferred: string) -> Color_Mode {
 	case "true", "truecolor", "24bit":
 		return .Truecolor
 	}
+	if _, ok := os.lookup_env("NO_COLOR", context.temp_allocator); ok {
+		return .None
+	}
+	if term_is_limited() {
+		return .Ansi16
+	}
 	if colorterm, ok := os.lookup_env("COLORTERM", context.temp_allocator); ok {
-		if colorterm == "truecolor" || colorterm == "24bit" {
+		cl := strings.to_lower(colorterm, context.temp_allocator)
+		if cl == "truecolor" || cl == "24bit" {
 			return .Truecolor
 		}
 	}
 	if term, ok := os.lookup_env("TERM", context.temp_allocator); ok {
-		if strings.contains(term, "256color") {
-			return .Ansi256
-		}
-		if term == "dumb" {
+		tl := strings.to_lower(term, context.temp_allocator)
+		if tl == "dumb" || tl == "unknown" || tl == "" {
 			return .None
 		}
+		if strings.contains(tl, "truecolor") || strings.contains(tl, "direct") {
+			return .Truecolor
+		}
+		if strings.contains(tl, "256color") || strings.contains(tl, "256") {
+			return .Ansi256
+		}
+		if strings.has_prefix(tl, "xterm") || strings.has_prefix(tl, "screen") || strings.has_prefix(tl, "tmux") ||
+		   strings.has_prefix(tl, "vt") || tl == "linux" || strings.has_prefix(tl, "ansi") {
+			return .Ansi16
+		}
 	}
-	return .Truecolor
+	if is_wsl() {
+		return .Ansi256
+	}
+	return .Ansi256
+}
+
+term_is_limited :: proc() -> bool {
+	term, ok := os.lookup_env("TERM", context.temp_allocator)
+	if !ok || len(term) == 0 {
+		return true
+	}
+	tl := strings.to_lower(term, context.temp_allocator)
+	if tl == "dumb" || tl == "unknown" || tl == "cons25" || tl == "emacs" {
+		return true
+	}
+	return false
+}
+
+// True when UTF-8 glyphs are safe to paint.
+// TERM=dumb only limits mouse and alt-screen. It does not mean ASCII-only.
+// Prefer locale. Default to UTF-8 unless the charset is an explicit legacy set.
+term_utf8_ok :: proc() -> bool {
+	when ODIN_OS == .Windows {
+		return true
+	}
+	for key in ([]string{"LC_ALL", "LC_CTYPE", "LANG"}) {
+		if v, ok := os.lookup_env(key, context.temp_allocator); ok {
+			vl := strings.trim_space(strings.to_lower(v, context.temp_allocator))
+			if len(vl) == 0 {
+				continue
+			}
+			if strings.contains(vl, "utf-8") || strings.contains(vl, "utf8") {
+				return true
+			}
+			if vl == "c" ||
+			   vl == "posix" ||
+			   strings.has_prefix(vl, "c.") ||
+			   strings.contains(vl, "iso-8859") ||
+			   strings.contains(vl, "iso8859") ||
+			   strings.contains(vl, "koi8") {
+				return false
+			}
+		}
+	}
+	return true
+}
+
+is_wsl :: proc() -> bool {
+	if _, ok := os.lookup_env("WSL_DISTRO_NAME", context.temp_allocator); ok {
+		return true
+	}
+	if _, ok := os.lookup_env("WSL_INTEROP", context.temp_allocator); ok {
+		return true
+	}
+	when ODIN_OS == .Linux {
+		data, err := os.read_entire_file("/proc/version", context.temp_allocator)
+		if err != nil {
+			return false
+		}
+		v := string(data)
+		return strings.contains(v, "Microsoft") || strings.contains(v, "WSL")
+	}
+	return false
+}
+
+term_feature_enabled :: proc(env_name: string, default_on: bool) -> bool {
+	v, ok := os.lookup_env(env_name, context.temp_allocator)
+	if !ok {
+		return default_on
+	}
+	switch strings.to_lower(strings.trim_space(v), context.temp_allocator) {
+	case "0", "false", "off", "no", "disable", "disabled":
+		return false
+	case "1", "true", "on", "yes", "enable", "enabled":
+		return true
+	}
+	return default_on
 }
 
 parse_int_env :: proc(name: string, fallback: int) -> int {
@@ -219,7 +337,7 @@ parse_int_env :: proc(name: string, fallback: int) -> int {
 		return fallback
 	}
 	n, n_ok := strconv.parse_int(v)
-	if !n_ok {
+	if !n_ok || n <= 0 {
 		return fallback
 	}
 	return n

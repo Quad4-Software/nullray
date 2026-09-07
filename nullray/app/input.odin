@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: 0BSD
 /*
 Input events, editing, scroll, prompt improve, submit.
 */
@@ -16,7 +17,29 @@ import "nullray:ui"
 
 app_toggle_help :: proc(a: ^App) {
 	a.show_help = !a.show_help
+	if a.show_help {
+		a.help_scroll = 0
+	}
 	app_mark_dirty(a)
+}
+
+@(private)
+slash_name_of :: proc(text: string) -> string {
+	t := strings.trim_space(text)
+	if !strings.has_prefix(t, "/") {
+		return ""
+	}
+	body := t[1:]
+	if sp := strings.index_byte(body, ' '); sp >= 0 {
+		return body[:sp]
+	}
+	return body
+}
+
+@(private)
+slash_busy_exempt :: proc(text: string) -> bool {
+	name := slash_name_of(text)
+	return name == "allow" || name == "deny"
 }
 
 @(private)
@@ -42,7 +65,9 @@ app_on_event :: proc(ev: ui.Event, user: rawptr) -> bool {
 	a := cast(^App)user
 
 	if splash_active(a) {
-		// Timer-only splash. Drop input so typed keys are not applied after it ends.
+		// Any key or mouse ends splash early. Do not queue the event into the prompt.
+		a.splash_on = false
+		app_mark_dirty(a)
 		return false
 	}
 
@@ -57,6 +82,22 @@ app_on_event :: proc(ev: ui.Event, user: rawptr) -> bool {
 		}
 		if ev.kind == .Ctrl_Q || ev.kind == .Ctrl_C {
 			return true
+		}
+		#partial switch ev.kind {
+		case .Page_Up, .Up, .Mouse_Wheel_Up:
+			step := 1
+			if ev.kind == .Page_Up {
+				step = max(8, a.loop.term.height / 2)
+			}
+			a.help_scroll = max(0, a.help_scroll - step)
+			app_mark_dirty(a)
+		case .Page_Down, .Down, .Mouse_Wheel_Down:
+			step := 1
+			if ev.kind == .Page_Down {
+				step = max(8, a.loop.term.height / 2)
+			}
+			a.help_scroll += step
+			app_mark_dirty(a)
 		}
 		return false
 	}
@@ -293,7 +334,8 @@ app_on_event :: proc(ev: ui.Event, user: rawptr) -> bool {
 			app_follow_bottom(a)
 		}
 	case .Rune:
-		if (!a.session.busy || a.pasting) && ev.ch >= 0x20 {
+		// Allow typing while busy so /allow and /deny can be entered mid-turn.
+		if ev.ch >= 0x20 {
 			app_insert_rune(a, ev.ch)
 		}
 	case .Esc:
@@ -566,11 +608,11 @@ app_undo_improve :: proc(a: ^App) {
 }
 
 app_submit :: proc(a: ^App) {
-	if a.session.busy {
-		return
-	}
 	text := strings.trim_space(strings.to_string(a.input))
 	if len(text) == 0 {
+		return
+	}
+	if a.session.busy && !slash_busy_exempt(text) {
 		return
 	}
 	strings.builder_reset(&a.input)
@@ -588,5 +630,3 @@ app_submit :: proc(a: ^App) {
 	session.session_start_chat(&a.session, p)
 	app_mark_dirty(a)
 }
-
-

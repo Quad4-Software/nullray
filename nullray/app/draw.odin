@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: 0BSD
 /*
 Transcript collection and TUI paint.
 */
@@ -10,6 +11,7 @@ import "nullray:config"
 import "nullray:constants"
 import "nullray:provider"
 import "nullray:session"
+import "nullray:tools"
 import "nullray:ui"
 
 Transcript_Block :: struct {
@@ -281,6 +283,7 @@ app_collect_blocks :: proc(a: ^App, accent: ui.Color, allocator := context.temp_
 app_draw_blocks :: proc(
 	buf: ^ui.Buffer,
 	blocks: []Transcript_Block,
+	heights: []int,
 	msg_top, msg_h, skip_lines: int,
 	caret_fg, caret_bg: ui.Color,
 ) {
@@ -288,11 +291,12 @@ app_draw_blocks :: proc(
 	skip := skip_lines
 	y := msg_top
 	remain := msg_h
-	for block in blocks {
+	for bi in 0 ..< len(blocks) {
+		block := blocks[bi]
 		if remain <= 0 {
 			break
 		}
-		h := block_height(block, buf.width)
+		h := heights[bi]
 		if skip >= h {
 			skip -= h
 			continue
@@ -335,7 +339,7 @@ app_draw_blocks :: proc(
 				ui.buffer_text(buf, px, y, body, block.body_fg, t.bg, block.body_style)
 			}
 		}
-		if block.caret && local_skip + used >= block_height(block, buf.width) {
+		if block.caret && local_skip + used >= h {
 			end_col := ui.wrap_last_line_cols(ui.md_strip_inline_ticks(body), bw)
 			ui.draw_stream_caret(buf, px, y + used - 1, end_col, caret_fg, caret_bg)
 		}
@@ -351,17 +355,9 @@ app_draw_code_block :: proc(buf: ^ui.Buffer, block: Transcript_Block, y, remain,
 		return 0
 	}
 	width := max(1, buf.width - 4)
-	lines := ui.word_wrap_lines(block.body, width, context.temp_allocator)
-	total := len(lines)
-	if total == 0 {
-		total = 1
-	}
+	total := max(1, ui.wrap_line_count(block.body, width))
+	lines := ui.word_wrap_lines(block.body, width, context.temp_allocator, CODE_PREVIEW_LINES)
 	shown_body := min(total, CODE_PREVIEW_LINES)
-	extra := 0
-	if total > CODE_PREVIEW_LINES {
-		extra = 1
-	}
-	full_h := 1 + shown_body + extra
 	used := 0
 	vis := 0
 
@@ -480,9 +476,11 @@ app_draw :: proc(buf: ^ui.Buffer, user: rawptr) {
 	msg_h := max(msg_bottom - msg_top + 1, 1)
 
 	blocks := app_collect_blocks(a, accent)
+	heights := make([]int, len(blocks), context.temp_allocator)
 	total_h := 0
-	for b in blocks {
-		total_h += block_height(b, buf.width)
+	for b, i in blocks {
+		heights[i] = block_height(b, buf.width)
+		total_h += heights[i]
 	}
 
 	if a.follow {
@@ -496,10 +494,12 @@ app_draw :: proc(buf: ^ui.Buffer, user: rawptr) {
 		a.follow = true
 	}
 	skip := max(0, total_h - msg_h - a.scroll)
-	app_draw_blocks(buf, blocks, msg_top, msg_h, skip, t.accent, t.bg)
+	app_draw_blocks(buf, blocks, heights, msg_top, msg_h, skip, t.accent, t.bg)
 
 	status_left := a.session.status
-	if a.session.busy {
+	if pending := tools.shell_pending(context.temp_allocator); len(pending) > 0 {
+		status_left = fmt.tprintf("shell: %s · /allow /deny", pending)
+	} else if a.session.busy {
 		status_left = fmt.tprintf("%s %s", ui.spinner_frame(&a.spinner), a.session.status)
 		if !a.follow {
 			status_left = fmt.tprintf("%s · End to follow", status_left)
@@ -524,16 +524,23 @@ app_draw_help :: proc(buf: ^ui.Buffer, a: ^App) {
 	t := ui.theme()
 	binds_help := config.binds_help_text(a.binds, a.keys_preset, context.temp_allocator)
 	body := help_overlay_text(binds_help, context.temp_allocator)
+	lines := strings.split_lines(body, context.temp_allocator)
+	view_h := max(1, buf.height - 4)
+	max_scroll := max(0, len(lines) - view_h)
+	if a.help_scroll > max_scroll {
+		a.help_scroll = max_scroll
+	}
 	y := 2
-	for line in strings.split_lines(body, context.temp_allocator) {
-		if y >= buf.height - 2 {
-			break
-		}
+	for i := a.help_scroll; i < len(lines) && y < buf.height - 2; i += 1 {
 		ui.buffer_fill_rect(buf, 0, y, buf.width, 1, ' ', t.fg, t.bg)
-		ui.buffer_text_clip(buf, 1, y, buf.width - 1, line, t.fg, t.bg)
+		ui.buffer_text_clip(buf, 1, y, buf.width - 1, lines[i], t.fg, t.bg)
 		y += 1
 	}
-	ui.draw_status_bar(buf, buf.height - 2, "help", "Esc/? close", t.status_fg, t.status_bg)
+	help_right := "PgUp/PgDn · Esc/? close"
+	if max_scroll > 0 {
+		help_right = fmt.tprintf("%d/%d · %s", a.help_scroll + 1, max_scroll + 1, help_right)
+	}
+	ui.draw_status_bar(buf, buf.height - 2, "help", help_right, t.status_fg, t.status_bg)
 	ui.draw_input_line(buf, buf.height - 1, "> ", strings.to_string(a.input), a.cursor, t.fg, t.input_bg, t.accent)
 }
 

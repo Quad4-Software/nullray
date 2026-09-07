@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: 0BSD
 #+build windows
 
 /*
@@ -12,6 +13,13 @@ Term_Plat :: struct {
 	in_mode:  u32,
 	out_mode: u32,
 }
+
+@(private)
+g_em_active: bool
+@(private)
+g_em_in: u32
+@(private)
+g_em_out: u32
 
 term_plat_enter_raw :: proc(t: ^Term) -> bool {
 	hin := win.GetStdHandle(win.STD_INPUT_HANDLE)
@@ -41,6 +49,9 @@ term_plat_enter_raw :: proc(t: ^Term) -> bool {
 		_ = win.SetConsoleMode(hin, t.plat.in_mode)
 		return false
 	}
+	g_em_in = in_mode
+	g_em_out = out_mode
+	g_em_active = true
 	return true
 }
 
@@ -53,6 +64,22 @@ term_plat_leave_raw :: proc(t: ^Term) {
 	if hout != win.INVALID_HANDLE_VALUE {
 		_ = win.SetConsoleMode(hout, t.plat.out_mode)
 	}
+	g_em_active = false
+}
+
+term_emergency_restore :: proc "c" () {
+	if !g_em_active {
+		return
+	}
+	hin := win.GetStdHandle(win.STD_INPUT_HANDLE)
+	hout := win.GetStdHandle(win.STD_OUTPUT_HANDLE)
+	if hin != win.INVALID_HANDLE_VALUE {
+		_ = win.SetConsoleMode(hin, g_em_in)
+	}
+	if hout != win.INVALID_HANDLE_VALUE {
+		_ = win.SetConsoleMode(hout, g_em_out)
+	}
+	g_em_active = false
 }
 
 term_plat_winsize :: proc() -> (w, h: int, ok: bool) {

@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: 0BSD
 /*
 Parse markdown-ish assistant text into blocks for terminal rendering.
 
@@ -300,7 +301,7 @@ md_list_item :: proc(line: string) -> (indent: int, body: string, ok: bool) {
 	return spaces, line[i:], true
 }
 
-word_wrap_lines :: proc(text: string, width: int, allocator := context.temp_allocator) -> []string {
+word_wrap_lines :: proc(text: string, width: int, allocator := context.temp_allocator, max_lines := 0) -> []string {
 	if width <= 0 {
 		if len(text) == 0 {
 			return nil
@@ -329,6 +330,9 @@ word_wrap_lines :: proc(text: string, width: int, allocator := context.temp_allo
 	stall := 0
 
 	for i < len(text) {
+		if max_lines > 0 && len(lines) >= max_lines {
+			break
+		}
 		r, size := utf8.decode_rune_in_string(text[i:])
 		if size <= 0 {
 			break
@@ -389,10 +393,12 @@ word_wrap_lines :: proc(text: string, width: int, allocator := context.temp_allo
 		stall = 0
 	}
 
-	if line_start < len(buf) {
-		word_wrap_push_line(&lines, buf[:], line_start, len(buf))
-	} else if len(lines) == 0 {
-		append(&lines, string(buf[:0]))
+	if max_lines <= 0 || len(lines) < max_lines {
+		if line_start < len(buf) {
+			word_wrap_push_line(&lines, buf[:], line_start, len(buf))
+		} else if len(lines) == 0 {
+			append(&lines, string(buf[:0]))
+		}
 	}
 
 	return lines[:]
