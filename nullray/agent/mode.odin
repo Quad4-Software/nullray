@@ -102,6 +102,14 @@ mode_from_env :: proc() -> Agent_Mode {
 	return .Edit
 }
 
+ask_simple_from_env :: proc() -> bool {
+	if v, ok := os.lookup_env(constants.ENV_ASK_SIMPLE, context.temp_allocator); ok {
+		lv := strings.to_lower(v, context.temp_allocator)
+		return lv == "1" || lv == "true" || lv == "yes" || lv == "on"
+	}
+	return false
+}
+
 policy_from_env :: proc() -> Mode_Policy {
 	if v, ok := os.lookup_env(constants.ENV_MODE_POLICY, context.temp_allocator); ok {
 		if p, found := policy_from_string(v); found {
@@ -137,6 +145,16 @@ mode_prompt_section :: proc(mode: Agent_Mode, policy: Mode_Policy, allocator := 
 			&b,
 			"Put explanations and code snippets in chat when helpful. Do not call write/edit/shell tools.\n",
 		)
+		strings.write_string(
+			&b,
+			"For Unix command or flag questions on Linux, call read_man or apropos before guessing options.\n",
+		)
+		if ask_simple_from_env() {
+			strings.write_string(
+				&b,
+				"Simple ask (-q): answer first and briefly. Cite man sections when used. Prefer a short command example over exploration theater.\n",
+			)
+		}
 	case .Plan:
 		strings.write_string(
 			&b,

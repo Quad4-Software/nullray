@@ -54,7 +54,7 @@ registry_init :: proc(r: ^Registry) {
 	registry_register(r, Tool{
 		name = "write_file",
 		description = "Write UTF-8 text to a file under the workspace",
-		schema_json = `{"type":"object","properties":{"path":{"type":"string"},"content":{"type":"string"}},"required":["path","content"]}`,
+		schema_json = `{"type":"object","properties":{"path":{"type":"string"},"content":{"type":"string"},"allow_godfile":{"type":"string","description":"true to allow growth past the structure limit"}},"required":["path","content"]}`,
 		kind = .Write,
 		run = tool_write_file,
 	})
@@ -68,7 +68,7 @@ registry_init :: proc(r: ^Registry) {
 	registry_register(r, Tool{
 		name = "edit_file",
 		description = "Replace text in a UTF-8 file under the workspace",
-		schema_json = `{"type":"object","properties":{"path":{"type":"string"},"old_string":{"type":"string"},"new_string":{"type":"string"},"replace_all":{"type":"string","description":"true or false"}},"required":["path","old_string","new_string"]}`,
+		schema_json = `{"type":"object","properties":{"path":{"type":"string"},"old_string":{"type":"string"},"new_string":{"type":"string"},"replace_all":{"type":"string","description":"true or false"},"allow_godfile":{"type":"string","description":"true to allow growth past the structure limit"}},"required":["path","old_string","new_string"]}`,
 		kind = .Write,
 		run = tool_edit_file,
 	})
@@ -96,7 +96,7 @@ registry_init :: proc(r: ^Registry) {
 	registry_register(r, Tool{
 		name = "apply_edits",
 		description = "Apply multiple search-replace edits or create files atomically under the workspace",
-		schema_json = `{"type":"object","properties":{"edits":{"type":"array","items":{"type":"object","properties":{"path":{"type":"string"},"old_string":{"type":"string"},"new_string":{"type":"string"},"replace_all":{"type":"string"}},"required":["path","old_string","new_string"]}},"files":{"type":"array","items":{"type":"object","properties":{"path":{"type":"string"},"content":{"type":"string"}},"required":["path","content"]}}}}`,
+		schema_json = `{"type":"object","properties":{"allow_godfile":{"type":"string","description":"true to allow growth past the structure limit"},"edits":{"type":"array","items":{"type":"object","properties":{"path":{"type":"string"},"old_string":{"type":"string"},"new_string":{"type":"string"},"replace_all":{"type":"string"}},"required":["path","old_string","new_string"]}},"files":{"type":"array","items":{"type":"object","properties":{"path":{"type":"string"},"content":{"type":"string"}},"required":["path","content"]}}}}`,
 		kind = .Write,
 		run = tool_apply_edits,
 	})
@@ -122,11 +122,144 @@ registry_init :: proc(r: ^Registry) {
 		run = tool_load_skill,
 	})
 	registry_register(r, Tool{
+		name = "memory_get",
+		description = "Read a project memory value by key",
+		schema_json = `{"type":"object","properties":{"key":{"type":"string"}},"required":["key"]}`,
+		kind = .Read,
+		run = tool_memory_get,
+	})
+	registry_register(r, Tool{
+		name = "memory_put",
+		description = "Store a durable project memory value",
+		schema_json = `{"type":"object","properties":{"key":{"type":"string"},"value":{"type":"string"}},"required":["key","value"]}`,
+		kind = .Write,
+		run = tool_memory_put,
+	})
+	registry_register(r, Tool{
+		name = "memory_list",
+		description = "List project memory keys with an optional filter",
+		schema_json = `{"type":"object","properties":{"filter":{"type":"string"}}}`,
+		kind = .Read,
+		run = tool_memory_list,
+	})
+	registry_register(r, Tool{
 		name = "compact_context",
 		description = "Request context compaction when a task phase ends (explore to edit). Clears stale tool results.",
 		schema_json = `{"type":"object","properties":{}}`,
 		kind = .Read,
 		run = tool_compact_context,
+	})
+	registry_register(r, Tool{
+		name = "read_man",
+		description = "Read a Linux man page as plain text (page name, optional section 1-8)",
+		schema_json = `{"type":"object","properties":{"page":{"type":"string"},"section":{"type":"string"},"max_chars":{"type":"string"}},"required":["page"]}`,
+		kind = .Read,
+		run = tool_read_man,
+	})
+	registry_register(r, Tool{
+		name = "apropos",
+		description = "Search man page names and descriptions (man -k)",
+		schema_json = `{"type":"object","properties":{"keyword":{"type":"string"}},"required":["keyword"]}`,
+		kind = .Read,
+		run = tool_apropos,
+	})
+	registry_register(r, Tool{
+		name = "scaffold",
+		description = "Copy a named secure scaffold template into the workspace",
+		schema_json = `{"type":"object","properties":{"name":{"type":"string"},"dest":{"type":"string"},"force":{"type":"string"}},"required":["name"]}`,
+		kind = .Write,
+		run = tool_scaffold,
+	})
+	registry_register(r, Tool{
+		name = "audit_structure",
+		description = "Audit workspace files against .nullray/policy.json line thresholds",
+		schema_json = `{"type":"object","properties":{}}`,
+		kind = .Read,
+		run = tool_audit_structure,
+	})
+	registry_register(r, Tool{
+		name = "audit_actions",
+		description = "Audit GitHub Actions workflow security",
+		schema_json = `{"type":"object","properties":{}}`,
+		kind = .Read,
+		run = tool_audit_actions,
+	})
+	registry_register(r, Tool{
+		name = "audit_dockerfile",
+		description = "Audit Dockerfile image pins, users, and shell pipes",
+		schema_json = `{"type":"object","properties":{}}`,
+		kind = .Read,
+		run = tool_audit_dockerfile,
+	})
+	registry_register(r, Tool{
+		name = "audit_compose",
+		description = "Audit Compose privileged mode and Docker socket mounts",
+		schema_json = `{"type":"object","properties":{}}`,
+		kind = .Read,
+		run = tool_audit_compose,
+	})
+	registry_register(r, Tool{
+		name = "audit_owasp",
+		description = "Audit source files for basic OWASP credential risks",
+		schema_json = `{"type":"object","properties":{}}`,
+		kind = .Read,
+		run = tool_audit_owasp,
+	})
+	registry_register(r, Tool{
+		name = "audit_deps",
+		description = "Audit dependency manifests for lock files",
+		schema_json = `{"type":"object","properties":{}}`,
+		kind = .Read,
+		run = tool_audit_deps,
+	})
+	registry_register(r, Tool{
+		name = "vcs_status",
+		description = "Show local Git or Fossil repository status",
+		schema_json = `{"type":"object","properties":{}}`,
+		kind = .Read,
+		run = tool_vcs_status,
+	})
+	registry_register(r, Tool{
+		name = "vcs_diff",
+		description = "Show local Git or Fossil changes",
+		schema_json = `{"type":"object","properties":{"revision":{"type":"string"}}}`,
+		kind = .Read,
+		run = tool_vcs_diff,
+	})
+	registry_register(r, Tool{
+		name = "vcs_log",
+		description = "Show local Git or Fossil history",
+		schema_json = `{"type":"object","properties":{"count":{"type":"integer"}}}`,
+		kind = .Read,
+		run = tool_vcs_log,
+	})
+	registry_register(r, Tool{
+		name = "vcs_commit",
+		description = "Commit local Git or Fossil changes without pushing",
+		schema_json = `{"type":"object","properties":{"message":{"type":"string"}},"required":["message"]}`,
+		kind = .Write,
+		run = tool_vcs_commit,
+	})
+	registry_register(r, Tool{
+		name = "vcs_branch",
+		description = "Show or create and switch a local Git or Fossil branch",
+		schema_json = `{"type":"object","properties":{"name":{"type":"string"}}}`,
+		kind = .Write,
+		run = tool_vcs_branch,
+	})
+	registry_register(r, Tool{
+		name = "vcs_merge",
+		description = "Merge a local branch, refusing dirty trees by default",
+		schema_json = `{"type":"object","properties":{"target":{"type":"string"},"allow_dirty":{"type":"string","description":"true or false"}},"required":["target"]}`,
+		kind = .Write,
+		run = tool_vcs_merge,
+	})
+	registry_register(r, Tool{
+		name = "vcs_rebase",
+		description = "Rebase Git only, refusing dirty trees by default",
+		schema_json = `{"type":"object","properties":{"target":{"type":"string"},"allow_dirty":{"type":"string","description":"true or false"}},"required":["target"]}`,
+		kind = .Write,
+		run = tool_vcs_rebase,
 	})
 }
 
@@ -134,6 +267,7 @@ registry_destroy :: proc(r: ^Registry) {
 	if r == nil {
 		return
 	}
+	snapshots_destroy()
 	delete(r.tools)
 	r^ = {}
 }

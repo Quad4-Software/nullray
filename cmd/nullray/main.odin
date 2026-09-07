@@ -13,6 +13,7 @@ import "nullray:http"
 import "nullray:provider"
 import "nullray:run"
 import "nullray:sandbox"
+import "nullray:secure"
 import "nullray:selftest"
 import "nullray:session"
 import "nullray:skills"
@@ -22,6 +23,7 @@ import "nullray:ui"
 Cli :: struct {
 	ephemeral:        bool,
 	self_test:        bool,
+	audit:            bool,
 	list_models:      bool,
 	list_sessions:    bool,
 	show_help:        bool,
@@ -34,6 +36,7 @@ Cli :: struct {
 	no_subagents:     bool,
 	hide_sensitive:   bool,
 	print_mode:       bool,
+	ask_simple:       bool,
 	bare:             bool,
 	fail_on_findings: bool,
 	completions:      string,
@@ -104,6 +107,9 @@ main :: proc() {
 
 	if cli.show_doctor {
 		os.exit(crash.doctor())
+	}
+	if cli.audit {
+		os.exit(run_audit())
 	}
 
 	if cli.list_sessions {
@@ -252,6 +258,8 @@ parse_cli :: proc(args: []string) -> Cli {
 			cli.ephemeral = true
 		case "--self-test", "-t":
 			cli.self_test = true
+		case "--audit":
+			cli.audit = true
 		case "--doctor":
 			cli.show_doctor = true
 		case "--debug":
@@ -326,6 +334,9 @@ parse_cli :: proc(args: []string) -> Cli {
 			}
 		case "--print", "-P":
 			cli.print_mode = true
+		case "-q", "--ask":
+			cli.print_mode = true
+			cli.ask_simple = true
 		case "--bare":
 			cli.bare = true
 		case "--fail-on-findings":
@@ -525,7 +536,17 @@ apply_cli_env :: proc(cli: ^Cli) {
 		if !cli.ephemeral && len(cli.session) == 0 {
 			os.set_env(constants.ENV_EPHEMERAL, "1")
 		}
-		if len(cli.mode) == 0 {
+		if cli.ask_simple {
+			os.set_env(constants.ENV_ASK_SIMPLE, "1")
+			if len(cli.mode) == 0 {
+				os.set_env(constants.ENV_MODE, "ask")
+			}
+			if len(cli.perms) == 0 {
+				if _, ok := os.lookup_env(constants.ENV_PERMS, context.temp_allocator); !ok {
+					os.set_env(constants.ENV_PERMS, "ask")
+				}
+			}
+		} else if len(cli.mode) == 0 {
 			if _, ok := os.lookup_env(constants.ENV_MODE, context.temp_allocator); !ok {
 				has_plan_in := len(cli.plan_in) > 0
 				if !has_plan_in {
@@ -727,6 +748,25 @@ run_uninstall_skill :: proc(id: string) -> int {
 	return 0
 }
 
+run_audit :: proc() -> int {
+	root := env_or(constants.ENV_WORKSPACE, "")
+	if len(root) == 0 {
+		cwd, err := os.get_working_directory(context.temp_allocator)
+		if err != nil {
+			fmt.eprintln("nullray: audit: cannot resolve workspace")
+			return 2
+		}
+		root = cwd
+	}
+	text := secure.audit_all(root)
+	defer delete(text)
+	fmt.println(text)
+	if secure.has_high(text) {
+		return 1
+	}
+	return 0
+}
+
 print_version :: proc() {
 	fmt.printf("%s %s (built %s %s)\n", constants.APP_NAME, constants.VERSION, constants.BUILD_DATE, constants.BUILD_TIME)
 }
@@ -740,9 +780,11 @@ print_help :: proc() {
 	fmt.println("  -V, --version           show version and build stamp")
 	fmt.println("  -e, --ephemeral         do not load or save session transcripts")
 	fmt.println("  -t, --self-test         headless smoke (tools, mcp, draw, shell deny)")
+	fmt.println("      --audit             run workspace security scanners and exit")
 	fmt.println("      --doctor            print env, TTY, and latest crash dump path")
 	fmt.println("      --debug             verbose stderr logs (also NULLRAY_DEBUG=1)")
 	fmt.println("  -P, --print             one-shot agent (no TUI), print reply and exit")
+	fmt.println("  -q, --ask               simple Q&A (print + ask + ephemeral, read-only tools)")
 	fmt.println("  -p, --provider ID       ollama | lmstudio | openai | openai-compat |")
 	fmt.println("                          openrouter | opencode | opencode-go |")
 	fmt.println("                          anthropic | gemini | groq | deepseek |")
@@ -751,7 +793,7 @@ print_help :: proc() {
 	fmt.println("      --theme NAME        ink | ember | moss | slate | rose | mono | dusk")
 	fmt.println("      --mode MODE         ask | plan | review | edit")
 	fmt.println("      --perms POLICY      ask | allow | yolo")
-	fmt.println("      --sandbox MODE      on | off | landlock | seccomp | ...")
+	fmt.println("      --sandbox MODE      off | soft | warn | strict | on")
 	fmt.println("      --askpass            sudo/doas askpass helper (internal)")
 	fmt.println("      --elevate-broker P   run privilege broker on path (internal)")
 	fmt.println("      --no-elevate         deny elevated commands (NULLRAY_ELEVATE=deny)")
@@ -794,6 +836,7 @@ print_help :: proc() {
 	fmt.println("           NULLRAY_SANDBOX NULLRAY_WORKSPACE NULLRAY_SESSION NULLRAY_EPHEMERAL")
 	fmt.println("           NULLRAY_SPLASH NULLRAY_KEYS NULLRAY_STREAM OPENROUTER_API_KEY")
 	fmt.println("           NULLRAY_HTTP_RETRIES NULLRAY_FALLBACK_MODELS NULLRAY_OPENROUTER_IGNORE")
+	fmt.println("           NULLRAY_MCP_ALLOW_ANY NULLRAY_MCP_APPROVE_DRIFT NULLRAY_WORKSPACE_TRUST")
 	fmt.println("           NULLRAY_HIDE_SENSITIVE NULLRAY_BARE NULLRAY_PRINT_TIMEOUT NULLRAY_OUT")
 	fmt.println("           NULLRAY_PLAN_OUT NULLRAY_PLAN_IN NULLRAY_COLOR NULLRAY_ALT_SCREEN NULLRAY_MOUSE")
 	fmt.println("           NULLRAY_DEBUG OPENAI_API_KEY OPENAI_BASE_URL OLLAMA_HOST")

@@ -40,11 +40,11 @@ _nullray() {
   COMPREPLY=()
   cur="${COMP_WORDS[COMP_CWORD]}"
   prev="${COMP_WORDS[COMP_CWORD-1]}"
-  opts="--help -h --version -V --ephemeral -e --self-test -t --doctor --debug --print -P --bare --fail-on-findings --provider -p --model -m --theme --mode --perms --sandbox --workspace -w --session --list-sessions --search-sessions --delete-session --export-session --import-session --as --list-skills --install-skill --uninstall-skill --skills --keys --message-file --out --plan-out --plan-in --output-format --timeout --no-splash --no-subagents --splash --hide-sensitive --list-models --completions --man"
+  opts="--help -h --version -V --ephemeral -e --self-test -t --audit --doctor --debug --print -P --ask -q --bare --fail-on-findings --provider -p --model -m --theme --mode --perms --sandbox --workspace -w --session --list-sessions --search-sessions --delete-session --export-session --import-session --as --list-skills --install-skill --uninstall-skill --skills --keys --message-file --out --plan-out --plan-in --output-format --timeout --no-splash --no-subagents --splash --hide-sensitive --list-models --completions --man"
   providers="ollama lmstudio openai openai-compat openrouter opencode opencode-go anthropic gemini groq deepseek mistral together fireworks xai azure"
   modes="ask plan review edit"
   perms="ask allow yolo"
-  sandboxes="on off landlock seccomp"
+  sandboxes="off soft warn strict on"
   keys="default neovim emacs"
 
   case "$prev" in
@@ -73,9 +73,11 @@ _nullray() {
     '--version[show version]' '-V[show version]'
     '--ephemeral[do not load or save transcripts]' '-e[do not load or save transcripts]'
     '--self-test[headless smoke]' '-t[headless smoke]'
+    '--audit[run workspace security scanners]'
     '--doctor[print env and crash dump paths]'
     '--debug[verbose stderr lifecycle logs]'
     '--print[one-shot agent no TUI]' '-P[one-shot agent no TUI]'
+    '--ask[simple Q and A]' '-q[simple Q and A]'
     '--bare[skip home MCP and non-workspace skills]'
     '--fail-on-findings[exit 1 when review findings present]'
     '--provider[provider id]:provider:(ollama lmstudio openai openai-compat openrouter opencode opencode-go anthropic gemini groq deepseek mistral together fireworks xai azure)'
@@ -85,7 +87,7 @@ _nullray() {
     '--theme[ui theme]:theme:(ink ember moss slate rose mono dusk)'
     '--mode[agent mode]:mode:(ask plan review edit)'
     '--perms[shell policy]:perms:(ask allow yolo)'
-    '--sandbox[sandbox mode]:sandbox:(on off landlock seccomp)'
+    '--sandbox[sandbox mode]:sandbox:(off soft warn strict on)'
     '--workspace[workspace path]:dir:_files -/'
     '-w[workspace path]:dir:_files -/'
     '--session[session name]:session:'
@@ -124,6 +126,7 @@ complete -c nullray -s h -l help -d 'Show help'
 complete -c nullray -s V -l version -d 'Show version'
 complete -c nullray -s e -l ephemeral -d 'Do not load or save transcripts'
 complete -c nullray -s t -l self-test -d 'Headless smoke'
+complete -c nullray -l audit -d 'Run workspace security scanners'
 complete -c nullray -l doctor -d 'Print env and crash dump paths'
 complete -c nullray -l debug -d 'Verbose stderr lifecycle logs'
 complete -c nullray -s P -l print -d 'One-shot agent without TUI'
@@ -134,7 +137,7 @@ complete -c nullray -s m -l model -d 'Model id' -r
 complete -c nullray -l theme -d 'UI theme' -xa 'ink ember moss slate rose mono dusk'
 complete -c nullray -l mode -d 'Agent mode' -xa 'ask plan review edit'
 complete -c nullray -l perms -d 'Shell policy' -xa 'ask allow yolo'
-complete -c nullray -l sandbox -d 'Sandbox mode' -xa 'on off landlock seccomp'
+complete -c nullray -l sandbox -d 'Sandbox mode' -xa 'off soft warn strict on'
 complete -c nullray -s w -l workspace -d 'Workspace path' -r -F
 complete -c nullray -l session -d 'Session name' -r
 complete -c nullray -l list-sessions -d 'List saved sessions'
@@ -167,7 +170,7 @@ COMPLETIONS_POWERSHELL :: `Register-ArgumentCompleter -CommandName nullray -Scri
   param($wordToComplete, $commandAst, $cursorPosition)
   $opts = @(
     '--help','-h','--version','-V','--ephemeral','-e','--self-test','-t',
-    '--doctor','--debug','--print','-P','--bare','--fail-on-findings',
+    '--audit','--doctor','--debug','--print','-P','--bare','--fail-on-findings',
     '--provider','-p','--model','-m','--theme','--mode','--perms','--sandbox',
     '--workspace','-w','--session','--list-sessions','--search-sessions',
     '--delete-session','--export-session','--import-session','--as',
@@ -185,7 +188,7 @@ COMPLETIONS_ELVISH :: `use str
 set edit:completion:arg-completer[nullray] = {|@args|
   var flags = [
     --help -h --version -V --ephemeral -e --self-test -t
-    --doctor --debug --print -P --bare --fail-on-findings
+    --audit --doctor --debug --print -P --bare --fail-on-findings
     --provider -p --model -m --theme --mode --perms --sandbox
     --workspace -w --session --list-sessions --search-sessions
     --delete-session --export-session --import-session --as
@@ -200,7 +203,7 @@ set edit:completion:arg-completer[nullray] = {|@args|
 COMPLETIONS_NUSHELL :: `def "nu-complete nullray flags" [] {
   [
     --help -h --version -V --ephemeral -e --self-test -t
-    --doctor --debug --print -P --bare --fail-on-findings
+    --audit --doctor --debug --print -P --bare --fail-on-findings
     --provider -p --model -m --theme --mode --perms --sandbox
     --workspace -w --session --list-sessions --search-sessions
     --delete-session --export-session --import-session --as
@@ -241,6 +244,10 @@ Do not load or save session transcripts.
 .BR \-t ", " \-\-self\-test
 Run headless smoke checks and exit.
 .TP
+.B \-\-audit
+Run workspace security scanners and exit. Checks Actions pins, Dockerfiles,
+Compose files, common credential patterns, and dependency lock files.
+.TP
 .B \-\-doctor
 Print config paths, key env presence, TTY status, and the latest crash dump path.
 .TP
@@ -252,6 +259,10 @@ Verbose stderr lifecycle logs. Also set with
 Run one agent turn without the TUI, print the reply, and exit.
 Defaults to ephemeral session and mode ask. Prompt from remaining args,
 .B \-\-message\-file, or stdin when not a TTY.
+.TP
+.BR \-q ", " \-\-ask
+Run one ephemeral read-only question without the TUI. This never enables
+write or shell tools.
 .TP
 .B \-\-bare
 Skip home MCP autoload and non-workspace skills (CI reproducibility).
@@ -304,7 +315,7 @@ Shell permission policy: ask, allow, or yolo.
 Edit under --print requires allow or yolo.
 .TP
 .B \-\-sandbox \fIMODE\fR
-Sandbox mode (on, off, landlock, seccomp, ...).
+Sandbox mode: off, soft, warn, strict, or on.
 .TP
 .BR \-w ", " \-\-workspace " " \fIPATH\fR
 Workspace root for tools and sandbox.

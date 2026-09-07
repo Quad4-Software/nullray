@@ -21,6 +21,10 @@ Do not load or save session transcripts.
 .BR \-t ", " \-\-self\-test
 Run headless smoke checks and exit.
 .TP
+.B \-\-audit
+Run workspace security scanners and exit. Checks Actions pins, Dockerfiles,
+Compose files, common credential patterns, and dependency lock files.
+.TP
 .B \-\-doctor
 Print config paths, key env presence, TTY status, and the latest crash dump path.
 .TP
@@ -32,6 +36,10 @@ Verbose stderr lifecycle logs. Also set with
 Run one agent turn without the TUI, print the reply, and exit.
 Defaults to ephemeral session and mode ask. Prompt from remaining args,
 .B \-\-message\-file, or stdin when not a TTY.
+.TP
+.BR \-q ", " \-\-ask
+Run one ephemeral read-only question without the TUI. This never enables
+write or shell tools.
 .TP
 .B \-\-bare
 Skip home MCP autoload and non-workspace skills (CI reproducibility).
@@ -84,7 +92,7 @@ Shell permission policy: ask, allow, or yolo.
 Edit under --print requires allow or yolo.
 .TP
 .B \-\-sandbox \fIMODE\fR
-Sandbox mode (on, off, landlock, seccomp, ...).
+Sandbox mode: off, soft, warn, strict, or on.
 .TP
 .BR \-w ", " \-\-workspace " " \fIPATH\fR
 Workspace root for tools and sandbox.

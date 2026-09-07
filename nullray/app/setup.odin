@@ -658,6 +658,7 @@ setup_draw_connection :: proc(buf: ^ui.Buffer, a: ^App, start_y: int) {
 	} else {
 		ui.buffer_text_clip(buf, 1, start_y + 3, buf.width - 1, "no API key required", t.muted, t.bg, {.Dim})
 	}
+	ui.buffer_text_clip(buf, 1, start_y + 7, buf.width - 1, setup_oauth_note(name), t.muted, t.bg, {.Dim})
 }
 
 @(private)

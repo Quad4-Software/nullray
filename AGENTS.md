@@ -52,7 +52,7 @@ nullray loads flat *.md and nested name/SKILL.md from workspace .agents/skills, 
 | Dockerfile | Multi-stage rootless image (Debian trixie) |
 | docker-compose.yml | Interactive terminal attach |
 
-Project maps: .agents/references/layout.md, providers.md, footguns.md. TUI file map: tui skill references/map.md.
+Project maps: .agents/references/layout.md, providers.md, footguns.md. Sandbox capabilities and security claim limits are in .agents/references/sandbox.md and caveats.md. TUI file map: tui skill references/map.md.
 
 ## Build and test
 

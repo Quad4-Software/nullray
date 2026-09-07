@@ -6,15 +6,17 @@ Lightweight coding agent with a custom TUI built with Odin.
 
 ## Features
 
-- Simple, Lightweight, Fast with a small memory footprint
-- Landlock/seccomp sandbox on Linux (soft skip on other OS)
-- Custom TUI
-- Privacy-focused
-- MCP and Skills support
-- Headless and CI friendly
-- Docker (GHCR), Flatpak, and AppImage
-- Customizable
-- Neovim and Emacs keybindings options
+- Small Odin binary with a custom TUI
+- `-q` for ephemeral read-only questions
+- `read_man` and `apropos` tools for Linux manuals
+- `--audit` for workspace Actions, container, dependency, and OWASP checks
+- Landlock and seccomp sandboxing on Linux with explicit non-Linux fallbacks
+- Durable project memory with secret-shaped value rejection
+- File checkpoints for supported agent writes
+- Structure checks that block configured file growth limits
+- MCP and portable Agent Skills support
+- Headless, CI, Docker, Flatpak, and AppImage support
+- Default, Neovim, and Emacs key presets
 
 Supported providers: OpenAI, OpenAI-compatible, Anthropic, Gemini, Groq, DeepSeek, Mistral, Together, Fireworks, xAI, Azure OpenAI, OpenRouter, LM Studio, Ollama, OpenCode
 
@@ -87,6 +89,8 @@ Interactive TUI only. Headless `--print`, `--self-test`, and CI never open the w
 On first launch without a ready provider (no `NULLRAY_SETUP_DONE`, no usable API key, and no live Ollama/LM Studio), nullray opens a setup overlay after the splash. Reopen anytime with `/setup`.
 
 Steps: pick provider (live local hosts are marked), edit base URL and key (known defaults prefilled from config then builtins), pick a model from `list_models` (or type one), set reasoning/thinking, confirm. Saves into `~/.config/nullray/env`. Shell exports still override the file on the next process start.
+
+Anthropic, OpenAI, and Cursor subscription SSO are BYOK only. OpenRouter device OAuth is not implemented, so setup accepts `OPENROUTER_API_KEY`.
 
 ## Docker
 
