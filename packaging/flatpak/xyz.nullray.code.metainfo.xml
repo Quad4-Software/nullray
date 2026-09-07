@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <component type="desktop-application">
-  <id>xyz.nullray</id>
+  <id>xyz.nullray.code</id>
   <name>nullray</name>
   <summary>Lightweight TUI coding agent</summary>
   <metadata_license>0BSD</metadata_license>
@@ -16,7 +16,7 @@
       remote model providers, MCP support, and an optional Linux sandbox.
     </p>
   </description>
-  <launchable type="desktop-id">xyz.nullray.desktop</launchable>
+  <launchable type="desktop-id">xyz.nullray.code.desktop</launchable>
   <categories>
     <category>Development</category>
     <category>Utility</category>
