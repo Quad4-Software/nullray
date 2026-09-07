@@ -1,0 +1,15 @@
+# Changelog
+
+All notable changes to this project are documented in this file.
+
+The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
+and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+
+## [0.1.0] - 2026-09-07
+
+### Added
+
+- Initial public release of nullray, an Odin TUI coding agent with Landlock/seccomp sandboxing.
+- OpenAI-compatible providers (Ollama, LM Studio, OpenRouter, OpenCode).
+- Native tool loop, sessions, MCP autoload, shell completions, and man page.
+- Hardened GitHub Actions CI and tag-driven releases with generated notes.

@@ -1,0 +1,314 @@
+/*
+Background chat job, turn commit, cancel/pause/resume.
+*/
+
+package session
+
+import "core:fmt"
+import "core:strings"
+import "core:sync"
+import "core:thread"
+import "nullray:agent"
+import "nullray:http"
+import "nullray:provider"
+import "nullray:store"
+
+Job_Args :: struct {
+	session:           ^Session,
+	prov:              provider.Provider,
+	messages:          []provider.Message,
+	tools_enabled:     bool,
+	reasoning_effort:  string,
+	turn_base:         int,
+}
+
+session_apply_pending_commit :: proc(s: ^Session) {
+	sync.mutex_lock(&s.commit_mu)
+	defer sync.mutex_unlock(&s.commit_mu)
+	base := s.turn_base
+	if base < 0 {
+		base = 0
+	}
+	if base > len(s.messages) {
+		base = len(s.messages)
+	}
+	for len(s.messages) > base {
+		last := s.messages[len(s.messages) - 1]
+		provider.destroy_message(last)
+		pop(&s.messages)
+	}
+	for m in s.pending_commit {
+		append(&s.messages, m)
+	}
+	clear(&s.pending_commit)
+	s.skip_assistant_push = true
+	session_maybe_persist(s)
+	cap_messages(s)
+}
+
+session_queue_commit :: proc(s: ^Session, turn_base: int, msgs: []provider.Message) {
+	sync.mutex_lock(&s.commit_mu)
+	for m in s.pending_commit {
+		provider.destroy_message(m)
+	}
+	clear(&s.pending_commit)
+	s.turn_base = turn_base
+	for m in msgs {
+		if m.role == .System {
+			continue
+		}
+		cloned := provider.clone_message(m)
+		delete(cloned.reasoning)
+		cloned.reasoning = ""
+		append(&s.pending_commit, cloned)
+	}
+	sync.mutex_unlock(&s.commit_mu)
+	session_enqueue(s, Event{kind = .Turn_Commit})
+}
+
+session_request_cancel :: proc(s: ^Session) {
+	sync.mutex_lock(&s.control_mu)
+	s.cancel_requested = true
+	s.pause_requested = false
+	sync.mutex_unlock(&s.control_mu)
+	http.cancel_request()
+	session_set_status(s, "stopping...")
+}
+
+session_request_pause :: proc(s: ^Session) {
+	sync.mutex_lock(&s.control_mu)
+	s.pause_requested = true
+	sync.mutex_unlock(&s.control_mu)
+	session_set_status(s, "pausing...")
+}
+
+session_clear_control :: proc(s: ^Session) {
+	sync.mutex_lock(&s.control_mu)
+	s.cancel_requested = false
+	s.pause_requested = false
+	sync.mutex_unlock(&s.control_mu)
+	http.cancel_clear()
+}
+
+session_stop_check :: proc(user: rawptr) -> agent.Stop_Kind {
+	s := cast(^Session)user
+	sync.mutex_lock(&s.control_mu)
+	defer sync.mutex_unlock(&s.control_mu)
+	if s.cancel_requested {
+		return .Cancel
+	}
+	if s.pause_requested {
+		return .Pause
+	}
+	return .None
+}
+
+session_resume :: proc(s: ^Session, p: ^provider.Provider, extra := "") {
+	if s.busy || p == nil {
+		return
+	}
+	msg := "Continue from where you left off. Use the prior tool results and transcript as context. Do not restart the whole task."
+	if len(extra) > 0 {
+		msg = fmt.tprintf("%s\n\nAdditional instructions: %s", msg, extra)
+	}
+	session_push_user(s, msg)
+	session_start_chat(s, p)
+}
+
+session_start_chat :: proc(s: ^Session, p: ^provider.Provider) {
+	if s.busy || p == nil || p.chat == nil {
+		return
+	}
+	session_clear_control(s)
+
+	session_remember_model(s, p.id, p.default_model)
+
+	sys_count := 0
+	if len(s.system_prompt) > 0 {
+		sys_count = 1
+	}
+	group_ctx := ""
+	if len(s.group) > 0 && group_context_from_env() {
+		group_ctx = store.group_context_text(s.group, s.name)
+		if len(group_ctx) == 0 {
+			delete(group_ctx)
+			group_ctx = ""
+		} else {
+			sys_count += 1
+		}
+	}
+	// Flatten removed: keep native tool_calls and tool role for cache + resume.
+	flat := make([dynamic]provider.Message, 0, len(s.messages) + sys_count)
+	if len(s.system_prompt) > 0 {
+		append(&flat, provider.Message{role = .System, content = strings.clone(s.system_prompt), cacheable = true})
+	}
+	if len(group_ctx) > 0 {
+		append(&flat, provider.Message{role = .System, content = group_ctx})
+	}
+	for m in s.messages {
+		cloned := provider.clone_message(m)
+		// Do not resend prior reasoning blobs to the model.
+		delete(cloned.reasoning)
+		cloned.reasoning = ""
+		append(&flat, cloned)
+	}
+	msgs := make([]provider.Message, len(flat))
+	copy(msgs, flat[:])
+	delete(flat)
+
+	args := new(Job_Args)
+	args.session = s
+	args.prov = p^
+	args.prov.base_url = strings.clone(p.base_url)
+	args.prov.api_key = strings.clone(p.api_key)
+	args.prov.default_model = strings.clone(p.default_model)
+	args.messages = msgs
+	args.tools_enabled = s.tools_enabled
+	args.reasoning_effort = strings.clone(s.reasoning_effort)
+	args.turn_base = len(s.messages)
+
+	status := "waiting for model"
+	if s.tools_enabled {
+		status = "waiting (agent)"
+	}
+	session_enqueue(s, Event{kind = .Job_Started, text = strings.clone(status)})
+	thread.run_with_data(args, chat_job)
+}
+
+@(private)
+agent_event_cb :: proc(ev: agent.Event, user: rawptr) {
+	s := cast(^Session)user
+	switch ev.kind {
+	case .Delta:
+		session_enqueue(s, Event{kind = .Assistant_Delta, text = strings.clone(ev.text)})
+	case .Reasoning_Delta:
+		session_enqueue(s, Event{kind = .Reasoning_Delta, text = strings.clone(ev.text)})
+	case .Tool_Start:
+		session_enqueue(s, Event{kind = .Tool_Call, text = strings.clone(fmt.tprintf("tool %s", ev.name)), name = strings.clone(ev.name)})
+	case .Tool_Done:
+		session_enqueue(s, Event{kind = .Status, text = strings.clone(fmt.tprintf("%s done", ev.name))})
+	case .Tool_Message:
+		session_enqueue(s, Event{kind = .Tool_Result, text = strings.clone(ev.text), name = strings.clone(ev.name)})
+	case .Assistant_Message:
+		session_enqueue(s, Event{kind = .Assistant_Turn, text = strings.clone(ev.text)})
+	case .Step, .Status:
+		session_enqueue(s, Event{kind = .Status, text = strings.clone(ev.text)})
+	}
+}
+
+@(private)
+chat_job :: proc(data: rawptr) {
+	args := cast(^Job_Args)data
+	defer {
+		provider.destroy_messages(args.messages)
+		delete(args.messages)
+		provider.provider_destroy(&args.prov)
+		delete(args.reasoning_effort)
+		free(args)
+	}
+
+	cfg := agent.default_config()
+	cfg.enable_tools = args.tools_enabled
+	cfg.reasoning_effort = args.reasoning_effort
+	cfg.on_event = agent_event_cb
+	cfg.user = args.session
+	cfg.stop_check = session_stop_check
+
+	req := agent.Run_Request{
+		prov = &args.prov,
+		messages = args.messages,
+		tools_enabled = args.tools_enabled,
+	}
+	result := agent.run_turn(req, cfg)
+
+	if !result.ok {
+		msg := result.err
+		if len(msg) == 0 {
+			msg = "request failed"
+		}
+		session_enqueue(args.session, Event{kind = .Error, text = strings.clone(msg)})
+		delete(result.err)
+		if len(result.messages) > 0 {
+			provider.destroy_messages(result.messages[:])
+			delete(result.messages)
+		}
+		delete(result.content)
+		delete(result.stopped)
+		return
+	}
+
+	session_enqueue(args.session, Event{
+		kind = .Usage,
+		prompt_tokens = result.usage.prompt_tokens,
+		completion_tokens = result.usage.completion_tokens,
+		total_tokens = result.usage.total_tokens,
+	})
+
+	content := result.content
+	reasoning := ""
+	if len(content) == 0 {
+		for i := len(result.messages) - 1; i >= 0; i -= 1 {
+			if result.messages[i].role == .Assistant {
+				content = result.messages[i].content
+				reasoning = result.messages[i].reasoning
+				break
+			}
+		}
+	} else {
+		for i := len(result.messages) - 1; i >= 0; i -= 1 {
+			if result.messages[i].role == .Assistant {
+				reasoning = result.messages[i].reasoning
+				break
+			}
+		}
+	}
+	out := strings.clone(content)
+	reason_out := strings.clone(reasoning)
+	note := ""
+	switch result.stopped {
+	case "max_steps":
+		note = " (hit step limit)"
+	case "paused":
+		note = " (paused — /continue to resume)"
+	case "cancelled":
+		note = " (stopped)"
+	case "loop":
+		note = " (anti-loop)"
+	}
+
+	do_review := agent.review_enabled_from_env() &&
+		(result.stopped == "done" || result.stopped == "max_steps") &&
+		args.tools_enabled &&
+		len(out) > 0
+	if do_review {
+		session_enqueue(args.session, Event{kind = .Status, text = strings.clone("reviewing...")})
+		review_text, review_err := agent.run_review(&args.prov, out)
+		if len(review_err) > 0 {
+			delete(review_err)
+		} else if len(review_text) > 0 {
+			combined := strings.concatenate({out, "\n\nreview:\n", review_text})
+			delete(out)
+			delete(review_text)
+			out = combined
+		}
+	}
+
+	delete(result.err)
+	prefix_n := len(args.messages)
+	if len(result.messages) > prefix_n {
+		session_queue_commit(args.session, args.turn_base, result.messages[prefix_n:])
+	}
+	delete(result.stopped)
+	if len(result.messages) > 0 {
+		provider.destroy_messages(result.messages[:])
+		delete(result.messages)
+	} else {
+		delete(result.content)
+	}
+	if len(note) > 0 {
+		combined := strings.concatenate({out, note})
+		delete(out)
+		out = combined
+	}
+	session_enqueue(args.session, Event{kind = .Assistant_Done, text = out, reasoning = reason_out})
+}

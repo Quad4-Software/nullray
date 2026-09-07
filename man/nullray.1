@@ -1,0 +1,82 @@
+.TH NULLRAY 1 "2026" "nullray 0.1.0" "User Commands"
+.SH NAME
+nullray \- Odin coding agent with sandboxed tools
+.SH SYNOPSIS
+.B nullray
+[\fIOPTIONS\fR]
+.SH DESCRIPTION
+nullray is a terminal coding agent with a custom TUI, Landlock/seccomp sandbox,
+OpenAI-compatible providers, and a native tool loop.
+.SH OPTIONS
+.TP
+.BR \-h ", " \-\-help
+Show help and exit.
+.TP
+.BR \-V ", " \-\-version
+Show version, build date, and build time.
+.TP
+.BR \-e ", " \-\-ephemeral
+Do not load or save session transcripts.
+.TP
+.BR \-t ", " \-\-self\-test
+Run headless smoke checks and exit.
+.TP
+.BR \-p ", " \-\-provider " " \fIID\fR
+Select provider: ollama, lmstudio, openrouter, opencode, opencode-go.
+.TP
+.BR \-m ", " \-\-model " " \fINAME\fR
+Override the default model for the active provider.
+.TP
+.B \-\-theme \fINAME\fR
+UI theme (ink, dusk, mono, ...).
+.TP
+.B \-\-mode \fIMODE\fR
+Agent mode: ask, plan, or edit.
+.TP
+.B \-\-perms \fIPOLICY\fR
+Shell permission policy: ask, allow, or yolo.
+.TP
+.B \-\-sandbox \fIMODE\fR
+Sandbox mode (on, off, landlock, seccomp, ...).
+.TP
+.BR \-w ", " \-\-workspace " " \fIPATH\fR
+Workspace root for tools and sandbox.
+.TP
+.B \-\-session \fINAME\fR
+Resume or create a named session.
+.TP
+.B \-\-list\-models
+List models from the active provider and exit.
+.TP
+.B \-\-completions \fISHELL\fR
+Print completion script for bash, zsh, fish, powershell, elvish, or nushell.
+.TP
+.B \-\-man
+Print this man page source to stdout.
+.SH ENVIRONMENT
+Config file:
+.I ~/.config/nullray/env
+.PP
+Common variables: NULLRAY_PROVIDER, NULLRAY_MODEL, NULLRAY_THEME, NULLRAY_MODE, NULLRAY_PERMS,
+NULLRAY_SANDBOX, NULLRAY_WORKSPACE, NULLRAY_SESSION, NULLRAY_EPHEMERAL, NULLRAY_STREAM,
+OPENROUTER_API_KEY, OLLAMA_HOST, LM_STUDIO_HOST, LM_API_TOKEN.
+.SH FILES
+.TP
+.I ~/.config/nullray/env
+Key=value environment overrides.
+.TP
+.I ~/.config/nullray/sessions/
+Session transcripts and metadata.
+.TP
+.I ~/.config/nullray/mcp.json
+MCP server autoload config.
+.SH EXAMPLES
+.nf
+nullray --provider ollama --model gemma3:4b
+nullray --list-models
+nullray --completions zsh > ~/.zsh/completions/_nullray
+.fi
+.SH SEE ALSO
+Documentation in the project README.
+.SH AUTHOR
+Quad4 Software

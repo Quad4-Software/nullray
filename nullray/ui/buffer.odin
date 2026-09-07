@@ -1,0 +1,162 @@
+/*
+Retained cell buffer the UI paints into each frame.
+*/
+
+package ui
+
+Style :: bit_set[Style_Bit]
+Style_Bit :: enum {
+	Bold,
+	Dim,
+	Underline,
+	Reverse,
+}
+
+Cell :: struct {
+	ch:    rune,
+	fg:    Color,
+	bg:    Color,
+	style: Style,
+}
+
+Buffer :: struct {
+	width:  int,
+	height: int,
+	cells:  []Cell,
+}
+
+buffer_create :: proc(width, height: int, allocator := context.allocator) -> Buffer {
+	w := max(width, 1)
+	h := max(height, 1)
+	cells := make([]Cell, w * h, allocator)
+	t := theme()
+	for &c in cells {
+		c = Cell{ch = ' ', fg = t.fg, bg = t.bg, style = {}}
+	}
+	return Buffer{width = w, height = h, cells = cells}
+}
+
+buffer_destroy :: proc(b: ^Buffer) {
+	delete(b.cells)
+	b^ = {}
+}
+
+buffer_resize :: proc(b: ^Buffer, width, height: int, allocator := context.allocator) {
+	if b.width == width && b.height == height {
+		return
+	}
+	buffer_destroy(b)
+	b^ = buffer_create(width, height, allocator)
+}
+
+buffer_clear :: proc(b: ^Buffer, bg: Color, fg: Color) {
+	for &c in b.cells {
+		c = Cell{ch = ' ', fg = fg, bg = bg, style = {}}
+	}
+}
+
+buffer_at :: proc(b: ^Buffer, x, y: int) -> ^Cell {
+	if x < 0 || y < 0 || x >= b.width || y >= b.height {
+		return nil
+	}
+	return &b.cells[y * b.width + x]
+}
+
+sanitize_cell_rune :: proc(ch: rune) -> rune {
+	if ch == CELL_WIDE_CONT {
+		return ch
+	}
+	if ch < 0x20 || ch == 0x7f || (ch >= 0x80 && ch <= 0x9f) {
+		return ' '
+	}
+	return ch
+}
+
+buffer_put :: proc(b: ^Buffer, x, y: int, ch: rune, fg, bg: Color, style: Style = {}) {
+	cell := buffer_at(b, x, y)
+	if cell == nil {
+		return
+	}
+	cell.ch = sanitize_cell_rune(ch)
+	cell.fg = fg
+	cell.bg = bg
+	cell.style = style
+}
+
+buffer_text :: proc(b: ^Buffer, x, y: int, text: string, fg, bg: Color, style: Style = {}) {
+	cx := x
+	for r in text {
+		if r == '\n' {
+			break
+		}
+		w := rune_cols(r)
+		ch := r
+		if w <= 0 {
+			if r < 0x20 || r == 0x7f || (r >= 0x80 && r <= 0x9f) {
+				ch = ' '
+				w = 1
+			} else {
+				continue
+			}
+		}
+		if cx + w > b.width {
+			break
+		}
+		buffer_put(b, cx, y, ch, fg, bg, style)
+		for i in 1 ..< w {
+			buffer_put(b, cx + i, y, CELL_WIDE_CONT, fg, bg, style)
+		}
+		cx += w
+	}
+}
+
+buffer_text_clip :: proc(b: ^Buffer, x, y, x_max: int, text: string, fg, bg: Color, style: Style = {}) {
+	if x_max <= x {
+		return
+	}
+	limit := min(b.width, x_max)
+	cx := x
+	for r in text {
+		if r == '\n' {
+			break
+		}
+		w := rune_cols(r)
+		ch := r
+		if w <= 0 {
+			if r < 0x20 || r == 0x7f || (r >= 0x80 && r <= 0x9f) {
+				ch = ' '
+				w = 1
+			} else {
+				continue
+			}
+		}
+		if cx + w > limit {
+			break
+		}
+		buffer_put(b, cx, y, ch, fg, bg, style)
+		for i in 1 ..< w {
+			buffer_put(b, cx + i, y, CELL_WIDE_CONT, fg, bg, style)
+		}
+		cx += w
+	}
+}
+
+buffer_fill_rect :: proc(b: ^Buffer, x, y, w, h: int, ch: rune, fg, bg: Color) {
+	for row in 0 ..< h {
+		for col in 0 ..< w {
+			buffer_put(b, x + col, y + row, ch, fg, bg)
+		}
+	}
+}
+
+buffer_hline :: proc(b: ^Buffer, x, y, w: int, ch: rune, fg, bg: Color) {
+	for i in 0 ..< w {
+		buffer_put(b, x + i, y, ch, fg, bg)
+	}
+}
+
+buffer_vline :: proc(b: ^Buffer, x, y, h: int, ch: rune, fg, bg: Color) {
+	for i in 0 ..< h {
+		buffer_put(b, x, y + i, ch, fg, bg)
+	}
+}

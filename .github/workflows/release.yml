@@ -1,0 +1,130 @@
+# Tag release: build linux amd64 artifact, checksums, notes.md, GitHub release.
+#
+# Immutable releases are enabled on the repo. Tags matching v*.*.* must not be
+# force-moved. Cut a new patch if a release is wrong.
+#
+# Pinned actions (bump tag and SHA together):
+#   step-security/harden-runner@v2.21.1  e14015d583714f6e62063499dc959a02595150a1
+#   actions/checkout@v6.0.1             8e8c483db84b4bee98b60c0593521ed34d9990e8
+#   actions/cache@v4.2.3                5a3ec84eff668545956fd18022155c47e93e2684
+#   actions/upload-artifact@v4.6.2      ea165f8d65b6e75b540449e92b4886f43607fa02
+#   softprops/action-gh-release@v2.2.2   da05d552573ad5aba039eaac05058a918a7bf631
+
+name: release
+
+on:
+  push:
+    tags:
+      - "v*.*.*"
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: Existing tag to rebuild/publish (must already exist)
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    permissions:
+      contents: write
+    env:
+      RELEASE_TAG: ${{ github.event_name == 'workflow_dispatch' && inputs.tag || github.ref_name }}
+    steps:
+      - name: Harden runner
+        uses: step-security/harden-runner@e14015d583714f6e62063499dc959a02595150a1 # v2.21.1
+        with:
+          egress-policy: audit
+
+      - name: Checkout
+        uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Validate tag
+        env:
+          TAG: ${{ env.RELEASE_TAG }}
+        run: |
+          if [[ ! "$TAG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            echo "tag must match vMAJOR.MINOR.PATCH, got: $TAG"
+            exit 1
+          fi
+          git rev-parse -q --verify "refs/tags/$TAG" >/dev/null
+
+      - name: Install deps
+        run: sudo apt-get update && sudo apt-get install -y libcurl4-openssl-dev clang llvm
+
+      - name: Cache Odin toolchain
+        id: cache-odin
+        uses: actions/cache@5a3ec84eff668545956fd18022155c47e93e2684 # v4.2.3
+        with:
+          path: |
+            ~/Odin
+            ~/.cache/odin
+          key: odin-${{ runner.os }}-${{ hashFiles('.github/workflows/ci.yml', '.github/workflows/release.yml') }}-2026-08
+          restore-keys: |
+            odin-${{ runner.os }}-
+
+      - name: Build Odin
+        if: steps.cache-odin.outputs.cache-hit != 'true'
+        run: |
+          git clone --depth 1 https://github.com/odin-lang/Odin.git "$HOME/Odin"
+          (cd "$HOME/Odin" && ./build_odin.sh)
+
+      - name: Add Odin to PATH
+        run: echo "$HOME/Odin" >> "$GITHUB_PATH"
+
+      - name: Build release binary
+        env:
+          TAG: ${{ env.RELEASE_TAG }}
+        run: |
+          set -euo pipefail
+          ver="${TAG#v}"
+          mkdir -p dist
+          make clean
+          make
+          install -m 755 bin/nullray "dist/nullray_${ver}_linux_amd64"
+          tar -C dist -czf "dist/nullray_${ver}_linux_amd64.tar.gz" "nullray_${ver}_linux_amd64"
+          rm -f "dist/nullray_${ver}_linux_amd64"
+          (
+            cd dist
+            sha256sum ./*.tar.gz > checksums.txt
+          )
+
+      - name: Generate notes.md
+        env:
+          TAG: ${{ env.RELEASE_TAG }}
+          REPO: ${{ github.repository }}
+        run: bash scripts/release-notes.sh "$TAG" "$REPO" dist/notes.md
+
+      - name: Upload dist
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: nullray-${{ env.RELEASE_TAG }}
+          path: dist/
+          if-no-files-found: error
+
+      - name: Publish GitHub release
+        uses: softprops/action-gh-release@da05d552573ad5aba039eaac05058a918a7bf631 # v2.2.2
+        with:
+          tag_name: ${{ env.RELEASE_TAG }}
+          name: ${{ env.RELEASE_TAG }}
+          body_path: dist/notes.md
+          draft: false
+          prerelease: false
+          fail_on_unmatched_files: true
+          files: |
+            dist/*.tar.gz
+            dist/checksums.txt
+            dist/notes.md
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
