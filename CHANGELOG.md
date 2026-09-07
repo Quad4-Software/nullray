@@ -12,6 +12,8 @@ Format follows Keep a Changelog and Semantic Versioning.
 ### Fixed
 - Release workflow recreates dist/ after make clean so archives publish.
 - Windows release uses the same prebuilt Odin zip and vcpkg libcurl path as CI (no llvm-config build).
+- Makefile emits bin/nullray.exe on Windows so Odin accepts the -out path.
+- Elevate broker sleeps when idle instead of yield-spinning. Broker is not started when NULLRAY_ELEVATE=deny.
 
 ## [0.1.0] - 2026-09-07
 

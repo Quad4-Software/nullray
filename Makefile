@@ -1,17 +1,10 @@
 ODIN   ?= odin
 ROOT   := $(CURDIR)
-OUT    := bin/nullray
-PREFIX ?= /usr/local
-BINDIR := $(PREFIX)/bin
-MANDIR := $(PREFIX)/share/man/man1
-COMPDIR := $(PREFIX)/share/nullray/completions
-BASHCOMPDIR := $(PREFIX)/share/bash-completion/completions
-ZSHCOMPDIR := $(PREFIX)/share/zsh/site-functions
-FISHCOMPDIR := $(PREFIX)/share/fish/vendor_completions.d
-
 ifeq ($(OS),Windows_NT)
+  OUT := bin/nullray.exe
   LINKER := -extra-linker-flags:"libcurl"
 else ifeq ($(shell uname -s 2>/dev/null),Darwin)
+  OUT := bin/nullray
   CURL_PREFIX := $(shell brew --prefix curl 2>/dev/null)
   ifneq ($(CURL_PREFIX),)
     LINKER := -extra-linker-flags:"-L$(CURL_PREFIX)/lib -lcurl"
@@ -19,8 +12,17 @@ else ifeq ($(shell uname -s 2>/dev/null),Darwin)
     LINKER := -extra-linker-flags:"-lcurl"
   endif
 else
+  OUT := bin/nullray
   LINKER := -extra-linker-flags:"-lcurl"
 endif
+
+PREFIX ?= /usr/local
+BINDIR := $(PREFIX)/bin
+MANDIR := $(PREFIX)/share/man/man1
+COMPDIR := $(PREFIX)/share/nullray/completions
+BASHCOMPDIR := $(PREFIX)/share/bash-completion/completions
+ZSHCOMPDIR := $(PREFIX)/share/zsh/site-functions
+FISHCOMPDIR := $(PREFIX)/share/fish/vendor_completions.d
 
 COLLECTION := -collection:nullray=$(ROOT)/nullray
 BUILD_DATE := $(shell date -u +%Y-%m-%d)
