@@ -6,11 +6,13 @@ Spawn and run child agent turns via registered run_child_turn hook.
 package subagent
 
 import "core:fmt"
+import "core:path/filepath"
 import "core:strings"
 import "core:thread"
 import "core:time"
 import "nullray:constants"
 import "nullray:provider"
+import "nullray:store"
 
 Child_Job :: struct {
 	rt:         ^Runtime,
@@ -238,6 +240,28 @@ child_job_proc :: proc(data: rawptr) {
 	escalate := strings.contains(strings.to_lower(summary, context.temp_allocator), "escalate:")
 	roster_finish(&job.rt.roster, job.handle_id, summary, escalate, failed)
 	lease_release_agent(&job.rt.leases, job.handle_id)
+
+	if store.usage_persist_enabled(job.rt.session_persist) && len(job.rt.session_path) > 0 {
+		path := job.rt.session_path
+		if !job.rt.session_persist {
+			path = store.ephemeral_usage_path(filepath.stem(job.rt.session_path), context.temp_allocator)
+		}
+		tt := result.usage.total_tokens
+		if tt == 0 {
+			tt = result.usage.prompt_tokens + result.usage.completion_tokens
+		}
+		_ = store.append_turn_metrics(path, store.Turn_Metrics{
+			model = job.prov.default_model,
+			agent_id = job.handle_id,
+			prompt_tokens = result.usage.prompt_tokens,
+			completion_tokens = result.usage.completion_tokens,
+			total_tokens = tt,
+			reasoning_tokens = result.usage.reasoning_tokens,
+			cost_usd = result.usage.cost_usd,
+			cost_known = result.usage.cost_known,
+			stopped = result.stopped,
+		})
+	}
 
 	if hok && isol == .Worktree && len(wt_path) > 0 {
 		_ = worktree_remove_if_clean(workspace_dir(), wt_path)

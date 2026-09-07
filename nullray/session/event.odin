@@ -11,6 +11,7 @@ import "core:sync"
 import "nullray:agent"
 import "nullray:constants"
 import "nullray:provider"
+import "nullray:store"
 
 Event_Kind :: enum {
 	None,
@@ -36,6 +37,12 @@ Event :: struct {
 	prompt_tokens:      int,
 	completion_tokens:  int,
 	total_tokens:       int,
+	reasoning_tokens:   int,
+	cost_usd:           f64,
+	cost_known:         bool,
+	input_chars:        int,
+	stopped:            string,
+	agent_id:           string,
 }
 
 session_enqueue :: proc(s: ^Session, ev: Event) {
@@ -47,6 +54,8 @@ session_enqueue :: proc(s: ^Session, ev: Event) {
 		delete(old.text)
 		delete(old.name)
 		delete(old.reasoning)
+		delete(old.stopped)
+		delete(old.agent_id)
 	}
 	append(&s.pending, ev)
 	sync.mutex_unlock(&s.pending_mu)
@@ -156,10 +165,53 @@ session_poll :: proc(s: ^Session) -> (changed: bool) {
 				prompt_tokens = ev.prompt_tokens,
 				completion_tokens = ev.completion_tokens,
 				total_tokens = ev.total_tokens,
+				reasoning_tokens = ev.reasoning_tokens,
+				cost_usd = ev.cost_usd,
+				cost_known = ev.cost_known,
 			}
-			s.session_usage.prompt_tokens += ev.prompt_tokens
-			s.session_usage.completion_tokens += ev.completion_tokens
-			s.session_usage.total_tokens += ev.total_tokens
+			is_child := len(ev.agent_id) > 0 && ev.agent_id != "main"
+			if is_child {
+				s.subagent_total_tokens += ev.total_tokens
+				if store.usage_include_subagents() {
+					s.session_usage.prompt_tokens += ev.prompt_tokens
+					s.session_usage.completion_tokens += ev.completion_tokens
+					s.session_usage.total_tokens += ev.total_tokens
+					s.session_usage.reasoning_tokens += ev.reasoning_tokens
+					if ev.cost_known {
+						s.session_usage.cost_usd += ev.cost_usd
+						if !s.session_usage.cost_known && s.usage_turns == 0 {
+							s.session_usage.cost_known = true
+						}
+					} else if ev.prompt_tokens + ev.completion_tokens + ev.total_tokens > 0 {
+						s.session_usage.cost_known = false
+					}
+				}
+			} else {
+				s.usage_turns += 1
+				s.session_usage.prompt_tokens += ev.prompt_tokens
+				s.session_usage.completion_tokens += ev.completion_tokens
+				s.session_usage.total_tokens += ev.total_tokens
+				s.session_usage.reasoning_tokens += ev.reasoning_tokens
+				if ev.cost_known {
+					s.session_usage.cost_usd += ev.cost_usd
+					if s.usage_turns == 1 {
+						s.session_usage.cost_known = true
+					}
+				} else if ev.prompt_tokens + ev.completion_tokens + ev.total_tokens > 0 {
+					s.session_usage.cost_known = false
+				}
+			}
+			if ev.input_chars > 0 {
+				s.last_input_chars = ev.input_chars
+				if ev.input_chars > s.peak_input_chars {
+					s.peak_input_chars = ev.input_chars
+				}
+			}
+			if len(ev.stopped) > 0 {
+				delete(s.last_stopped)
+				s.last_stopped = strings.clone(ev.stopped)
+			}
+			session_record_turn_usage(s, ev)
 			changed = true
 		case .Error:
 			s.busy = false
@@ -171,7 +223,42 @@ session_poll :: proc(s: ^Session) -> (changed: bool) {
 		delete(ev.text)
 		delete(ev.name)
 		delete(ev.reasoning)
+		delete(ev.stopped)
+		delete(ev.agent_id)
 	}
 	delete(batch)
 	return changed
+}
+
+session_record_turn_usage :: proc(s: ^Session, ev: Event) {
+	path := s.session_path
+	persist := store.usage_persist_enabled(s.persist)
+	if !persist {
+		return
+	}
+	if !s.persist {
+		stamp := s.name
+		if len(stamp) == 0 {
+			stamp = "ephemeral"
+		}
+		path = store.ephemeral_usage_path(stamp, context.temp_allocator)
+	}
+	turn := s.usage_turns
+	if len(ev.agent_id) > 0 && ev.agent_id != "main" {
+		turn = 0
+	}
+	_ = store.append_turn_metrics(path, store.Turn_Metrics{
+		turn = turn,
+		model = s.model,
+		agent_id = ev.agent_id,
+		prompt_tokens = ev.prompt_tokens,
+		completion_tokens = ev.completion_tokens,
+		total_tokens = ev.total_tokens,
+		reasoning_tokens = ev.reasoning_tokens,
+		input_chars = ev.input_chars,
+		cost_usd = ev.cost_usd,
+		cost_known = ev.cost_known,
+		stopped = ev.stopped,
+	})
+	session_save_meta(s)
 }

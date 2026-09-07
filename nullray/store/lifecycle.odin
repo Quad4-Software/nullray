@@ -50,11 +50,13 @@ delete_session :: proc(name: string) -> (ok: bool, err: string) {
 	}
 	meta := meta_path_for(path, context.temp_allocator)
 	lock := session_lock_path(path, context.temp_allocator)
+	usage := usage_path_for(path, context.temp_allocator)
 	if os.remove(path) != nil {
 		return false, fmt.tprintf("failed to remove %s", path)
 	}
 	_ = os.remove(meta)
 	_ = os.remove(lock)
+	_ = os.remove(usage)
 	return true, ""
 }
 
@@ -88,6 +90,16 @@ export_session :: proc(name: string, dest_dir: string) -> (ok: bool, err: string
 		}
 		if !copy_file_bytes(meta_src, dst_meta) {
 			return false, fmt.tprintf("failed to copy meta to %s", dst_meta)
+		}
+	}
+	usage_src := usage_path_for(src, context.temp_allocator)
+	if os.exists(usage_src) {
+		dst_usage, uerr := filepath.join({dest, fmt.tprintf("%s.usage.jsonl", safe)}, context.temp_allocator)
+		if uerr != nil {
+			dst_usage = fmt.tprintf("%s/%s.usage.jsonl", dest, safe)
+		}
+		if !copy_file_bytes(usage_src, dst_usage) {
+			return false, fmt.tprintf("failed to copy usage to %s", dst_usage)
 		}
 	}
 	return true, ""
@@ -167,6 +179,15 @@ import_session :: proc(src_path: string, as_name: string) -> (name: string, ok: 
 		if !copy_file_bytes(meta_src, meta_dst) {
 			_ = os.remove(dest)
 			return "", false, fmt.tprintf("failed to copy meta to %s", meta_dst)
+		}
+	}
+	usage_src := usage_path_for(jsonl_src, context.temp_allocator)
+	if os.exists(usage_src) {
+		usage_dst := usage_path_for(dest, context.temp_allocator)
+		if !copy_file_bytes(usage_src, usage_dst) {
+			_ = os.remove(dest)
+			_ = os.remove(meta_path_for(dest, context.temp_allocator))
+			return "", false, fmt.tprintf("failed to copy usage to %s", usage_dst)
 		}
 	}
 	return safe, true, ""

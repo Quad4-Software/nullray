@@ -179,6 +179,7 @@ slash_cmd_resume :: proc(a: ^App, args: string) {
 	}
 	if session.session_switch(&a.session, name) {
 		_ = session.session_apply_saved_model(&a.session, &a.registry)
+		subagent.runtime_set_session(&a.subagents, a.session.session_path, a.session.persist)
 		app_refresh_credits(a)
 		session.session_set_status(&a.session, fmt.tprintf("resumed %s", a.session.name))
 	} else {
@@ -193,6 +194,7 @@ slash_cmd_name :: proc(a: ^App, args: string) {
 		return
 	}
 	_ = session.session_rename(&a.session, name)
+	subagent.runtime_set_session(&a.subagents, a.session.session_path, a.session.persist)
 }
 
 slash_cmd_new :: proc(a: ^App, args: string) {
@@ -201,6 +203,7 @@ slash_cmd_new :: proc(a: ^App, args: string) {
 		name = "session"
 	}
 	_ = session.session_new(&a.session, name)
+	subagent.runtime_set_session(&a.subagents, a.session.session_path, a.session.persist)
 }
 
 slash_cmd_fork :: proc(a: ^App, args: string) {
@@ -210,6 +213,7 @@ slash_cmd_fork :: proc(a: ^App, args: string) {
 		return
 	}
 	_ = session.session_fork(&a.session, name)
+	subagent.runtime_set_session(&a.subagents, a.session.session_path, a.session.persist)
 }
 
 slash_cmd_delete :: proc(a: ^App, args: string) {
@@ -412,10 +416,20 @@ slash_cmd_status :: proc(a: ^App, args: string) {
 		sandbox_applied = sstate.applied
 	}
 	char_budget := session.compact_chars_from_env()
+	cost_line := "cost=unknown"
+	if a.hide_sensitive {
+		cost_line = "cost=hidden"
+	} else if a.session.session_usage.cost_known {
+		cost_line = fmt.tprintf("cost=$%.6f", a.session.session_usage.cost_usd)
+	}
+	stopped := a.session.last_stopped
+	if len(stopped) == 0 {
+		stopped = "-"
+	}
 	session.session_set_status(
 		&a.session,
 		fmt.tprintf(
-			"mode=%s sandbox_applied=%v ask_simple=%v plan_ok=%v verify=%s fails=%d chars=%d/%d plan=%s",
+			"mode=%s sandbox_applied=%v ask_simple=%v plan_ok=%v verify=%s fails=%d chars=%d/%d peak=%d tok=%d/%d %s stopped=%s plan=%s",
 			agent.mode_string(a.session.agent_mode),
 			sandbox_applied,
 			agent.ask_simple_from_env(),
@@ -424,9 +438,44 @@ slash_cmd_status :: proc(a: ^App, args: string) {
 			a.session.verify_fail_count,
 			a.session.last_input_chars,
 			char_budget,
+			a.session.peak_input_chars,
+			a.session.last_usage.total_tokens,
+			a.session.session_usage.total_tokens,
+			cost_line,
+			stopped,
 			plan,
 		),
 	)
+}
+
+slash_cmd_usage :: proc(a: ^App, args: string) {
+	rest := strings.trim_space(args)
+	lower := strings.to_lower(rest, context.temp_allocator)
+	switch {
+	case lower == "json":
+		js := session.session_usage_summary_json(&a.session)
+		session.session_push_assistant(&a.session, js)
+		delete(js)
+		session.session_set_status(&a.session, "usage json")
+	case strings.has_prefix(lower, "export"):
+		path := strings.trim_space(rest[len("export"):])
+		if len(path) == 0 {
+			session.session_set_status(&a.session, "usage: /usage export PATH")
+			return
+		}
+		ok, err := store.export_usage_summary(a.session.session_path, path)
+		if !ok {
+			session.session_set_status(&a.session, err)
+			delete(err)
+			return
+		}
+		session.session_set_status(&a.session, fmt.tprintf("usage exported %s", path))
+	case:
+		txt := session.session_usage_summary_text(&a.session, a.hide_sensitive)
+		session.session_push_assistant(&a.session, txt)
+		delete(txt)
+		session.session_set_status(&a.session, "usage")
+	}
 }
 
 slash_cmd_verify :: proc(a: ^App, args: string) {

@@ -53,12 +53,23 @@ session_save_meta :: proc(s: ^Session) {
 		model = s.model,
 		group = s.group,
 		mode = agent.mode_string(s.agent_mode),
+		turns = s.usage_turns,
+		prompt_tokens = s.session_usage.prompt_tokens,
+		completion_tokens = s.session_usage.completion_tokens,
+		total_tokens = s.session_usage.total_tokens,
+		reasoning_tokens = s.session_usage.reasoning_tokens,
+		cost_usd = s.session_usage.cost_usd,
+		cost_known = s.session_usage.cost_known,
+		peak_input_chars = s.peak_input_chars,
+		last_input_chars = s.last_input_chars,
+		subagent_total_tokens = s.subagent_total_tokens,
 	})
 }
 
 session_load_meta :: proc(s: ^Session) {
 	meta, ok := store.load_session_meta(s.session_path)
 	if !ok {
+		session_reload_usage(s)
 		return
 	}
 	defer store.destroy_session_meta(meta)
@@ -79,6 +90,56 @@ session_load_meta :: proc(s: ^Session) {
 			s.agent_mode = m
 		}
 	}
+	session_reset_usage(s)
+	s.usage_turns = meta.turns
+	s.session_usage.prompt_tokens = meta.prompt_tokens
+	s.session_usage.completion_tokens = meta.completion_tokens
+	s.session_usage.total_tokens = meta.total_tokens
+	s.session_usage.reasoning_tokens = meta.reasoning_tokens
+	s.session_usage.cost_usd = meta.cost_usd
+	s.session_usage.cost_known = meta.cost_known
+	s.peak_input_chars = meta.peak_input_chars
+	s.last_input_chars = meta.last_input_chars
+	s.subagent_total_tokens = meta.subagent_total_tokens
+	session_overlay_usage_file(s)
+}
+
+session_reset_usage :: proc(s: ^Session) {
+	s.last_usage = {}
+	s.session_usage = {}
+	s.subagent_total_tokens = 0
+	s.usage_turns = 0
+	s.peak_input_chars = 0
+	s.last_input_chars = 0
+	delete(s.last_stopped)
+	s.last_stopped = strings.clone("")
+}
+
+session_reload_usage :: proc(s: ^Session) {
+	session_reset_usage(s)
+	session_overlay_usage_file(s)
+}
+
+session_overlay_usage_file :: proc(s: ^Session) {
+	if len(s.session_path) == 0 {
+		return
+	}
+	m, ok := store.load_session_metrics(s.session_path)
+	if !ok {
+		return
+	}
+	defer delete(m.model)
+	defer delete(m.provider)
+	s.usage_turns = m.turns
+	s.session_usage.prompt_tokens = m.prompt_tokens
+	s.session_usage.completion_tokens = m.completion_tokens
+	s.session_usage.total_tokens = m.total_tokens
+	s.session_usage.reasoning_tokens = m.reasoning_tokens
+	s.session_usage.cost_usd = m.cost_usd
+	s.session_usage.cost_known = m.cost_known
+	s.peak_input_chars = m.peak_input_chars
+	s.last_input_chars = m.last_input_chars
+	s.subagent_total_tokens = m.subagent_total_tokens
 }
 
 session_new :: proc(s: ^Session, name: string) -> bool {
@@ -149,6 +210,7 @@ session_switch :: proc(s: ^Session, name: string) -> bool {
 	s.provider_id = strings.clone("")
 	delete(s.model)
 	s.model = strings.clone("")
+	session_reset_usage(s)
 	session_load_meta(s)
 	session_rebuild_system_prompt(s)
 	session_sync_mode_env(s)
@@ -167,7 +229,22 @@ session_fork :: proc(s: ^Session, name: string) -> bool {
 			model = s.model,
 			group = s.group,
 			mode = agent.mode_string(s.agent_mode),
+			turns = s.usage_turns,
+			prompt_tokens = s.session_usage.prompt_tokens,
+			completion_tokens = s.session_usage.completion_tokens,
+			total_tokens = s.session_usage.total_tokens,
+			reasoning_tokens = s.session_usage.reasoning_tokens,
+			cost_usd = s.session_usage.cost_usd,
+			cost_known = s.session_usage.cost_known,
+			peak_input_chars = s.peak_input_chars,
+			last_input_chars = s.last_input_chars,
+			subagent_total_tokens = s.subagent_total_tokens,
 		})
+		usage_src := store.usage_path_for(s.session_path, context.temp_allocator)
+		if os.exists(usage_src) {
+			usage_dst := store.usage_path_for(path, context.temp_allocator)
+			_ = store.copy_file_bytes(usage_src, usage_dst)
+		}
 	}
 	delete(s.session_path)
 	delete(s.name)

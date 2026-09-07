@@ -282,7 +282,15 @@ chat_job :: proc(data: rawptr) {
 		prompt_tokens = result.usage.prompt_tokens,
 		completion_tokens = result.usage.completion_tokens,
 		total_tokens = result.usage.total_tokens,
+		reasoning_tokens = result.usage.reasoning_tokens,
+		cost_usd = result.usage.cost_usd,
+		cost_known = result.usage.cost_known,
+		input_chars = args.session.last_input_chars,
+		stopped = strings.clone(result.stopped),
 	})
+
+	delete(args.session.last_stopped)
+	args.session.last_stopped = strings.clone(result.stopped)
 
 	content := result.content
 	reasoning := ""

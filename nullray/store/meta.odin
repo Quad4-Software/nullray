@@ -11,10 +11,20 @@ import "core:os"
 import "core:strings"
 
 Session_Meta :: struct {
-	provider: string,
-	model:    string,
-	group:    string,
-	mode:     string,
+	provider:              string,
+	model:                 string,
+	group:                 string,
+	mode:                  string,
+	turns:                 int,
+	prompt_tokens:         int,
+	completion_tokens:     int,
+	total_tokens:          int,
+	reasoning_tokens:      int,
+	cost_usd:              f64,
+	cost_known:            bool,
+	peak_input_chars:      int,
+	last_input_chars:      int,
+	subagent_total_tokens: int,
 }
 
 meta_path_for :: proc(session_jsonl_path: string, allocator := context.allocator) -> string {
@@ -37,6 +47,16 @@ save_session_meta :: proc(session_jsonl_path: string, meta: Session_Meta) -> boo
 	strings.write_string(&b, json_quote(meta.group))
 	strings.write_string(&b, `,"mode":`)
 	strings.write_string(&b, json_quote(meta.mode))
+	fmt.sbprintf(&b, `,"turns":%d`, meta.turns)
+	fmt.sbprintf(&b, `,"prompt_tokens":%d`, meta.prompt_tokens)
+	fmt.sbprintf(&b, `,"completion_tokens":%d`, meta.completion_tokens)
+	fmt.sbprintf(&b, `,"total_tokens":%d`, meta.total_tokens)
+	fmt.sbprintf(&b, `,"reasoning_tokens":%d`, meta.reasoning_tokens)
+	fmt.sbprintf(&b, `,"cost_usd":%.6f`, meta.cost_usd)
+	fmt.sbprintf(&b, `,"cost_known":%v`, meta.cost_known)
+	fmt.sbprintf(&b, `,"peak_input_chars":%d`, meta.peak_input_chars)
+	fmt.sbprintf(&b, `,"last_input_chars":%d`, meta.last_input_chars)
+	fmt.sbprintf(&b, `,"subagent_total_tokens":%d`, meta.subagent_total_tokens)
 	strings.write_string(&b, "}\n")
 	return os.write_entire_file(path, transmute([]u8)strings.to_string(b)) == nil
 }
@@ -75,6 +95,16 @@ load_session_meta :: proc(session_jsonl_path: string, allocator := context.alloc
 			meta.mode = strings.clone(string(s), allocator)
 		}
 	}
+	meta.turns = meta_json_int(obj, "turns")
+	meta.prompt_tokens = meta_json_int(obj, "prompt_tokens")
+	meta.completion_tokens = meta_json_int(obj, "completion_tokens")
+	meta.total_tokens = meta_json_int(obj, "total_tokens")
+	meta.reasoning_tokens = meta_json_int(obj, "reasoning_tokens")
+	meta.peak_input_chars = meta_json_int(obj, "peak_input_chars")
+	meta.last_input_chars = meta_json_int(obj, "last_input_chars")
+	meta.subagent_total_tokens = meta_json_int(obj, "subagent_total_tokens")
+	meta.cost_usd = meta_json_float(obj, "cost_usd")
+	meta.cost_known = meta_json_bool(obj, "cost_known")
 	return meta, true
 }
 
@@ -83,4 +113,47 @@ destroy_session_meta :: proc(meta: Session_Meta) {
 	delete(meta.model)
 	delete(meta.group)
 	delete(meta.mode)
+}
+
+@(private)
+meta_json_int :: proc(obj: json.Object, key: string) -> int {
+	v, ok := obj[key]
+	if !ok {
+		return 0
+	}
+	#partial switch n in v {
+	case json.Integer:
+		return int(n)
+	case json.Float:
+		return int(n)
+	}
+	return 0
+}
+
+@(private)
+meta_json_float :: proc(obj: json.Object, key: string) -> f64 {
+	v, ok := obj[key]
+	if !ok {
+		return 0
+	}
+	#partial switch n in v {
+	case json.Float:
+		return f64(n)
+	case json.Integer:
+		return f64(n)
+	}
+	return 0
+}
+
+@(private)
+meta_json_bool :: proc(obj: json.Object, key: string) -> bool {
+	v, ok := obj[key]
+	if !ok {
+		return false
+	}
+	#partial switch b in v {
+	case json.Boolean:
+		return bool(b)
+	}
+	return false
 }

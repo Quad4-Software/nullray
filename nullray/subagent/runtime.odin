@@ -21,6 +21,8 @@ Runtime :: struct {
 	tools_reg:      rawptr,
 	provider:       ^provider.Provider,
 	main_model:     string,
+	session_path:   string,
+	session_persist: bool,
 	model_locked:   bool,
 	active:         bool,
 }
@@ -68,8 +70,18 @@ runtime_destroy :: proc(rt: ^Runtime) {
 	peer_inbox_destroy(&rt.messages)
 	delete(rt.current_agent)
 	delete(rt.main_model)
+	delete(rt.session_path)
 	policy_clear_global()
 	rt^ = {}
+}
+
+runtime_set_session :: proc(rt: ^Runtime, session_path: string, persist: bool) {
+	if rt == nil {
+		return
+	}
+	delete(rt.session_path)
+	rt.session_path = strings.clone(session_path)
+	rt.session_persist = persist
 }
 
 runtime_set_provider :: proc(rt: ^Runtime, p: ^provider.Provider) {

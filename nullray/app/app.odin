@@ -109,6 +109,7 @@ app_init :: proc(a: ^App, loop: ^ui.Loop) {
 	session.session_init(&a.session)
 	a.session.tools_registry = &a.tools_reg
 	subagent.runtime_init(&a.subagents, a.session.name, &a.tools_reg)
+	subagent.runtime_set_session(&a.subagents, a.session.session_path, a.session.persist)
 	subagent.runtime_set(&a.subagents)
 	agent.register_subagent_runner()
 	tools.register_subagent_tools(&a.tools_reg, subagent.runtime_enabled(&a.subagents))
