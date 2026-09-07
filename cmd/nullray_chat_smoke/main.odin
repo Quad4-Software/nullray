@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: 0BSD
 /*
 Headless one-turn chat smoke. Loads ~/.config/nullray/env when present.
 */
@@ -18,8 +19,9 @@ main :: proc() {
 		fmt.eprintln("nullray_chat_smoke: config:", err)
 	}
 
-	tools.tools_init()
-	defer tools.tools_destroy()
+	tools_reg: tools.Registry
+	tools.registry_init(&tools_reg)
+	defer tools.registry_destroy(&tools_reg)
 	if !http.global_init() {
 		fmt.eprintln("nullray_chat_smoke: curl init failed")
 		os.exit(1)
@@ -56,8 +58,10 @@ main :: proc() {
 	s: session.Session
 	session.session_init(&s)
 	defer session.session_destroy(&s)
+	s.tools_registry = &tools_reg
 	s.tools_enabled = false
 	s.persist = false
+	session.session_rebuild_system_prompt(&s)
 
 	session.session_push_user(&s, "Reply with exactly: ok")
 	session.session_start_chat(&s, p)

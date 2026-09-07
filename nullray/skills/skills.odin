@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: 0BSD
 /*
 Skill markdown files loaded from config, workspace, and ~/.agents.
 */
@@ -48,7 +49,7 @@ load_dir :: proc(path: string, allocator := context.allocator) -> (skills: [dyna
 	return skills, ""
 }
 
-// Load SKILL.md files from immediate child directories (Cursor/agents layout).
+// Load SKILL.md from immediate child dirs (Agent Skills layout: name/SKILL.md).
 load_nested_skill_md :: proc(root: string, allocator := context.allocator) -> [dynamic]Skill {
 	out := make([dynamic]Skill, allocator)
 	entries, rerr := os.read_all_directory_by_path(root, context.temp_allocator)
@@ -85,11 +86,11 @@ load_skill_file :: proc(path, id, source: string, allocator := context.allocator
 		delete(data)
 		data = transmute([]u8)trimmed
 	}
-	name, _ := strings.replace_all(id, "-", " ", allocator)
-	name, _ = strings.replace_all(name, "_", " ", allocator)
+	tmp, _ := strings.replace_all(id, "-", " ", context.temp_allocator)
+	tmp, _ = strings.replace_all(tmp, "_", " ", context.temp_allocator)
 	return Skill{
 		id = strings.clone(id, allocator),
-		name = name,
+		name = strings.clone(tmp, allocator),
 		body = string(data),
 		source = strings.clone(source, allocator),
 	}, true
@@ -98,6 +99,7 @@ load_skill_file :: proc(path, id, source: string, allocator := context.allocator
 skill_roots :: proc(allocator := context.temp_allocator) -> []string {
 	roots := make([dynamic]string, 0, 8, allocator)
 	seen := make(map[string]bool, allocator)
+	bare := bare_skills_only()
 
 	add :: proc(roots: ^[dynamic]string, seen: ^map[string]bool, parts: []string) {
 		path, jerr := filepath.join(parts, context.temp_allocator)
@@ -128,16 +130,29 @@ skill_roots :: proc(allocator := context.temp_allocator) -> []string {
 		add(&roots, &seen, {cwd, ".agents"})
 	}
 
-	cfg := sandbox.resolve_config_dir(context.temp_allocator)
-	add(&roots, &seen, {cfg, constants.SKILLS_DIR})
+	if !bare {
+		cfg := sandbox.resolve_config_dir(context.temp_allocator)
+		add(&roots, &seen, {cfg, constants.SKILLS_DIR})
 
-	if home, ok := os.lookup_env("HOME", context.temp_allocator); ok && len(home) > 0 {
-		add(&roots, &seen, {home, ".agents", "skills"})
-		add(&roots, &seen, {home, ".agents"})
-		add(&roots, &seen, {home, ".config", "nullray", "skills"})
+		if home, ok := os.lookup_env("HOME", context.temp_allocator); ok && len(home) > 0 {
+			add(&roots, &seen, {home, ".agents", "skills"})
+			add(&roots, &seen, {home, ".agents"})
+			add(&roots, &seen, {home, ".config", "nullray", "skills"})
+		}
 	}
 
 	return roots[:]
+}
+
+@(private)
+bare_skills_only :: proc() -> bool {
+	if v, ok := os.lookup_env(constants.ENV_BARE, context.temp_allocator); ok {
+		switch strings.to_lower(v, context.temp_allocator) {
+		case "1", "true", "yes", "on":
+			return true
+		}
+	}
+	return false
 }
 
 load_default :: proc(allocator := context.allocator) -> (skills: [dynamic]Skill, err: string) {

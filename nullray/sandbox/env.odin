@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: 0BSD
 /*
 Privacy: rebuild environ to an allowlist before agent work.
 */
@@ -14,6 +15,10 @@ ALLOWED_ENV_PREFIXES :: []string{
 	"COLORTERM",
 	"COLUMNS",
 	"LINES",
+	"NO_COLOR",
+	"FORCE_COLOR",
+	"WSL_",
+	"WT_",
 	"LANG",
 	"LC_",
 	"XDG_",
