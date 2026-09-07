@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: 0BSD
 /*
 Embedded shell completion scripts.
 */
@@ -39,9 +40,9 @@ _nullray() {
   COMPREPLY=()
   cur="${COMP_WORDS[COMP_CWORD]}"
   prev="${COMP_WORDS[COMP_CWORD-1]}"
-  opts="--help -h --version -V --ephemeral -e --self-test -t --provider -p --model -m --theme --mode --perms --sandbox --workspace -w --session --keys --no-splash --splash --list-models --completions --man"
+  opts="--help -h --version -V --ephemeral -e --self-test -t --doctor --debug --print -P --bare --fail-on-findings --provider -p --model -m --theme --mode --perms --sandbox --workspace -w --session --list-sessions --search-sessions --delete-session --export-session --import-session --as --keys --message-file --out --plan-out --output-format --timeout --no-splash --splash --list-models --completions --man"
   providers="ollama lmstudio openai openai-compat openrouter opencode opencode-go anthropic gemini groq deepseek mistral together fireworks xai azure"
-  modes="ask plan edit"
+  modes="ask plan review edit"
   perms="ask allow yolo"
   sandboxes="on off landlock seccomp"
   keys="default neovim emacs"
@@ -52,9 +53,10 @@ _nullray() {
     --perms) COMPREPLY=( $(compgen -W "$perms" -- "$cur") ); return ;;
     --sandbox) COMPREPLY=( $(compgen -W "$sandboxes" -- "$cur") ); return ;;
     --keys) COMPREPLY=( $(compgen -W "$keys" -- "$cur") ); return ;;
+    --output-format) COMPREPLY=( $(compgen -W "text json" -- "$cur") ); return ;;
     --completions) COMPREPLY=( $(compgen -W "bash zsh fish powershell elvish nushell" -- "$cur") ); return ;;
     --theme) COMPREPLY=( $(compgen -W "ink ember moss slate rose mono dusk" -- "$cur") ); return ;;
-    --workspace|-w|--session|--model|-m) COMPREPLY=( $(compgen -f -- "$cur") ); return ;;
+    --workspace|-w|--session|--search-sessions|--delete-session|--export-session|--import-session|--as|--model|-m|--message-file|--out|--plan-out) COMPREPLY=( $(compgen -f -- "$cur") ); return ;;
   esac
   if [[ "$cur" == -* ]]; then
     COMPREPLY=( $(compgen -W "$opts" -- "$cur") )
@@ -71,18 +73,34 @@ _nullray() {
     '--version[show version]' '-V[show version]'
     '--ephemeral[do not load or save transcripts]' '-e[do not load or save transcripts]'
     '--self-test[headless smoke]' '-t[headless smoke]'
+    '--doctor[print env and crash dump paths]'
+    '--debug[verbose stderr lifecycle logs]'
+    '--print[one-shot agent no TUI]' '-P[one-shot agent no TUI]'
+    '--bare[skip home MCP and non-workspace skills]'
+    '--fail-on-findings[exit 1 when review findings present]'
     '--provider[provider id]:provider:(ollama lmstudio openai openai-compat openrouter opencode opencode-go anthropic gemini groq deepseek mistral together fireworks xai azure)'
     '-p[provider id]:provider:(ollama lmstudio openai openai-compat openrouter opencode opencode-go anthropic gemini groq deepseek mistral together fireworks xai azure)'
     '--model[model id]:model:'
     '-m[model id]:model:'
     '--theme[ui theme]:theme:(ink ember moss slate rose mono dusk)'
-    '--mode[agent mode]:mode:(ask plan edit)'
+    '--mode[agent mode]:mode:(ask plan review edit)'
     '--perms[shell policy]:perms:(ask allow yolo)'
     '--sandbox[sandbox mode]:sandbox:(on off landlock seccomp)'
     '--workspace[workspace path]:dir:_files -/'
     '-w[workspace path]:dir:_files -/'
     '--session[session name]:session:'
+    '--list-sessions[list saved sessions]'
+    '--search-sessions[search sessions]:query:'
+    '--delete-session[delete named session]:session:'
+    '--export-session[export session to --out dir]:session:'
+    '--import-session[import session from path]:path:_files'
+    '--as[import destination name]:name:'
     '--keys[keybind preset]:keys:(default neovim emacs)'
+    '--message-file[prompt file]:file:_files'
+    '--out[write final reply or export dir]:file:_files'
+    '--plan-out[plan artifact path]:file:_files'
+    '--output-format[print output format]:format:(text json)'
+    '--timeout[print timeout seconds]:seconds:'
     '--no-splash[skip startup splash]'
     '--splash[force startup splash]'
     '--list-models[list models for active provider]'
@@ -99,15 +117,31 @@ complete -c nullray -s h -l help -d 'Show help'
 complete -c nullray -s V -l version -d 'Show version'
 complete -c nullray -s e -l ephemeral -d 'Do not load or save transcripts'
 complete -c nullray -s t -l self-test -d 'Headless smoke'
+complete -c nullray -l doctor -d 'Print env and crash dump paths'
+complete -c nullray -l debug -d 'Verbose stderr lifecycle logs'
+complete -c nullray -s P -l print -d 'One-shot agent without TUI'
+complete -c nullray -l bare -d 'Skip home MCP and non-workspace skills'
+complete -c nullray -l fail-on-findings -d 'Exit 1 when review findings present'
 complete -c nullray -s p -l provider -d 'Provider id' -xa 'ollama lmstudio openai openai-compat openrouter opencode opencode-go anthropic gemini groq deepseek mistral together fireworks xai azure'
 complete -c nullray -s m -l model -d 'Model id' -r
 complete -c nullray -l theme -d 'UI theme' -xa 'ink ember moss slate rose mono dusk'
-complete -c nullray -l mode -d 'Agent mode' -xa 'ask plan edit'
+complete -c nullray -l mode -d 'Agent mode' -xa 'ask plan review edit'
 complete -c nullray -l perms -d 'Shell policy' -xa 'ask allow yolo'
 complete -c nullray -l sandbox -d 'Sandbox mode' -xa 'on off landlock seccomp'
 complete -c nullray -s w -l workspace -d 'Workspace path' -r -F
 complete -c nullray -l session -d 'Session name' -r
+complete -c nullray -l list-sessions -d 'List saved sessions'
+complete -c nullray -l search-sessions -d 'Search sessions' -r
+complete -c nullray -l delete-session -d 'Delete named session' -r
+complete -c nullray -l export-session -d 'Export session to --out dir' -r
+complete -c nullray -l import-session -d 'Import session from path' -r -F
+complete -c nullray -l as -d 'Import destination name' -r
 complete -c nullray -l keys -d 'Keybind preset' -xa 'default neovim emacs'
+complete -c nullray -l message-file -d 'Prompt from file' -r -F
+complete -c nullray -l out -d 'Write final reply or export dir' -r -F
+complete -c nullray -l plan-out -d 'Plan artifact path' -r -F
+complete -c nullray -l output-format -d 'Print output format' -xa 'text json'
+complete -c nullray -l timeout -d 'Print timeout seconds' -r
 complete -c nullray -l no-splash -d 'Skip startup splash'
 complete -c nullray -l splash -d 'Force startup splash'
 complete -c nullray -l list-models -d 'List models for active provider'
@@ -119,8 +153,12 @@ COMPLETIONS_POWERSHELL :: `Register-ArgumentCompleter -CommandName nullray -Scri
   param($wordToComplete, $commandAst, $cursorPosition)
   $opts = @(
     '--help','-h','--version','-V','--ephemeral','-e','--self-test','-t',
+    '--doctor','--debug','--print','-P','--bare','--fail-on-findings',
     '--provider','-p','--model','-m','--theme','--mode','--perms','--sandbox',
-    '--workspace','-w','--session','--keys','--no-splash','--splash','--list-models','--completions','--man'
+    '--workspace','-w','--session','--list-sessions','--search-sessions',
+    '--delete-session','--export-session','--import-session','--as',
+    '--keys','--message-file','--out','--plan-out',
+    '--output-format','--timeout','--no-splash','--splash','--list-models','--completions','--man'
   )
   $opts | Where-Object { $_ -like "$wordToComplete*" } | ForEach-Object {
     [System.Management.Automation.CompletionResult]::new($_, $_, 'ParameterName', $_)
@@ -132,8 +170,12 @@ COMPLETIONS_ELVISH :: `use str
 set edit:completion:arg-completer[nullray] = {|@args|
   var flags = [
     --help -h --version -V --ephemeral -e --self-test -t
+    --doctor --debug --print -P --bare --fail-on-findings
     --provider -p --model -m --theme --mode --perms --sandbox
-    --workspace -w --session --keys --no-splash --splash --list-models --completions --man
+    --workspace -w --session --list-sessions --search-sessions
+    --delete-session --export-session --import-session --as
+    --keys --message-file --out --plan-out
+    --output-format --timeout --no-splash --splash --list-models --completions --man
   ]
   put $@flags
 }
@@ -142,8 +184,12 @@ set edit:completion:arg-completer[nullray] = {|@args|
 COMPLETIONS_NUSHELL :: `def "nu-complete nullray flags" [] {
   [
     --help -h --version -V --ephemeral -e --self-test -t
+    --doctor --debug --print -P --bare --fail-on-findings
     --provider -p --model -m --theme --mode --perms --sandbox
-    --workspace -w --session --keys --no-splash --splash --list-models --completions --man
+    --workspace -w --session --list-sessions --search-sessions
+    --delete-session --export-session --import-session --as
+    --keys --message-file --out --plan-out
+    --output-format --timeout --no-splash --splash --list-models --completions --man
   ]
 }
 export extern nullray [
@@ -178,6 +224,24 @@ Do not load or save session transcripts.
 .BR \-t ", " \-\-self\-test
 Run headless smoke checks and exit.
 .TP
+.B \-\-doctor
+Print config paths, key env presence, TTY status, and the latest crash dump path.
+.TP
+.B \-\-debug
+Verbose stderr lifecycle logs. Also set with
+.B NULLRAY_DEBUG=1.
+.TP
+.BR \-P ", " \-\-print
+Run one agent turn without the TUI, print the reply, and exit.
+Defaults to ephemeral session and mode ask. Prompt from remaining args,
+.B \-\-message\-file, or stdin when not a TTY.
+.TP
+.B \-\-bare
+Skip home MCP autoload and non-workspace skills (CI reproducibility).
+.TP
+.B \-\-fail\-on\-findings
+In review mode, exit 1 when the reply ends with FINDINGS: N and N > 0.
+.TP
 .BR \-p ", " \-\-provider " " \fIID\fR
 Select provider: ollama, lmstudio, openai, openai-compat, openrouter, opencode,
 opencode-go, anthropic, gemini, groq, deepseek, mistral, together, fireworks, xai, azure.
@@ -189,10 +253,11 @@ Override the default model for the active provider.
 UI theme (ink, dusk, mono, ...).
 .TP
 .B \-\-mode \fIMODE\fR
-Agent mode: ask, plan, or edit.
+Agent mode: ask, plan, review, or edit.
 .TP
 .B \-\-perms \fIPOLICY\fR
 Shell permission policy: ask, allow, or yolo.
+Edit under --print requires allow or yolo.
 .TP
 .B \-\-sandbox \fIMODE\fR
 Sandbox mode (on, off, landlock, seccomp, ...).
@@ -201,10 +266,47 @@ Sandbox mode (on, off, landlock, seccomp, ...).
 Workspace root for tools and sandbox.
 .TP
 .B \-\-session \fINAME\fR
-Resume or create a named session.
+Resume or create a named session under ~/.config/nullray/sessions/.
+.TP
+.B \-\-list\-sessions
+List saved sessions and exit.
+.TP
+.B \-\-search\-sessions \fIQUERY\fR
+Search session names, metadata, and transcript text.
+.TP
+.B \-\-delete\-session \fINAME\fR
+Delete a named session from disk.
+.TP
+.B \-\-export\-session \fINAME\fR
+Copy a session transcript and meta into
+.B \-\-out
+DIR.
+.TP
+.B \-\-import\-session \fIPATH\fR
+Import a .jsonl (or a directory containing one) into the sessions store.
+.TP
+.B \-\-as \fINAME\fR
+Destination session name for
+.B \-\-import\-session.
 .TP
 .B \-\-keys \fIPRESET\fR
 Keybind preset: default, neovim, or emacs.
+.TP
+.B \-\-message\-file \fIPATH\fR
+Read prompt text from a file (print mode).
+.TP
+.B \-\-out \fIPATH\fR
+Write the final assistant reply to a file, or the export directory for
+.B \-\-export\-session.
+.TP
+.B \-\-plan\-out \fIPATH\fR
+Write the plan-mode markdown artifact to this path.
+.TP
+.B \-\-output\-format \fIFORMAT\fR
+Print mode output: text (default) or json.
+.TP
+.B \-\-timeout \fISEC\fR
+Print mode wall-clock timeout in seconds (default 600).
 .TP
 .B \-\-no\-splash
 Skip the startup splash animation.
@@ -226,7 +328,10 @@ Config file:
 .PP
 Common variables: NULLRAY_PROVIDER, NULLRAY_MODEL, NULLRAY_THEME, NULLRAY_MODE, NULLRAY_PERMS,
 NULLRAY_SANDBOX, NULLRAY_WORKSPACE, NULLRAY_SESSION, NULLRAY_EPHEMERAL, NULLRAY_SPLASH,
-NULLRAY_KEYS, NULLRAY_STREAM, OPENROUTER_API_KEY, OLLAMA_HOST, LM_STUDIO_HOST, LM_API_TOKEN.
+NULLRAY_KEYS, NULLRAY_STREAM, NULLRAY_HTTP_RETRIES, NULLRAY_FALLBACK_MODELS,
+NULLRAY_OPENROUTER_IGNORE, NULLRAY_BARE, NULLRAY_PRINT_TIMEOUT, NULLRAY_OUT, NULLRAY_PLAN_OUT,
+NULLRAY_COLOR, NULLRAY_ALT_SCREEN, NULLRAY_MOUSE, NULLRAY_DEBUG,
+OPENROUTER_API_KEY, OLLAMA_HOST, LM_STUDIO_HOST, LM_API_TOKEN.
 .SH FILES
 .TP
 .I ~/.config/nullray/env
@@ -240,10 +345,19 @@ Session transcripts and metadata.
 .TP
 .I ~/.config/nullray/mcp.json
 MCP server autoload config.
+.TP
+.I .nullray/plans/
+Default plan-mode markdown artifacts under the workspace.
 .SH EXAMPLES
 .nf
 nullray --provider ollama --model gemma3:4b
+nullray --print --mode ask "What does session_init do?"
+nullray --print --mode review --fail-on-findings "Review the staged diff"
+git diff | nullray --print --mode review --bare "Review this PR diff"
 nullray --list-models
+nullray --list-sessions
+nullray --export-session mywork --out ./backup
+nullray --import-session ./backup/mywork.jsonl --as restored
 nullray --completions zsh > ~/.zsh/completions/_nullray
 .fi
 .SH SEE ALSO

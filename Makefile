@@ -24,13 +24,19 @@ BUILD_DATE := $(shell date -u +%Y-%m-%d)
 BUILD_TIME := $(shell date -u +%H:%M:%S)
 DEFINES    := -define:NULLRAY_BUILD_DATE="$(BUILD_DATE)" -define:NULLRAY_BUILD_TIME="$(BUILD_TIME)"
 
-.PHONY: all clean install uninstall run test selftest chat-smoke help completions man
+.PHONY: all clean install uninstall run test selftest chat-smoke print-smoke help completions man \
+	appimage flatpak docker-build debug
 
 all: $(OUT)
 
 $(OUT): $(shell find cmd/nullray nullray -name '*.odin' 2>/dev/null)
 	@mkdir -p bin
 	$(ODIN) build $(ROOT)/cmd/nullray -out:$(OUT) $(COLLECTION) $(LINKER) $(DEFINES)
+
+debug:
+	@mkdir -p bin
+	$(ODIN) build $(ROOT)/cmd/nullray -out:$(OUT) $(COLLECTION) $(LINKER) $(DEFINES) -debug
+	@echo "built $(OUT) with -debug (richer crash backtraces)"
 
 run: $(OUT)
 	./$(OUT)
@@ -45,9 +51,15 @@ test:
 	$(ODIN) test $(ROOT)/nullray/provider $(COLLECTION) -define:ODIN_TEST_THREADS=1
 	@$(MAKE) --no-print-directory selftest
 	@$(MAKE) --no-print-directory chat-smoke
+	@$(MAKE) --no-print-directory print-smoke
 
 selftest: $(OUT)
 	./$(OUT) --self-test
+
+# Print-mode CLI wiring (no provider required).
+print-smoke: $(OUT)
+	@chmod +x $(ROOT)/scripts/print-smoke.sh
+	$(ROOT)/scripts/print-smoke.sh
 
 # Real provider round-trip. Prefers ~/.config/nullray/env (OpenRouter). Falls back to Ollama.
 chat-smoke: $(OUT)
@@ -94,7 +106,19 @@ uninstall:
 	rm -rf $(DESTDIR)$(COMPDIR)
 
 clean:
-	rm -rf bin
+	rm -rf bin dist
+	rm -f packaging/flatpak/nullray packaging/flatpak/nullray.svg
+
+appimage: $(OUT)
+	@mkdir -p dist
+	bash scripts/build-appimage.sh $(OUT) dist
+
+flatpak: $(OUT)
+	@mkdir -p dist
+	bash scripts/build-flatpak.sh $(OUT) dist
+
+docker-build:
+	docker build -t nullray:local .
 
 help:
 	@printf '%s\n' \
@@ -107,4 +131,7 @@ help:
 		'  completions  write contrib/completions/' \
 		'  man          write man/nullray.1' \
 		'  install      install binary, man page, completions' \
-		'  clean        remove bin/'
+		'  appimage     build dist/*.AppImage (needs curl, FUSE3 tooling)' \
+		'  flatpak      build dist/*.flatpak (needs flatpak-builder)' \
+		'  docker-build build local Docker image nullray:local' \
+		'  clean        remove bin/ and dist/'
