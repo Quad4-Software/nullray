@@ -25,8 +25,29 @@ Setup_Step :: enum {
 
 SETUP_EFFORTS := []string{"none", "minimal", "low", "medium", "high", "xhigh", "max"}
 
+@(private)
+setup_env_configured :: proc() -> bool {
+	// Env or flags (--provider writes ENV_PROVIDER before we run) already
+	// name a provider, key, model, or host. Trust it and skip the wizard.
+	keys := []string{
+		constants.ENV_PROVIDER,
+		constants.ENV_API_KEY,
+		constants.ENV_MODEL,
+		constants.ENV_BASE_URL,
+		constants.ENV_OLLAMA_HOST,
+		constants.ENV_LMSTUDIO_HOST,
+		constants.ENV_OPENAI_BASE,
+	}
+	for key in keys {
+		if v, ok := os.lookup_env(key, context.temp_allocator); ok && len(strings.trim_space(v)) > 0 {
+			return true
+		}
+	}
+	return false
+}
+
 setup_needed :: proc(a: ^App) -> bool {
-	if config.setup_done_from_env() {
+	if config.setup_done_from_env() || setup_env_configured() {
 		return false
 	}
 	p := provider.registry_active(&a.registry)
