@@ -67,3 +67,4 @@ $bad = Join-Path $env:TEMP "nullray-print-smoke-plan-bad.md"
 Expect-Exit 2 @("--print", "--plan-in", $bad, "--perms", "yolo")
 
 Write-Host "print-smoke: ok ($Bin)"
+exit 0
