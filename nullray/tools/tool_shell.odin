@@ -11,6 +11,7 @@ import "core:os"
 import "core:strings"
 import "core:time"
 import "nullray:constants"
+import "nullray:elevate"
 import "nullray:sandbox"
 import "nullray:subagent"
 
@@ -43,6 +44,12 @@ tool_run_shell :: proc(args_json: string, allocator := context.allocator) -> (re
 
 	if !sandbox.path_allowed(sandbox.state(), workspace, true) {
 		return "", strings.clone("workspace path not allowed for shell", allocator)
+	}
+
+	if elevate.needs_elevate(command) {
+		res := elevate.run_elevated(command, workspace, allocator)
+		defer elevate.result_destroy(&res)
+		return elevate.format_tool_result(res, allocator), ""
 	}
 
 	stdout_r, stdout_w, pipe_err := os.pipe()

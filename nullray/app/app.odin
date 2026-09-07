@@ -92,6 +92,11 @@ App :: struct {
 	reveal_stream:      int,
 	reveal_think:       int,
 	reset_pending:      bool,
+	elevate_active:     bool,
+	elevate_id:         u64,
+	elevate_prompt:     string,
+	elevate_command:    string,
+	elevate_buf:        string,
 }
 
 app_init :: proc(a: ^App, loop: ^ui.Loop) {
@@ -144,6 +149,17 @@ app_init :: proc(a: ^App, loop: ^ui.Loop) {
 	session.crash_lock_write(cfg_dir, a.session.name)
 	a.input_hist_idx = -1
 	app_refresh_provider_status(a)
+	if plan_in := agent.plan_in_from_env(); len(plan_in) > 0 {
+		defer delete(plan_in)
+		if err := session.session_seed_plan_file(&a.session, plan_in); len(err) > 0 {
+			session.session_set_status(&a.session, err)
+		} else {
+			session.session_set_status(
+				&a.session,
+				fmt.tprintf("plan loaded %s (use /approve)", a.session.last_plan_path),
+			)
+		}
+	}
 	app_maybe_begin_setup(a)
 }
 
@@ -165,6 +181,7 @@ app_destroy :: proc(a: ^App) {
 	app_sel_destroy(a)
 	app_history_destroy(a)
 	delete(a.input_draft)
+	app_elevate_clear(a)
 }
 
 app_refresh_provider_status :: proc(a: ^App) {
@@ -286,13 +303,16 @@ app_refresh_banner :: proc(a: ^App) {
 
 app_is_dirty :: proc(user: rawptr) -> bool {
 	a := cast(^App)user
-	return a.dirty || splash_active(a) || a.show_setup || len(a.toasts) > 0 || a.sel_dragging
+	return a.dirty || splash_active(a) || a.show_setup || a.elevate_active || len(a.toasts) > 0 || a.sel_dragging
 }
 
 
 app_on_tick :: proc(user: rawptr) -> bool {
 	a := cast(^App)user
 	changed := false
+	if app_elevate_poll(a) {
+		changed = true
+	}
 	if app_toasts_expire(a) {
 		changed = true
 	}

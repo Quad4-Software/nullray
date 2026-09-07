@@ -11,6 +11,7 @@ import "core:os"
 import "core:strconv"
 import "core:strings"
 import "nullray:constants"
+import "nullray:elevate"
 import "nullray:provider"
 import "nullray:tools"
 
@@ -119,6 +120,12 @@ run_verify_command :: proc(
 	if len(strings.trim_space(cmd)) == 0 {
 		return true, strings.clone("verify skipped (empty)", allocator)
 	}
+	if elevate.needs_elevate(cmd) {
+		return false, strings.clone(
+			"verify failed: elevated commands are not allowed in verify (use a non-sudo command or cached ticket outside verify)",
+			allocator,
+		)
+	}
 	if reg == nil {
 		return false, strings.clone(
 			"verify failed: no tools registry (internal). Use /verify off or set NULLRAY_VERIFY=0.",
@@ -131,7 +138,7 @@ run_verify_command :: proc(
 			allocator,
 		)
 	}
-	args := fmt.aprintf(`{"command":%q}`, cmd, allocator = context.temp_allocator)
+	args := fmt.aprintf(`{{"command":%q}}`, cmd, allocator = context.temp_allocator)
 	result, err := tools.run(reg, "run_shell", args, "edit", allocator)
 	if len(err) > 0 {
 		out := truncate_bytes(err, constants.MAX_VERIFY_OUTPUT_BYTES, allocator)

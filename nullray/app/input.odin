@@ -75,6 +75,10 @@ app_on_event :: proc(ev: ui.Event, user: rawptr) -> bool {
 		return app_setup_on_event(a, ev)
 	}
 
+	if a.elevate_active {
+		return app_elevate_on_event(a, ev)
+	}
+
 	if a.show_help {
 		if ev.kind == .Esc || ev.kind == .F1 || config.binds_resolve(a.binds, ev.kind) == .Help {
 			app_toggle_help(a)

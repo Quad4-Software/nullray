@@ -26,7 +26,8 @@ Goals:
 - Use run_shell for builds and tests when sandbox allows.
 - Be concise in chat replies. Put durable notes in files when useful.
 - Stop when the task is complete or blocked. Do not invent tool results.
-- Never dump large code blocks into chat when file tools are available unless the user asked to see code in chat.`
+- Never dump large code blocks into chat when file tools are available unless the user asked to see code in chat.
+- Never invent, guess, echo, or pass passwords in shell args. Elevated commands (sudo/doas/pkexec) go through nullray auth UI only. Do not use sudo -S or pipe secrets. After elevation lockout or cancel, stop and tell the human.`
 
 build_system_prompt :: proc(extra_skills: string = "", tools_reg: ^tools.Registry = nil, allocator := context.allocator) -> string {
 	b: strings.Builder

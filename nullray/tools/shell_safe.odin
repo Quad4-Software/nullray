@@ -10,6 +10,7 @@ import "core:os"
 import "core:path/filepath"
 import "core:strings"
 import "nullray:constants"
+import "nullray:elevate"
 import "nullray:sandbox"
 
 DENIED_SUBSTRINGS :: []string{
@@ -36,8 +37,6 @@ DENIED_SUBSTRINGS :: []string{
 	"printenv",
 	"env |",
 	"history",
-	"sudo -",
-	"su -",
 	"chmod 777",
 	"chown -R",
 	"source .env",
@@ -83,9 +82,29 @@ shell_command_allowed :: proc(cmd: string, allocator := context.allocator) -> (o
 		}
 	}
 
+	cl := elevate.classify(trimmed)
+	if cl.deny_password_args {
+		return false, strings.clone(
+			"denied: password must not appear in shell args (use nullray elevate UI)",
+			allocator,
+		)
+	}
+	if cl.deny_shell || cl.backend == .Su {
+		return false, strings.clone("denied: interactive root shells are blocked", allocator)
+	}
+
 	if shell_consume_once_allow(trimmed) {
 		return true, ""
 	}
+
+	if cl.needs {
+		shell_set_pending(trimmed)
+		return false, strings.clone(
+			"pending approval: elevated command requires /allow (password prompt may follow)",
+			allocator,
+		)
+	}
+
 
 	perms := perms_from_env()
 	allow_raw, has_allow := os.lookup_env(constants.ENV_SHELL_ALLOW, context.temp_allocator)

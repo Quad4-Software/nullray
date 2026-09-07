@@ -10,6 +10,7 @@ import "core:os"
 import "core:strconv"
 import "core:strings"
 import "nullray:constants"
+import "nullray:elevate"
 import "nullray:provider"
 import "nullray:sandbox"
 import "nullray:tools"
@@ -337,7 +338,7 @@ run_turn :: proc(req: Run_Request, cfg: Config, allocator := context.allocator) 
 				(result_prefix_had_writes(msgs[:]) || turn_had_writes(msgs[:])) {
 				vcmd, voff := resolve_verify_command(cfg.plan_verify, context.temp_allocator)
 				if !voff && len(vcmd) > 0 {
-					vargs := fmt.aprintf(`{"command":%q}`, vcmd, allocator = context.temp_allocator)
+					vargs := fmt.aprintf(`{{"command":%q}}`, vcmd, allocator = context.temp_allocator)
 					emit(cfg, .Status, fmt.tprintf("verify: %s", vcmd))
 					emit(cfg, .Tool_Start, vargs, "verify")
 					vok, vout := run_verify_command(vcmd, reg, allocator)
@@ -381,6 +382,7 @@ run_turn :: proc(req: Run_Request, cfg: Config, allocator := context.allocator) 
 			}
 		}
 
+		elevate_stop := false
 		for c in calls {
 			if check_stop(cfg) == .Cancel {
 				break
@@ -402,8 +404,10 @@ run_turn :: proc(req: Run_Request, cfg: Config, allocator := context.allocator) 
 				tool_call_id = strings.clone(c.id, allocator),
 				name = strings.clone(c.name, allocator),
 			})
+			if elevate.is_nonretryable_elevate_text(result_text) {
+				elevate_stop = true
+			}
 			if c.name == "compact_context" {
-				// AdaptiveCompact: deterministic clear after phase-end request.
 				_ = clear_msgs_tool_results(&msgs, 2)
 			}
 		}
@@ -415,6 +419,22 @@ run_turn :: proc(req: Run_Request, cfg: Config, allocator := context.allocator) 
 			provider.destroy_tool_calls(calls)
 		} else {
 			provider.destroy_tool_calls(res.tool_calls)
+		}
+
+		if elevate_stop {
+			msg := strings.clone(
+				"Stopped: elevation auth failed, was cancelled, or is locked. Tell the human; do not retry with passwords.",
+				allocator,
+			)
+			emit(cfg, .Status, "elevate: non-retryable")
+			append(&msgs, provider.Message{role = .Assistant, content = msg})
+			return Run_Result{
+				ok = true,
+				messages = msgs,
+				content = msg,
+				stopped = owned_stop("elevate", allocator),
+				usage = usage_sum,
+			}
 		}
 
 		if check_stop(cfg) == .Cancel {

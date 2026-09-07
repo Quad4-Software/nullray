@@ -47,6 +47,8 @@ Modes: Off / Warn (default) / Strict via NULLRAY_SANDBOX.
 
 Stub: sandbox_stub.odin #+build !linux. apply uses when ODIN_OS == .Linux for runtime branch.
 
+Landlock sets NO_NEW_PRIVS. Elevated cmds need the pre-sandbox broker (nullray/elevate), not in-process sudo. Never put passwords in shell args or expect them in tool results. After elevation_locked / auth_cancelled, stop looping elevate.
+
 ## Session / tools / agent
 
 - Messages: clone content, destroy_message / session_destroy

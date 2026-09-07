@@ -2,6 +2,7 @@
 package tools
 
 import "core:os"
+import "core:strings"
 import "core:testing"
 import "nullray:constants"
 
@@ -124,6 +125,27 @@ test_shell_custom_deny_env :: proc(t: ^testing.T) {
 	defer os.unset_env(constants.ENV_PERMS)
 	defer os.unset_env(constants.ENV_SHELL_DENY)
 	ok, reason := shell_command_allowed("dangerous-tool --run")
+	testing.expect(t, !ok)
+	delete(reason)
+}
+
+@(test)
+test_shell_elevate_always_needs_allow_even_yolo :: proc(t: ^testing.T) {
+	os.set_env(constants.ENV_PERMS, "yolo")
+	defer os.unset_env(constants.ENV_PERMS)
+	defer shell_deny_pending()
+
+	ok, reason := shell_command_allowed("sudo apt update")
+	testing.expect(t, !ok)
+	testing.expect(t, strings.contains(reason, "elevated") || strings.contains(reason, "/allow"))
+	delete(reason)
+}
+
+@(test)
+test_shell_deny_sudo_stdin_password :: proc(t: ^testing.T) {
+	os.set_env(constants.ENV_PERMS, "yolo")
+	defer os.unset_env(constants.ENV_PERMS)
+	ok, reason := shell_command_allowed("echo secret | sudo -S true")
 	testing.expect(t, !ok)
 	delete(reason)
 }

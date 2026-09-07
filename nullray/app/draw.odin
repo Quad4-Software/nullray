@@ -697,7 +697,10 @@ app_draw :: proc(buf: ^ui.Buffer, user: rawptr) {
 
 	status_left := a.session.status
 	status_fg := t.status_fg
-	if pending := tools.shell_pending(context.temp_allocator); len(pending) > 0 {
+	if a.elevate_active {
+		status_left = "elevate: waiting for password · Esc cancel"
+		status_fg = t.warn
+	} else if pending := tools.shell_pending(context.temp_allocator); len(pending) > 0 {
 		status_left = fmt.tprintf("shell: %s · /allow /deny", pending)
 		status_fg = t.warn
 	} else if a.session.busy {
@@ -742,6 +745,7 @@ app_draw :: proc(buf: ^ui.Buffer, user: rawptr) {
 	app_draw_suggestions(buf, a)
 	app_apply_selection_style(buf, a)
 	app_draw_toasts(buf, a)
+	app_draw_elevate_modal(buf, a)
 
 	a.dirty = false
 }

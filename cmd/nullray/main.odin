@@ -8,6 +8,7 @@ import "nullray:app"
 import "nullray:config"
 import "nullray:constants"
 import "nullray:crash"
+import "nullray:elevate"
 import "nullray:http"
 import "nullray:provider"
 import "nullray:run"
@@ -48,6 +49,7 @@ Cli :: struct {
 	message_file:     string,
 	out_path:         string,
 	plan_out:         string,
+	plan_in:          string,
 	output_format:    string,
 	timeout_sec:      int,
 	search_sessions:  string,
@@ -60,6 +62,9 @@ Cli :: struct {
 	uninstall_skill:  string,
 	skills_paths:     string,
 	prompt:           string,
+	askpass:          bool,
+	elevate_broker:   string,
+	no_elevate:       bool,
 	err:              string,
 }
 
@@ -129,6 +134,20 @@ main :: proc() {
 	if cli.list_models {
 		os.exit(run_list_models())
 	}
+
+	if cli.askpass {
+		os.exit(elevate.run_askpass_cli())
+	}
+	if len(cli.elevate_broker) > 0 {
+		os.exit(elevate.run_elevate_broker_server(cli.elevate_broker))
+	}
+
+	exe := ""
+	if len(os.args) > 0 {
+		exe = os.args[0]
+	}
+	elevate.elevate_init(exe, cli.print_mode)
+	defer elevate.elevate_shutdown()
 
 	crash.logf("sandbox apply begin")
 	cfg := sandbox.config_from_env()
@@ -346,6 +365,17 @@ parse_cli :: proc(args: []string) -> Cli {
 				return cli
 			}
 			cli.perms = v
+		case "--askpass":
+			cli.askpass = true
+		case "--elevate-broker":
+			v, ok := take_value(args, &i)
+			if !ok {
+				cli.err = "--elevate-broker needs a path"
+				return cli
+			}
+			cli.elevate_broker = v
+		case "--no-elevate":
+			cli.no_elevate = true
 		case "--sandbox":
 			v, ok := take_value(args, &i)
 			if !ok {
@@ -399,6 +429,13 @@ parse_cli :: proc(args: []string) -> Cli {
 				return cli
 			}
 			cli.plan_out = v
+		case "--plan-in":
+			v, ok := take_value(args, &i)
+			if !ok {
+				cli.err = "--plan-in needs a path"
+				return cli
+			}
+			cli.plan_in = v
 		case "--output-format":
 			v, ok := take_value(args, &i)
 			if !ok {
@@ -450,6 +487,9 @@ parse_cli :: proc(args: []string) -> Cli {
 	if len(prompt_parts) > 0 {
 		cli.prompt = strings.join(prompt_parts[:], " ", context.allocator)
 	}
+	if len(cli.plan_in) > 0 && len(cli.plan_out) > 0 {
+		cli.err = "plan-in and plan-out cannot be used together"
+	}
 	return cli
 }
 
@@ -477,6 +517,9 @@ take_value :: proc(args: []string, i: ^int) -> (string, bool) {
 }
 
 apply_cli_env :: proc(cli: ^Cli) {
+	if len(cli.plan_in) > 0 {
+		os.set_env(constants.ENV_PLAN_IN, cli.plan_in)
+	}
 	if cli.print_mode {
 		os.set_env(constants.ENV_PRINT, "1")
 		if !cli.ephemeral && len(cli.session) == 0 {
@@ -484,7 +527,17 @@ apply_cli_env :: proc(cli: ^Cli) {
 		}
 		if len(cli.mode) == 0 {
 			if _, ok := os.lookup_env(constants.ENV_MODE, context.temp_allocator); !ok {
-				os.set_env(constants.ENV_MODE, "ask")
+				has_plan_in := len(cli.plan_in) > 0
+				if !has_plan_in {
+					if v, pok := os.lookup_env(constants.ENV_PLAN_IN, context.temp_allocator); pok && len(v) > 0 {
+						has_plan_in = true
+					}
+				}
+				if has_plan_in {
+					os.set_env(constants.ENV_MODE, "edit")
+				} else {
+					os.set_env(constants.ENV_MODE, "ask")
+				}
 			}
 		}
 	}
@@ -517,6 +570,9 @@ apply_cli_env :: proc(cli: ^Cli) {
 	}
 	if len(cli.sandbox) > 0 {
 		os.set_env(constants.ENV_SANDBOX, cli.sandbox)
+	}
+	if cli.no_elevate {
+		os.set_env(constants.ENV_ELEVATE, "deny")
 	}
 	if len(cli.workspace) > 0 {
 		os.set_env(constants.ENV_WORKSPACE, cli.workspace)
@@ -696,6 +752,9 @@ print_help :: proc() {
 	fmt.println("      --mode MODE         ask | plan | review | edit")
 	fmt.println("      --perms POLICY      ask | allow | yolo")
 	fmt.println("      --sandbox MODE      on | off | landlock | seccomp | ...")
+	fmt.println("      --askpass            sudo/doas askpass helper (internal)")
+	fmt.println("      --elevate-broker P   run privilege broker on path (internal)")
+	fmt.println("      --no-elevate         deny elevated commands (NULLRAY_ELEVATE=deny)")
 	fmt.println("  -w, --workspace PATH    workspace root for tools/sandbox")
 	fmt.println("      --session NAME      resume or create named session")
 	fmt.println("      --list-sessions     list saved sessions and exit")
@@ -712,6 +771,7 @@ print_help :: proc() {
 	fmt.println("      --message-file PATH prompt from file (print mode)")
 	fmt.println("      --out PATH          write final reply to file (or export dir)")
 	fmt.println("      --plan-out PATH     plan mode artifact path")
+	fmt.println("      --plan-in PATH      load Done Contract and apply (print edit)")
 	fmt.println("      --output-format F   text | json (print mode)")
 	fmt.println("      --timeout SEC       print-mode wall clock limit (default 600)")
 	fmt.println("      --bare              skip home MCP and non-workspace skills")
@@ -725,8 +785,9 @@ print_help :: proc() {
 	fmt.println("      --completions SHELL print completion script and exit")
 	fmt.println("      --man               print man page source and exit")
 	fmt.println("")
-	fmt.println("print mode defaults: ephemeral session, mode ask.")
+	fmt.println("print mode defaults: ephemeral session, mode ask (edit when --plan-in).")
 	fmt.println("edit under print needs --perms allow|yolo. Pipe stdin when not a TTY.")
+	fmt.println("plan-in applies a Done Contract: empty prompt becomes Execute the approved plan.")
 	fmt.println("")
 	fmt.println("env file:  ~/.config/nullray/env")
 	fmt.println("env vars:  NULLRAY_PROVIDER NULLRAY_MODEL NULLRAY_THEME NULLRAY_MODE NULLRAY_PERMS")
@@ -734,7 +795,7 @@ print_help :: proc() {
 	fmt.println("           NULLRAY_SPLASH NULLRAY_KEYS NULLRAY_STREAM OPENROUTER_API_KEY")
 	fmt.println("           NULLRAY_HTTP_RETRIES NULLRAY_FALLBACK_MODELS NULLRAY_OPENROUTER_IGNORE")
 	fmt.println("           NULLRAY_HIDE_SENSITIVE NULLRAY_BARE NULLRAY_PRINT_TIMEOUT NULLRAY_OUT")
-	fmt.println("           NULLRAY_PLAN_OUT NULLRAY_COLOR NULLRAY_ALT_SCREEN NULLRAY_MOUSE")
+	fmt.println("           NULLRAY_PLAN_OUT NULLRAY_PLAN_IN NULLRAY_COLOR NULLRAY_ALT_SCREEN NULLRAY_MOUSE")
 	fmt.println("           NULLRAY_DEBUG OPENAI_API_KEY OPENAI_BASE_URL OLLAMA_HOST")
 	fmt.println("           LM_STUDIO_HOST LM_API_TOKEN")
 	fmt.println("")
