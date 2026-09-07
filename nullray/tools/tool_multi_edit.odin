@@ -11,6 +11,7 @@ import "core:os"
 import "core:strings"
 import "nullray:constants"
 import "nullray:sandbox"
+import "nullray:structure"
 import "nullray:subagent"
 
 MAX_APPLY_EDITS :: 20
@@ -213,6 +214,10 @@ tool_apply_edits :: proc(args_json: string, allocator := context.allocator) -> (
 	if !ok {
 		return "", strings.clone("tool args must be a JSON object", allocator)
 	}
+	allow_godfile, aerr := json_object_bool_string(root, "allow_godfile", false)
+	if aerr != "" {
+		return "", strings.clone(aerr, allocator)
+	}
 
 	pending_edits := make([dynamic]Pending_Edit, allocator)
 	defer {
@@ -284,6 +289,27 @@ tool_apply_edits :: proc(args_json: string, allocator := context.allocator) -> (
 		append(&staged, Pending_Write{abs = strings.clone(f.abs, allocator), content = strings.clone(f.content, allocator)})
 	}
 
+	for s in staged {
+		old_text := ""
+		old_data, old_err := os.read_entire_file(s.abs, allocator)
+		if old_err == nil {
+			old_text = string(old_data)
+		}
+		gate_err := structure.growth_error(
+			workspace_root(context.temp_allocator),
+			s.abs,
+			old_text,
+			s.content,
+			allow_godfile,
+			allocator,
+		)
+		if old_err == nil {
+			delete(old_data)
+		}
+		if len(gate_err) > 0 {
+			return "", gate_err
+		}
+	}
 	for s in staged {
 		snapshot_before_write(s.abs)
 		if werr := os.write_entire_file(s.abs, transmute([]u8)s.content); werr != nil {

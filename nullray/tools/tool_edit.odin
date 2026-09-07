@@ -10,6 +10,7 @@ import "core:os"
 import "core:strings"
 import "nullray:constants"
 import "nullray:sandbox"
+import "nullray:structure"
 import "nullray:subagent"
 
 tool_edit_file :: proc(args_json: string, allocator := context.allocator) -> (result: string, err: string) {
@@ -32,6 +33,10 @@ tool_edit_file :: proc(args_json: string, allocator := context.allocator) -> (re
 	if rerr != "" {
 		return "", rerr
 	}
+	allow_godfile, aerr := json_arg_bool_string(args_json, "allow_godfile", false, allocator)
+	if aerr != "" {
+		return "", aerr
+	}
 
 	abs := resolve_path(path, allocator)
 	defer delete(abs)
@@ -42,7 +47,6 @@ tool_edit_file :: proc(args_json: string, allocator := context.allocator) -> (re
 		return "", lease_err
 	}
 
-	snapshot_before_write(abs)
 	data, read_err := os.read_entire_file(abs, allocator)
 	if read_err != nil {
 		return "", fmt.aprintf("read failed: %v", read_err, allocator = allocator)
@@ -65,6 +69,17 @@ tool_edit_file :: proc(args_json: string, allocator := context.allocator) -> (re
 	}
 	defer delete(updated)
 
+	if gate_err := structure.growth_error(
+		workspace_root(context.temp_allocator),
+		path,
+		content,
+		updated,
+		allow_godfile,
+		allocator,
+	); len(gate_err) > 0 {
+		return "", gate_err
+	}
+	snapshot_before_write(abs)
 	if werr := os.write_entire_file(abs, transmute([]u8)updated); werr != nil {
 		return "", fmt.aprintf("write failed: %v", werr, allocator = allocator)
 	}

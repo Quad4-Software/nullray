@@ -47,10 +47,13 @@ verify_max_fails_from_env :: proc() -> int {
 }
 
 rubric_enabled_from_env :: proc() -> bool {
-	if v, ok := os.lookup_env(constants.ENV_RUBRIC, context.temp_allocator); ok {
-		switch strings.to_lower(v, context.temp_allocator) {
-		case "1", "true", "yes", "on":
-			return true
+	keys := []string{constants.ENV_RUBRIC, constants.ENV_SECURE_GATES}
+	for key in keys {
+		if v, ok := os.lookup_env(key, context.temp_allocator); ok {
+			switch strings.to_lower(v, context.temp_allocator) {
+			case "1", "true", "yes", "on":
+				return true
+			}
 		}
 	}
 	return false

@@ -10,6 +10,7 @@ import "core:os"
 import "core:strings"
 import "nullray:constants"
 import "nullray:sandbox"
+import "nullray:structure"
 import "nullray:subagent"
 
 tool_read_file :: proc(args_json: string, allocator := context.allocator) -> (result: string, err: string) {
@@ -43,31 +44,40 @@ tool_read_file :: proc(args_json: string, allocator := context.allocator) -> (re
 		return "", fmt.aprintf("file exceeds %d bytes", constants.MAX_TOOL_FILE_BYTES, allocator = allocator)
 	}
 	text := string(data)
+	line_total := structure.line_count(text)
+	policy, _ := structure.load_policy(workspace_root(context.temp_allocator), context.temp_allocator)
+	header := fmt.aprintf(
+		"path %s lines=%d bytes=%d threshold=%s\n",
+		path,
+		line_total,
+		len(data),
+		structure.threshold(line_total, policy),
+		allocator = allocator,
+	)
+	defer delete(header)
+	body: string
 	if offset > 0 || limit > 0 {
 		sliced := slice_lines(text, offset, limit, context.temp_allocator)
-		out := strings.clone(sliced, allocator)
-		delete(data)
-		if len(out) > constants.MAX_READ_FILE_CHARS {
-			trimmed := strings.clone(out[:constants.MAX_READ_FILE_CHARS], allocator)
-			delete(out)
-			return trimmed, ""
-		}
-		return out, ""
-	}
-	if len(text) > constants.MAX_READ_FILE_CHARS {
-		head := strings.clone(text[:constants.MAX_READ_FILE_CHARS], allocator)
-		delete(data)
-		note := fmt.aprintf(
-			"\n\n[truncated at %d chars; use offset/limit to read more]",
+		body = strings.clone(sliced, allocator)
+	} else if len(text) > constants.MAX_READ_FILE_CHARS {
+		head := text[:constants.MAX_READ_FILE_CHARS]
+		body = fmt.aprintf(
+			"%s\n\n[truncated at %d chars; use offset/limit to read more]",
+			head,
 			constants.MAX_READ_FILE_CHARS,
 			allocator = allocator,
 		)
-		combined := strings.concatenate({head, note}, allocator)
-		delete(head)
-		delete(note)
-		return combined, ""
+	} else {
+		body = strings.clone(text, allocator)
 	}
-	return text, ""
+	delete(data)
+	defer delete(body)
+	if len(body) > constants.MAX_READ_FILE_CHARS {
+		trimmed := body[:constants.MAX_READ_FILE_CHARS]
+		out := strings.concatenate({header, trimmed}, allocator)
+		return out, ""
+	}
+	return strings.concatenate({header, body}, allocator), ""
 }
 
 /*
@@ -104,6 +114,10 @@ tool_write_file :: proc(args_json: string, allocator := context.allocator) -> (r
 		return "", cerr
 	}
 	defer delete(content)
+	allow_godfile, aerr := json_arg_bool_string(args_json, "allow_godfile", false, allocator)
+	if aerr != "" {
+		return "", aerr
+	}
 	abs := resolve_path(path, allocator)
 	defer delete(abs)
 	if !sandbox.path_allowed(sandbox.state(), abs, true) {
@@ -111,6 +125,22 @@ tool_write_file :: proc(args_json: string, allocator := context.allocator) -> (r
 	}
 	if lease_err := subagent.check_write_allowed(abs, allocator); len(lease_err) > 0 {
 		return "", lease_err
+	}
+	old_text := ""
+	old_data, old_err := os.read_entire_file(abs, allocator)
+	if old_err == nil {
+		defer delete(old_data)
+		old_text = string(old_data)
+	}
+	if gate_err := structure.growth_error(
+		workspace_root(context.temp_allocator),
+		path,
+		old_text,
+		content,
+		allow_godfile,
+		allocator,
+	); len(gate_err) > 0 {
+		return "", gate_err
 	}
 	snapshot_before_write(abs)
 	if werr := os.write_entire_file(abs, transmute([]u8)content); werr != nil {
