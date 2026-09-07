@@ -22,6 +22,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- Incomplete Done Contracts (missing Verify/Success/Budget) are status-flagged and no longer written via `--plan-out`.
 - Plan artifact writes under Landlock no longer call `make_directory_all` from `/` (which denied parent opens like `/tmp`). Parents are created from the deepest visible ancestor.
 - `--output-format json` no longer corrupts braces via `fmt` (`{{` / `}}` escape).
 
