@@ -4,6 +4,8 @@ package session
 
 import win "core:sys/windows"
 
+STILL_ACTIVE :: u32(259)
+
 @(private)
 process_alive :: proc(pid: int) -> bool {
 	if pid <= 0 {
@@ -18,5 +20,5 @@ process_alive :: proc(pid: int) -> bool {
 	if !win.GetExitCodeProcess(h, &code) {
 		return false
 	}
-	return code == win.STILL_ACTIVE
+	return code == STILL_ACTIVE
 }

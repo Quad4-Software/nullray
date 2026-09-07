@@ -32,7 +32,7 @@ term_plat_enter_raw :: proc(t: ^Term) -> bool {
 
 	new_in := in_mode
 	new_in &~= win.ENABLE_ECHO_INPUT | win.ENABLE_LINE_INPUT | win.ENABLE_PROCESSED_INPUT
-	new_in |= win.ENABLE_VIRTUAL_TERMINAL_INPUT | win.ENABLE_EXTENDED_FLAGS
+	new_in |= win.ENABLE_VIRTUAL_TERMINAL_INPUT | 0x0080 // ENABLE_EXTENDED_FLAGS
 	new_out := out_mode | win.ENABLE_PROCESSED_OUTPUT | win.ENABLE_VIRTUAL_TERMINAL_PROCESSING
 	if !win.SetConsoleMode(hin, new_in) {
 		return false
