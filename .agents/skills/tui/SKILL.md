@@ -9,7 +9,7 @@ description: >
 
 Cell buffer UI. Paint cells. ANSI lives in term_present only.
 
-Read `.agents/references/tui.md` for the file map. Read `.agents/references/footguns.md` before non-trivial UI or ownership changes.
+File map: [references/map.md](references/map.md). Before non-trivial UI or ownership edits, also read the project footguns map (see AGENTS.md).
 
 ## Frame loop
 
@@ -24,6 +24,8 @@ loop_init -> app_init -> loop_run(app_draw, app_on_event, app_is_dirty, app_on_t
 ```
 
 Each iteration frees temp. Do not store temp pointers past the frame.
+
+`app_is_dirty` is splash or `a.dirty`. Busy/stream marks dirty from `app_on_tick` on session deltas or every `SPINNER_FRAME_MS`, not every poll.
 
 ## Paint rules
 
@@ -44,7 +46,7 @@ Out of bounds put is a silent no-op. Control runes become space (sanitize_cell_r
 - Bracketed paste: Paste_Start / Paste_End. While pasting, Enter inserts newline.
 - Pushback is one byte. Do not expand lightly.
 - stdin_ready is platform-split. Decode is shared.
-- Cursor index is byte-based. Mid-rune UTF-8 breaks draw_input_line.
+- Input caret is byte-based. Mid-rune UTF-8 breaks draw_input_line.
 
 Binds: keys.ini preset= then NULLRAY_KEYS / --keys. Presets default | neovim | emacs.
 
@@ -54,7 +56,9 @@ Line-edit chords run before binds_resolve. Ctrl-C always quits (loop and binds).
 
 Default on. Off: NULLRAY_SPLASH=0|false|off|no|disable or --no-splash. Force: --splash or =1.
 
-While splash_active, app_on_event drops all input (not queued). Splash keeps dirty for animation.
+While splash_active, any key or mouse ends splash early (event is not applied to the prompt). Timer still finishes it if untouched. Splash keeps dirty for animation.
+
+Ink templates are ASCII `#`. When `term_utf8_ok` (UTF-8 locale, Windows, or default modern host), paint U+2588 full block. Explicit legacy locales (C, POSIX, ISO-8859, KOI8) keep `#`. `TERM=dumb` does not force ASCII. Colors still go through cells. No ANSI escapes in the buffer.
 
 ## Ownership (UI)
 

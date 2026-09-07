@@ -1,6 +1,6 @@
 # TUI map
 
-Dense file map for nullray/ui, nullray/app, nullray/config. Skill: `.agents/skills/tui/SKILL.md`.
+Dense file map for nullray/ui, nullray/app, nullray/config.
 
 ## ui/
 

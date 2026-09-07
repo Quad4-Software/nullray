@@ -37,6 +37,8 @@ Every job starts with harden-runner before checkout or installs. Reuse the SHA a
 
 release.yml builds on v*.*.* tags. Immutable releases are on. Do not force-move a published tag. Ship a new patch if an artifact is wrong.
 
+docker.yml publishes multi-arch images to GHCR (digest-pinned Dockerfile). Tag releases also build AppImage, Flatpak, and SBOMs attached with a sha256 table in notes.md.
+
 ## Checklist
 
 1. harden-runner is step one of each job
