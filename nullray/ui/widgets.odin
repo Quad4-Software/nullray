@@ -27,11 +27,15 @@ draw_box :: proc(b: ^Buffer, x, y, w, h: int, fg, bg: Color, title := "") {
 }
 
 draw_status_bar :: proc(b: ^Buffer, y: int, left, right: string, fg, bg: Color) {
-	buffer_fill_rect(b, 0, y, b.width, 1, ' ', fg, bg)
+	draw_status_bar_ex(b, y, left, right, fg, fg, bg)
+}
+
+draw_status_bar_ex :: proc(b: ^Buffer, y: int, left, right: string, left_fg, right_fg, bg: Color) {
+	buffer_fill_rect(b, 0, y, b.width, 1, ' ', left_fg, bg)
 	rw := string_cols(right)
 	right_x := max(1, b.width - rw - 1)
-	buffer_text_clip(b, 1, y, right_x - 1, left, fg, bg)
-	buffer_text(b, right_x, y, right, fg, bg)
+	buffer_text_clip(b, 1, y, right_x - 1, left, left_fg, bg)
+	buffer_text(b, right_x, y, right, right_fg, bg)
 }
 
 draw_input_line :: proc(b: ^Buffer, y: int, prompt, text: string, cursor: int, fg, bg, prompt_fg: Color) {
