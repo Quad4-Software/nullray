@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: 0BSD
 /*
 Session listing, search, and group context.
 */
@@ -52,22 +53,22 @@ list_sessions :: proc(allocator := context.allocator) -> []Session_Info {
 	return out[:]
 }
 
-destroy_session_infos :: proc(items: []Session_Info) {
+destroy_session_infos :: proc(items: []Session_Info, allocator := context.allocator) {
 	for it in items {
-		delete(it.name)
-		delete(it.path)
-		delete(it.preview)
-		delete(it.group)
-		delete(it.provider)
-		delete(it.model)
+		delete(it.name, allocator)
+		delete(it.path, allocator)
+		delete(it.preview, allocator)
+		delete(it.group, allocator)
+		delete(it.provider, allocator)
+		delete(it.model, allocator)
 	}
-	delete(items)
+	delete(items, allocator)
 }
 
 search_sessions :: proc(query: string, allocator := context.allocator) -> []Session_Info {
 	q := strings.to_lower(strings.trim_space(query), context.temp_allocator)
 	all := list_sessions(context.temp_allocator)
-	defer destroy_session_infos(all)
+	defer destroy_session_infos(all, context.temp_allocator)
 	out := make([dynamic]Session_Info, 0, 8, allocator)
 	if len(q) == 0 {
 		for it in all {
@@ -111,7 +112,7 @@ search_sessions :: proc(query: string, allocator := context.allocator) -> []Sess
 list_group_sessions :: proc(group: string, exclude_name: string, allocator := context.allocator) -> []Session_Info {
 	g := store_sanitize_group(group)
 	all := list_sessions(context.temp_allocator)
-	defer destroy_session_infos(all)
+	defer destroy_session_infos(all, context.temp_allocator)
 	out := make([dynamic]Session_Info, 0, 4, allocator)
 	for it in all {
 		if len(it.group) == 0 || it.group != g {
@@ -137,7 +138,7 @@ group_context_text :: proc(group: string, exclude_name: string, allocator := con
 		return strings.clone("", allocator)
 	}
 	items := list_group_sessions(group, exclude_name, context.temp_allocator)
-	defer destroy_session_infos(items)
+	defer destroy_session_infos(items, context.temp_allocator)
 	if len(items) == 0 {
 		return strings.clone("", allocator)
 	}
@@ -158,4 +159,3 @@ group_context_text :: proc(group: string, exclude_name: string, allocator := con
 	}
 	return strings.to_string(b)
 }
-

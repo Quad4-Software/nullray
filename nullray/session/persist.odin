@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: 0BSD
 /*
 Session persistence, identity CRUD, list and search.
 */
@@ -178,7 +179,7 @@ session_fork :: proc(s: ^Session, name: string) -> bool {
 
 session_list_text :: proc(allocator := context.allocator) -> string {
 	items := store.list_sessions(allocator)
-	defer store.destroy_session_infos(items)
+	defer store.destroy_session_infos(items, allocator)
 	if len(items) == 0 {
 		return strings.clone("(no sessions)", allocator)
 	}
@@ -202,7 +203,7 @@ session_list_text :: proc(allocator := context.allocator) -> string {
 
 session_search_text :: proc(query: string, allocator := context.allocator) -> string {
 	items := store.search_sessions(query, allocator)
-	defer store.destroy_session_infos(items)
+	defer store.destroy_session_infos(items, allocator)
 	if len(items) == 0 {
 		return strings.clone("(no matches)", allocator)
 	}
@@ -220,4 +221,3 @@ session_search_text :: proc(query: string, allocator := context.allocator) -> st
 	}
 	return strings.to_string(b)
 }
-

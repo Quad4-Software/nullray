@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: 0BSD
 /*
 Chat session core: type, lifecycle, messages, mode, streaming, status.
 */
@@ -37,6 +38,7 @@ Session :: struct {
 	session_usage:      provider.Usage,
 	reasoning_effort:   string,
 	agent_mode:          agent.Agent_Mode,
+	tools_registry:      ^tools.Registry,
 	mode_policy:         agent.Mode_Policy,
 	cancel_requested:    bool,
 	pause_requested:     bool,
@@ -45,6 +47,7 @@ Session :: struct {
 	pending_commit:      [dynamic]provider.Message,
 	commit_mu:           sync.Mutex,
 	skip_assistant_push: bool,
+	last_plan_path:      string,
 }
 
 session_init :: proc(s: ^Session) {
@@ -64,8 +67,14 @@ session_init :: proc(s: ^Session) {
 		if v == "off" || v == "0" || v == "false" {
 			s.persist = false
 		} else if len(v) > 0 && v != "on" && v != "1" && v != "true" {
-			s.session_path = strings.clone(v)
-			s.name = strings.clone(filepath.stem(v))
+			if store.looks_like_session_path(v) {
+				s.session_path = strings.clone(v)
+				s.name = strings.clone(filepath.stem(v))
+			} else {
+				safe := store.sanitize_name(v)
+				s.name = strings.clone(safe)
+				s.session_path = store.named_session_path(safe)
+			}
 		}
 	}
 	if len(s.session_path) == 0 {
@@ -77,7 +86,7 @@ session_init :: proc(s: ^Session) {
 	}
 
 	skills_prompt := agent.load_skills_prompt()
-	s.system_prompt = agent.build_system_prompt(skills_prompt)
+	s.system_prompt = agent.build_system_prompt(skills_prompt, s.tools_registry)
 	delete(skills_prompt)
 
 	if s.persist {
@@ -113,6 +122,12 @@ session_destroy :: proc(s: ^Session) {
 	}
 	delete(s.pending)
 	sync.mutex_unlock(&s.pending_mu)
+	sync.mutex_lock(&s.commit_mu)
+	for m in s.pending_commit {
+		provider.destroy_message(m)
+	}
+	delete(s.pending_commit)
+	sync.mutex_unlock(&s.commit_mu)
 	delete(s.status)
 	delete(s.model)
 	delete(s.provider_id)
@@ -121,6 +136,7 @@ session_destroy :: proc(s: ^Session) {
 	delete(s.name)
 	delete(s.group)
 	delete(s.reasoning_effort)
+	delete(s.last_plan_path)
 	strings.builder_destroy(&s.streaming)
 	strings.builder_destroy(&s.thinking)
 	s^ = {}
@@ -249,7 +265,7 @@ session_sync_mode_env :: proc(s: ^Session) {
 session_rebuild_system_prompt :: proc(s: ^Session) {
 	delete(s.system_prompt)
 	skills_prompt := agent.load_skills_prompt()
-	s.system_prompt = agent.build_system_prompt(skills_prompt)
+	s.system_prompt = agent.build_system_prompt(skills_prompt, s.tools_registry)
 	delete(skills_prompt)
 }
 
@@ -360,4 +376,3 @@ format_token_count :: proc(n: int) -> string {
 	}
 	return fmt.tprintf("%dk", n / 1000)
 }
-

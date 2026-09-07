@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: 0BSD
 /*
 Per-process session locks so multiple nullray instances can run together.
 */
@@ -29,7 +30,7 @@ session_trim_memory :: proc(s: ^Session, max_chars: int) {
 	for {
 		total := 0
 		for m in s.messages {
-			total += len(m.content)
+			total += len(m.content) + len(m.reasoning) + len(m.name)
 			for tc in m.tool_calls {
 				total += len(tc.name) + len(tc.arguments) + len(tc.id)
 			}
@@ -88,31 +89,11 @@ crash_lock_write :: proc(config_dir: string, session_id: string) {
 	path := crash_lock_path(config_dir, context.temp_allocator)
 	body := fmt.tprintf("%d\n%s\n", os.get_pid(), session_id)
 	_ = os.write_entire_file(path, transmute([]u8)body)
-	// Also refresh legacy single lock only if no other live instance owns it
-	legacy := fmt.tprintf("%s/nullray.lock", config_dir)
-	if data, err := os.read_entire_file(legacy, context.temp_allocator); err == nil && len(data) > 0 {
-		lines := strings.split_lines(string(data), context.temp_allocator)
-		if len(lines) > 0 {
-			if pid, ok := strconv.parse_int(strings.trim_space(lines[0])); ok && process_alive(pid) && pid != os.get_pid() {
-				return
-			}
-		}
-	}
-	_ = os.write_entire_file(legacy, transmute([]u8)body)
 }
 
 crash_lock_clear :: proc(config_dir: string) {
 	path := crash_lock_path(config_dir, context.temp_allocator)
 	_ = os.remove(path)
-	legacy := fmt.tprintf("%s/nullray.lock", config_dir)
-	if data, err := os.read_entire_file(legacy, context.temp_allocator); err == nil && len(data) > 0 {
-		lines := strings.split_lines(string(data), context.temp_allocator)
-		if len(lines) > 0 {
-			if pid, ok := strconv.parse_int(strings.trim_space(lines[0])); ok && pid == os.get_pid() {
-				_ = os.remove(legacy)
-			}
-		}
-	}
 }
 
 /*
@@ -154,27 +135,22 @@ so multiple nullray sessions can run at once.
 */
 crash_lock_recover :: proc(config_dir: string, allocator := context.allocator) -> (session_id: string, recovered: bool) {
 	dir := runtime_dir(config_dir, context.temp_allocator)
-	if entries, err := os.read_all_directory_by_path(dir, context.temp_allocator); err == nil {
-		defer os.file_info_slice_delete(entries, context.temp_allocator)
-		for e in entries {
-			name := e.name
-			if !strings.has_prefix(name, "nullray-") || !strings.has_suffix(name, ".lock") {
-				continue
-			}
-			path, _ := filepath.join({dir, name}, context.temp_allocator)
-			sid, ok := read_dead_lock(path, allocator)
-			if ok {
-				_ = os.remove(path)
-				return sid, true
-			}
-		}
+	entries, err := os.read_all_directory_by_path(dir, context.temp_allocator)
+	if err != nil {
+		return "", false
 	}
-
-	legacy := fmt.tprintf("%s/nullray.lock", config_dir)
-	sid, ok := read_dead_lock(legacy, allocator)
-	if ok {
-		_ = os.remove(legacy)
-		return sid, true
+	defer os.file_info_slice_delete(entries, context.temp_allocator)
+	for e in entries {
+		name := e.name
+		if !strings.has_prefix(name, "nullray-") || !strings.has_suffix(name, ".lock") {
+			continue
+		}
+		path, _ := filepath.join({dir, name}, context.temp_allocator)
+		sid, ok := read_dead_lock(path, allocator)
+		if ok {
+			_ = os.remove(path)
+			return sid, true
+		}
 	}
 	return "", false
 }

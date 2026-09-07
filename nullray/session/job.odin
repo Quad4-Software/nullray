@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: 0BSD
 /*
 Background chat job, turn commit, cancel/pause/resume.
 */
@@ -11,6 +12,7 @@ import "core:thread"
 import "nullray:agent"
 import "nullray:http"
 import "nullray:provider"
+import "nullray:sandbox"
 import "nullray:store"
 
 Job_Args :: struct {
@@ -58,8 +60,6 @@ session_queue_commit :: proc(s: ^Session, turn_base: int, msgs: []provider.Messa
 			continue
 		}
 		cloned := provider.clone_message(m)
-		delete(cloned.reasoning)
-		cloned.reasoning = ""
 		append(&s.pending_commit, cloned)
 	}
 	sync.mutex_unlock(&s.commit_mu)
@@ -147,9 +147,6 @@ session_start_chat :: proc(s: ^Session, p: ^provider.Provider) {
 	}
 	for m in s.messages {
 		cloned := provider.clone_message(m)
-		// Do not resend prior reasoning blobs to the model.
-		delete(cloned.reasoning)
-		cloned.reasoning = ""
 		append(&flat, cloned)
 	}
 	msgs := make([]provider.Message, len(flat))
@@ -210,6 +207,10 @@ chat_job :: proc(data: rawptr) {
 	cfg := agent.default_config()
 	cfg.enable_tools = args.tools_enabled
 	cfg.reasoning_effort = args.reasoning_effort
+	cfg.mode = args.session.agent_mode
+	if args.session.tools_registry != nil {
+		cfg.tools_registry = args.session.tools_registry
+	}
 	cfg.on_event = agent_event_cb
 	cfg.user = args.session
 	cfg.stop_check = session_stop_check
@@ -274,6 +275,27 @@ chat_job :: proc(data: rawptr) {
 		note = " (stopped)"
 	case "loop":
 		note = " (anti-loop)"
+	}
+
+	if args.session.agent_mode == .Plan &&
+		(result.stopped == "done" || result.stopped == "max_steps") &&
+		len(strings.trim_space(out)) > 0 {
+		plan_out := agent.plan_out_from_env(context.temp_allocator)
+		out_path := agent.out_path_from_env(context.temp_allocator)
+		ws := ""
+		if st := sandbox.state(); st != nil {
+			ws = st.workspace
+		}
+		saved, perr := agent.save_plan_artifact(out, plan_out, out_path, ws)
+		if len(perr) > 0 {
+			session_enqueue(args.session, Event{kind = .Status, text = strings.clone(fmt.tprintf("plan save failed: %s", perr))})
+			delete(perr)
+		} else if len(saved) > 0 {
+			delete(args.session.last_plan_path)
+			args.session.last_plan_path = strings.clone(saved)
+			session_enqueue(args.session, Event{kind = .Status, text = strings.clone(fmt.tprintf("plan saved %s", saved))})
+			delete(saved)
+		}
 	}
 
 	do_review := agent.review_enabled_from_env() &&

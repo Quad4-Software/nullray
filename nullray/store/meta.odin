@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: 0BSD
 /*
 Session metadata JSON next to transcript files.
 */
@@ -18,7 +19,7 @@ Session_Meta :: struct {
 
 meta_path_for :: proc(session_jsonl_path: string, allocator := context.allocator) -> string {
 	if strings.has_suffix(session_jsonl_path, ".jsonl") {
-		base := session_jsonl_path[:len(session_jsonl_path) - 5]
+		base := session_jsonl_path[:len(session_jsonl_path) - len(".jsonl")]
 		return fmt.aprintf("%s.meta.json", base, allocator = allocator)
 	}
 	return fmt.aprintf("%s.meta.json", session_jsonl_path, allocator = allocator)
@@ -83,4 +84,3 @@ destroy_session_meta :: proc(meta: Session_Meta) {
 	delete(meta.group)
 	delete(meta.mode)
 }
-

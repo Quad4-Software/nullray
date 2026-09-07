@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: 0BSD
 /*
 Session path helpers under the config directory.
 */
@@ -72,6 +73,19 @@ sanitize_name :: proc(s: string) -> string {
 		return "default"
 	}
 	return out
+}
+
+// Path form: contains / or \, or ends with .jsonl. Else treat as a session id.
+looks_like_session_path :: proc(v: string) -> bool {
+	if strings.has_suffix(v, ".jsonl") {
+		return true
+	}
+	for c in v {
+		if c == '/' || c == '\\' {
+			return true
+		}
+	}
+	return false
 }
 
 store_sanitize_group :: proc(s: string) -> string {

@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: 0BSD
 /*
 JSONL transcript save/load and preview helpers.
 */
@@ -255,7 +256,7 @@ session_group_snippet :: proc(path: string, max_chars: int, allocator := context
 session_preview :: proc(path: string, allocator := context.allocator) -> string {
 	data, err := os.read_entire_file(path, context.temp_allocator)
 	if err != nil || len(data) == 0 {
-		return "(empty)"
+		return strings.clone("(empty)", allocator)
 	}
 	lines := strings.split_lines(string(data), context.temp_allocator)
 	last := ""
@@ -293,7 +294,7 @@ session_preview :: proc(path: string, allocator := context.allocator) -> string 
 		}
 	}
 	if len(last) == 0 {
-		return "(empty)"
+		return strings.clone("(empty)", allocator)
 	}
 	return strings.clone(last, allocator)
 }
@@ -326,4 +327,3 @@ json_quote :: proc(s: string) -> string {
 	strings.write_byte(&b, '"')
 	return strings.to_string(b)
 }
-
