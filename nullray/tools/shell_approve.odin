@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: 0BSD
 /*
 One-shot shell approval for NULLRAY_PERMS=ask.
 */

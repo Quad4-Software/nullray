@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: 0BSD
 /*
 Customizable key bindings loaded from ~/.config/nullray/keys.ini.
 Presets: default, neovim (insert-style edits), emacs (readline-style edits).

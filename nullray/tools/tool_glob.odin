@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: 0BSD
 /*
 glob_files tool: recursive filename pattern listing under sandbox.
 */

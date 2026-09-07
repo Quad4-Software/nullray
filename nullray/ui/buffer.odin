@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: 0BSD
 /*
 Retained cell buffer the UI paints into each frame.
 */

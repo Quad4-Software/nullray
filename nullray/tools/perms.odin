@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: 0BSD
 /*
 Shell and write permission levels: ask, allow, yolo.
 */

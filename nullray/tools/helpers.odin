@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: 0BSD
 /*
 Shared JSON arg parsing and path helpers for agent tools.
 */

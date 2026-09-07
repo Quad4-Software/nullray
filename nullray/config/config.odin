@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: 0BSD
 /*
 Load KEY=value pairs from ~/.config/nullray/env into the process environment.
 Does not overwrite keys already set.

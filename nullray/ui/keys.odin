@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: 0BSD
 /*
 Key and event decoding from raw terminal input.
 */

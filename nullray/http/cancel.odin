@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: 0BSD
 /*
 Global HTTP cancel flag so Esc/stop can abort in-flight curl.
 */

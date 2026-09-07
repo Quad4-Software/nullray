@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: 0BSD
 /*
 grep_files tool: recursive substring search under sandbox.
 */

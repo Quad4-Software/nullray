@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: 0BSD
 /*
 Workspace edit snapshots for /undo of agent file writes.
 */

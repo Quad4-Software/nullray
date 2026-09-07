@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: 0BSD
 /*
 Opt-in prompt improver: short isolated chat, separate model, undo buffer.
 */

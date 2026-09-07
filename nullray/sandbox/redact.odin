@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: 0BSD
 /*
 Outbound privacy redaction for home paths and username.
 

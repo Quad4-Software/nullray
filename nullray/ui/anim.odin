@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: 0BSD
 /*
 Frame animations for status and busy indicators.
 */

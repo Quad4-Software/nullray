@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: 0BSD
 /*
 Built-in themes and active theme lookup.
 */

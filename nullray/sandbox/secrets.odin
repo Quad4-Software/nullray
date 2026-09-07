@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: 0BSD
 /*
 Blocked secret paths for tools and shell unless explicitly allowed.
 */

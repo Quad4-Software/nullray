@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: 0BSD
 /*
 RGB colors and ANSI palette mapping.
 */

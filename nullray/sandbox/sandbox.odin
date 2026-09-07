@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: 0BSD
 /*
 Sandbox entry: Landlock path control, seccomp-bpf, privacy scrub.
 Apply before http/UI/threads.

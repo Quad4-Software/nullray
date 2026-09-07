@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: 0BSD
 /*
 Provider-backed conversation compaction.
 */

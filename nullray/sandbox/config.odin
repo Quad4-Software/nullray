@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: 0BSD
 /*
 Sandbox mode, path allowlists, and privacy env parsing.
 */

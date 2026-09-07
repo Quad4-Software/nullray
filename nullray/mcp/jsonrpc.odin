@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: 0BSD
 /*
 JSON-RPC 2.0 line helpers for MCP stdio transport.
 */

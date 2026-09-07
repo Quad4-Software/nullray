@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: 0BSD
 /*
 edit_file tool: read, replace, write with sandbox checks.
 */

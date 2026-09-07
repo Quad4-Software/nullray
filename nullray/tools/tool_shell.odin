@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: 0BSD
 /*
 run_shell tool: execute /bin/sh -c in workspace when sandbox permits.
 */

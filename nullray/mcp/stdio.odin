@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: 0BSD
 /*
 MCP stdio subprocess session with line-framed JSON-RPC.
 */

@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: 0BSD
 /*
 Immediate-mode painters for common chrome.
 */

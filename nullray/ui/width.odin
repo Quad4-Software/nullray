@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: 0BSD
 /*
 Display column width for terminal cells.
 */

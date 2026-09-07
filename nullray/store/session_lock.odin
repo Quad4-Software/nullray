@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: 0BSD
 /*
 Advisory session file lock so two nullray processes do not share one JSONL.
 */

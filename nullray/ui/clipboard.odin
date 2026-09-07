@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: 0BSD
 /*
 Clipboard copy and paste via OSC 52 and common CLI tools.
 */

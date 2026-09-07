@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: 0BSD
 /*
 Built-in filesystem tools: read, write, list.
 */

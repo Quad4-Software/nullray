@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: 0BSD
 package tools
 
 import "core:os"

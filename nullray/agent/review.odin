@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: 0BSD
 /*
 Optional end-of-turn review pass (NULLRAY_REVIEW). Separate model, short context.
 */

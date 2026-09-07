@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: 0BSD
 /*
 Shell command safety checks and workspace cwd resolution.
 */
