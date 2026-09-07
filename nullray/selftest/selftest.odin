@@ -6,10 +6,12 @@ Headless startup and drawing smoke checks (no TTY).
 package selftest
 
 import "core:fmt"
+import "core:os"
 import "core:strings"
 import "nullray:constants"
 import "nullray:http"
 import "nullray:mcp"
+import "nullray:sandbox"
 import "nullray:store"
 import "nullray:tools"
 import "nullray:ui"
@@ -70,6 +72,22 @@ run :: proc() -> int {
 		fmt.eprintln("selftest: jsonrpc build failed")
 		fails += 1
 	}
+
+	os.unset_env(constants.ENV_SECRETS_ALLOW)
+	if !sandbox.path_is_secret_blocked("/tmp/nullray-selftest/.env") {
+		fmt.eprintln("selftest: .env should be secret-blocked")
+		fails += 1
+	}
+
+	os.set_env(constants.ENV_PRIVACY_REDACT, "1")
+	os.set_env("HOME", "/home/user1")
+	os.set_env("USER", "user1")
+	redacted := sandbox.redact_secrets("see /home/user1/secret")
+	if strings.contains(redacted, "/home/user1") {
+		fmt.eprintln("selftest: redact_secrets left HOME path")
+		fails += 1
+	}
+	delete(redacted)
 
 	if fails == 0 {
 		fmt.println("nullray: self-test ok")

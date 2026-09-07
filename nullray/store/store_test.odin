@@ -16,6 +16,16 @@ test_sanitize_name :: proc(t: ^testing.T) {
 }
 
 @(test)
+test_sanitize_name_adversarial :: proc(t: ^testing.T) {
+	testing.expect_value(t, sanitize_name("../etc/passwd"), "___etc_passwd")
+	testing.expect_value(t, sanitize_name(".."), "__")
+	testing.expect_value(t, sanitize_name("a\x00b"), "a_b")
+	testing.expect_value(t, sanitize_name("会话"), "__")
+	testing.expect_value(t, sanitize_name("!!!"), "___")
+	testing.expect_value(t, sanitize_name("safe-name_01"), "safe-name_01")
+}
+
+@(test)
 test_looks_like_session_path :: proc(t: ^testing.T) {
 	testing.expect(t, looks_like_session_path("foo/bar"))
 	testing.expect(t, looks_like_session_path(`C:\sess.jsonl`))

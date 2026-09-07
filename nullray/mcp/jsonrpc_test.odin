@@ -57,3 +57,38 @@ test_parse_initialize_protocol_version :: proc(t: ^testing.T) {
 	defer delete(v)
 	testing.expect_value(t, v, "2024-11-05")
 }
+
+@(test)
+test_parse_response_malformed_json :: proc(t: ^testing.T) {
+	result, err, matched := parse_response_line("{not-json", 1)
+	defer delete(result)
+	defer delete(err)
+	testing.expect(t, matched)
+	testing.expect(t, len(err) > 0)
+	testing.expect_value(t, result, "")
+}
+
+@(test)
+test_parse_response_id_mismatch :: proc(t: ^testing.T) {
+	line := `{"jsonrpc":"2.0","id":9,"result":{}}`
+	result, err, matched := parse_response_line(line, 1)
+	defer delete(result)
+	defer delete(err)
+	testing.expect(t, !matched)
+}
+
+@(test)
+test_parse_response_notification_ignored :: proc(t: ^testing.T) {
+	line := `{"jsonrpc":"2.0","method":"notifications/progress","params":{}}`
+	result, err, matched := parse_response_line(line, 1)
+	defer delete(result)
+	defer delete(err)
+	testing.expect(t, !matched)
+}
+
+@(test)
+test_build_request_escapes_method :: proc(t: ^testing.T) {
+	req := build_request(2, `say "hi"`, `{}`)
+	defer delete(req)
+	testing.expect(t, strings.contains(req, `say \"hi\"`))
+}

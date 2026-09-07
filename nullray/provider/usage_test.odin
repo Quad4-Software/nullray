@@ -16,6 +16,23 @@ test_parse_usage_openai_shape :: proc(t: ^testing.T) {
 }
 
 @(test)
+test_parse_usage_empty_object :: proc(t: ^testing.T) {
+	doc, err := json.parse_string(`{}`, .JSON)
+	testing.expect(t, err == .None)
+	u := parse_usage_value(doc)
+	testing.expect_value(t, u.prompt_tokens, 0)
+	testing.expect_value(t, u.completion_tokens, 0)
+	testing.expect_value(t, u.total_tokens, 0)
+}
+
+@(test)
+test_parse_openai_chat_bad_json :: proc(t: ^testing.T) {
+	res := parse_openai_chat_response(`{broken`)
+	defer destroy_chat_response(&res)
+	testing.expect(t, !res.ok)
+}
+
+@(test)
 test_parse_usage_alt_names :: proc(t: ^testing.T) {
 	doc, err := json.parse_string(`{"input_tokens":8,"output_tokens":2}`, .JSON)
 	testing.expect(t, err == .None)
