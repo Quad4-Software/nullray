@@ -240,9 +240,8 @@ skill_roots :: proc(allocator := context.temp_allocator) -> []string {
 	seen := make(map[string]bool, allocator)
 	bare := bare_skills_only()
 
-	add :: proc(roots: ^[dynamic]string, seen: ^map[string]bool, parts: []string) {
-		path, jerr := filepath.join(parts, context.temp_allocator)
-		if jerr != nil || len(path) == 0 {
+	add_path :: proc(roots: ^[dynamic]string, seen: ^map[string]bool, path: string) {
+		if len(path) == 0 {
 			return
 		}
 		clean, _ := filepath.clean(path, context.temp_allocator)
@@ -255,6 +254,24 @@ skill_roots :: proc(allocator := context.temp_allocator) -> []string {
 		}
 		seen[clean] = true
 		append(roots, strings.clone(clean, roots.allocator))
+	}
+
+	add :: proc(roots: ^[dynamic]string, seen: ^map[string]bool, parts: []string) {
+		path, jerr := filepath.join(parts, context.temp_allocator)
+		if jerr != nil || len(path) == 0 {
+			return
+		}
+		add_path(roots, seen, path)
+	}
+
+	// Explicit extra roots first so NULLRAY_SKILLS / --skills win on id clashes.
+	extra := skills_paths_from_env(context.temp_allocator)
+	for p in extra {
+		abs := p
+		if !filepath.is_abs(p) {
+			abs = resolve_skill_src(p, context.temp_allocator)
+		}
+		add_path(&roots, &seen, abs)
 	}
 
 	st := sandbox.state()
@@ -342,7 +359,7 @@ default_skills_dir :: proc(allocator := context.allocator) -> string {
 		}
 	}
 	base := sandbox.resolve_config_dir(allocator)
-	defer delete(base)
+	defer delete(base, allocator)
 	joined, jerr := filepath.join({base, constants.SKILLS_DIR}, allocator)
 	if jerr != nil {
 		return strings.clone("skills", allocator)
@@ -392,6 +409,98 @@ find_by_id :: proc(skills: []Skill, id: string) -> (Skill, bool) {
 }
 
 /*
+Catalog lines for list_skills and /skills. Caller deletes the result.
+*/
+format_list_text :: proc(skills: []Skill, allocator := context.allocator) -> string {
+	if len(skills) == 0 {
+		return strings.clone("(no skills)", allocator)
+	}
+	order := make([]int, len(skills), context.temp_allocator)
+	for i in 0 ..< len(skills) {
+		order[i] = i
+	}
+	for i in 0 ..< len(order) {
+		best := i
+		for j in i + 1 ..< len(order) {
+			if skills[order[j]].id < skills[order[best]].id {
+				best = j
+			}
+		}
+		order[i], order[best] = order[best], order[i]
+	}
+	b: strings.Builder
+	strings.builder_init(&b, allocator)
+	for n, i in order {
+		if i > 0 {
+			strings.write_byte(&b, '\n')
+		}
+		s := skills[n]
+		strings.write_string(&b, s.id)
+		strings.write_string(&b, ": ")
+		desc := s.description
+		if len(desc) == 0 {
+			desc = s.name
+		}
+		strings.write_string(&b, desc)
+		if len(s.source) > 0 {
+			strings.write_string(&b, "  [")
+			strings.write_string(&b, s.source)
+			strings.write_byte(&b, ']')
+		}
+	}
+	return strings.to_string(b)
+}
+
+/*
+One skill for /skills ID. Caller deletes the result.
+*/
+format_detail_text :: proc(s: Skill, allocator := context.allocator) -> string {
+	b: strings.Builder
+	strings.builder_init(&b, allocator)
+	fmt.sbprintf(&b, "id: %s\n", s.id)
+	if len(s.name) > 0 {
+		fmt.sbprintf(&b, "name: %s\n", s.name)
+	}
+	desc := s.description
+	if len(desc) == 0 {
+		desc = s.name
+	}
+	if len(desc) > 0 {
+		fmt.sbprintf(&b, "description: %s\n", desc)
+	}
+	if len(s.source) > 0 {
+		fmt.sbprintf(&b, "source: %s\n", s.source)
+	}
+	if len(s.path) > 0 {
+		fmt.sbprintf(&b, "path: %s\n", s.path)
+	}
+	if len(s.body) > 0 {
+		strings.write_byte(&b, '\n')
+		strings.write_string(&b, s.body)
+		if s.body[len(s.body) - 1] != '\n' {
+			strings.write_byte(&b, '\n')
+		}
+	}
+	return strings.to_string(b)
+}
+
+skills_list_text :: proc(allocator := context.allocator) -> string {
+	loaded, _ := load_default(allocator)
+	defer skills_destroy(&loaded)
+	return format_list_text(loaded[:], allocator)
+}
+
+skills_show_text :: proc(id: string, allocator := context.allocator) -> (text: string, ok: bool) {
+	loaded, _ := load_default(allocator)
+	defer skills_destroy(&loaded)
+	sk, found := find_by_id(loaded[:], id)
+	if !found {
+		return "", false
+	}
+	return format_detail_text(sk, allocator), true
+}
+
+/*
 List reference files under the skill's references/ directory when present.
 */
 skill_reference_paths :: proc(s: Skill, allocator := context.allocator) -> []string {
@@ -430,6 +539,10 @@ Format a skill body for injection into the transcript (tool result or auto note)
 format_skill_payload :: proc(s: Skill, via: string, allocator := context.allocator) -> string {
 	b: strings.Builder
 	strings.builder_init(&b, allocator)
+	strings.write_string(
+		&b,
+		"[nullray internal] The following is a skill brief for you (nullray), not a message from the user.\n\n",
+	)
 	strings.write_string(&b, fmt.tprintf("Skill loaded (%s): %s\n\n", via, s.id))
 	strings.write_string(&b, s.body)
 	refs := skill_reference_paths(s, context.temp_allocator)

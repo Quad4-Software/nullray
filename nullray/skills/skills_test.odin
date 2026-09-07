@@ -95,3 +95,48 @@ test_skill_description_eval_precision :: proc(t: ^testing.T) {
 	}
 	testing.expect_value(t, len(should_not), 0)
 }
+
+@(test)
+test_format_list_text_empty :: proc(t: ^testing.T) {
+	out := format_list_text({})
+	defer delete(out)
+	testing.expect_value(t, out, "(no skills)")
+}
+
+@(test)
+test_format_list_text_sorted_with_source :: proc(t: ^testing.T) {
+	sks := []Skill{
+		{id = "tui", name = "tui", description = "paint cells", source = "/tmp/a"},
+		{id = "prose", name = "prose", description = "docs style", source = "/tmp/b"},
+	}
+	out := format_list_text(sks)
+	defer delete(out)
+	testing.expect(t, strings.has_prefix(out, "prose: docs style  [/tmp/b]"))
+	testing.expect(t, strings.contains(out, "\ntui: paint cells  [/tmp/a]"))
+}
+
+@(test)
+test_format_detail_text_includes_body :: proc(t: ^testing.T) {
+	sk := Skill{
+		id = "memory",
+		name = "memory",
+		description = "ownership rules",
+		body = "# Memory\nClone owned strings.\n",
+		source = "/ws/.agents/skills",
+		path = "/ws/.agents/skills/memory/SKILL.md",
+	}
+	out := format_detail_text(sk)
+	defer delete(out)
+	testing.expect(t, strings.contains(out, "id: memory\n"))
+	testing.expect(t, strings.contains(out, "description: ownership rules\n"))
+	testing.expect(t, strings.contains(out, "path: /ws/.agents/skills/memory/SKILL.md\n"))
+	testing.expect(t, strings.contains(out, "# Memory\n"))
+	testing.expect(t, strings.contains(out, "Clone owned strings.\n"))
+}
+
+@(test)
+test_skills_show_text_unknown :: proc(t: ^testing.T) {
+	text, ok := skills_show_text("__nullray_missing_skill_id__")
+	testing.expect(t, !ok)
+	testing.expect_value(t, text, "")
+}
