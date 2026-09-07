@@ -195,7 +195,7 @@ sse_line_cb :: proc(line: string, user: rawptr) {
 	}
 	if uv, uok := obj["usage"]; uok {
 		parsed := parse_usage_value(uv)
-		if parsed.total_tokens > 0 || parsed.prompt_tokens > 0 || parsed.completion_tokens > 0 {
+		if parsed.total_tokens > 0 || parsed.prompt_tokens > 0 || parsed.completion_tokens > 0 || parsed.cost_known || parsed.reasoning_tokens > 0 {
 			sync.mutex_lock(&accum.mu)
 			accum.usage = parsed
 			sync.mutex_unlock(&accum.mu)

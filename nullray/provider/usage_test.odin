@@ -43,6 +43,16 @@ test_parse_usage_alt_names :: proc(t: ^testing.T) {
 }
 
 @(test)
+test_parse_usage_with_cost :: proc(t: ^testing.T) {
+	doc, err := json.parse_string(`{"prompt_tokens":10,"completion_tokens":4,"total_tokens":14,"cost":0.0012}`, .JSON)
+	testing.expect(t, err == .None)
+	u := parse_usage_value(doc)
+	testing.expect_value(t, u.prompt_tokens, 10)
+	testing.expect(t, u.cost_known)
+	testing.expect(t, u.cost_usd > 0)
+}
+
+@(test)
 test_destroy_messages_no_double_free :: proc(t: ^testing.T) {
 	msgs := make([dynamic]Message)
 	append(&msgs, Message{role = .User})

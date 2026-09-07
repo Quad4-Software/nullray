@@ -607,10 +607,10 @@ parse_usage_value :: proc(v: json.Value) -> Usage {
 			u.reasoning_tokens = json_int_field(details, "reasoning_tokens")
 		}
 	}
-	if cost, cok := json_float_field(obj, "cost"); cok {
+	if cost, cok := json_float_field_ok(obj, "cost"); cok {
 		u.cost_usd = cost
 		u.cost_known = true
-	} else if cost, cok := json_float_field(obj, "total_cost"); cok {
+	} else if cost, cok := json_float_field_ok(obj, "total_cost"); cok {
 		u.cost_usd = cost
 		u.cost_known = true
 	}
@@ -618,7 +618,7 @@ parse_usage_value :: proc(v: json.Value) -> Usage {
 }
 
 @(private)
-json_float_field :: proc(obj: json.Object, key: string) -> (f64, bool) {
+json_float_field_ok :: proc(obj: json.Object, key: string) -> (f64, bool) {
 	v, ok := obj[key]
 	if !ok {
 		return 0, false
