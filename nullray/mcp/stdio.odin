@@ -12,11 +12,12 @@ import "core:time"
 import "nullray:constants"
 
 Stdio_Session :: struct {
-	process:   os.Process,
-	stdin_w:   ^os.File,
-	stdout_r:  ^os.File,
-	next_id:   int,
-	server_id: string,
+	process:           os.Process,
+	stdin_w:           ^os.File,
+	stdout_r:          ^os.File,
+	next_id:           int,
+	server_id:         string,
+	protocol_version:  string,
 }
 
 stdio_start :: proc(session: ^Stdio_Session, command: []string, cwd: string) -> (err: string) {
@@ -174,6 +175,8 @@ stdio_close :: proc(session: ^Stdio_Session) {
 	if session == nil {
 		return
 	}
+	delete(session.protocol_version)
+	session.protocol_version = ""
 	if session.stdin_w != nil {
 		os.close(session.stdin_w)
 		session.stdin_w = nil

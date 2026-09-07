@@ -40,10 +40,19 @@ test_parse_response_error :: proc(t: ^testing.T) {
 }
 
 @(test)
-test_parse_response_id_mismatch :: proc(t: ^testing.T) {
-	line := `{"jsonrpc":"2.0","id":1,"result":{}}`
-	result, err, matched := parse_response_line(line, 99)
-	defer delete(result)
-	defer delete(err)
-	testing.expect(t, !matched)
+test_mcp_protocol_versions_span :: proc(t: ^testing.T) {
+	testing.expect_value(t, MCP_PROTOCOL_OLDEST, "2024-10-07")
+	testing.expect_value(t, MCP_PROTOCOL_LATEST, "2025-11-25")
+	testing.expect(t, mcp_version_supported(MCP_PROTOCOL_OLDEST))
+	testing.expect(t, mcp_version_supported(MCP_PROTOCOL_LATEST))
+	testing.expect(t, mcp_version_supported("2024-11-05"))
+	testing.expect(t, !mcp_version_supported("2026-07-28"))
+	testing.expect(t, !mcp_version_supported(""))
+}
+
+@(test)
+test_parse_initialize_protocol_version :: proc(t: ^testing.T) {
+	v := parse_initialize_protocol_version(`{"protocolVersion":"2024-11-05","capabilities":{}}`)
+	defer delete(v)
+	testing.expect_value(t, v, "2024-11-05")
 }

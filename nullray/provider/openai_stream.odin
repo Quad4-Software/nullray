@@ -39,6 +39,12 @@ openai_chat_stream :: proc(
 	user: rawptr,
 	allocator := context.allocator,
 ) -> Chat_Response {
+	if p == nil || len(p.base_url) == 0 {
+		return Chat_Response{
+			ok = false,
+			err = strings.clone("provider base URL missing (set NULLRAY_BASE_URL or OPENAI_BASE_URL)", allocator),
+		}
+	}
 	model := req.model
 	if len(model) == 0 {
 		model = p.default_model
@@ -56,9 +62,7 @@ openai_chat_stream :: proc(
 		write_message_json(&b, m)
 	}
 	strings.write_string(&b, `],"stream":true,"stream_options":{"include_usage":true}`)
-	if req.max_tokens > 0 {
-		fmt.sbprintf(&b, `,"max_tokens":%d`, req.max_tokens)
-	}
+	write_max_tokens_json(&b, p, req.max_tokens, model)
 	write_reasoning_json(&b, req.reasoning_effort)
 	if len(req.tools_json) > 0 {
 		strings.write_string(&b, `,"tools":`)

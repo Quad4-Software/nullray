@@ -56,9 +56,29 @@ test_make_lmstudio_defaults :: proc(t: ^testing.T) {
 }
 
 @(test)
-test_make_ollama_list_hook :: proc(t: ^testing.T) {
-	p := make_ollama()
+test_normalize_provider_id_aliases :: proc(t: ^testing.T) {
+	testing.expect_value(t, normalize_provider_id("OpenAI"), "openai")
+	testing.expect_value(t, normalize_provider_id("openai_compatible"), "openai-compat")
+	testing.expect_value(t, normalize_provider_id("custom"), "openai-compat")
+	testing.expect_value(t, normalize_provider_id("oai"), "openai")
+}
+
+@(test)
+test_make_openai_defaults :: proc(t: ^testing.T) {
+	p := make_openai("https://api.openai.com", "sk-test", "gpt-4o-mini")
 	defer provider_destroy(&p)
-	testing.expect_value(t, p.id, "ollama")
-	testing.expect(t, p.list_models != nil)
+	testing.expect_value(t, p.id, "openai")
+	testing.expect_value(t, p.base_url, "https://api.openai.com/v1")
+	testing.expect_value(t, p.api_key, "sk-test")
+	testing.expect(t, uses_max_completion_tokens(&p, "gpt-4o-mini"))
+}
+
+@(test)
+test_make_openai_compat_requires_base_shape :: proc(t: ^testing.T) {
+	p := make_openai_compat("http://127.0.0.1:8080/v1", "tok", "local")
+	defer provider_destroy(&p)
+	testing.expect_value(t, p.id, "openai-compat")
+	testing.expect_value(t, p.base_url, "http://127.0.0.1:8080/v1")
+	testing.expect(t, !uses_max_completion_tokens(&p, "local"))
+	testing.expect(t, uses_max_completion_tokens(&p, "o3-mini"))
 }

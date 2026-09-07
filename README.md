@@ -1,8 +1,19 @@
 # nullray
 
-Odin coding agent with a custom TUI, Landlock/seccomp sandbox, and a native tool loop. No Node.
+Lightweight coding agent with a custom TUI built with Odin.
 
-**Version:** 0.1.0
+## Features
+
+- Simple, fast, small and very low memory footprint
+- Landlock/seccomp sandbox
+- Custom TUI
+- Privacy-focused
+- MCP and Skills support
+
+Supported Providers: OpenAI, OpenAI-compatible, OpenRouter, LM Studio, Ollama, OpenCode
+Support Platforms: Linux
+
+Windows and MacOS coming soon.
 
 ## Build / install
 
@@ -78,9 +89,22 @@ Prompt cache: system `cache_control` + `prompt_cache_key` for OpenRouter (`NULLR
 
 ## Providers
 
-Ollama, LM Studio, OpenRouter, OpenCode, OpenCode Go. MCP via `~/.config/nullray/mcp.json`.
+OpenAI (`NULLRAY_PROVIDER=openai`, `OPENAI_API_KEY`), any OpenAI-compatible endpoint (`openai-compat` + `OPENAI_BASE_URL` / `NULLRAY_BASE_URL`), Ollama, LM Studio, OpenRouter, OpenCode, OpenCode Go.
 
-Ollama lists models via `/v1/models` with fallback to native `/api/tags`. LM Studio uses `/v1/models` and defaults `LM_API_TOKEN` to `lm-studio` when unset. Host overrides: `OLLAMA_HOST`, `LM_STUDIO_HOST`.
+```
+NULLRAY_PROVIDER=openai
+OPENAI_API_KEY=sk-...
+NULLRAY_MODEL=gpt-4o-mini
+```
+
+```
+NULLRAY_PROVIDER=openai-compat
+OPENAI_BASE_URL=http://127.0.0.1:8000/v1
+OPENAI_API_KEY=optional
+NULLRAY_MODEL=my-local-model
+```
+
+Ollama lists models via `/v1/models` with fallback to native `/api/tags`. LM Studio uses `/v1/models` and defaults `LM_API_TOKEN` to `lm-studio` when unset. MCP via `~/.config/nullray/mcp.json` (handshake versions `2024-10-07` through `2025-11-25`).
 
 ## License
 

@@ -1,5 +1,9 @@
 /*
 MCP client handshake, tool listing, and tool invocation.
+
+Negotiates handshake-era protocol versions from newest to oldest so both
+current servers and 2024-era servers work. Modern 2026+ (no initialize) is
+not implemented yet.
 */
 
 package mcp
@@ -10,30 +14,116 @@ import "core:strings"
 import "nullray:constants"
 import "nullray:tools"
 
-MCP_PROTOCOL_VERSION :: "2024-11-05"
+// Newest first. Oldest last. Keep in sync with mcp_version_supported.
+MCP_PROTOCOL_VERSIONS :: []string{
+	"2025-11-25",
+	"2025-06-18",
+	"2025-03-26",
+	"2024-11-05",
+	"2024-10-07",
+}
+
+MCP_PROTOCOL_LATEST :: "2025-11-25"
+MCP_PROTOCOL_OLDEST :: "2024-10-07"
+
+mcp_version_supported :: proc(version: string) -> bool {
+	v := strings.trim_space(version)
+	for known in MCP_PROTOCOL_VERSIONS {
+		if v == known {
+			return true
+		}
+	}
+	return false
+}
 
 client_initialize :: proc(session: ^Stdio_Session, allocator := context.allocator) -> (err: string) {
 	if session == nil {
 		return strings.clone("nil session", allocator)
 	}
 
-	params := fmt.aprintf(
-		`{"protocolVersion":%q,"capabilities":{},"clientInfo":{"name":"nullray","version":%q}}`,
-		MCP_PROTOCOL_VERSION,
-		constants.VERSION,
-		allocator = allocator,
-	)
-	defer delete(params)
+	last_err := ""
+	for version in MCP_PROTOCOL_VERSIONS {
+		params := fmt.aprintf(
+			`{"protocolVersion":%q,"capabilities":{"tools":{}},"clientInfo":{"name":"nullray","version":%q}}`,
+			version,
+			constants.VERSION,
+			allocator = context.temp_allocator,
+		)
+		result_json, init_err := stdio_request(session, "initialize", params, allocator)
+		if init_err != "" {
+			delete(last_err)
+			last_err = strings.clone(init_err, allocator)
+			if !mcp_init_error_retryable(init_err) {
+				return last_err
+			}
+			continue
+		}
 
-	_, init_err := stdio_request(session, "initialize", params, allocator)
-	if init_err != "" {
-		return init_err
+		negotiated := parse_initialize_protocol_version(result_json)
+		delete(result_json)
+		if len(negotiated) == 0 {
+			negotiated = strings.clone(version, allocator)
+		}
+		if !mcp_version_supported(negotiated) {
+			delete(negotiated)
+			delete(last_err)
+			last_err = fmt.aprintf("unsupported MCP protocol version from server", allocator = allocator)
+			continue
+		}
+
+		delete(session.protocol_version)
+		session.protocol_version = negotiated
+
+		notify := build_notification("notifications/initialized", "", allocator)
+		defer delete(notify)
+		if werr := stdio_write_line(session, notify); werr != "" {
+			delete(last_err)
+			return strings.clone(werr, allocator)
+		}
+		delete(last_err)
+		return ""
 	}
 
-	notify := build_notification("notifications/initialized", "", allocator)
-	defer delete(notify)
-	if werr := stdio_write_line(session, notify); werr != "" {
-		return strings.clone(werr, allocator)
+	if len(last_err) > 0 {
+		return last_err
+	}
+	return fmt.aprintf(
+		"no shared MCP protocol version (client supports %s .. %s)",
+		MCP_PROTOCOL_OLDEST,
+		MCP_PROTOCOL_LATEST,
+		allocator = allocator,
+	)
+}
+
+@(private)
+mcp_init_error_retryable :: proc(err: string) -> bool {
+	e := strings.to_lower(err, context.temp_allocator)
+	if strings.contains(e, "protocol") || strings.contains(e, "version") {
+		return true
+	}
+	if strings.contains(e, "unsupported") || strings.contains(e, "-32602") {
+		return true
+	}
+	if strings.contains(e, "-32601") || strings.contains(e, "method not found") {
+		return true
+	}
+	return false
+}
+
+@(private)
+parse_initialize_protocol_version :: proc(result_json: string, allocator := context.allocator) -> string {
+	doc, parse_err := json.parse_string(result_json, .JSON, allocator = context.temp_allocator)
+	if parse_err != .None {
+		return ""
+	}
+	root, ok := doc.(json.Object)
+	if !ok {
+		return ""
+	}
+	if v, has := root["protocolVersion"]; has {
+		if s, sok := v.(json.String); sok {
+			return strings.clone(string(s), allocator)
+		}
 	}
 	return ""
 }

@@ -5,7 +5,7 @@ _nullray() {
   cur="${COMP_WORDS[COMP_CWORD]}"
   prev="${COMP_WORDS[COMP_CWORD-1]}"
   opts="--help -h --version -V --ephemeral -e --self-test -t --provider -p --model -m --theme --mode --perms --sandbox --workspace -w --session --list-models --completions --man"
-  providers="ollama lmstudio openrouter opencode opencode-go"
+  providers="ollama lmstudio openai openai-compat openrouter opencode opencode-go"
   modes="ask plan edit"
   perms="ask allow yolo"
   sandboxes="on off landlock seccomp"

@@ -12,6 +12,12 @@ import "nullray:constants"
 import "nullray:http"
 
 openai_chat :: proc(p: ^Provider, req: Chat_Request, allocator := context.allocator) -> Chat_Response {
+	if p == nil || len(p.base_url) == 0 {
+		return Chat_Response{
+			ok = false,
+			err = strings.clone("provider base URL missing (set NULLRAY_BASE_URL or OPENAI_BASE_URL)", allocator),
+		}
+	}
 	model := req.model
 	if len(model) == 0 {
 		model = p.default_model
@@ -29,9 +35,7 @@ openai_chat :: proc(p: ^Provider, req: Chat_Request, allocator := context.alloca
 		write_message_json(&b, m)
 	}
 	strings.write_string(&b, `],"stream":false`)
-	if req.max_tokens > 0 {
-		fmt.sbprintf(&b, `,"max_tokens":%d`, req.max_tokens)
-	}
+	write_max_tokens_json(&b, p, req.max_tokens, model)
 	write_reasoning_json(&b, req.reasoning_effort)
 	if len(req.tools_json) > 0 {
 		strings.write_string(&b, `,"tools":`)
@@ -63,6 +67,9 @@ openai_chat :: proc(p: ^Provider, req: Chat_Request, allocator := context.alloca
 }
 
 openai_list_models :: proc(p: ^Provider, allocator := context.allocator) -> (models: []Model_Info, err: string) {
+	if p == nil || len(p.base_url) == 0 {
+		return nil, strings.clone("provider base URL missing (set NULLRAY_BASE_URL or OPENAI_BASE_URL)", allocator)
+	}
 	headers := make([dynamic]string, context.temp_allocator)
 	append_provider_headers(&headers, p)
 	url := http.join_url(p.base_url, "/models")
@@ -82,6 +89,40 @@ append_provider_headers :: proc(headers: ^[dynamic]string, p: ^Provider) {
 		append(headers, "HTTP-Referer: https://github.com/Quad4-Software/nullray")
 		append(headers, fmt.tprintf("X-Title: %s", constants.APP_NAME))
 	}
+	if p.id == "openai" || p.id == "openai-compat" {
+		if org, ok := os.lookup_env(constants.ENV_OPENAI_ORG, context.temp_allocator); ok && len(org) > 0 {
+			append(headers, fmt.tprintf("OpenAI-Organization: %s", org))
+		}
+		if proj, ok := os.lookup_env(constants.ENV_OPENAI_PROJECT, context.temp_allocator); ok && len(proj) > 0 {
+			append(headers, fmt.tprintf("OpenAI-Project: %s", proj))
+		}
+	}
+}
+
+// Official OpenAI and reasoning models prefer max_completion_tokens.
+write_max_tokens_json :: proc(b: ^strings.Builder, p: ^Provider, max_tokens: int, model: string) {
+	if max_tokens <= 0 {
+		return
+	}
+	if uses_max_completion_tokens(p, model) {
+		fmt.sbprintf(b, `,"max_completion_tokens":%d`, max_tokens)
+		return
+	}
+	fmt.sbprintf(b, `,"max_tokens":%d`, max_tokens)
+}
+
+uses_max_completion_tokens :: proc(p: ^Provider, model: string) -> bool {
+	if p != nil && p.id == "openai" {
+		return true
+	}
+	m := strings.to_lower(model, context.temp_allocator)
+	if strings.has_prefix(m, "o1") || strings.has_prefix(m, "o3") || strings.has_prefix(m, "o4") {
+		return true
+	}
+	if strings.has_prefix(m, "gpt-5") {
+		return true
+	}
+	return false
 }
 
 write_reasoning_json :: proc(b: ^strings.Builder, effort: string) {
@@ -114,7 +155,7 @@ provider_http_error :: proc(res: http.Response, allocator := context.allocator) 
 		}
 	}
 	if res.status == 401 {
-		return strings.clone("HTTP 401 unauthorized (check OPENROUTER_API_KEY in ~/.config/nullray/env)", allocator)
+		return strings.clone("HTTP 401 unauthorized (check API key in ~/.config/nullray/env)", allocator)
 	}
 	if res.status == 402 {
 		return strings.clone("HTTP 402 payment required (OpenRouter credits exhausted)", allocator)

@@ -40,7 +40,7 @@ _nullray() {
   cur="${COMP_WORDS[COMP_CWORD]}"
   prev="${COMP_WORDS[COMP_CWORD-1]}"
   opts="--help -h --version -V --ephemeral -e --self-test -t --provider -p --model -m --theme --mode --perms --sandbox --workspace -w --session --list-models --completions --man"
-  providers="ollama lmstudio openrouter opencode opencode-go"
+  providers="ollama lmstudio openai openai-compat openrouter opencode opencode-go"
   modes="ask plan edit"
   perms="ask allow yolo"
   sandboxes="on off landlock seccomp"
@@ -69,8 +69,8 @@ _nullray() {
     '--version[show version]' '-V[show version]'
     '--ephemeral[do not load or save transcripts]' '-e[do not load or save transcripts]'
     '--self-test[headless smoke]' '-t[headless smoke]'
-    '--provider[provider id]:provider:(ollama lmstudio openrouter opencode opencode-go)'
-    '-p[provider id]:provider:(ollama lmstudio openrouter opencode opencode-go)'
+    '--provider[provider id]:provider:(ollama lmstudio openai openai-compat openrouter opencode opencode-go)'
+    '-p[provider id]:provider:(ollama lmstudio openai openai-compat openrouter opencode opencode-go)'
     '--model[model id]:model:'
     '-m[model id]:model:'
     '--theme[ui theme]:theme:(ink ember moss slate rose mono dusk)'
@@ -94,7 +94,7 @@ complete -c nullray -s h -l help -d 'Show help'
 complete -c nullray -s V -l version -d 'Show version'
 complete -c nullray -s e -l ephemeral -d 'Do not load or save transcripts'
 complete -c nullray -s t -l self-test -d 'Headless smoke'
-complete -c nullray -s p -l provider -d 'Provider id' -xa 'ollama lmstudio openrouter opencode opencode-go'
+complete -c nullray -s p -l provider -d 'Provider id' -xa 'ollama lmstudio openai openai-compat openrouter opencode opencode-go'
 complete -c nullray -s m -l model -d 'Model id' -r
 complete -c nullray -l theme -d 'UI theme' -xa 'ink ember moss slate rose mono dusk'
 complete -c nullray -l mode -d 'Agent mode' -xa 'ask plan edit'
@@ -171,7 +171,7 @@ Do not load or save session transcripts.
 Run headless smoke checks and exit.
 .TP
 .BR \-p ", " \-\-provider " " \fIID\fR
-Select provider: ollama, lmstudio, openrouter, opencode, opencode-go.
+Select provider: ollama, lmstudio, openai, openai-compat, openrouter, opencode, opencode-go.
 .TP
 .BR \-m ", " \-\-model " " \fINAME\fR
 Override the default model for the active provider.

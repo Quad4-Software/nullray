@@ -18,6 +18,8 @@ registry_init :: proc(r: ^Registry) {
 	r.providers = make([dynamic]Provider)
 	registry_register(r, make_ollama())
 	registry_register(r, make_lmstudio())
+	registry_register(r, make_openai())
+	registry_register(r, make_openai_compat())
 	registry_register(r, make_openrouter())
 	registry_register(r, make_opencode())
 	registry_register(r, make_opencode_go())
@@ -63,13 +65,25 @@ registry_active :: proc(r: ^Registry) -> ^Provider {
 }
 
 registry_set_active :: proc(r: ^Registry, id: string) -> bool {
+	want := normalize_provider_id(id)
 	for p, i in r.providers {
-		if p.id == id {
+		if p.id == want {
 			r.active = i
 			return true
 		}
 	}
 	return false
+}
+
+normalize_provider_id :: proc(id: string, allocator := context.temp_allocator) -> string {
+	s := strings.to_lower(strings.trim_space(id), allocator)
+	switch s {
+	case "openai_compatible", "openai-compatible", "compatible", "custom":
+		return "openai-compat"
+	case "oai":
+		return "openai"
+	}
+	return s
 }
 
 registry_cycle :: proc(r: ^Registry, delta: int) {
@@ -85,7 +99,7 @@ registry_cycle :: proc(r: ^Registry, delta: int) {
 
 registry_select_from_env :: proc(r: ^Registry) {
 	if id, ok := os.lookup_env(constants.ENV_PROVIDER, context.temp_allocator); ok {
-		_ = registry_set_active(r, strings.to_lower(id, context.temp_allocator))
+		_ = registry_set_active(r, id)
 	}
 	p := registry_active(r)
 	if p == nil {
@@ -97,10 +111,15 @@ registry_select_from_env :: proc(r: ^Registry) {
 	}
 	if base, ok := os.lookup_env(constants.ENV_BASE_URL, context.temp_allocator); ok && len(base) > 0 {
 		delete(p.base_url)
-		p.base_url = strings.clone(base)
+		p.base_url = strings.clone(normalize_openai_base(base))
 	}
 	if key, ok := os.lookup_env(constants.ENV_API_KEY, context.temp_allocator); ok && len(key) > 0 {
 		if len(p.api_key) == 0 {
+			p.api_key = strings.clone(key)
+		}
+	}
+	if (p.id == "openai" || p.id == "openai-compat") && len(p.api_key) == 0 {
+		if key, ok := os.lookup_env(constants.ENV_OPENAI_KEY, context.temp_allocator); ok && len(key) > 0 {
 			p.api_key = strings.clone(key)
 		}
 	}

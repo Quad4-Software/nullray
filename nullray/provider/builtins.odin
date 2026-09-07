@@ -152,6 +152,79 @@ make_opencode :: proc(base_url := "", api_key := "", model := "") -> Provider {
 	}
 }
 
+make_openai :: proc(base_url := "", api_key := "", model := "") -> Provider {
+	base := base_url
+	if len(base) == 0 {
+		if host, ok := os.lookup_env(constants.ENV_OPENAI_BASE, context.temp_allocator); ok {
+			base = normalize_openai_base(host)
+		} else {
+			base = constants.DEFAULT_OPENAI_BASE
+		}
+	} else {
+		base = normalize_openai_base(base)
+	}
+	key := api_key
+	if len(key) == 0 {
+		if v, ok := os.lookup_env(constants.ENV_OPENAI_KEY, context.temp_allocator); ok {
+			key = v
+		} else if v2, ok2 := os.lookup_env(constants.ENV_API_KEY, context.temp_allocator); ok2 {
+			key = v2
+		}
+	}
+	m := model
+	if len(m) == 0 {
+		m = constants.DEFAULT_MODEL_OPENAI
+	}
+	return Provider{
+		id = "openai",
+		name = "OpenAI",
+		base_url = strings.clone(base),
+		api_key = strings.clone(key),
+		default_model = strings.clone(m),
+		chat = openai_chat,
+		list_models = openai_list_models,
+	}
+}
+
+// Any OpenAI Chat Completions compatible endpoint (vLLM, LiteLLM, Azure proxy, Groq, …).
+make_openai_compat :: proc(base_url := "", api_key := "", model := "") -> Provider {
+	base := base_url
+	if len(base) == 0 {
+		if host, ok := os.lookup_env(constants.ENV_OPENAI_BASE, context.temp_allocator); ok {
+			base = normalize_openai_base(host)
+		} else if host2, ok2 := os.lookup_env(constants.ENV_BASE_URL, context.temp_allocator); ok2 {
+			base = normalize_openai_base(host2)
+		}
+	} else {
+		base = normalize_openai_base(base)
+	}
+	key := api_key
+	if len(key) == 0 {
+		if v, ok := os.lookup_env(constants.ENV_OPENAI_KEY, context.temp_allocator); ok {
+			key = v
+		} else if v2, ok2 := os.lookup_env(constants.ENV_API_KEY, context.temp_allocator); ok2 {
+			key = v2
+		}
+	}
+	m := model
+	if len(m) == 0 {
+		if mv, mok := os.lookup_env(constants.ENV_MODEL, context.temp_allocator); mok && len(mv) > 0 {
+			m = mv
+		} else {
+			m = constants.DEFAULT_MODEL_OPENAI_COMPAT
+		}
+	}
+	return Provider{
+		id = "openai-compat",
+		name = "OpenAI Compat",
+		base_url = strings.clone(base),
+		api_key = strings.clone(key),
+		default_model = strings.clone(m),
+		chat = openai_chat,
+		list_models = openai_list_models,
+	}
+}
+
 provider_destroy :: proc(p: ^Provider) {
 	delete(p.base_url)
 	delete(p.api_key)

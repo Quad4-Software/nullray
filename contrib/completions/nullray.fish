@@ -3,7 +3,7 @@ complete -c nullray -s h -l help -d 'Show help'
 complete -c nullray -s V -l version -d 'Show version'
 complete -c nullray -s e -l ephemeral -d 'Do not load or save transcripts'
 complete -c nullray -s t -l self-test -d 'Headless smoke'
-complete -c nullray -s p -l provider -d 'Provider id' -xa 'ollama lmstudio openrouter opencode opencode-go'
+complete -c nullray -s p -l provider -d 'Provider id' -xa 'ollama lmstudio openai openai-compat openrouter opencode opencode-go'
 complete -c nullray -s m -l model -d 'Model id' -r
 complete -c nullray -l theme -d 'UI theme' -xa 'ink ember moss slate rose mono dusk'
 complete -c nullray -l mode -d 'Agent mode' -xa 'ask plan edit'
