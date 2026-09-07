@@ -29,6 +29,7 @@ Cli :: struct {
 	debug:            bool,
 	no_splash:        bool,
 	splash:           bool,
+	hide_sensitive:   bool,
 	print_mode:       bool,
 	bare:             bool,
 	fail_on_findings: bool,
@@ -382,6 +383,8 @@ parse_cli :: proc(args: []string) -> Cli {
 			cli.no_splash = true
 		case "--splash":
 			cli.splash = true
+		case "--hide-sensitive":
+			cli.hide_sensitive = true
 		case "--completions":
 			v, ok := take_value(args, &i)
 			if !ok {
@@ -494,6 +497,9 @@ apply_cli_env :: proc(cli: ^Cli) {
 		os.set_env(constants.ENV_SPLASH, "0")
 	} else if cli.splash {
 		os.set_env(constants.ENV_SPLASH, "1")
+	}
+	if cli.hide_sensitive {
+		os.set_env(constants.ENV_HIDE_SENSITIVE, "1")
 	}
 	if cli.debug {
 		os.set_env(constants.ENV_DEBUG, "1")
@@ -625,6 +631,7 @@ print_help :: proc() {
 	fmt.println("      --fail-on-findings  exit 1 when review FINDINGS: N > 0")
 	fmt.println("      --no-splash         skip startup splash")
 	fmt.println("      --splash            force startup splash")
+	fmt.println("      --hide-sensitive    hide account and API key balances")
 	fmt.println("      --list-models       list models for active provider and exit")
 	fmt.println("      --completions SHELL print completion script and exit")
 	fmt.println("      --man               print man page source and exit")
@@ -637,9 +644,10 @@ print_help :: proc() {
 	fmt.println("           NULLRAY_SANDBOX NULLRAY_WORKSPACE NULLRAY_SESSION NULLRAY_EPHEMERAL")
 	fmt.println("           NULLRAY_SPLASH NULLRAY_KEYS NULLRAY_STREAM OPENROUTER_API_KEY")
 	fmt.println("           NULLRAY_HTTP_RETRIES NULLRAY_FALLBACK_MODELS NULLRAY_OPENROUTER_IGNORE")
-	fmt.println("           NULLRAY_BARE NULLRAY_PRINT_TIMEOUT NULLRAY_OUT NULLRAY_PLAN_OUT")
-	fmt.println("           NULLRAY_COLOR NULLRAY_ALT_SCREEN NULLRAY_MOUSE NULLRAY_DEBUG")
-	fmt.println("           OPENAI_API_KEY OPENAI_BASE_URL OLLAMA_HOST LM_STUDIO_HOST LM_API_TOKEN")
+	fmt.println("           NULLRAY_HIDE_SENSITIVE NULLRAY_BARE NULLRAY_PRINT_TIMEOUT NULLRAY_OUT")
+	fmt.println("           NULLRAY_PLAN_OUT NULLRAY_COLOR NULLRAY_ALT_SCREEN NULLRAY_MOUSE")
+	fmt.println("           NULLRAY_DEBUG OPENAI_API_KEY OPENAI_BASE_URL OLLAMA_HOST")
+	fmt.println("           LM_STUDIO_HOST LM_API_TOKEN")
 	fmt.println("")
 	fmt.println("completions: nullray --completions bash|zsh|fish|powershell|elvish|nushell")
 	fmt.println("man page:    nullray --man | man -l -")

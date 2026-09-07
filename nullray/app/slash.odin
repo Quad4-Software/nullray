@@ -241,6 +241,82 @@ slash_cmd_mode :: proc(a: ^App, args: string) {
 	session.session_set_mode(&a.session, m)
 }
 
+slash_cmd_approve :: proc(a: ^App, args: string) {
+	_ = args
+	if len(a.session.last_plan_path) == 0 {
+		session.session_set_status(&a.session, "no plan artifact to approve")
+		return
+	}
+	data, err := os.read_entire_file(a.session.last_plan_path, context.temp_allocator)
+	if err != nil || len(data) == 0 {
+		session.session_set_status(&a.session, "could not read plan file")
+		return
+	}
+	session.session_load_plan_contract(&a.session, string(data))
+	if !a.session.plan_contract_ok {
+		session.session_set_status(&a.session, "plan still missing Verify/Success/Budget")
+		return
+	}
+	a.session.plan_contract_ok = true
+	session.session_set_mode(&a.session, .Edit)
+}
+
+slash_cmd_status :: proc(a: ^App, args: string) {
+	_ = args
+	plan := a.session.last_plan_path
+	if len(plan) == 0 {
+		plan = "(none)"
+	}
+	vcmd, voff := agent.resolve_verify_command(a.session.plan_verify, context.temp_allocator)
+	verify := vcmd
+	if voff {
+		verify = "off"
+	} else if len(verify) == 0 {
+		verify = "(default)"
+	}
+	session.session_set_status(
+		&a.session,
+		fmt.tprintf(
+			"mode=%s plan_ok=%v verify=%s fails=%d input_chars=%d plan=%s",
+			agent.mode_string(a.session.agent_mode),
+			a.session.plan_contract_ok,
+			verify,
+			a.session.verify_fail_count,
+			a.session.last_input_chars,
+			plan,
+		),
+	)
+}
+
+slash_cmd_verify :: proc(a: ^App, args: string) {
+	rest := strings.trim_space(args)
+	if len(rest) == 0 {
+		v, off := agent.verify_command_from_env(context.temp_allocator)
+		if off {
+			session.session_set_status(&a.session, "verify off")
+			return
+		}
+		if len(v) == 0 {
+			session.session_set_status(&a.session, "verify default (plan/AGENTS/make test)")
+			return
+		}
+		session.session_set_status(&a.session, fmt.tprintf("verify %s", v))
+		return
+	}
+	lower := strings.to_lower(rest, context.temp_allocator)
+	switch lower {
+	case "off", "0", "false", "no":
+		os.set_env(constants.ENV_VERIFY, "0")
+		session.session_set_status(&a.session, "verify off")
+	case "on", "1", "true", "yes":
+		os.unset_env(constants.ENV_VERIFY)
+		session.session_set_status(&a.session, "verify on (default command)")
+	case:
+		os.set_env(constants.ENV_VERIFY, rest)
+		session.session_set_status(&a.session, fmt.tprintf("verify %s", rest))
+	}
+}
+
 slash_cmd_perms :: proc(a: ^App, args: string) {
 	rest := strings.trim_space(args)
 	if len(rest) == 0 {
@@ -336,6 +412,27 @@ slash_cmd_secrets :: proc(a: ^App, args: string) {
 		os.set_env(constants.ENV_SECRETS_ALLOW, path)
 	}
 	session.session_set_status(&a.session, fmt.tprintf("secrets allow += %s", path))
+}
+
+slash_cmd_hide :: proc(a: ^App, args: string) {
+	rest := strings.trim_space(args)
+	switch strings.to_lower(rest, context.temp_allocator) {
+	case "on", "1", "true", "yes", "hide":
+		app_set_hide_sensitive(a, true)
+		session.session_set_status(&a.session, "hide on (balances hidden)")
+	case "off", "0", "false", "no", "show":
+		app_set_hide_sensitive(a, false)
+		session.session_set_status(&a.session, "hide off")
+	case "":
+		app_set_hide_sensitive(a, !a.hide_sensitive)
+		if a.hide_sensitive {
+			session.session_set_status(&a.session, "hide on (balances hidden)")
+		} else {
+			session.session_set_status(&a.session, "hide off")
+		}
+	case:
+		session.session_set_status(&a.session, "usage: /hide on|off")
+	}
 }
 
 slash_cmd_review :: proc(a: ^App, args: string) {

@@ -40,7 +40,7 @@ _nullray() {
   COMPREPLY=()
   cur="${COMP_WORDS[COMP_CWORD]}"
   prev="${COMP_WORDS[COMP_CWORD-1]}"
-  opts="--help -h --version -V --ephemeral -e --self-test -t --doctor --debug --print -P --bare --fail-on-findings --provider -p --model -m --theme --mode --perms --sandbox --workspace -w --session --list-sessions --search-sessions --delete-session --export-session --import-session --as --keys --message-file --out --plan-out --output-format --timeout --no-splash --splash --list-models --completions --man"
+  opts="--help -h --version -V --ephemeral -e --self-test -t --doctor --debug --print -P --bare --fail-on-findings --provider -p --model -m --theme --mode --perms --sandbox --workspace -w --session --list-sessions --search-sessions --delete-session --export-session --import-session --as --keys --message-file --out --plan-out --output-format --timeout --no-splash --splash --hide-sensitive --list-models --completions --man"
   providers="ollama lmstudio openai openai-compat openrouter opencode opencode-go anthropic gemini groq deepseek mistral together fireworks xai azure"
   modes="ask plan review edit"
   perms="ask allow yolo"
@@ -103,6 +103,7 @@ _nullray() {
     '--timeout[print timeout seconds]:seconds:'
     '--no-splash[skip startup splash]'
     '--splash[force startup splash]'
+    '--hide-sensitive[hide account and API key balances]'
     '--list-models[list models for active provider]'
     '--completions[print shell completions]:shell:(bash zsh fish powershell elvish nushell)'
     '--man[print man page source]'
@@ -144,6 +145,7 @@ complete -c nullray -l output-format -d 'Print output format' -xa 'text json'
 complete -c nullray -l timeout -d 'Print timeout seconds' -r
 complete -c nullray -l no-splash -d 'Skip startup splash'
 complete -c nullray -l splash -d 'Force startup splash'
+complete -c nullray -l hide-sensitive -d 'Hide account and API key balances'
 complete -c nullray -l list-models -d 'List models for active provider'
 complete -c nullray -l completions -d 'Print shell completions' -xa 'bash zsh fish powershell elvish nushell'
 complete -c nullray -l man -d 'Print man page source'
@@ -158,7 +160,7 @@ COMPLETIONS_POWERSHELL :: `Register-ArgumentCompleter -CommandName nullray -Scri
     '--workspace','-w','--session','--list-sessions','--search-sessions',
     '--delete-session','--export-session','--import-session','--as',
     '--keys','--message-file','--out','--plan-out',
-    '--output-format','--timeout','--no-splash','--splash','--list-models','--completions','--man'
+    '--output-format','--timeout','--no-splash','--splash','--hide-sensitive','--list-models','--completions','--man'
   )
   $opts | Where-Object { $_ -like "$wordToComplete*" } | ForEach-Object {
     [System.Management.Automation.CompletionResult]::new($_, $_, 'ParameterName', $_)
@@ -175,7 +177,7 @@ set edit:completion:arg-completer[nullray] = {|@args|
     --workspace -w --session --list-sessions --search-sessions
     --delete-session --export-session --import-session --as
     --keys --message-file --out --plan-out
-    --output-format --timeout --no-splash --splash --list-models --completions --man
+    --output-format --timeout --no-splash --splash --hide-sensitive --list-models --completions --man
   ]
   put $@flags
 }
@@ -189,7 +191,7 @@ COMPLETIONS_NUSHELL :: `def "nu-complete nullray flags" [] {
     --workspace -w --session --list-sessions --search-sessions
     --delete-session --export-session --import-session --as
     --keys --message-file --out --plan-out
-    --output-format --timeout --no-splash --splash --list-models --completions --man
+    --output-format --timeout --no-splash --splash --hide-sensitive --list-models --completions --man
   ]
 }
 export extern nullray [

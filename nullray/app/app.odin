@@ -34,6 +34,7 @@ App :: struct {
 	scroll:         int,
 	follow:         bool,
 	credits_label:  string,
+	hide_sensitive: bool,
 	show_help:      bool,
 	help_scroll:    int,
 	suggest_sel:    int,
@@ -71,6 +72,7 @@ app_init :: proc(a: ^App, loop: ^ui.Loop) {
 	a.splash_start = time.tick_now()
 	a.binds, a.keys_preset = config.load_binds()
 	_ = config.write_default_keys_file()
+	a.hide_sensitive = hide_sensitive_from_env()
 	app_refresh_banner(a)
 	agent.apply_auto_mode()
 	if agent.auto_from_env() {
@@ -90,28 +92,7 @@ app_init :: proc(a: ^App, loop: ^ui.Loop) {
 		session.crash_lock_clear(cfg_dir)
 	}
 	session.crash_lock_write(cfg_dir, a.session.name)
-
-	p := provider.registry_active(&a.registry)
-	if p != nil {
-		tools_label := "tools"
-		if !a.session.tools_enabled {
-			tools_label = "chat"
-		}
-		status := fmt.tprintf(
-			"%s / %s / %s / %s / %s",
-			p.name,
-			p.default_model,
-			tools_label,
-			agent.mode_string(a.session.agent_mode),
-			tools.perms_string(tools.perms_from_env()),
-		)
-		if p.id == "openrouter" && len(p.api_key) == 0 {
-			status = "error: OPENROUTER_API_KEY missing in ~/.config/nullray/env"
-		} else if len(a.credits_label) > 0 {
-			status = fmt.tprintf("%s · %s", status, a.credits_label)
-		}
-		session.session_set_status(&a.session, status)
-	}
+	app_refresh_provider_status(a)
 }
 
 app_destroy :: proc(a: ^App) {
@@ -126,7 +107,37 @@ app_destroy :: proc(a: ^App) {
 	delete(a.improve_undo)
 }
 
+app_refresh_provider_status :: proc(a: ^App) {
+	p := provider.registry_active(&a.registry)
+	if p == nil {
+		return
+	}
+	tools_label := "tools"
+	if !a.session.tools_enabled {
+		tools_label = "chat"
+	}
+	status := fmt.tprintf(
+		"%s / %s / %s / %s / %s",
+		p.name,
+		p.default_model,
+		tools_label,
+		agent.mode_string(a.session.agent_mode),
+		tools.perms_string(tools.perms_from_env()),
+	)
+	if p.id == "openrouter" && len(p.api_key) == 0 {
+		status = "error: OPENROUTER_API_KEY missing in ~/.config/nullray/env"
+	} else if !a.hide_sensitive && len(a.credits_label) > 0 {
+		status = fmt.tprintf("%s · %s", status, a.credits_label)
+	}
+	session.session_set_status(&a.session, status)
+}
+
 app_refresh_credits :: proc(a: ^App) {
+	if a.hide_sensitive {
+		delete(a.credits_label)
+		a.credits_label = ""
+		return
+	}
 	if a.credits_busy {
 		return
 	}
@@ -155,6 +166,13 @@ credits_job :: proc(data: rawptr) {
 		delete(args.api_key)
 		free(args)
 	}
+	if args.app.hide_sensitive {
+		delete(args.app.credits_label)
+		args.app.credits_label = ""
+		args.app.credits_busy = false
+		args.app.dirty = true
+		return
+	}
 	bal := provider.openrouter_fetch_balance(args.api_key)
 	defer delete(bal.err)
 	defer delete(bal.label)
@@ -163,6 +181,32 @@ credits_job :: proc(data: rawptr) {
 	args.app.credits_label = label
 	args.app.credits_busy = false
 	args.app.dirty = true
+}
+
+hide_sensitive_from_env :: proc() -> bool {
+	if v, ok := os.lookup_env(constants.ENV_HIDE_SENSITIVE, context.temp_allocator); ok {
+		switch strings.to_lower(strings.trim_space(v), context.temp_allocator) {
+		case "1", "true", "on", "yes", "hide":
+			return true
+		case "0", "false", "off", "no", "show":
+			return false
+		}
+	}
+	return false
+}
+
+app_set_hide_sensitive :: proc(a: ^App, hide: bool) {
+	a.hide_sensitive = hide
+	if hide {
+		os.set_env(constants.ENV_HIDE_SENSITIVE, "1")
+		delete(a.credits_label)
+		a.credits_label = ""
+	} else {
+		os.unset_env(constants.ENV_HIDE_SENSITIVE)
+		app_refresh_credits(a)
+	}
+	app_refresh_provider_status(a)
+	app_mark_dirty(a)
 }
 
 app_mark_dirty :: proc(a: ^App) {
