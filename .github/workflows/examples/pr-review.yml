@@ -1,0 +1,52 @@
+# Example: PR review with nullray --print (not part of default CI).
+# Copy to ../pr-review.yml and set OPENROUTER_API_KEY (or another provider secret).
+#
+# Pinned actions (bump tag and SHA together):
+#   step-security/harden-runner@v2.21.1  e14015d583714f6e62063499dc959a02595150a1
+#   actions/checkout@v7.0.1             3d3c42e5aac5ba805825da76410c181273ba90b1
+
+name: example-pr-review
+
+on:
+  workflow_dispatch:
+  pull_request:
+    branches: [master]
+
+permissions:
+  contents: read
+
+jobs:
+  review:
+    name: nullray review
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Harden runner
+        uses: step-security/harden-runner@e14015d583714f6e62063499dc959a02595150a1 # v2.21.1
+        with:
+          egress-policy: audit
+
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+
+      - name: Build nullray
+        run: make
+
+      - name: Review diff
+        env:
+          OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
+          NULLRAY_PROVIDER: openrouter
+          NULLRAY_SANDBOX: off
+          NULLRAY_STREAM: "0"
+        run: |
+          BASE="${{ github.event.pull_request.base.sha }}"
+          HEAD="${{ github.event.pull_request.head.sha }}"
+          if [ -z "$BASE" ] || [ -z "$HEAD" ]; then
+            BASE="origin/master"
+            HEAD="HEAD"
+          fi
+          git diff "$BASE...$HEAD" | ./bin/nullray --print --bare --mode review \
+            --fail-on-findings --output-format text --timeout 600 \
+            "Review this pull request diff. Focus on bugs, security, and broken APIs. End with FINDINGS: none or FINDINGS: N."

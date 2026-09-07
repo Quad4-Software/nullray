@@ -1,0 +1,8 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Security vulnerability
+    url: https://github.com/Quad4-Software/nullray/security/advisories/new
+    about: Report exploitable findings privately. Do not open a public issue until a fix is ready.
+  - name: Security policy
+    url: https://github.com/Quad4-Software/nullray/blob/master/SECURITY.md
+    about: Supported versions, scope, and disclosure expectations

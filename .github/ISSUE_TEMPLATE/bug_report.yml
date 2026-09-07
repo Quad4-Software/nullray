@@ -1,0 +1,126 @@
+name: Bug report
+description: Report a crash, wrong behaviour, or build failure
+title: "[Bug]: "
+labels:
+  - bug
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Fill in the fields so maintainers can reproduce the issue. For security findings use private vulnerability reporting instead.
+
+  - type: input
+    id: version
+    attributes:
+      label: nullray version
+      description: Output of `nullray --version` (or the release tag you installed).
+      placeholder: "nullray 0.1.0 (built 2026-09-07 ...)"
+    validations:
+      required: true
+
+  - type: dropdown
+    id: os
+    attributes:
+      label: Operating system
+      options:
+        - Linux
+        - macOS
+        - Windows
+        - Other
+    validations:
+      required: true
+
+  - type: input
+    id: os-details
+    attributes:
+      label: OS details
+      description: Distro, kernel, or build (for example CachyOS, Ubuntu 24.04, Windows 11).
+      placeholder: "CachyOS / Linux 6.x"
+
+  - type: dropdown
+    id: install-method
+    attributes:
+      label: How did you install nullray?
+      options:
+        - Release binary from GitHub
+        - make install from source
+        - Running ./bin/nullray from a checkout
+        - Other
+    validations:
+      required: true
+
+  - type: dropdown
+    id: provider
+    attributes:
+      label: Provider
+      description: Value of NULLRAY_PROVIDER when the bug happened, if relevant.
+      options:
+        - Not applicable
+        - openai
+        - openai-compat
+        - anthropic
+        - gemini
+        - groq
+        - deepseek
+        - mistral
+        - together
+        - fireworks
+        - xai
+        - azure
+        - ollama
+        - lmstudio
+        - openrouter
+        - opencode / opencode-go
+        - Other
+
+  - type: dropdown
+    id: sandbox
+    attributes:
+      label: Sandbox mode
+      description: Value of --sandbox or NULLRAY_SANDBOX when relevant.
+      options:
+        - Not sure / default
+        - warn
+        - strict
+        - off
+        - Not applicable
+
+  - type: textarea
+    id: description
+    attributes:
+      label: What happened?
+      description: What you saw, and what you expected instead.
+      placeholder: After /mode edit and a shell tool call, the TUI freezes until Esc...
+    validations:
+      required: true
+
+  - type: textarea
+    id: reproduction
+    attributes:
+      label: Steps to reproduce
+      description: Numbered steps that reliably trigger the issue.
+      placeholder: |
+        1. Build with make and run ./bin/nullray
+        2. Set NULLRAY_PROVIDER=openrouter and a model
+        3. Ask the agent to run a shell command under --sandbox strict
+    validations:
+      required: true
+
+  - type: textarea
+    id: logs
+    attributes:
+      label: Logs or error output
+      description: Paste terminal output, panic text, or relevant config lines (redact API keys).
+      render: shell
+
+  - type: checkboxes
+    id: terms
+    attributes:
+      label: Checklist
+      options:
+        - label: I searched existing issues to avoid duplicates
+          required: true
+        - label: I included nullray --version output and the OS
+          required: true
+        - label: This is not a security vulnerability (those go through private reporting)
+          required: true
