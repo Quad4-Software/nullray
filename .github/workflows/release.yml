@@ -167,7 +167,29 @@ jobs:
           }
           Add-Content -Path $env:GITHUB_PATH -Value "$env:USERPROFILE\Odin"
 
-      - name: Build release binary
+      - name: Build release binary (Windows)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        env:
+          TAG: ${{ env.RELEASE_TAG }}
+          ARTIFACT: ${{ matrix.artifact }}
+        run: |
+          $ErrorActionPreference = "Stop"
+          $ver = $env:TAG.TrimStart('v')
+          $name = "nullray_${ver}_$($env:ARTIFACT)"
+          if (Test-Path bin) { Remove-Item -Recurse -Force bin }
+          if (Test-Path dist) { Remove-Item -Recurse -Force dist }
+          New-Item -ItemType Directory -Force bin, dist | Out-Null
+          where.exe odin
+          Write-Host "LIB=$env:LIB"
+          odin build cmd\nullray -out:bin\nullray.exe -collection:nullray=nullray "-define:NULLRAY_BUILD_DATE=$((Get-Date).ToUniversalTime().ToString('yyyy-MM-dd'))" "-define:NULLRAY_BUILD_TIME=$((Get-Date).ToUniversalTime().ToString('HH:mm:ss'))"
+          if (-not (Test-Path bin\nullray.exe)) { throw "bin\nullray.exe missing" }
+          Copy-Item bin\nullray.exe "dist\${name}.exe"
+          Compress-Archive -Path "dist\${name}.exe" -DestinationPath "dist\${name}.zip" -Force
+          Remove-Item "dist\${name}.exe"
+
+      - name: Build release binary (Unix)
+        if: runner.os != 'Windows'
         env:
           TAG: ${{ env.RELEASE_TAG }}
           ARTIFACT: ${{ matrix.artifact }}
@@ -179,24 +201,14 @@ jobs:
           mkdir -p dist bin
           make
           name="nullray_${ver}_${ARTIFACT}"
-          if [[ "$RUNNER_OS" == "Windows" ]]; then
-            src="bin/nullray.exe"
-            if [[ ! -f "$src" ]]; then
-              src="bin/nullray"
-            fi
-            cp "$src" "dist/${name}.exe"
-            (cd dist && zip "${name}.zip" "${name}.exe")
-            rm -f "dist/${name}.exe"
-          else
-            cp bin/nullray "dist/${name}"
-            chmod 755 "dist/${name}"
-            # Keep unpacked binary for Linux amd64 packaging jobs (AppImage/Flatpak).
-            if [[ "$ARTIFACT" == "linux_amd64" ]]; then
-              cp "dist/${name}" dist/nullray
-            fi
-            tar -C dist -czf "dist/${name}.tar.gz" "${name}"
-            rm -f "dist/${name}"
+          cp bin/nullray "dist/${name}"
+          chmod 755 "dist/${name}"
+          # Keep unpacked binary for Linux amd64 packaging jobs (AppImage/Flatpak).
+          if [[ "$ARTIFACT" == "linux_amd64" ]]; then
+            cp "dist/${name}" dist/nullray
           fi
+          tar -C dist -czf "dist/${name}.tar.gz" "${name}"
+          rm -f "dist/${name}"
 
       - name: Smoke binary (Unix)
         if: runner.os != 'Windows'

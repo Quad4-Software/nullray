@@ -2,7 +2,8 @@ ODIN   ?= odin
 ROOT   := $(CURDIR)
 ifeq ($(OS),Windows_NT)
   OUT := bin/nullray.exe
-  LINKER := -extra-linker-flags:"libcurl"
+  # Rely on LIB/INCLUDE from vcpkg (same as CI). A bare "libcurl" token becomes libcurl.obj.
+  LINKER :=
 else ifeq ($(shell uname -s 2>/dev/null),Darwin)
   OUT := bin/nullray
   CURL_PREFIX := $(shell brew --prefix curl 2>/dev/null)

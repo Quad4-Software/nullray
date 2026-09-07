@@ -4,17 +4,6 @@ Notable changes for nullray.
 
 Format follows Keep a Changelog and Semantic Versioning.
 
-## [Unreleased]
-
-### Added
-- Linux arm64/aarch64 release archives and install.sh selection (native ubuntu-24.04-arm). Landlock applies; seccomp stays amd64-only.
-
-### Fixed
-- Release workflow recreates dist/ after make clean so archives publish.
-- Windows release uses the same prebuilt Odin zip and vcpkg libcurl path as CI (no llvm-config build).
-- Makefile emits bin/nullray.exe on Windows so Odin accepts the -out path.
-- Elevate broker sleeps when idle instead of yield-spinning. Broker is not started when NULLRAY_ELEVATE=deny.
-
 ## [0.1.0] - 2026-09-07
 
 ### Added
@@ -27,13 +16,12 @@ Format follows Keep a Changelog and Semantic Versioning.
 - Ops profiles via NULLRAY_OPS (desktop, docker, kube, full). EXTRA_RO/RW env paths. Docker sock unix resolve. Intentional kube allow.
 - Gated network VCS (push/pull/fetch, gh PR) behind NULLRAY_VCS_NETWORK. fetch_url with SSRF basics.
 - Skills: linux-admin, docker-ops, kube-ops, git-workflow, hooks, docker-secure, unix-docs.
+- Linux arm64/aarch64 release archives and install.sh selection. Landlock applies. Seccomp stays amd64-only.
 - Packages: Docker/GHCR, Flatpak, slim AppImage, airgap SDK AppImage (make appimage-sdk), AUR nullray-bin recipe.
-
-### Fixed
-- run_shell honors timeout_ms and NULLRAY_SHELL_TIMEOUT_MS (auto default 5m, cap 15m). Process-group kill on timeout.
-- Identical tool loops intervene once with guidance then abort. Auto mode steps default to 80.
-- Soft shell denies (chmod 777, chown -R, base64, printenv) no longer apply under perms=yolo.
-- --print-strict fails tool-only turns with no workspace writes.
-
-### Changed
-- Shell output truncated at the byte cap now appends a truncation marker.
+- Site pixel footer: Terminal Coding Agent.
+- run_shell timeout_ms and NULLRAY_SHELL_TIMEOUT_MS (auto default 5m, cap 15m). Process-group kill on timeout.
+- Identical tool-loop intervention then abort. Auto mode steps default to 80.
+- Soft shell denies skipped under perms=yolo. --print-strict fails tool-only turns with no workspace writes.
+- Shell output truncation marker at the byte cap.
+- Elevate broker sleeps when idle. Broker not started when NULLRAY_ELEVATE=deny.
+- Windows release builds via prebuilt Odin zip, vcpkg libcurl LIB path, and bin/nullray.exe out path.
