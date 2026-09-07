@@ -427,6 +427,11 @@ app_draw_code_block :: proc(buf: ^ui.Buffer, block: Transcript_Block, y, remain,
 
 app_draw :: proc(buf: ^ui.Buffer, user: rawptr) {
 	a := cast(^App)user
+	if splash_active(a) {
+		app_draw_splash(buf, a)
+		a.dirty = false
+		return
+	}
 	t := ui.theme()
 	p := provider.registry_active(&a.registry)
 

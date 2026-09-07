@@ -1,7 +1,10 @@
 # CI: build, package tests, self-test, CLI smoke.
 #
+# Harden-Runner first in every job:
+#   https://docs.stepsecurity.io/github-actions/harden-runner
+#
 # Secure-use: least-privilege GITHUB_TOKEN, pinned action SHAs, no
-# pull_request_target, concurrency cancel-in-progress, hardened runner.
+# pull_request_target, concurrency cancel-in-progress.
 #
 # Pinned actions (bump tag and SHA together):
 #   step-security/harden-runner@v2.21.1  e14015d583714f6e62063499dc959a02595150a1

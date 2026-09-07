@@ -8,6 +8,7 @@ import "core:fmt"
 import "core:os"
 import "core:strings"
 import "core:thread"
+import "core:time"
 import "nullray:agent"
 import "nullray:config"
 import "nullray:constants"
@@ -36,6 +37,8 @@ App :: struct {
 	improving:      bool,
 	pasting:        bool,
 	credits_busy:   bool,
+	splash_on:      bool,
+	splash_start:   time.Tick,
 }
 
 app_init :: proc(a: ^App, loop: ^ui.Loop) {
@@ -48,6 +51,8 @@ app_init :: proc(a: ^App, loop: ^ui.Loop) {
 	a.spinner = ui.spinner_init()
 	a.dirty = true
 	a.follow = true
+	a.splash_on = true
+	a.splash_start = time.tick_now()
 	a.binds = config.load_binds()
 	_ = config.write_default_keys_file()
 	agent.apply_auto_mode()
@@ -147,14 +152,19 @@ app_mark_dirty :: proc(a: ^App) {
 
 app_is_dirty :: proc(user: rawptr) -> bool {
 	a := cast(^App)user
-	return a.dirty || a.session.busy || a.session.has_streaming || a.session.has_thinking
+	return a.dirty || a.session.busy || a.session.has_streaming || a.session.has_thinking || splash_active(a)
 }
 
 
 app_on_tick :: proc(user: rawptr) -> bool {
 	a := cast(^App)user
+	changed := false
+	if splash_active(a) {
+		changed = true
+		app_mark_dirty(a)
+	}
 	was_busy := a.session.busy
-	changed := session.session_poll(&a.session)
+	changed = session.session_poll(&a.session) || changed
 	if was_busy && !a.session.busy {
 		app_refresh_credits(a)
 		changed = true

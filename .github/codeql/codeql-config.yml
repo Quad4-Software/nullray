@@ -1,0 +1,16 @@
+name: nullray CodeQL
+
+queries:
+  - uses: security-extended
+  - uses: security-and-quality
+
+paths:
+  - .github/workflows
+  - .github/actions
+  - .github/codeql
+
+paths-ignore:
+  - "**/node_modules"
+  - "**/vendor"
+  - dist
+  - bin

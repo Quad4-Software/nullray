@@ -1,0 +1,65 @@
+# CodeQL advanced setup (Actions workflows).
+#
+# Odin is not a CodeQL language. This scans GitHub Actions YAML for insecure
+# patterns per GitHub secure-use guidance.
+#
+# Pinned actions (bump tag and SHA together):
+#   step-security/harden-runner@v2.21.1  e14015d583714f6e62063499dc959a02595150a1
+#   actions/checkout@v6.0.1             8e8c483db84b4bee98b60c0593521ed34d9990e8
+#   github/codeql-action@v4.31.6        fe4161a26a8629af62121b670040955b330f9af2
+
+name: codeql
+
+on:
+  push:
+    branches: [master]
+  pull_request:
+    branches: [master]
+  schedule:
+    - cron: "17 11 * * 1"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: codeql-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  analyze:
+    name: Analyze (${{ matrix.language }})
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    permissions:
+      contents: read
+      actions: read
+      security-events: write
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - language: actions
+            build-mode: none
+    steps:
+      - name: Harden runner
+        uses: step-security/harden-runner@e14015d583714f6e62063499dc959a02595150a1 # v2.21.1
+        with:
+          egress-policy: audit
+
+      - name: Checkout
+        uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
+        with:
+          persist-credentials: false
+
+      - name: Initialize CodeQL
+        uses: github/codeql-action/init@fe4161a26a8629af62121b670040955b330f9af2 # v4.31.6
+        with:
+          languages: ${{ matrix.language }}
+          build-mode: ${{ matrix.build-mode }}
+          config-file: ./.github/codeql/codeql-config.yml
+
+      - name: Perform CodeQL analysis
+        uses: github/codeql-action/analyze@fe4161a26a8629af62121b670040955b330f9af2 # v4.31.6
+        with:
+          category: "/language:${{ matrix.language }}"

@@ -1,5 +1,8 @@
 # Tag release: build linux amd64 artifact, checksums, notes.md, GitHub release.
 #
+# Harden-Runner first in every job:
+#   https://docs.stepsecurity.io/github-actions/harden-runner
+#
 # Immutable releases are enabled on the repo. Tags matching v*.*.* must not be
 # force-moved. Cut a new patch if a release is wrong.
 #

@@ -41,6 +41,12 @@ app_apply_suggestion :: proc(a: ^App) -> bool {
 app_on_event :: proc(ev: ui.Event, user: rawptr) -> bool {
 	a := cast(^App)user
 
+	if splash_active(a) {
+		a.splash_on = false
+		app_mark_dirty(a)
+		return false
+	}
+
 	if a.show_help {
 		if ev.kind == .Esc || ev.kind == .F1 || config.binds_resolve(a.binds, ev.kind) == .Help {
 			app_toggle_help(a)
