@@ -56,6 +56,8 @@ Usage :: struct {
 	completion_tokens: int,
 	total_tokens:      int,
 	reasoning_tokens:  int,
+	cost_usd:          f64,
+	cost_known:        bool,
 }
 
 Model_Info :: struct {
