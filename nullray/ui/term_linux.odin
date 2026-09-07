@@ -50,12 +50,14 @@ term_plat_leave_raw :: proc(t: ^Term) {
 }
 
 term_emergency_restore :: proc "c" () {
+	// Print mode never enters raw mode. Skip CSI so stdout stays clean.
+	if !g_em_active {
+		return
+	}
 	esc := "\x1b[?2004l\x1b[?1006l\x1b[?1002l\x1b[?1000l\x1b[0m\x1b[?25h\x1b[?1049l"
 	_ = posix.write(posix.STDOUT_FILENO, raw_data(transmute([]u8)esc), len(esc))
-	if g_em_active {
-		_ = posix.tcsetattr(posix.STDIN_FILENO, .TCSANOW, &g_em_orig)
-		g_em_active = false
-	}
+	_ = posix.tcsetattr(posix.STDIN_FILENO, .TCSANOW, &g_em_orig)
+	g_em_active = false
 }
 
 term_plat_winsize :: proc() -> (w, h: int, ok: bool) {
