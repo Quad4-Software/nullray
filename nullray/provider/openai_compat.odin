@@ -44,7 +44,9 @@ openai_chat :: proc(p: ^Provider, req: Chat_Request, allocator := context.alloca
 		if !http_status_retryable(last.status) || attempt >= retries {
 			break
 		}
-		if p.id == "openrouter" {
+		// Only 429. 502/503 previous_errors can list every upstream, and
+		// ignoring them all yields "All providers have been ignored".
+		if p.id == "openrouter" && last.status == 429 {
 			for name in extract_openrouter_rate_limit_providers(last.body, context.temp_allocator) {
 				append(&ignore, name)
 			}

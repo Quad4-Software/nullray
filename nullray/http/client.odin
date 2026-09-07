@@ -189,7 +189,8 @@ do_request :: proc(req: Request, allocator := context.allocator) -> Response {
 
 	hdr: Header_State
 
-	url_c := strings.clone_to_cstring(req.url, context.temp_allocator)
+	url_c := strings.clone_to_cstring(req.url, context.allocator)
+	defer delete(url_c)
 	_ = curl_easy_setopt(curl, .URL, url_c)
 	_ = curl_easy_setopt(curl, .WRITEFUNCTION, write_cb)
 	_ = curl_easy_setopt(curl, .WRITEDATA, &buf)
@@ -212,13 +213,17 @@ do_request :: proc(req: Request, allocator := context.allocator) -> Response {
 		_ = curl_easy_setopt(curl, .HTTPHEADER, list)
 	}
 
+	body_c: cstring
 	if req.method == "POST" {
 		_ = curl_easy_setopt(curl, .CUSTOMREQUEST, cstring("POST"))
-		body_c := strings.clone_to_cstring(req.body, context.temp_allocator)
+		body_c = strings.clone_to_cstring(req.body, context.allocator)
 		_ = curl_easy_setopt(curl, .POSTFIELDS, body_c)
 		_ = curl_easy_setopt(curl, .POSTFIELDSIZE, c.long(len(req.body)))
 	} else if req.method != "GET" && len(req.method) > 0 {
 		_ = curl_easy_setopt(curl, .CUSTOMREQUEST, strings.clone_to_cstring(req.method, context.temp_allocator))
+	}
+	defer if body_c != nil {
+		delete(body_c)
 	}
 
 	code := curl_easy_perform(curl)

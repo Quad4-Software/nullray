@@ -91,7 +91,13 @@ post_json_stream :: proc(
 
 	hdr: Header_State
 
-	url_c := strings.clone_to_cstring(url, context.temp_allocator)
+	// libcurl keeps pointers to URL and POSTFIELDS for the whole perform.
+	// Keep them off temp_allocator so SSE callbacks cannot free them early.
+	url_c := strings.clone_to_cstring(url, context.allocator)
+	defer delete(url_c)
+	body_c := strings.clone_to_cstring(body, context.allocator)
+	defer delete(body_c)
+
 	_ = curl_easy_setopt(curl, .URL, url_c)
 	_ = curl_easy_setopt(curl, .WRITEFUNCTION, stream_write_cb)
 	_ = curl_easy_setopt(curl, .WRITEDATA, &st)
@@ -116,7 +122,6 @@ post_json_stream :: proc(
 	}
 
 	_ = curl_easy_setopt(curl, .CUSTOMREQUEST, cstring("POST"))
-	body_c := strings.clone_to_cstring(body, context.temp_allocator)
 	_ = curl_easy_setopt(curl, .POSTFIELDS, body_c)
 	_ = curl_easy_setopt(curl, .POSTFIELDSIZE, c.long(len(body)))
 

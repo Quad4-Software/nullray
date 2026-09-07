@@ -7,6 +7,7 @@ package provider
 
 import "core:encoding/json"
 import "core:fmt"
+import "core:mem"
 import "core:strings"
 import "core:sync"
 import "nullray:constants"
@@ -119,7 +120,9 @@ openai_chat_stream :: proc(
 		if !http_status_retryable(last.status) || attempt >= retries {
 			break
 		}
-		if p.id == "openrouter" {
+		// Only 429. 502/503 previous_errors can list every upstream, and
+		// ignoring them all yields "All providers have been ignored".
+		if p.id == "openrouter" && last.status == 429 {
 			for name in extract_openrouter_rate_limit_providers(last.body, context.temp_allocator) {
 				append(&ignore, name)
 			}
@@ -141,7 +144,13 @@ openai_chat_stream :: proc(
 @(private)
 sse_line_cb :: proc(line: string, user: rawptr) {
 	accum := cast(^Stream_Accum)user
-	defer free_all(context.temp_allocator)
+	// Scratch only for this line. Never free_all the shared temp allocator here
+	// curl POSTFIELDS/URL and agent tools_json may still live on it.
+	scratch := make([]byte, 128 * 1024, context.allocator)
+	defer delete(scratch)
+	arena: mem.Arena
+	mem.arena_init(&arena, scratch)
+	alloc := mem.arena_allocator(&arena)
 	trimmed := strings.trim_space(line)
 	if len(trimmed) == 0 {
 		return
@@ -153,7 +162,7 @@ sse_line_cb :: proc(line: string, user: rawptr) {
 	if payload == "[DONE]" {
 		return
 	}
-	doc, err := json.parse_string(payload, .JSON, allocator = context.temp_allocator)
+	doc, err := json.parse_string(payload, .JSON, allocator = alloc)
 	if err != .None {
 		return
 	}
