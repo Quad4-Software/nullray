@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: 0BSD
 /*
 Provider registry for lookup and extension.
 */
@@ -32,6 +33,10 @@ registry_init :: proc(r: ^Registry) {
 	registry_register(r, make_fireworks())
 	registry_register(r, make_xai())
 	registry_register(r, make_azure())
+	registry_register(r, make_cerebras())
+	registry_register(r, make_cohere())
+	registry_register(r, make_nvidia())
+	registry_register(r, make_dashscope())
 	registry_select_from_env(r)
 }
 
@@ -99,6 +104,12 @@ normalize_provider_id :: proc(id: string, allocator := context.temp_allocator) -
 		return "azure"
 	case "grok":
 		return "xai"
+	case "qwen", "alibaba":
+		return "dashscope"
+	case "nim", "nvidia-nim":
+		return "nvidia"
+	case "co":
+		return "cohere"
 	}
 	return s
 }

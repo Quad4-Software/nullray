@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: 0BSD
 /*
 Extensible model provider interface with tool calling.
 */
@@ -62,6 +63,13 @@ Model_Info :: struct {
 	name: string,
 }
 
+Delta_Kind :: enum {
+	Content,
+	Reasoning,
+}
+
+Delta_Proc :: #type proc(kind: Delta_Kind, text: string, user: rawptr)
+
 Provider :: struct {
 	id:            string,
 	name:          string,
@@ -69,12 +77,20 @@ Provider :: struct {
 	api_key:       string,
 	default_model: string,
 	chat:          Chat_Proc,
+	stream:        Stream_Proc,
 	list_models:   List_Proc,
 	user_data:     rawptr,
 }
 
 Chat_Proc :: #type proc(p: ^Provider, req: Chat_Request, allocator := context.allocator) -> Chat_Response
 List_Proc :: #type proc(p: ^Provider, allocator := context.allocator) -> (models: []Model_Info, err: string)
+Stream_Proc :: #type proc(
+	p: ^Provider,
+	req: Chat_Request,
+	on_delta: Delta_Proc,
+	user: rawptr,
+	allocator := context.allocator,
+) -> Chat_Response
 
 role_string :: proc(r: Role) -> string {
 	switch r {

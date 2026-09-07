@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: 0BSD
 /*
 OpenAI-compatible chat completions with native tool_calls.
 */
@@ -23,6 +24,45 @@ openai_chat :: proc(p: ^Provider, req: Chat_Request, allocator := context.alloca
 		model = p.default_model
 	}
 
+	headers := make([dynamic]string, context.temp_allocator)
+	append_provider_headers(&headers, p)
+	url := http.join_url(p.base_url, "/chat/completions")
+
+	ignore := make([dynamic]string, context.temp_allocator)
+	retries := http_retry_limit()
+	last: http.Response
+
+	for attempt in 0 ..= retries {
+		if http.cancel_requested() {
+			return Chat_Response{ok = false, err = strings.clone("cancelled", allocator)}
+		}
+		body := build_openai_chat_body(p, req, model, false, ignore[:])
+		last = http.post_json(url, headers[:], body, constants.HTTP_TIMEOUT_SEC, context.temp_allocator)
+		if last.ok {
+			return parse_openai_chat_response(last.body, allocator)
+		}
+		if !http_status_retryable(last.status) || attempt >= retries {
+			break
+		}
+		if p.id == "openrouter" {
+			for name in extract_openrouter_rate_limit_providers(last.body, context.temp_allocator) {
+				append(&ignore, name)
+			}
+		}
+		retry_wait(attempt, last.retry_after)
+	}
+
+	err := provider_http_error(last, p, allocator)
+	return Chat_Response{ok = false, err = err}
+}
+
+build_openai_chat_body :: proc(
+	p: ^Provider,
+	req: Chat_Request,
+	model: string,
+	stream: bool,
+	ignore: []string,
+) -> string {
 	b: strings.Builder
 	strings.builder_init(&b, context.temp_allocator)
 	strings.write_string(&b, `{"model":`)
@@ -32,11 +72,19 @@ openai_chat :: proc(p: ^Provider, req: Chat_Request, allocator := context.alloca
 		if i > 0 {
 			strings.write_byte(&b, ',')
 		}
-		write_message_json(&b, m)
+		write_message_json(&b, m, p)
 	}
-	strings.write_string(&b, `],"stream":false`)
+	if stream {
+		if p != nil && p.id == "cohere" {
+			strings.write_string(&b, `],"stream":true`)
+		} else {
+			strings.write_string(&b, `],"stream":true,"stream_options":{"include_usage":true}`)
+		}
+	} else {
+		strings.write_string(&b, `],"stream":false`)
+	}
 	write_max_tokens_json(&b, p, req.max_tokens, model)
-	write_reasoning_json(&b, req.reasoning_effort)
+	write_reasoning_json(&b, p, req.reasoning_effort)
 	if len(req.tools_json) > 0 {
 		strings.write_string(&b, `,"tools":`)
 		strings.write_string(&b, req.tools_json)
@@ -47,23 +95,14 @@ openai_chat :: proc(p: ^Provider, req: Chat_Request, allocator := context.alloca
 		strings.write_string(&b, `,"tool_choice":`)
 		write_json_string(&b, choice)
 	}
-	if cache_enabled() {
+	if p != nil && p.id == "openrouter" && cache_enabled() {
 		strings.write_string(&b, `,"prompt_cache_key":"nullray"`)
 	}
-	strings.write_byte(&b, '}')
-	body := strings.to_string(b)
-
-	headers := make([dynamic]string, context.temp_allocator)
-	append_provider_headers(&headers, p)
-
-	url := http.join_url(p.base_url, "/chat/completions")
-	res := http.post_json(url, headers[:], body, constants.HTTP_TIMEOUT_SEC, context.temp_allocator)
-	if !res.ok {
-		err := provider_http_error(res, allocator)
-		return Chat_Response{ok = false, err = err}
+	if p != nil && p.id == "openrouter" {
+		write_openrouter_extras(&b, ignore)
 	}
-
-	return parse_openai_chat_response(res.body, allocator)
+	strings.write_byte(&b, '}')
+	return strings.to_string(b)
 }
 
 openai_list_models :: proc(p: ^Provider, allocator := context.allocator) -> (models: []Model_Info, err: string) {
@@ -132,40 +171,82 @@ uses_max_completion_tokens :: proc(p: ^Provider, model: string) -> bool {
 	return false
 }
 
-write_reasoning_json :: proc(b: ^strings.Builder, effort: string) {
+write_reasoning_json :: proc(b: ^strings.Builder, p: ^Provider, effort: string) {
 	e := strings.trim_space(effort)
 	if len(e) == 0 {
 		return
 	}
-	strings.write_string(b, `,"reasoning":{"effort":`)
-	write_json_string(b, e)
-	strings.write_string(b, `}`)
+	el := strings.to_lower(e, context.temp_allocator)
+	id := ""
+	if p != nil {
+		id = p.id
+	}
+	switch id {
+	case "openrouter":
+		strings.write_string(b, `,"reasoning":{"effort":`)
+		write_json_string(b, el)
+		strings.write_string(b, `}`)
+	case "cohere":
+		co := "high"
+		if el == "none" || el == "minimal" {
+			co = "none"
+		}
+		strings.write_string(b, `,"reasoning_effort":`)
+		write_json_string(b, co)
+	case "dashscope":
+		if el == "none" || el == "minimal" {
+			strings.write_string(b, `,"enable_thinking":false`)
+		} else {
+			strings.write_string(b, `,"enable_thinking":true`)
+		}
+	case "deepseek":
+		if el == "none" {
+			strings.write_string(b, `,"thinking":{"type":"disabled"}`)
+		} else {
+			strings.write_string(b, `,"thinking":{"type":"enabled"},"reasoning_effort":`)
+			write_json_string(b, map_deepseek_effort(el))
+		}
+	case "anthropic":
+		return
+	case:
+		strings.write_string(b, `,"reasoning_effort":`)
+		write_json_string(b, el)
+	}
 }
 
-provider_http_error :: proc(res: http.Response, allocator := context.allocator) -> string {
-	if len(res.body) > 0 {
-		doc, perr := json.parse_string(res.body, .JSON, allocator = context.temp_allocator)
-		if perr == .None {
-			if obj, ok := doc.(json.Object); ok {
-				if err_v, has := obj["error"]; has {
-					if err_obj, eok := err_v.(json.Object); eok {
-						if msg, mok := err_obj["message"]; mok {
-							if s, sok := msg.(json.String); sok {
-								return strings.clone(string(s), allocator)
-							}
-						}
-					} else if s, sok := err_v.(json.String); sok {
-						return strings.clone(string(s), allocator)
-					}
-				}
-			}
+@(private)
+map_deepseek_effort :: proc(el: string) -> string {
+	switch el {
+	case "minimal", "low":
+		return "low"
+	case "max":
+		return "max"
+	case:
+		return "high"
+	}
+}
+
+provider_http_error :: proc(res: http.Response, p: ^Provider = nil, allocator := context.allocator) -> string {
+	if res.status == 429 {
+		if p != nil && p.id == "openrouter" {
+			return openrouter_rate_limit_hint(res.body, allocator)
 		}
+		if msg := extract_provider_error_message(res.body); len(msg) > 0 {
+			return fmt.aprintf("rate limited: %s", msg, allocator = allocator)
+		}
+		return strings.clone("HTTP 429 rate limited (retry later or lower concurrency)", allocator)
+	}
+	if msg := extract_provider_error_message(res.body); len(msg) > 0 {
+		return strings.clone(msg, allocator)
 	}
 	if res.status == 401 {
 		return strings.clone("HTTP 401 unauthorized (check API key in ~/.config/nullray/env)", allocator)
 	}
 	if res.status == 402 {
-		return strings.clone("HTTP 402 payment required (OpenRouter credits exhausted)", allocator)
+		if p != nil && p.id == "openrouter" {
+			return strings.clone("HTTP 402 payment required (OpenRouter credits exhausted)", allocator)
+		}
+		return strings.clone("HTTP 402 payment required (check billing or credits)", allocator)
 	}
 	if res.status == 404 {
 		return strings.clone("HTTP 404 model not found or unavailable", allocator)
@@ -174,6 +255,35 @@ provider_http_error :: proc(res: http.Response, allocator := context.allocator) 
 		return strings.clone(res.err, allocator)
 	}
 	return fmt.aprintf("HTTP %d", res.status, allocator = allocator)
+}
+
+@(private)
+extract_provider_error_message :: proc(body: string) -> string {
+	if len(body) == 0 {
+		return ""
+	}
+	doc, perr := json.parse_string(body, .JSON, allocator = context.temp_allocator)
+	if perr != .None {
+		return ""
+	}
+	obj, ok := doc.(json.Object)
+	if !ok {
+		return ""
+	}
+	err_v, has := obj["error"]
+	if !has {
+		return ""
+	}
+	if err_obj, eok := err_v.(json.Object); eok {
+		if msg, mok := err_obj["message"]; mok {
+			if s, sok := msg.(json.String); sok {
+				return string(s)
+			}
+		}
+	} else if s, sok := err_v.(json.String); sok {
+		return string(s)
+	}
+	return ""
 }
 
 @(private)
@@ -196,7 +306,7 @@ cache_enabled :: proc() -> bool {
 }
 
 @(private)
-write_message_json :: proc(b: ^strings.Builder, m: Message) {
+write_message_json :: proc(b: ^strings.Builder, m: Message, p: ^Provider = nil) {
 	strings.write_string(b, `{"role":`)
 	write_json_string(b, role_string(m.role))
 	if m.role == .Tool {
@@ -211,7 +321,14 @@ write_message_json :: proc(b: ^strings.Builder, m: Message) {
 	}
 	strings.write_string(b, `,"content":`)
 	write_json_string(b, m.content)
-	if m.cacheable && cache_enabled() {
+	if m.role == .Assistant && len(m.reasoning) > 0 {
+		field := assistant_reasoning_json_field(p)
+		strings.write_string(b, `,"`)
+		strings.write_string(b, field)
+		strings.write_string(b, `":`)
+		write_json_string(b, m.reasoning)
+	}
+	if m.cacheable && cache_enabled() && message_cache_control_ok(p) {
 		strings.write_string(b, `,"cache_control":{"type":"ephemeral"}`)
 	}
 	if m.role == .Assistant && len(m.tool_calls) > 0 {
@@ -231,6 +348,27 @@ write_message_json :: proc(b: ^strings.Builder, m: Message) {
 		strings.write_byte(b, ']')
 	}
 	strings.write_byte(b, '}')
+}
+
+@(private)
+assistant_reasoning_json_field :: proc(p: ^Provider) -> string {
+	if p == nil {
+		return "reasoning_content"
+	}
+	switch p.id {
+	case "openrouter", "cerebras":
+		return "reasoning"
+	case:
+		return "reasoning_content"
+	}
+}
+
+@(private)
+message_cache_control_ok :: proc(p: ^Provider) -> bool {
+	if p == nil {
+		return false
+	}
+	return p.id == "openrouter" || p.id == "anthropic"
 }
 
 @(private)
@@ -322,6 +460,20 @@ parse_openai_chat_response :: proc(body: string, allocator := context.allocator)
 	if rv, rok := msg_obj["reasoning"]; rok {
 		if s, sok := rv.(json.String); sok {
 			out.reasoning = strings.clone(string(s), allocator)
+		}
+	}
+	if len(out.reasoning) == 0 {
+		if rcv, rcok := msg_obj["reasoning_content"]; rcok {
+			if s, sok := rcv.(json.String); sok {
+				out.reasoning = strings.clone(string(s), allocator)
+			}
+		}
+	}
+	if len(out.reasoning) == 0 {
+		if tv, tok := msg_obj["thinking"]; tok {
+			if s, sok := tv.(json.String); sok {
+				out.reasoning = strings.clone(string(s), allocator)
+			}
 		}
 	}
 	if len(out.reasoning) == 0 {

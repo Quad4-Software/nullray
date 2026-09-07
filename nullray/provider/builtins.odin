@@ -1,5 +1,6 @@
+// SPDX-License-Identifier: 0BSD
 /*
-Built-in providers: Ollama, LM Studio, OpenRouter, OpenCode.
+Built-in providers: local hosts, OpenAI-compat clouds, OpenRouter, OpenCode.
 */
 
 package provider
@@ -30,6 +31,7 @@ make_ollama :: proc(base_url := "", api_key := "", model := "") -> Provider {
 		api_key = strings.clone(api_key),
 		default_model = strings.clone(m),
 		chat = openai_chat,
+		stream = openai_chat_stream,
 		list_models = ollama_list_models,
 	}
 }
@@ -64,6 +66,7 @@ make_lmstudio :: proc(base_url := "", api_key := "", model := "") -> Provider {
 		api_key = strings.clone(key),
 		default_model = strings.clone(m),
 		chat = openai_chat,
+		stream = openai_chat_stream,
 		list_models = lmstudio_list_models,
 	}
 }
@@ -92,6 +95,7 @@ make_openrouter :: proc(base_url := "", api_key := "", model := "") -> Provider 
 		api_key = strings.clone(key),
 		default_model = strings.clone(m),
 		chat = openai_chat,
+		stream = openai_chat_stream,
 		list_models = openai_list_models,
 	}
 }
@@ -120,6 +124,7 @@ make_opencode_go :: proc(base_url := "", api_key := "", model := "") -> Provider
 		api_key = strings.clone(key),
 		default_model = strings.clone(m),
 		chat = openai_chat,
+		stream = openai_chat_stream,
 		list_models = openai_list_models,
 	}
 }
@@ -148,6 +153,7 @@ make_opencode :: proc(base_url := "", api_key := "", model := "") -> Provider {
 		api_key = strings.clone(key),
 		default_model = strings.clone(m),
 		chat = openai_chat,
+		stream = openai_chat_stream,
 		list_models = openai_list_models,
 	}
 }
@@ -182,6 +188,7 @@ make_openai :: proc(base_url := "", api_key := "", model := "") -> Provider {
 		api_key = strings.clone(key),
 		default_model = strings.clone(m),
 		chat = openai_chat,
+		stream = openai_chat_stream,
 		list_models = openai_list_models,
 	}
 }
@@ -221,6 +228,7 @@ make_openai_compat :: proc(base_url := "", api_key := "", model := "") -> Provid
 		api_key = strings.clone(key),
 		default_model = strings.clone(m),
 		chat = openai_chat,
+		stream = openai_chat_stream,
 		list_models = openai_list_models,
 	}
 }
@@ -265,6 +273,7 @@ make_compat_named :: proc(
 		api_key = strings.clone(key),
 		default_model = strings.clone(m),
 		chat = openai_chat,
+		stream = openai_chat_stream,
 		list_models = openai_list_models,
 	}
 }
@@ -374,6 +383,59 @@ make_xai :: proc(base_url := "", api_key := "", model := "") -> Provider {
 	)
 }
 
+make_cerebras :: proc(base_url := "", api_key := "", model := "") -> Provider {
+	return make_compat_named(
+		"cerebras",
+		"Cerebras",
+		constants.DEFAULT_CEREBRAS_BASE,
+		constants.DEFAULT_MODEL_CEREBRAS,
+		constants.ENV_CEREBRAS_KEY,
+		base_url,
+		api_key,
+		model,
+	)
+}
+
+make_cohere :: proc(base_url := "", api_key := "", model := "") -> Provider {
+	return make_compat_named(
+		"cohere",
+		"Cohere",
+		constants.DEFAULT_COHERE_BASE,
+		constants.DEFAULT_MODEL_COHERE,
+		constants.ENV_COHERE_KEY,
+		base_url,
+		api_key,
+		model,
+		constants.ENV_COHERE_KEY_ALT,
+	)
+}
+
+make_nvidia :: proc(base_url := "", api_key := "", model := "") -> Provider {
+	return make_compat_named(
+		"nvidia",
+		"NVIDIA",
+		constants.DEFAULT_NVIDIA_BASE,
+		constants.DEFAULT_MODEL_NVIDIA,
+		constants.ENV_NVIDIA_KEY,
+		base_url,
+		api_key,
+		model,
+	)
+}
+
+make_dashscope :: proc(base_url := "", api_key := "", model := "") -> Provider {
+	return make_compat_named(
+		"dashscope",
+		"DashScope",
+		constants.DEFAULT_DASHSCOPE_BASE,
+		constants.DEFAULT_MODEL_DASHSCOPE,
+		constants.ENV_DASHSCOPE_KEY,
+		base_url,
+		api_key,
+		model,
+	)
+}
+
 make_azure :: proc(base_url := "", api_key := "", model := "") -> Provider {
 	base := base_url
 	if len(base) == 0 {
@@ -402,6 +464,7 @@ make_azure :: proc(base_url := "", api_key := "", model := "") -> Provider {
 		api_key = strings.clone(key),
 		default_model = strings.clone(m),
 		chat = openai_chat,
+		stream = openai_chat_stream,
 		list_models = openai_list_models,
 	}
 }

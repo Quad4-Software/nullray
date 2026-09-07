@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: 0BSD
 /*
 Streaming POST with SSE line delivery via libcurl write callback.
 */
@@ -9,11 +10,13 @@ import "core:c"
 import "core:fmt"
 import "core:strings"
 import "core:sync"
+import "nullray:constants"
 
 Stream_Chunk_Proc :: #type proc(chunk: string, user: rawptr)
 
 Stream_State :: struct {
 	line_buf: [dynamic]u8,
+	raw:      [dynamic]u8,
 	on_chunk: Stream_Chunk_Proc,
 	user:     rawptr,
 	mu:       sync.Mutex,
@@ -34,6 +37,11 @@ stream_write_cb :: proc "c" (ptr: [^]u8, size: c.size_t, nmemb: c.size_t, userda
 	st := cast(^Stream_State)userdata
 	sync.mutex_lock(&st.mu)
 	defer sync.mutex_unlock(&st.mu)
+	if len(st.raw) < constants.MAX_STREAM_ERROR_BYTES {
+		room := constants.MAX_STREAM_ERROR_BYTES - len(st.raw)
+		n := min(total, room)
+		append(&st.raw, ..ptr[:n])
+	}
 	append(&st.line_buf, ..ptr[:total])
 	for {
 		nl := -1
@@ -75,14 +83,20 @@ post_json_stream :: proc(
 
 	st: Stream_State
 	st.line_buf = make([dynamic]u8, context.allocator)
+	st.raw = make([dynamic]u8, context.allocator)
 	defer delete(st.line_buf)
+	defer delete(st.raw)
 	st.on_chunk = on_chunk
 	st.user = user
+
+	hdr: Header_State
 
 	url_c := strings.clone_to_cstring(url, context.temp_allocator)
 	_ = curl_easy_setopt(curl, .URL, url_c)
 	_ = curl_easy_setopt(curl, .WRITEFUNCTION, stream_write_cb)
 	_ = curl_easy_setopt(curl, .WRITEDATA, &st)
+	_ = curl_easy_setopt(curl, .HEADERFUNCTION, header_cb)
+	_ = curl_easy_setopt(curl, .HEADERDATA, &hdr)
 	_ = curl_easy_setopt(curl, .TIMEOUT, c.long(timeout_sec))
 	_ = curl_easy_setopt(curl, .FOLLOWLOCATION, c.long(1))
 	_ = curl_easy_setopt(curl, .USERAGENT, cstring("nullray/0.6"))
@@ -119,7 +133,14 @@ post_json_stream :: proc(
 	status: c.long = 0
 	_ = curl_easy_getinfo(curl, .RESPONSE_CODE, &status)
 	if status >= 400 {
-		return Response{ok = false, status = int(status), err = fmt.tprintf("HTTP %d", int(status))}
+		body := strings.clone(string(st.raw[:]), context.allocator)
+		return Response{
+			ok = false,
+			status = int(status),
+			body = body,
+			err = fmt.tprintf("HTTP %d", int(status)),
+			retry_after = hdr.retry_after,
+		}
 	}
-	return Response{ok = true, status = int(status)}
+	return Response{ok = true, status = int(status), retry_after = hdr.retry_after}
 }

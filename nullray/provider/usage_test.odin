@@ -1,6 +1,8 @@
+// SPDX-License-Identifier: 0BSD
 package provider
 
 import "core:encoding/json"
+import "core:strings"
 import "core:testing"
 
 @(test)
@@ -31,4 +33,42 @@ test_destroy_messages_no_double_free :: proc(t: ^testing.T) {
 	destroy_messages(msgs[:])
 	delete(msgs)
 	testing.expect(t, true)
+}
+
+@(test)
+test_parse_reasoning_content_field :: proc(t: ^testing.T) {
+	body := `{"choices":[{"message":{"role":"assistant","content":"hi","reasoning_content":"think"},"finish_reason":"stop"}]}`
+	res := parse_openai_chat_response(body)
+	defer destroy_chat_response(&res)
+	testing.expect(t, res.ok)
+	testing.expect_value(t, res.content, "hi")
+	testing.expect_value(t, res.reasoning, "think")
+}
+
+@(test)
+test_write_reasoning_json_provider_shapes :: proc(t: ^testing.T) {
+	b: strings.Builder
+	strings.builder_init(&b)
+	defer strings.builder_destroy(&b)
+
+	or_p := Provider{id = "openrouter"}
+	write_reasoning_json(&b, &or_p, "low")
+	testing.expect(t, strings.contains(strings.to_string(b), `"reasoning":{"effort":"low"}`))
+
+	strings.builder_reset(&b)
+	co := Provider{id = "cohere"}
+	write_reasoning_json(&b, &co, "low")
+	testing.expect(t, strings.contains(strings.to_string(b), `"reasoning_effort":"high"`))
+
+	strings.builder_reset(&b)
+	ds := Provider{id = "deepseek"}
+	write_reasoning_json(&b, &ds, "medium")
+	s := strings.to_string(b)
+	testing.expect(t, strings.contains(s, `"thinking":{"type":"enabled"}`))
+	testing.expect(t, strings.contains(s, `"reasoning_effort":"high"`))
+
+	strings.builder_reset(&b)
+	dash := Provider{id = "dashscope"}
+	write_reasoning_json(&b, &dash, "high")
+	testing.expect(t, strings.contains(strings.to_string(b), `"enable_thinking":true`))
 }

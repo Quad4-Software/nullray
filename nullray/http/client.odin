@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: 0BSD
 /*
 Thin libcurl binding for HTTPS chat requests.
 */
@@ -7,6 +8,7 @@ package http
 import "base:runtime"
 import "core:c"
 import "core:fmt"
+import "core:strconv"
 import "core:strings"
 
 when ODIN_OS == .Windows {
@@ -26,19 +28,21 @@ OPTTYPE_OBJECTPOINT :: 10000
 OPTTYPE_FUNCTIONPOINT :: 20000
 
 CURLoption :: enum c.int {
-	WRITEDATA       = OPTTYPE_OBJECTPOINT + 1,
-	URL             = OPTTYPE_OBJECTPOINT + 2,
-	WRITEFUNCTION   = OPTTYPE_FUNCTIONPOINT + 11,
-	TIMEOUT         = OPTTYPE_LONG + 13,
-	POSTFIELDS      = OPTTYPE_OBJECTPOINT + 15,
-	HTTPHEADER      = OPTTYPE_OBJECTPOINT + 23,
-	USERAGENT       = OPTTYPE_OBJECTPOINT + 18,
-	FOLLOWLOCATION  = OPTTYPE_LONG + 52,
-	POSTFIELDSIZE   = OPTTYPE_LONG + 60,
-	CUSTOMREQUEST   = OPTTYPE_OBJECTPOINT + 36,
-	NOPROGRESS      = OPTTYPE_LONG + 43,
+	WRITEDATA        = OPTTYPE_OBJECTPOINT + 1,
+	URL              = OPTTYPE_OBJECTPOINT + 2,
+	WRITEFUNCTION    = OPTTYPE_FUNCTIONPOINT + 11,
+	TIMEOUT          = OPTTYPE_LONG + 13,
+	POSTFIELDS       = OPTTYPE_OBJECTPOINT + 15,
+	HTTPHEADER       = OPTTYPE_OBJECTPOINT + 23,
+	HEADERDATA       = OPTTYPE_OBJECTPOINT + 29,
+	USERAGENT        = OPTTYPE_OBJECTPOINT + 18,
+	FOLLOWLOCATION   = OPTTYPE_LONG + 52,
+	POSTFIELDSIZE    = OPTTYPE_LONG + 60,
+	CUSTOMREQUEST    = OPTTYPE_OBJECTPOINT + 36,
+	NOPROGRESS       = OPTTYPE_LONG + 43,
+	HEADERFUNCTION   = OPTTYPE_FUNCTIONPOINT + 79,
 	XFERINFOFUNCTION = OPTTYPE_FUNCTIONPOINT + 219,
-	XFERINFODATA    = OPTTYPE_OBJECTPOINT + 219,
+	XFERINFODATA     = OPTTYPE_OBJECTPOINT + 219,
 }
 
 curl_slist :: struct {
@@ -114,10 +118,35 @@ global_cleanup :: proc() {
 }
 
 Response :: struct {
-	status: int,
-	body:   string,
-	ok:     bool,
-	err:    string,
+	status:      int,
+	body:        string,
+	ok:          bool,
+	err:         string,
+	retry_after: int,
+}
+
+Header_State :: struct {
+	retry_after: int,
+}
+
+@(private)
+header_cb :: proc "c" (ptr: [^]u8, size: c.size_t, nmemb: c.size_t, userdata: rawptr) -> c.size_t {
+	context = runtime.default_context()
+	total := int(size * nmemb)
+	if total <= 0 || userdata == nil {
+		return 0
+	}
+	st := cast(^Header_State)userdata
+	line := string(ptr[:total])
+	lower := strings.to_lower(line, context.temp_allocator)
+	if strings.has_prefix(lower, "retry-after:") {
+		rest := strings.trim_space(line[len("retry-after:"):])
+		n, ok := strconv.parse_int(rest)
+		if ok && n > 0 {
+			st.retry_after = n
+		}
+	}
+	return c.size_t(total)
 }
 
 Request :: struct {
@@ -158,10 +187,14 @@ do_request :: proc(req: Request, allocator := context.allocator) -> Response {
 	buf.data = make([dynamic]u8, allocator)
 	defer delete(buf.data)
 
+	hdr: Header_State
+
 	url_c := strings.clone_to_cstring(req.url, context.temp_allocator)
 	_ = curl_easy_setopt(curl, .URL, url_c)
 	_ = curl_easy_setopt(curl, .WRITEFUNCTION, write_cb)
 	_ = curl_easy_setopt(curl, .WRITEDATA, &buf)
+	_ = curl_easy_setopt(curl, .HEADERFUNCTION, header_cb)
+	_ = curl_easy_setopt(curl, .HEADERDATA, &hdr)
 	_ = curl_easy_setopt(curl, .TIMEOUT, c.long(req.timeout))
 	_ = curl_easy_setopt(curl, .FOLLOWLOCATION, c.long(1))
 	_ = curl_easy_setopt(curl, .USERAGENT, cstring("nullray/0.6"))
@@ -206,9 +239,10 @@ do_request :: proc(req: Request, allocator := context.allocator) -> Response {
 			body = out,
 			status = int(status),
 			err = fmt.aprintf("HTTP %d", int(status), allocator = allocator),
+			retry_after = hdr.retry_after,
 		}
 	}
-	return Response{ok = true, body = out, status = int(status)}
+	return Response{ok = true, body = out, status = int(status), retry_after = hdr.retry_after}
 }
 
 join_url :: proc(base, path: string, allocator := context.temp_allocator) -> string {

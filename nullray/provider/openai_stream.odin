@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: 0BSD
 /*
 OpenAI SSE chat streaming: content, reasoning, and tool_calls deltas.
 */
@@ -10,13 +11,6 @@ import "core:strings"
 import "core:sync"
 import "nullray:constants"
 import "nullray:http"
-
-Delta_Kind :: enum {
-	Content,
-	Reasoning,
-}
-
-Delta_Proc :: #type proc(kind: Delta_Kind, text: string, user: rawptr)
 
 Stream_Accum :: struct {
 	content:     strings.Builder,
@@ -50,97 +44,104 @@ openai_chat_stream :: proc(
 		model = p.default_model
 	}
 
-	b: strings.Builder
-	strings.builder_init(&b, context.temp_allocator)
-	strings.write_string(&b, `{"model":`)
-	write_json_string(&b, model)
-	strings.write_string(&b, `,"messages":[`)
-	for m, i in req.messages {
-		if i > 0 {
-			strings.write_byte(&b, ',')
-		}
-		write_message_json(&b, m)
-	}
-	strings.write_string(&b, `],"stream":true,"stream_options":{"include_usage":true}`)
-	write_max_tokens_json(&b, p, req.max_tokens, model)
-	write_reasoning_json(&b, req.reasoning_effort)
-	if len(req.tools_json) > 0 {
-		strings.write_string(&b, `,"tools":`)
-		strings.write_string(&b, req.tools_json)
-		choice := req.tool_choice
-		if len(choice) == 0 {
-			choice = "auto"
-		}
-		strings.write_string(&b, `,"tool_choice":`)
-		write_json_string(&b, choice)
-	}
-	if cache_enabled() {
-		strings.write_string(&b, `,"prompt_cache_key":"nullray"`)
-	}
-	strings.write_byte(&b, '}')
-	body := strings.to_string(b)
-
 	headers := make([dynamic]string, context.temp_allocator)
 	append_provider_headers(&headers, p)
-
-	accum: Stream_Accum
-	strings.builder_init(&accum.content, allocator)
-	strings.builder_init(&accum.reasoning, allocator)
-	accum.tool_calls = make([dynamic]Tool_Call, allocator)
-	accum.on_delta = on_delta
-	accum.user = user
-	accum.ok = true
-
 	url := http.join_url(p.base_url, "/chat/completions")
-	res := http.post_json_stream(url, headers[:], body, sse_line_cb, &accum, constants.HTTP_TIMEOUT_SEC)
-	if !res.ok {
+
+	ignore := make([dynamic]string, context.temp_allocator)
+	retries := http_retry_limit()
+	last: http.Response
+
+	for attempt in 0 ..= retries {
+		if http.cancel_requested() {
+			return Chat_Response{ok = false, err = strings.clone("cancelled", allocator)}
+		}
+
+		accum: Stream_Accum
+		strings.builder_init(&accum.content, allocator)
+		strings.builder_init(&accum.reasoning, allocator)
+		accum.tool_calls = make([dynamic]Tool_Call, allocator)
+		accum.on_delta = on_delta
+		accum.user = user
+		accum.ok = true
+
+		body := build_openai_chat_body(p, req, model, true, ignore[:])
+		last = http.post_json_stream(url, headers[:], body, sse_line_cb, &accum, constants.HTTP_TIMEOUT_SEC)
+		if last.ok {
+			if len(accum.err) > 0 {
+				out_err := strings.clone(accum.err, allocator)
+				strings.builder_destroy(&accum.content)
+				strings.builder_destroy(&accum.reasoning)
+				destroy_tool_calls(accum.tool_calls[:])
+				delete(accum.tool_calls)
+				delete(accum.err)
+				delete(accum.finish)
+				delete(accum.model)
+				return Chat_Response{ok = false, err = out_err}
+			}
+
+			content := strings.clone(strings.to_string(accum.content), allocator)
+			reasoning := strings.clone(strings.to_string(accum.reasoning), allocator)
+			strings.builder_destroy(&accum.content)
+			strings.builder_destroy(&accum.reasoning)
+			calls := accum.tool_calls[:]
+			if len(content) == 0 && len(reasoning) == 0 && len(calls) == 0 {
+				delete(content)
+				delete(reasoning)
+				destroy_tool_calls(calls)
+				delete(accum.tool_calls)
+				delete(accum.finish)
+				delete(accum.model)
+				return Chat_Response{
+					ok = false,
+					err = strings.clone("empty model response (unavailable or exhausted)", allocator),
+				}
+			}
+			return Chat_Response{
+				ok = true,
+				content = content,
+				reasoning = reasoning,
+				model = accum.model,
+				tool_calls = calls,
+				finish_reason = accum.finish,
+				usage = accum.usage,
+			}
+		}
+
 		delete(accum.err)
 		strings.builder_destroy(&accum.content)
 		strings.builder_destroy(&accum.reasoning)
 		destroy_tool_calls(accum.tool_calls[:])
 		delete(accum.tool_calls)
-		err := provider_http_error(res, allocator)
-		return Chat_Response{ok = false, err = err}
-	}
-	if len(accum.err) > 0 {
-		out_err := strings.clone(accum.err, allocator)
-		strings.builder_destroy(&accum.content)
-		strings.builder_destroy(&accum.reasoning)
-		destroy_tool_calls(accum.tool_calls[:])
-		delete(accum.tool_calls)
-		delete(accum.err)
 		delete(accum.finish)
 		delete(accum.model)
-		return Chat_Response{ok = false, err = out_err}
+
+		if !http_status_retryable(last.status) || attempt >= retries {
+			break
+		}
+		if p.id == "openrouter" {
+			for name in extract_openrouter_rate_limit_providers(last.body, context.temp_allocator) {
+				append(&ignore, name)
+			}
+		}
+		if len(last.body) > 0 {
+			delete(last.body)
+			last.body = ""
+		}
+		retry_wait(attempt, last.retry_after)
 	}
 
-	content := strings.clone(strings.to_string(accum.content), allocator)
-	reasoning := strings.clone(strings.to_string(accum.reasoning), allocator)
-	strings.builder_destroy(&accum.content)
-	strings.builder_destroy(&accum.reasoning)
-	calls := accum.tool_calls[:]
-	if len(content) == 0 && len(reasoning) == 0 && len(calls) == 0 {
-		delete(content)
-		delete(reasoning)
-		destroy_tool_calls(calls)
-		delete(accum.finish)
-		delete(accum.model)
-		return Chat_Response{ok = false, err = strings.clone("empty model response (unavailable or exhausted)", allocator)}
+	err := provider_http_error(last, p, allocator)
+	if len(last.body) > 0 {
+		delete(last.body)
 	}
-	return Chat_Response{
-		ok = true,
-		content = content,
-		reasoning = reasoning,
-		model = accum.model,
-		tool_calls = calls,
-		finish_reason = accum.finish,
-		usage = accum.usage,
-	}
+	return Chat_Response{ok = false, err = err}
 }
 
 @(private)
 sse_line_cb :: proc(line: string, user: rawptr) {
 	accum := cast(^Stream_Accum)user
+	defer free_all(context.temp_allocator)
 	trimmed := strings.trim_space(line)
 	if len(trimmed) == 0 {
 		return
@@ -224,16 +225,25 @@ sse_line_cb :: proc(line: string, user: rawptr) {
 			return
 		}
 		sync.mutex_lock(&accum.mu)
-		if kind == .Content {
-			strings.write_string(&accum.content, chunk)
-		} else {
-			strings.write_string(&accum.reasoning, chunk)
+		builder := &accum.content
+		if kind != .Content {
+			builder = &accum.reasoning
 		}
+		if strings.builder_len(builder^) >= constants.MAX_STREAMING_CHARS {
+			sync.mutex_unlock(&accum.mu)
+			return
+		}
+		remain := constants.MAX_STREAMING_CHARS - strings.builder_len(builder^)
+		piece := chunk
+		if len(piece) > remain {
+			piece = piece[:remain]
+		}
+		strings.write_string(builder, piece)
 		cb := accum.on_delta
 		u := accum.user
 		sync.mutex_unlock(&accum.mu)
 		if cb != nil {
-			cb(kind, chunk, u)
+			cb(kind, piece, u)
 		}
 	}
 	if cval, cok2 := dobj["content"]; cok2 {
@@ -243,6 +253,16 @@ sse_line_cb :: proc(line: string, user: rawptr) {
 	}
 	if rval, rok := dobj["reasoning"]; rok {
 		if s, sok := rval.(json.String); sok {
+			emit_delta(accum, .Reasoning, string(s))
+		}
+	}
+	if rcv, rcok := dobj["reasoning_content"]; rcok {
+		if s, sok := rcv.(json.String); sok {
+			emit_delta(accum, .Reasoning, string(s))
+		}
+	}
+	if tv, tok := dobj["thinking"]; tok {
+		if s, sok := tv.(json.String); sok {
 			emit_delta(accum, .Reasoning, string(s))
 		}
 	}

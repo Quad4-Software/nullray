@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: 0BSD
 package provider
 
 import "core:os"
@@ -61,6 +62,11 @@ test_normalize_provider_id_aliases :: proc(t: ^testing.T) {
 	testing.expect_value(t, normalize_provider_id("openai_compatible"), "openai-compat")
 	testing.expect_value(t, normalize_provider_id("custom"), "openai-compat")
 	testing.expect_value(t, normalize_provider_id("oai"), "openai")
+	testing.expect_value(t, normalize_provider_id("qwen"), "dashscope")
+	testing.expect_value(t, normalize_provider_id("alibaba"), "dashscope")
+	testing.expect_value(t, normalize_provider_id("nim"), "nvidia")
+	testing.expect_value(t, normalize_provider_id("nvidia-nim"), "nvidia")
+	testing.expect_value(t, normalize_provider_id("co"), "cohere")
 }
 
 @(test)
