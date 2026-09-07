@@ -341,6 +341,8 @@ chat_job :: proc(data: rawptr) {
 		} else if len(saved) > 0 {
 			delete(args.session.last_plan_path)
 			args.session.last_plan_path = strings.clone(saved)
+			delete(args.session.plan_body)
+			args.session.plan_body = strings.clone(strings.trim_space(out))
 			session_enqueue(args.session, Event{kind = .Status, text = strings.clone(fmt.tprintf("plan saved %s", saved))})
 			delete(saved)
 		}

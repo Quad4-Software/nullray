@@ -40,7 +40,7 @@ _nullray() {
   COMPREPLY=()
   cur="${COMP_WORDS[COMP_CWORD]}"
   prev="${COMP_WORDS[COMP_CWORD-1]}"
-  opts="--help -h --version -V --ephemeral -e --self-test -t --doctor --debug --print -P --bare --fail-on-findings --provider -p --model -m --theme --mode --perms --sandbox --workspace -w --session --list-sessions --search-sessions --delete-session --export-session --import-session --as --list-skills --install-skill --uninstall-skill --skills --keys --message-file --out --plan-out --output-format --timeout --no-splash --no-subagents --splash --hide-sensitive --list-models --completions --man"
+  opts="--help -h --version -V --ephemeral -e --self-test -t --doctor --debug --print -P --bare --fail-on-findings --provider -p --model -m --theme --mode --perms --sandbox --workspace -w --session --list-sessions --search-sessions --delete-session --export-session --import-session --as --list-skills --install-skill --uninstall-skill --skills --keys --message-file --out --plan-out --plan-in --output-format --timeout --no-splash --no-subagents --splash --hide-sensitive --list-models --completions --man"
   providers="ollama lmstudio openai openai-compat openrouter opencode opencode-go anthropic gemini groq deepseek mistral together fireworks xai azure"
   modes="ask plan review edit"
   perms="ask allow yolo"
@@ -56,7 +56,7 @@ _nullray() {
     --output-format) COMPREPLY=( $(compgen -W "text json" -- "$cur") ); return ;;
     --completions) COMPREPLY=( $(compgen -W "bash zsh fish powershell elvish nushell" -- "$cur") ); return ;;
     --theme) COMPREPLY=( $(compgen -W "ink ember moss slate rose mono dusk" -- "$cur") ); return ;;
-    --workspace|-w|--session|--search-sessions|--delete-session|--export-session|--import-session|--as|--model|-m|--message-file|--out|--plan-out|--install-skill|--uninstall-skill|--skills) COMPREPLY=( $(compgen -f -- "$cur") ); return ;;
+    --workspace|-w|--session|--search-sessions|--delete-session|--export-session|--import-session|--as|--model|-m|--message-file|--out|--plan-out|--plan-in|--install-skill|--uninstall-skill|--skills) COMPREPLY=( $(compgen -f -- "$cur") ); return ;;
   esac
   if [[ "$cur" == -* ]]; then
     COMPREPLY=( $(compgen -W "$opts" -- "$cur") )
@@ -103,6 +103,7 @@ _nullray() {
     '--message-file[prompt file]:file:_files'
     '--out[write final reply or export dir]:file:_files'
     '--plan-out[plan artifact path]:file:_files'
+    '--plan-in[load Done Contract plan]:file:_files'
     '--output-format[print output format]:format:(text json)'
     '--timeout[print timeout seconds]:seconds:'
     '--no-splash[skip startup splash]' \
@@ -150,6 +151,7 @@ complete -c nullray -l keys -d 'Keybind preset' -xa 'default neovim emacs'
 complete -c nullray -l message-file -d 'Prompt from file' -r -F
 complete -c nullray -l out -d 'Write final reply or export dir' -r -F
 complete -c nullray -l plan-out -d 'Plan artifact path' -r -F
+complete -c nullray -l plan-in -d 'Load Done Contract plan' -r -F
 complete -c nullray -l output-format -d 'Print output format' -xa 'text json'
 complete -c nullray -l timeout -d 'Print timeout seconds' -r
 complete -c nullray -l no-splash -d 'Skip startup splash'
@@ -170,7 +172,7 @@ COMPLETIONS_POWERSHELL :: `Register-ArgumentCompleter -CommandName nullray -Scri
     '--workspace','-w','--session','--list-sessions','--search-sessions',
     '--delete-session','--export-session','--import-session','--as',
     '--list-skills','--install-skill','--uninstall-skill','--skills',
-    '--keys','--message-file','--out','--plan-out',
+    '--keys','--message-file','--out','--plan-out','--plan-in',
     '--output-format','--timeout','--no-splash','--no-subagents','--splash','--hide-sensitive','--list-models','--completions','--man'
   )
   $opts | Where-Object { $_ -like "$wordToComplete*" } | ForEach-Object {
@@ -188,7 +190,7 @@ set edit:completion:arg-completer[nullray] = {|@args|
     --workspace -w --session --list-sessions --search-sessions
     --delete-session --export-session --import-session --as
     --list-skills --install-skill --uninstall-skill --skills
-    --keys --message-file --out --plan-out
+    --keys --message-file --out --plan-out --plan-in
     --output-format --timeout --no-splash --no-subagents --splash --hide-sensitive --list-models --completions --man
   ]
   put $@flags
@@ -203,7 +205,7 @@ COMPLETIONS_NUSHELL :: `def "nu-complete nullray flags" [] {
     --workspace -w --session --list-sessions --search-sessions
     --delete-session --export-session --import-session --as
     --list-skills --install-skill --uninstall-skill --skills
-    --keys --message-file --out --plan-out
+    --keys --message-file --out --plan-out --plan-in
     --output-format --timeout --no-splash --no-subagents --splash --hide-sensitive --list-models --completions --man
   ]
 }
@@ -346,6 +348,11 @@ Write the final assistant reply to a file, or the export directory for
 .B \-\-plan\-out \fIPATH\fR
 Write the plan-mode markdown artifact to this path.
 .TP
+.B \-\-plan\-in \fIPATH\fR
+Load a Done Contract plan for edit apply (print mode auto-approves,
+TUI seeds for /approve). Cannot combine with
+.BR \-\-plan\-out .
+.TP
 .B \-\-output\-format \fIFORMAT\fR
 Print mode output: text (default) or json.
 .TP
@@ -373,7 +380,7 @@ Config file:
 Common variables: NULLRAY_PROVIDER, NULLRAY_MODEL, NULLRAY_THEME, NULLRAY_MODE, NULLRAY_PERMS,
 NULLRAY_SANDBOX, NULLRAY_WORKSPACE, NULLRAY_SESSION, NULLRAY_EPHEMERAL, NULLRAY_SPLASH,
 NULLRAY_KEYS, NULLRAY_STREAM, NULLRAY_HTTP_RETRIES, NULLRAY_FALLBACK_MODELS,
-NULLRAY_OPENROUTER_IGNORE, NULLRAY_BARE, NULLRAY_SKILLS, NULLRAY_PRINT_TIMEOUT, NULLRAY_OUT, NULLRAY_PLAN_OUT,
+NULLRAY_OPENROUTER_IGNORE, NULLRAY_BARE, NULLRAY_SKILLS, NULLRAY_PRINT_TIMEOUT, NULLRAY_OUT, NULLRAY_PLAN_OUT, NULLRAY_PLAN_IN,
 NULLRAY_COLOR, NULLRAY_ALT_SCREEN, NULLRAY_MOUSE, NULLRAY_DEBUG,
 OPENROUTER_API_KEY, OLLAMA_HOST, LM_STUDIO_HOST, LM_API_TOKEN.
 .SH FILES

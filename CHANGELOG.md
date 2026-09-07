@@ -17,6 +17,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Skill CLI: `--list-skills`, `--install-skill`, `--uninstall-skill`, plus `--skills` / `NULLRAY_SKILLS` extra roots.
 - Context pipeline: tool-result clearing, wired `NULLRAY_COMPACT_CHARS` auto-compact, slim tool catalog text, lean AGENTS.md cap, `read_file` offset/limit.
 - Done Contract plans (`## Verify` / `## Success` / `## Budget` / `## Failure`), `/approve`, edit-mode plan summary injection.
+- `--plan-in` / `NULLRAY_PLAN_IN` loads a Done Contract for headless edit apply (TUI seeds for `/approve`).
 - Post-edit verify stop gate (`NULLRAY_VERIFY`, `/verify`) with truncated output and circuit breaker.
 
 ### Fixed

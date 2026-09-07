@@ -39,5 +39,35 @@ echo "$help_out" | grep -q 'ask | plan | review | edit'
 expect_exit 2 "$BIN" --print --bare --mode review --fail-on-findings
 expect_exit 2 "$BIN" --print --mode plan --plan-out /tmp/nullray-print-smoke-plan.md
 expect_exit 2 "$BIN" --print --output-format json --timeout 5
+expect_exit 2 "$BIN" --print --plan-in /tmp/nullray-print-smoke-missing-plan.md
+expect_exit 2 "$BIN" --print --plan-in /tmp/nullray-print-smoke-missing-plan.md --plan-out /tmp/nullray-print-smoke-plan.md
+expect_exit 2 "$BIN" --print --plan-in /tmp/nullray-print-smoke-missing-plan.md --mode ask
+
+SMOKE_PLAN="/tmp/nullray-print-smoke-plan-in.md"
+cat >"$SMOKE_PLAN" <<'EOF'
+## Goal
+smoke
+
+## Verify
+true
+
+## Success
+ok
+
+## Budget
+1
+
+## Steps
+1. noop
+EOF
+expect_exit 2 "$BIN" --print --plan-in "$SMOKE_PLAN" --mode review
+expect_exit 2 "$BIN" --print --plan-in "$SMOKE_PLAN" --perms ask
+
+BAD_PLAN="/tmp/nullray-print-smoke-plan-bad.md"
+cat >"$BAD_PLAN" <<'EOF'
+## Goal
+only
+EOF
+expect_exit 2 "$BIN" --print --plan-in "$BAD_PLAN" --perms yolo
 
 echo "print-smoke: ok ($BIN)"

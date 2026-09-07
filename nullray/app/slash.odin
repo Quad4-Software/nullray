@@ -383,22 +383,15 @@ slash_cmd_agents :: proc(a: ^App, args: string) {
 
 slash_cmd_approve :: proc(a: ^App, args: string) {
 	_ = args
-	if len(a.session.last_plan_path) == 0 {
+	path := a.session.last_plan_path
+	if len(path) == 0 {
 		session.session_set_status(&a.session, "no plan artifact to approve")
 		return
 	}
-	data, err := os.read_entire_file(a.session.last_plan_path, context.temp_allocator)
-	if err != nil || len(data) == 0 {
-		session.session_set_status(&a.session, "could not read plan file")
+	if err := session.session_approve_plan_file(&a.session, path); len(err) > 0 {
+		session.session_set_status(&a.session, err)
 		return
 	}
-	session.session_load_plan_contract(&a.session, string(data))
-	if !a.session.plan_contract_ok {
-		session.session_set_status(&a.session, "plan still missing Verify/Success/Budget")
-		return
-	}
-	a.session.plan_contract_ok = true
-	session.session_set_mode(&a.session, .Edit)
 }
 
 slash_cmd_status :: proc(a: ^App, args: string) {

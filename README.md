@@ -72,6 +72,14 @@ nullray --import-session PATH [--as NAME]
 
 On TUI quit, nullray prints `To resume this session: nullray --session <name>` when the session was persisted.
 
+## Elevated commands
+
+sudo, doas, and pkexec run through nullray elevate: human `/allow`, then a masked TUI password prompt (or a cached ticket via `sudo -n` / `doas -n`). A privilege broker starts before Landlock so elevation still works under `NO_NEW_PRIVS`. Passwords never appear in tool results or model context.
+
+- `NULLRAY_ELEVATE=ask|deny|ticket` (default ask)
+- `--no-elevate` forces deny
+- External askpass: `NULLRAY_ASKPASS`
+
 ## First-run setup
 
 Interactive TUI only. Headless `--print`, `--self-test`, and CI never open the wizard.
@@ -179,6 +187,7 @@ Per-session .lock files keep two live instances off the same transcript. Concurr
 | Autonomous | /auto on or NULLRAY_AUTO=1 |
 | One-shot (no TUI) | `--print` / `-P` with a prompt |
 | Plan .md artifact | plan mode writes `.nullray/plans/` or `--plan-out` |
+| Apply plan (headless) | `--plan-in PATH` / `NULLRAY_PLAN_IN` (edit + Done Contract) |
 | Post-edit verify | off by default. `/verify on\|off\|CMD` or `NULLRAY_VERIFY=1` / `CMD` |
 | Stop / pause / continue | Esc, F3, /continue |
 | Improve prompt | F2 or /improve, Ctrl-Z undo |
@@ -198,6 +207,7 @@ Per-session .lock files keep two live instances off the same transcript. Concurr
 ```sh
 nullray --print --mode ask "What does session_init do?"
 nullray --print --mode plan --plan-out ./plan.md "Add ephemeral print mode"
+NULLRAY_VERIFY=1 nullray --print --plan-in ./plan.md --perms yolo --bare
 git diff origin/main...HEAD | nullray --print --bare --mode review --fail-on-findings "Review this PR diff"
 nullray --print --mode edit --perms yolo --auto "Fix the failing test"
 ```

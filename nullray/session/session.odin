@@ -51,6 +51,7 @@ Session :: struct {
 	commit_mu:           sync.Mutex,
 	skip_assistant_push: bool,
 	last_plan_path:      string,
+	plan_body:           string,
 	plan_verify:         string,
 	plan_contract_ok:    bool,
 	verify_fail_count:   int,
@@ -150,6 +151,7 @@ session_destroy :: proc(s: ^Session) {
 	delete(s.group)
 	delete(s.reasoning_effort)
 	delete(s.last_plan_path)
+	delete(s.plan_body)
 	delete(s.plan_verify)
 	delete(s.live_tool)
 	delete(s.live_tool_detail)
@@ -388,11 +390,16 @@ session_set_mode :: proc(s: ^Session, mode: agent.Agent_Mode) {
 	session_rebuild_system_prompt(s)
 	session_save_meta(s)
 	if mode == .Edit && (len(s.plan_verify) > 0 || s.plan_contract_ok) {
-		c := agent.Done_Contract{
-			verify = s.plan_verify,
-			valid = s.plan_contract_ok,
+		note: string
+		if len(s.plan_body) > 0 {
+			note = agent.plan_apply_note(s.plan_body, verify_max_remaining(s), context.temp_allocator)
+		} else {
+			c := agent.Done_Contract{
+				verify = s.plan_verify,
+				valid = s.plan_contract_ok,
+			}
+			note = agent.plan_summary_note(c, verify_max_remaining(s), context.temp_allocator)
 		}
-		note := agent.plan_summary_note(c, verify_max_remaining(s), context.temp_allocator)
 		session_push_user(s, note)
 	}
 	session_set_status(s, fmt.tprintf("mode %s", agent.mode_string(mode)))
@@ -417,6 +424,59 @@ session_load_plan_contract :: proc(s: ^Session, body: string) {
 		s.plan_contract_ok = true
 		s.plan_verify = strings.clone(c.verify)
 	}
+}
+
+/*
+Seed session from a validated plan body without switching mode.
+Caller owns path/body clones stored on the session.
+*/
+session_seed_plan :: proc(s: ^Session, path: string, body: string) -> string {
+	if s == nil {
+		return "nil session"
+	}
+	trimmed_path := strings.trim_space(path)
+	trimmed_body := strings.trim_space(body)
+	if len(trimmed_path) == 0 {
+		return "plan path empty"
+	}
+	if len(trimmed_body) == 0 {
+		return "plan body empty"
+	}
+	session_load_plan_contract(s, trimmed_body)
+	if !s.plan_contract_ok {
+		return "plan still missing Verify/Success/Budget"
+	}
+	delete(s.last_plan_path)
+	s.last_plan_path = strings.clone(trimmed_path)
+	delete(s.plan_body)
+	s.plan_body = strings.clone(trimmed_body)
+	return ""
+}
+
+session_seed_plan_file :: proc(s: ^Session, path: string) -> string {
+	body, err := agent.load_plan_file(path)
+	if len(err) > 0 {
+		return err
+	}
+	defer delete(body)
+	return session_seed_plan(s, path, body)
+}
+
+/*
+Load plan file, seed contract, switch to edit (injects apply note).
+*/
+session_approve_plan_file :: proc(s: ^Session, path: string) -> string {
+	body, err := agent.load_plan_file(path)
+	if len(err) > 0 {
+		return err
+	}
+	defer delete(body)
+	if serr := session_seed_plan(s, path, body); len(serr) > 0 {
+		return serr
+	}
+	s.plan_contract_ok = true
+	session_set_mode(s, .Edit)
+	return ""
 }
 
 session_apply_saved_model :: proc(s: ^Session, reg: ^provider.Registry) -> bool {

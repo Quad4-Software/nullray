@@ -21,11 +21,59 @@ plan_out_from_env :: proc(allocator := context.allocator) -> string {
 	return ""
 }
 
+plan_in_from_env :: proc(allocator := context.allocator) -> string {
+	if v, ok := os.lookup_env(constants.ENV_PLAN_IN, context.temp_allocator); ok && len(v) > 0 {
+		return strings.clone(v, allocator)
+	}
+	return ""
+}
+
 out_path_from_env :: proc(allocator := context.allocator) -> string {
 	if v, ok := os.lookup_env(constants.ENV_OUT, context.temp_allocator); ok && len(v) > 0 {
 		return strings.clone(v, allocator)
 	}
 	return ""
+}
+
+DEFAULT_PLAN_APPLY_PROMPT :: "Execute the approved plan."
+
+/*
+Read and validate a Done Contract plan file. Caller owns body when err is empty.
+*/
+load_plan_file :: proc(path: string, allocator := context.allocator) -> (body: string, err: string) {
+	trimmed_path := strings.trim_space(path)
+	if len(trimmed_path) == 0 {
+		return "", strings.clone("plan-in needs a path", allocator)
+	}
+	data, rerr := os.read_entire_file(trimmed_path, context.temp_allocator)
+	if rerr != nil {
+		return "", fmt.aprintf("read plan-in failed: %v", rerr, allocator = allocator)
+	}
+	if len(data) == 0 {
+		return "", strings.clone("plan-in file is empty", allocator)
+	}
+	if len(data) > constants.MAX_PLAN_FILE_BYTES {
+		return "", fmt.aprintf(
+			"plan-in file too large (%d bytes, max %d)",
+			len(data),
+			constants.MAX_PLAN_FILE_BYTES,
+			allocator = allocator,
+		)
+	}
+	text := strings.trim_space(string(data))
+	if len(text) == 0 {
+		return "", strings.clone("plan-in file is empty", allocator)
+	}
+	c := validate_plan_contract(text)
+	defer done_contract_destroy(&c)
+	if !c.valid {
+		msg := c.err
+		if len(msg) == 0 {
+			msg = "plan-in contract invalid"
+		}
+		return "", strings.clone(msg, allocator)
+	}
+	return strings.clone(text, allocator), ""
 }
 
 /*
@@ -302,6 +350,30 @@ plan_summary_note :: proc(c: Done_Contract, budget_remaining: int, allocator := 
 	if budget_remaining >= 0 {
 		fmt.sbprintf(&b, "Budget remaining (verify retries / steps hint): %d\n", budget_remaining)
 	}
+	return strings.to_string(b)
+}
+
+/*
+Build apply note from full plan body (Goal, Verify, truncated Steps).
+*/
+plan_apply_note :: proc(body: string, budget_remaining: int, allocator := context.allocator) -> string {
+	c := validate_plan_contract(body)
+	defer done_contract_destroy(&c)
+	note := plan_summary_note(c, budget_remaining, context.temp_allocator)
+	steps := section_body(body, "Steps", context.temp_allocator)
+	if len(steps) == 0 {
+		return strings.clone(note, allocator)
+	}
+	b: strings.Builder
+	strings.builder_init(&b, allocator)
+	strings.write_string(&b, note)
+	strings.write_string(&b, "Steps:\n")
+	s := steps
+	if len(s) > constants.MAX_PLAN_STEPS_NOTE_CHARS {
+		s = s[:constants.MAX_PLAN_STEPS_NOTE_CHARS]
+	}
+	strings.write_string(&b, s)
+	strings.write_byte(&b, '\n')
 	return strings.to_string(b)
 }
 

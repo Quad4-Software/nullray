@@ -30,5 +30,33 @@ Expect-Exit 2 @("--print", "--bare", "--mode", "review", "--fail-on-findings")
 $plan = Join-Path $env:TEMP "nullray-print-smoke-plan.md"
 Expect-Exit 2 @("--print", "--mode", "plan", "--plan-out", $plan)
 Expect-Exit 2 @("--print", "--output-format", "json", "--timeout", "5")
+$missing = Join-Path $env:TEMP "nullray-print-smoke-missing-plan.md"
+Expect-Exit 2 @("--print", "--plan-in", $missing)
+Expect-Exit 2 @("--print", "--plan-in", $missing, "--plan-out", $plan)
+Expect-Exit 2 @("--print", "--plan-in", $missing, "--mode", "ask")
+
+$planIn = Join-Path $env:TEMP "nullray-print-smoke-plan-in.md"
+@"
+## Goal
+smoke
+
+## Verify
+true
+
+## Success
+ok
+
+## Budget
+1
+
+## Steps
+1. noop
+"@ | Set-Content -Path $planIn -Encoding utf8
+Expect-Exit 2 @("--print", "--plan-in", $planIn, "--mode", "review")
+Expect-Exit 2 @("--print", "--plan-in", $planIn, "--perms", "ask")
+
+$bad = Join-Path $env:TEMP "nullray-print-smoke-plan-bad.md"
+"## Goal`nonly" | Set-Content -Path $bad -Encoding utf8
+Expect-Exit 2 @("--print", "--plan-in", $bad, "--perms", "yolo")
 
 Write-Host "print-smoke: ok ($Bin)"

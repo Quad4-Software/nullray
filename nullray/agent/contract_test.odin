@@ -5,6 +5,8 @@ Controller and plan contract unit tests.
 
 package agent
 
+import "core:os"
+import "core:strings"
 import "core:testing"
 
 @(test)
@@ -39,6 +41,56 @@ Repeated schema dump
 	defer done_contract_destroy(&c)
 	testing.expect(t, c.valid)
 	testing.expect(t, len(c.verify) > 0)
+}
+
+@(test)
+test_plan_apply_note_includes_steps :: proc(t: ^testing.T) {
+	body := `## Goal
+Do the thing
+
+## Verify
+make test
+
+## Success
+done
+
+## Budget
+1
+
+## Steps
+1. Edit foo
+2. Run tests
+`
+	note := plan_apply_note(body, 2)
+	defer delete(note)
+	testing.expect(t, strings.contains(note, "Do the thing"))
+	testing.expect(t, strings.contains(note, "make test"))
+	testing.expect(t, strings.contains(note, "Edit foo"))
+	testing.expect(t, strings.contains(note, "Steps:"))
+}
+
+@(test)
+test_load_plan_file_ok_and_missing :: proc(t: ^testing.T) {
+	body, err := load_plan_file("/tmp/nullray-plan-in-missing-xyz.md")
+	testing.expect(t, len(err) > 0)
+	testing.expect_value(t, body, "")
+	delete(err)
+
+	root := "/tmp/nullray-plan-in-test"
+	_ = os.make_directory_all(root)
+	path := "/tmp/nullray-plan-in-test/ok.md"
+	ok_body := "## Goal\nG\n\n## Verify\nmake test\n\n## Success\nok\n\n## Budget\n1\n\n## Steps\n1. x\n"
+	testing.expect(t, os.write_entire_file(path, ok_body) == nil)
+	loaded, lerr := load_plan_file(path)
+	defer delete(loaded)
+	testing.expect_value(t, lerr, "")
+	testing.expect(t, strings.contains(loaded, "## Verify"))
+
+	bad := "/tmp/nullray-plan-in-test/bad.md"
+	testing.expect(t, os.write_entire_file(bad, "## Goal\nonly\n") == nil)
+	_, berr := load_plan_file(bad)
+	testing.expect(t, len(berr) > 0)
+	delete(berr)
 }
 
 @(test)

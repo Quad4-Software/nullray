@@ -38,6 +38,7 @@ nullray loads flat *.md and nested name/SKILL.md from workspace .agents/skills, 
 | nullray/provider | Registry, chat, and Provider.stream |
 | nullray/run | Headless --print agent runner |
 | nullray/sandbox | Landlock, seccomp, secrets, redaction |
+| nullray/elevate | Elevated auth: classify, askpass, broker, circuit |
 | nullray/subagent | Roster, knowledge, leases, worktrees, model policy, spawn |
 | nullray/session | Live session, jobs, memory trim |
 | nullray/skills | Skill file loader |
@@ -66,7 +67,7 @@ make test runs odin test on ui, agent, tools, skills, session, store, sandbox, m
 
 Suite layers: package unit tests (adversarial focus in sandbox and tools/shell), headless --self-test, print-smoke (no provider), optional chat-smoke. Local coverage: make coverage (needs kcov) writes HTML under coverage/.
 
-Modes: ask, plan, review, edit. Print mode: nullray --print (no TUI). Plan mode writes .md under .nullray/plans/ or --plan-out. Post-edit verify is off by default. Opt in with NULLRAY_VERIFY=1, /verify on, or NULLRAY_VERIFY=<cmd>. When on, uses plan Verify, AGENTS Verify, or make test.
+Modes: ask, plan, review, edit. Print mode: nullray --print (no TUI). Plan mode writes .md under .nullray/plans/ or --plan-out. Apply with --plan-in / NULLRAY_PLAN_IN (headless auto-approves into edit, empty prompt becomes Execute the approved plan). Post-edit verify is off by default. Opt in with NULLRAY_VERIFY=1, /verify on, or NULLRAY_VERIFY=<cmd>. When on, uses plan Verify, AGENTS Verify, or make test.
 
 ## Skills (read before editing)
 
@@ -85,6 +86,8 @@ Built-ins in nullray/provider/builtins.odin wrap openai_chat / openai_list_model
 ## Sandbox
 
 Linux Landlock and seccomp in nullray/sandbox/. Non-Linux: sandbox_stub.odin (#+build !linux). Soft/Warn skips with a warn on other OS. Strict fails with sandbox requires linux.
+
+Elevated commands (sudo/doas/pkexec) use nullray/elevate with a pre-sandbox privilege broker. Landlock sets NO_NEW_PRIVS, so in-process sudo cannot gain privileges. Passwords stay on the TUI askpass path and never enter tool results or provider messages. NULLRAY_ELEVATE=ask|deny|ticket.
 
 ## Terminal
 
