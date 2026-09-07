@@ -407,15 +407,23 @@ slash_cmd_status :: proc(a: ^App, args: string) {
 	} else if len(verify) == 0 {
 		verify = "(default)"
 	}
+	sandbox_applied := false
+	if sstate := sandbox.state(); sstate != nil {
+		sandbox_applied = sstate.applied
+	}
+	char_budget := session.compact_chars_from_env()
 	session.session_set_status(
 		&a.session,
 		fmt.tprintf(
-			"mode=%s plan_ok=%v verify=%s fails=%d input_chars=%d plan=%s",
+			"mode=%s sandbox_applied=%v ask_simple=%v plan_ok=%v verify=%s fails=%d chars=%d/%d plan=%s",
 			agent.mode_string(a.session.agent_mode),
+			sandbox_applied,
+			agent.ask_simple_from_env(),
 			a.session.plan_contract_ok,
 			verify,
 			a.session.verify_fail_count,
 			a.session.last_input_chars,
+			char_budget,
 			plan,
 		),
 	)
@@ -666,6 +674,13 @@ slash_cmd_deny :: proc(a: ^App, args: string) {
 slash_cmd_undo :: proc(a: ^App, args: string) {
 	_ = args
 	msg, _ := tools.undo_last_write()
+	session.session_set_status(&a.session, msg)
+	delete(msg)
+}
+
+slash_cmd_checkpoint :: proc(a: ^App, args: string) {
+	_ = args
+	msg := tools.checkpoint_list()
 	session.session_set_status(&a.session, msg)
 	delete(msg)
 }

@@ -63,6 +63,7 @@ SLASH_COMMANDS := []Slash_Command{
 	{"allow", "/allow", "approve pending shell command once", slash_cmd_allow},
 	{"deny", "/deny", "drop pending shell command", slash_cmd_deny},
 	{"undo", "/undo", "undo last agent file write", slash_cmd_undo},
+	{"checkpoint", "/checkpoint", "list recent file checkpoints", slash_cmd_checkpoint},
 	{"attach", "/attach PATH", "attach a file into the next prompt", slash_cmd_attach},
 	{"view", "/view PATH", "open a file in the side pane", slash_cmd_view},
 	{"close", "/close", "close the file view pane", slash_cmd_close},
