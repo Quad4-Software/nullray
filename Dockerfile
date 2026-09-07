@@ -24,7 +24,14 @@ RUN apt-get update \
 	&& rm -rf /var/lib/apt/lists/*
 
 WORKDIR /src/odin
-RUN git clone --depth 1 https://github.com/odin-lang/Odin.git . \
+COPY packaging/odin-pin /tmp/odin-pin
+RUN COMMIT="$(grep -E '^[0-9a-f]{40}$' /tmp/odin-pin | head -n1)" \
+	&& test -n "${COMMIT}" \
+	&& git init -q \
+	&& git remote add origin https://github.com/odin-lang/Odin.git \
+	&& git fetch --depth 1 origin "${COMMIT}" \
+	&& git checkout -q FETCH_HEAD \
+	&& echo "${COMMIT}" >.nullray-odin-commit \
 	&& ./build_odin.sh
 
 ENV PATH="/src/odin:${PATH}"
@@ -52,16 +59,10 @@ RUN apt-get update \
 		ncurses-base \
 		ncurses-term \
 	&& rm -rf /var/lib/apt/lists/* \
-	&& groupadd --gid 1000 nullray \
-	&& useradd --uid 1000 --gid 1000 --create-home --home-dir /home/nullray \
-		--shell /usr/sbin/nologin nullray \
-	&& mkdir -p /home/nullray/.config/nullray /workspace \
-	&& chown -R nullray:nullray /home/nullray /workspace
+	&& useradd --uid 1000 --create-home --home-dir /home/nullray nullray
 
-COPY --from=build --chown=nullray:nullray /out/nullray /usr/local/bin/nullray
+COPY --from=build /out/nullray /usr/local/bin/nullray
 
-USER 1000:1000
+USER nullray
 WORKDIR /workspace
-
-# Interactive TUI. Pass -it (or compose stdin_open/tty).
 ENTRYPOINT ["/usr/local/bin/nullray"]

@@ -46,20 +46,15 @@ jobs:
           path: |
             ~/Odin
             ~/.cache/odin
-          key: odin-${{ runner.os }}-${{ hashFiles('.github/workflows/repro.yml') }}-2026-09
+          key: odin-${{ runner.os }}-${{ hashFiles('packaging/odin-pin') }}-${{ hashFiles('.github/workflows/repro.yml') }}
           restore-keys: |
             odin-${{ runner.os }}-
 
       - name: Ensure Odin
         run: |
           set -euo pipefail
-          if [[ -x "$HOME/Odin/odin" ]]; then
-            echo "using cached odin"
-          else
-            rm -rf "$HOME/Odin"
-            git clone --depth 1 https://github.com/odin-lang/Odin.git "$HOME/Odin"
-            (cd "$HOME/Odin" && ./build_odin.sh)
-          fi
+          chmod +x scripts/ensure-odin.sh
+          bash scripts/ensure-odin.sh "$HOME/Odin"
           echo "$HOME/Odin" >> "$GITHUB_PATH"
 
       - name: Reproducibility check
