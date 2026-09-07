@@ -209,18 +209,31 @@ jobs:
         with:
           persist-credentials: false
 
-      - name: Install curl
-        shell: pwsh
-        run: choco install curl -y
-
-      - name: Cache Odin release
+      - name: Cache Odin and vcpkg curl
         id: cache-odin
         uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
-          path: ~/Odin
-          key: odin-windows-release-dev-2026-09
+          path: |
+            ~/Odin
+            ~/vcpkg/installed
+            ~/vcpkg/downloads
+          key: odin-windows-release-dev-2026-09-curl-vcpkg1
           restore-keys: |
             odin-windows-release-
+
+      - name: Install curl and vcpkg libcurl
+        shell: pwsh
+        run: |
+          choco install curl -y
+          if (-not (Test-Path "$env:USERPROFILE\vcpkg\vcpkg.exe")) {
+            git clone --depth 1 https://github.com/microsoft/vcpkg "$env:USERPROFILE\vcpkg"
+            & "$env:USERPROFILE\vcpkg\bootstrap-vcpkg.bat" -disableMetrics
+          }
+          & "$env:USERPROFILE\vcpkg\vcpkg.exe" install curl:x64-windows --disable-metrics
+          $root = "$env:USERPROFILE\vcpkg\installed\x64-windows"
+          Add-Content -Path $env:GITHUB_PATH -Value "$root\bin"
+          Add-Content -Path $env:GITHUB_ENV -Value "LIB=$root\lib;$env:LIB"
+          Add-Content -Path $env:GITHUB_ENV -Value "INCLUDE=$root\include;$env:INCLUDE"
 
       - name: Install Odin release
         shell: pwsh
@@ -247,6 +260,6 @@ jobs:
         run: |
           where odin
           if not exist bin mkdir bin
-          odin build cmd\nullray -out:bin\nullray.exe -collection:nullray=nullray -extra-linker-flags:"libcurl" -define:NULLRAY_BUILD_DATE=2026-09-07 -define:NULLRAY_BUILD_TIME=00:00:00
+          odin build cmd\nullray -out:bin\nullray.exe -collection:nullray=nullray -define:NULLRAY_BUILD_DATE=2026-09-07 -define:NULLRAY_BUILD_TIME=00:00:00
           bin\nullray.exe --self-test
           bin\nullray.exe --version
