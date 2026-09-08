@@ -73,17 +73,25 @@ run :: proc(r: ^Registry, name: string, args_json: string, mode: string, allocat
 
 /*
 Names and one-line descriptions only. Full JSON schemas go in the API tools array.
+When mode is non-empty, skip tools blocked for that mode.
 */
-describe_for_prompt :: proc(r: ^Registry, allocator := context.allocator) -> string {
+describe_for_prompt :: proc(r: ^Registry, allocator := context.allocator, mode := "") -> string {
 	b: strings.Builder
 	strings.builder_init(&b, allocator)
 	if r == nil {
 		return strings.to_string(b)
 	}
-	for t, i in r.tools {
-		if i > 0 {
+	first := true
+	for t in r.tools {
+		if len(mode) > 0 {
+			if ok, _ := tool_kind_allowed(r, t.name, mode); !ok {
+				continue
+			}
+		}
+		if !first {
 			strings.write_string(&b, "\n")
 		}
+		first = false
 		strings.write_string(&b, t.name)
 		strings.write_string(&b, ": ")
 		strings.write_string(&b, t.description)

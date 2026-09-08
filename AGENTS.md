@@ -106,6 +106,8 @@ Platform backends: ui/term_linux.odin, ui/term_bsd.odin, ui/term_windows.odin. K
 
 Default root: ~/.config/nullray/ (XDG on Unix). Files: env, keys.ini, mcp.json, sessions/.
 
+LID harness (wave 1): tool dumps above NULLRAY_ARTIFACT_CHARS (default 3000) go to .nullray/artifacts/ and the model sees status/path/artifact/excerpt envelopes. Peek with read_artifact / grep_artifact. Provider history is a projection (NULLRAY_PROJECTION_TURNS / NULLRAY_PROJECTION_TOOL_STUBS). NULLRAY_LID=0 disables projection. NULLRAY_PROMPT=lean|full|auto (auto under print). Metrics: NULLRAY_HARNESS_METRICS=1 or NULLRAY_DEBUG=1, also harness_* fields in .usage.jsonl.
+
 Key presets: default, neovim, emacs (preset= in keys.ini), or NULLRAY_KEYS / --keys.
 
 Splash defaults on. Off: NULLRAY_SPLASH=0 (also false/off/no/disable) or --no-splash. Force: --splash or NULLRAY_SPLASH=1.

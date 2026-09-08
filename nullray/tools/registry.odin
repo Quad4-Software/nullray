@@ -150,6 +150,20 @@ registry_init :: proc(r: ^Registry) {
 		run = tool_compact_context,
 	})
 	registry_register(r, Tool{
+		name = "read_artifact",
+		description = "Read a large tool payload previously offloaded to an artifact id (optional offset/limit lines)",
+		schema_json = `{"type":"object","properties":{"id":{"type":"string"},"offset":{"type":"string","description":"1-based start line"},"limit":{"type":"string","description":"max lines to return"}},"required":["id"]}`,
+		kind = .Read,
+		run = tool_read_artifact,
+	})
+	registry_register(r, Tool{
+		name = "grep_artifact",
+		description = "Search a substring inside an offloaded artifact by id",
+		schema_json = `{"type":"object","properties":{"id":{"type":"string"},"pattern":{"type":"string"}},"required":["id","pattern"]}`,
+		kind = .Read,
+		run = tool_grep_artifact,
+	})
+	registry_register(r, Tool{
 		name = "read_man",
 		description = "Read a Linux man page as plain text (page name, optional section 1-8)",
 		schema_json = `{"type":"object","properties":{"page":{"type":"string"},"section":{"type":"string"},"max_chars":{"type":"string"}},"required":["page"]}`,

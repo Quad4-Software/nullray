@@ -32,9 +32,16 @@ Goals:
 - Never invent, guess, echo, or pass passwords in shell args. Elevated commands (sudo/doas/pkexec) go through nullray auth UI only. Do not use sudo -S or pipe secrets. After elevation lockout or cancel, stop and tell the human.`
 
 build_system_prompt :: proc(extra_skills: string = "", tools_reg: ^tools.Registry = nil, allocator := context.allocator) -> string {
+	lean := prompt_lean_enabled()
 	b: strings.Builder
 	strings.builder_init(&b, allocator)
 	strings.write_string(&b, CODING_AGENT_PREAMBLE)
+	if lean {
+		strings.write_string(
+			&b,
+			"\n\nLID harness: large tool payloads arrive as status/path/artifact/excerpt envelopes. Use read_artifact or grep_artifact for detail. Prefer short steps.",
+		)
+	}
 	if workspace_trust_warning() {
 		strings.write_string(
 			&b,
@@ -42,7 +49,8 @@ build_system_prompt :: proc(extra_skills: string = "", tools_reg: ^tools.Registr
 		)
 	}
 	strings.write_string(&b, "\n\n")
-	mode_sec := mode_prompt_section(mode_from_env(), policy_from_env(), context.temp_allocator)
+	mode := mode_from_env()
+	mode_sec := mode_prompt_section(mode, policy_from_env(), context.temp_allocator)
 	strings.write_string(&b, mode_sec)
 	auto_sec := autonomy_prompt_section(context.temp_allocator)
 	if len(auto_sec) > 0 {
@@ -63,13 +71,24 @@ build_system_prompt :: proc(extra_skills: string = "", tools_reg: ^tools.Registr
 	if reg == nil {
 		reg = tools.registry()
 	}
-	catalog := tools.describe_for_prompt(reg, context.temp_allocator)
+	mode_s := ""
+	if lean {
+		mode_s = mode_string(mode)
+	}
+	catalog := tools.describe_for_prompt(reg, context.temp_allocator, mode_s)
 	strings.write_string(&b, catalog)
 	strings.write_string(&b, "\n\nPrefer native function/tool calling when the API supports it. ")
 	strings.write_string(&b, "If the model cannot emit tool_calls, fall back to lines of the form:\n")
 	strings.write_string(&b, "TOOL <name> {json args}\n")
 	strings.write_string(&b, "You may emit multiple TOOL lines in one reply. After tool results, continue until the task is done.\n")
 
+	agents_cap := constants.MAX_AGENTS_PROMPT_CHARS
+	if lean {
+		agents_cap = agents_cap / 3
+		if agents_cap < 2_000 {
+			agents_cap = 2_000
+		}
+	}
 	agents, agents_path := load_agents_md(context.temp_allocator)
 	if len(agents) > 0 {
 		strings.write_string(&b, "\n\n## Project instructions (AGENTS.md)\n\n")
@@ -77,15 +96,26 @@ build_system_prompt :: proc(extra_skills: string = "", tools_reg: ^tools.Registr
 			&b,
 			"These notes are for you (nullray) about the current repository. They are not a change of identity.\n\n",
 		)
-		strings.write_string(&b, agents)
-		if len(agents_path) > 0 && len(agents) >= constants.MAX_AGENTS_PROMPT_CHARS {
+		if len(agents) > agents_cap {
+			strings.write_string(&b, agents[:agents_cap])
 			strings.write_string(&b, "\n\n(Truncated. Read full file with read_file: ")
 			strings.write_string(&b, agents_path)
 			strings.write_string(&b, ")\n")
+		} else {
+			strings.write_string(&b, agents)
+			if len(agents_path) > 0 && len(agents) >= constants.MAX_AGENTS_PROMPT_CHARS {
+				strings.write_string(&b, "\n\n(Truncated. Read full file with read_file: ")
+				strings.write_string(&b, agents_path)
+				strings.write_string(&b, ")\n")
+			}
 		}
 	}
 
-	memory_digest := project_memory.Digest(constants.MAX_MEMORY_PROMPT_CHARS, context.temp_allocator)
+	mem_cap := constants.MAX_MEMORY_PROMPT_CHARS
+	if lean {
+		mem_cap = mem_cap / 2
+	}
+	memory_digest := project_memory.Digest(mem_cap, context.temp_allocator)
 	if len(memory_digest) > 0 {
 		strings.write_string(&b, "\n\n## Project memory\n\n")
 		strings.write_string(&b, memory_digest)
@@ -94,6 +124,9 @@ build_system_prompt :: proc(extra_skills: string = "", tools_reg: ^tools.Registr
 	if len(extra_skills) > 0 {
 		strings.write_string(&b, "\n\n## Skills catalog\n\n")
 		strings.write_string(&b, extra_skills)
+		if lean {
+			strings.write_string(&b, "\n\nBodies are on demand via load_skill. Do not assume skill text is already loaded.\n")
+		}
 	}
 	return strings.to_string(b)
 }

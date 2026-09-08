@@ -394,6 +394,9 @@ session_set_mode :: proc(s: ^Session, mode: agent.Agent_Mode) {
 	session_sync_mode_env(s)
 	session_rebuild_system_prompt(s)
 	session_save_meta(s)
+	if prev != mode {
+		session_phase_reset_provider_window(s)
+	}
 	if mode == .Edit && (len(s.plan_verify) > 0 || s.plan_contract_ok) {
 		note: string
 		if len(s.plan_body) > 0 {

@@ -43,6 +43,14 @@ Event :: struct {
 	input_chars:        int,
 	stopped:            string,
 	agent_id:           string,
+	harness_calls:      int,
+	harness_peak_chars: int,
+	harness_stubbed:    int,
+	harness_artifacts:  int,
+	harness_clear:      int,
+	harness_compact:    int,
+	harness_midturn:    int,
+	harness_writeback:  int,
 }
 
 session_enqueue :: proc(s: ^Session, ev: Event) {
@@ -259,6 +267,14 @@ session_record_turn_usage :: proc(s: ^Session, ev: Event) {
 		cost_usd = ev.cost_usd,
 		cost_known = ev.cost_known,
 		stopped = ev.stopped,
+		harness_calls = ev.harness_calls,
+		harness_peak_chars = ev.harness_peak_chars,
+		harness_stubbed = ev.harness_stubbed,
+		harness_artifacts = ev.harness_artifacts,
+		harness_clear = ev.harness_clear,
+		harness_compact = ev.harness_compact,
+		harness_midturn = ev.harness_midturn,
+		harness_writeback = ev.harness_writeback,
 	})
 	session_save_meta(s)
 }

@@ -29,6 +29,14 @@ Turn_Metrics :: struct {
 	cost_usd:           f64,
 	cost_known:         bool,
 	stopped:            string,
+	harness_calls:      int,
+	harness_peak_chars: int,
+	harness_stubbed:    int,
+	harness_artifacts:  int,
+	harness_clear:      int,
+	harness_compact:    int,
+	harness_midturn:    int,
+	harness_writeback:  int,
 }
 
 Session_Metrics :: struct {
@@ -117,7 +125,7 @@ append_turn_metrics :: proc(session_jsonl_path: string, turn: Turn_Metrics) -> b
 		ts = time.time_to_unix(time.now())
 	}
 	line := fmt.tprintf(
-		`{{"ts":%d,"turn":%d,"model":%q,"agent_id":%q,"prompt_tokens":%d,"completion_tokens":%d,"total_tokens":%d,"reasoning_tokens":%d,"input_chars":%d,"cost_usd":%.6f,"cost_known":%v,"stopped":%q}}`+"\n",
+		`{{"ts":%d,"turn":%d,"model":%q,"agent_id":%q,"prompt_tokens":%d,"completion_tokens":%d,"total_tokens":%d,"reasoning_tokens":%d,"input_chars":%d,"cost_usd":%.6f,"cost_known":%v,"stopped":%q,"harness_calls":%d,"harness_peak_chars":%d,"harness_stubbed":%d,"harness_artifacts":%d,"harness_clear":%d,"harness_compact":%d,"harness_midturn":%d,"harness_writeback":%d}}`+"\n",
 		ts,
 		turn.turn,
 		turn.model,
@@ -130,6 +138,14 @@ append_turn_metrics :: proc(session_jsonl_path: string, turn: Turn_Metrics) -> b
 		turn.cost_usd,
 		turn.cost_known,
 		turn.stopped,
+		turn.harness_calls,
+		turn.harness_peak_chars,
+		turn.harness_stubbed,
+		turn.harness_artifacts,
+		turn.harness_clear,
+		turn.harness_compact,
+		turn.harness_midturn,
+		turn.harness_writeback,
 	)
 	sync.mutex_lock(&g_usage_mu)
 	defer sync.mutex_unlock(&g_usage_mu)

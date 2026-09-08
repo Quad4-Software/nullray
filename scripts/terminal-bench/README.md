@@ -55,13 +55,15 @@ Adapter env inside the task container (via docker-cp'd `/tmp/nullray.env`, not t
 NULLRAY_SANDBOX=off
 NULLRAY_STRUCTURE=0
 NULLRAY_AUTO=1
-NULLRAY_AGENT_STEPS=100
+NULLRAY_AGENT_STEPS=300
 NULLRAY_MAX_TOKENS=8192
-NULLRAY_SHELL_TIMEOUT_MS=600000
+NULLRAY_SHELL_TIMEOUT_MS=900000
 NULLRAY_STREAM=0
 NULLRAY_ELEVATE=deny
 NULLRAY_SUBAGENTS=0
 ```
+
+Wall timeout default is 2400s (`NULLRAY_TB_TIMEOUT`) to cover hard tasks such as UPET and Zork.
 
 Also set `BUILDX_BUILDER=default`. Share a flock file (for example `/tmp/nullray-bench-full/.docker-build.lock`) so Terminal-Bench and sysadmin image builds do not race.
 

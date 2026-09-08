@@ -4,6 +4,18 @@ Notable changes for nullray.
 
 Format follows Keep a Changelog and Semantic Versioning.
 
+## [0.1.2] - 2026-09-08
+
+### Added
+- LID harness: large tool payloads offload to `.nullray/artifacts/` with status/path/artifact/excerpt envelopes. New tools `read_artifact` and `grep_artifact`.
+- Provider projection in `session_start_chat` (last N user/assistant turns and M tool stubs). Prepare clear/compact write-back into the session transcript.
+- Mid-turn clear/compact in `run_turn` when context crosses the compact budget. Mode switches reset the provider window toward digests and stubs.
+- Lean system prompt via `NULLRAY_PROMPT=lean` (auto under print): mode-filtered tool list, harder AGENTS truncation, skill bodies only through `load_skill`.
+- Harness metrics on stderr (`NULLRAY_HARNESS_METRICS=1` or `NULLRAY_DEBUG=1`) and in `.usage.jsonl` (`harness_calls`, `harness_peak_chars`, `harness_stubbed`, `harness_artifacts`, clear/compact/midturn/writeback).
+
+### Changed
+- Defaults keep LID on (`NULLRAY_LID=0` disables projection). Artifact threshold `NULLRAY_ARTIFACT_CHARS` (default 3000). Projection caps `NULLRAY_PROJECTION_TURNS` and `NULLRAY_PROJECTION_TOOL_STUBS`.
+
 ## [0.1.1] - 2026-09-07
 
 ### Added

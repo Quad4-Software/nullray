@@ -164,9 +164,31 @@ spawn_child :: proc(
 	if hh, ok := roster_get(&rt.roster, saved_id, allocator); ok {
 		sum = strings.clone(hh.result_summary, allocator)
 		if len(sum) > constants.MAX_CHILD_RESULT_CHARS {
-			trimmed := strings.clone(sum[:constants.MAX_CHILD_RESULT_CHARS], allocator)
+			aid, aok := store.artifact_store(sum)
+			excerpt := sum
+			if len(excerpt) > 400 {
+				excerpt = excerpt[:400]
+			}
+			structured: string
+			if aok {
+				structured = fmt.aprintf(
+					"status=ok path=subagent/%s lines=0 artifact=%s\n--- excerpt ---\n%s",
+					saved_id,
+					aid,
+					excerpt,
+					allocator = allocator,
+				)
+				delete(aid)
+			} else {
+				structured = fmt.aprintf(
+					"status=ok path=subagent/%s\n--- excerpt ---\n%s",
+					saved_id,
+					sum[:constants.MAX_CHILD_RESULT_CHARS],
+					allocator = allocator,
+				)
+			}
 			delete(sum)
-			sum = trimmed
+			sum = structured
 		}
 		destroy_handle_fields(&hh, allocator)
 	}

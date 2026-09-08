@@ -24,6 +24,7 @@ Job_Args :: struct {
 	tools_enabled:     bool,
 	reasoning_effort:  string,
 	turn_base:         int,
+	prep_stats:        agent.Prepare_Stats,
 }
 
 session_apply_pending_commit :: proc(s: ^Session) {
@@ -142,35 +143,42 @@ session_start_chat :: proc(s: ^Session, p: ^provider.Provider) {
 			sys_count += 1
 		}
 	}
-	// Flatten removed: keep native tool_calls and tool role for cache + resume.
-	flat := make([dynamic]provider.Message, 0, len(s.messages) + sys_count)
+	// LID projection: model sees a short structured window; session keeps full fidelity until write-back.
+	projected := session_project_messages(s)
+	flat := make([dynamic]provider.Message, 0, len(projected) + sys_count + 4)
 	if len(s.system_prompt) > 0 {
 		append(&flat, provider.Message{role = .System, content = strings.clone(s.system_prompt), cacheable = true})
 	}
 	if len(group_ctx) > 0 {
 		append(&flat, provider.Message{role = .System, content = group_ctx})
 	}
-	for m in s.messages {
-		cloned := provider.clone_message(m)
-		append(&flat, cloned)
+	for m in projected {
+		append(&flat, m)
 	}
+	delete(projected)
 	// Progressive skills: inject matched bodies into the volatile tail (not system prefix).
-	last_user := ""
-	for i := len(s.messages) - 1; i >= 0; i -= 1 {
-		if s.messages[i].role == .User {
-			last_user = s.messages[i].content
-			break
+	// Lean prompt skips auto skill body injection (load_skill on demand).
+	if !agent.prompt_lean_enabled() {
+		last_user := ""
+		for i := len(s.messages) - 1; i >= 0; i -= 1 {
+			if s.messages[i].role == .User {
+				last_user = s.messages[i].content
+				break
+			}
 		}
-	}
-	if len(last_user) > 0 {
-		notes := agent.auto_activate_skill_notes(last_user)
-		for note in notes {
-			append(&flat, provider.Message{role = .User, content = note})
+		if len(last_user) > 0 {
+			notes := agent.auto_activate_skill_notes(last_user)
+			for note in notes {
+				append(&flat, provider.Message{role = .User, content = note})
+			}
+			delete(notes)
 		}
-		delete(notes)
 	}
 	// Clear-then-compact ladder before the model call.
-	session_prepare_context(&flat, p)
+	prep := session_prepare_context(&flat, p)
+	if session_writeback_prepare(s, flat[:], prep) {
+		prep.writeback = true
+	}
 	msgs := make([]provider.Message, len(flat))
 	copy(msgs, flat[:])
 	delete(flat)
@@ -185,6 +193,7 @@ session_start_chat :: proc(s: ^Session, p: ^provider.Provider) {
 	args.tools_enabled = s.tools_enabled
 	args.reasoning_effort = strings.clone(s.reasoning_effort)
 	args.turn_base = len(s.messages)
+	args.prep_stats = prep
 
 	status := "waiting for model"
 	if s.tools_enabled {
@@ -218,6 +227,20 @@ agent_event_cb :: proc(ev: agent.Event, user: rawptr) {
 }
 
 @(private)
+session_prepare_cb :: proc(
+	msgs: ^[dynamic]provider.Message,
+	p: ^provider.Provider,
+	user: rawptr,
+) -> agent.Prepare_Stats {
+	stats := session_prepare_context(msgs, p)
+	s := cast(^Session)user
+	if s != nil && session_writeback_prepare(s, msgs[:], stats) {
+		stats.writeback = true
+	}
+	return stats
+}
+
+@(private)
 chat_job :: proc(data: rawptr) {
 	args := cast(^Job_Args)data
 	defer {
@@ -240,6 +263,7 @@ chat_job :: proc(data: rawptr) {
 	cfg.on_event = agent_event_cb
 	cfg.user = args.session
 	cfg.stop_check = session_stop_check
+	cfg.prepare_context = session_prepare_cb
 
 	args.session.last_input_chars = messages_content_chars(args.messages)
 
@@ -250,6 +274,13 @@ chat_job :: proc(data: rawptr) {
 	}
 	result := agent.run_turn(req, cfg)
 	args.session.verify_fail_count = result.verify_fail_count
+	result.harness.clear_events += args.prep_stats.cleared
+	if args.prep_stats.compacted {
+		result.harness.compact_events += 1
+	}
+	if args.prep_stats.writeback {
+		result.harness.writeback_events += 1
+	}
 	if result.stopped == "done" &&
 		result.verify_fail_count == 0 &&
 		args.session.agent_mode == .Edit &&
@@ -287,6 +318,14 @@ chat_job :: proc(data: rawptr) {
 		cost_known = result.usage.cost_known,
 		input_chars = args.session.last_input_chars,
 		stopped = strings.clone(result.stopped),
+		harness_calls = result.harness.call_count,
+		harness_peak_chars = result.harness.peak_prompt_chars,
+		harness_stubbed = result.harness.stubbed_bytes,
+		harness_artifacts = result.harness.artifacts_stored,
+		harness_clear = result.harness.clear_events,
+		harness_compact = result.harness.compact_events,
+		harness_midturn = result.harness.midturn_prepare_events,
+		harness_writeback = result.harness.writeback_events,
 	})
 
 	delete(args.session.last_stopped)

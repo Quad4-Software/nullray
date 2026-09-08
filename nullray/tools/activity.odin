@@ -49,7 +49,7 @@ tool_activity_line :: proc(name, args_json: string, allocator := context.allocat
 		detail = activity_field(args_json, "pattern")
 	case "run_script":
 		detail = activity_field(args_json, "language")
-	case "load_skill":
+	case "load_skill", "read_artifact", "grep_artifact":
 		detail = activity_field(args_json, "id")
 	case "apply_edits":
 		detail = "edits"
