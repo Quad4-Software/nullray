@@ -124,6 +124,7 @@ session_init :: proc(s: ^Session) {
 }
 
 session_destroy :: proc(s: ^Session) {
+	_ = store.artifact_gc()
 	if len(s.session_path) > 0 {
 		store.session_unlock(s.session_path)
 	}

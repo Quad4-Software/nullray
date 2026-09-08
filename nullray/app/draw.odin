@@ -250,6 +250,37 @@ app_append_md_content :: proc(
 }
 
 @(private)
+tool_artifact_stub :: proc(content: string, allocator := context.allocator) -> (string, bool) {
+	idx := strings.index(content, "artifact=")
+	if idx < 0 {
+		return "", false
+	}
+	rest := content[idx + len("artifact="):]
+	end := 0
+	for end < len(rest) {
+		c := rest[end]
+		if (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || (c >= '0' && c <= '9') || c == '-' || c == '_' {
+			end += 1
+			continue
+		}
+		break
+	}
+	if end == 0 {
+		return "", false
+	}
+	id := rest[:end]
+	head := content
+	nl := strings.index_byte(content, '\n')
+	if nl > 0 {
+		head = content[:nl]
+	}
+	if len(head) > 120 {
+		head = head[:120]
+	}
+	return fmt.aprintf("%s (expand: /artifact %s)", head, id, allocator = allocator), true
+}
+
+@(private)
 app_collect_blocks :: proc(a: ^App, accent: ui.Color, allocator := context.temp_allocator) -> []Transcript_Block {
 	t := ui.theme()
 	blocks := make([dynamic]Transcript_Block, 0, len(a.session.messages) + 4, allocator)
@@ -309,12 +340,18 @@ app_collect_blocks :: proc(a: ^App, accent: ui.Color, allocator := context.temp_
 		}
 
 		pfx := fmt.tprintf("%s  ", label)
+		body := m.content
+		if m.role == .Tool {
+			if stub, ok := tool_artifact_stub(m.content, context.temp_allocator); ok {
+				body = stub
+			}
+		}
 		if render_md {
-			app_append_md_content(&blocks, pfx, m.content, pfx_fg, fg, false, row_bg, has_bg, gutter)
+			app_append_md_content(&blocks, pfx, body, pfx_fg, fg, false, row_bg, has_bg, gutter)
 		} else {
 			append(&blocks, Transcript_Block{
 				prefix = pfx,
-				body = m.content,
+				body = body,
 				prefix_fg = pfx_fg,
 				body_fg = fg,
 				prefix_style = {.Bold},

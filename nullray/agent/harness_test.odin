@@ -38,6 +38,8 @@ test_offload_tool_result_stubs_large :: proc(t: ^testing.T) {
 
 	os.set_env("NULLRAY_ARTIFACT_CHARS", "100")
 	defer os.unset_env("NULLRAY_ARTIFACT_CHARS")
+	os.set_env("NULLRAY_LID", "1")
+	defer os.unset_env("NULLRAY_LID")
 
 	big := strings.repeat("x", 500, context.temp_allocator)
 	m: Harness_Metrics
@@ -45,6 +47,36 @@ test_offload_tool_result_stubs_large :: proc(t: ^testing.T) {
 	defer delete(out)
 	testing.expect(t, m.artifacts_stored >= 1)
 	testing.expect(t, strings.contains(out, "artifact="))
+	testing.expect(t, strings.contains(out, "status=ok"))
+}
+
+@(test)
+test_offload_lid_off_skips_artifact_store :: proc(t: ^testing.T) {
+	ws := "/tmp/nullray-harness-lid0-ws"
+	_ = os.remove_all(ws)
+	_ = os.make_directory_all(ws)
+	defer os.remove_all(ws)
+	st := sandbox.state()
+	prev := ""
+	if st != nil {
+		prev = st.workspace
+		st.workspace = ws
+	}
+	defer if st != nil {
+		st.workspace = prev
+	}
+
+	os.set_env("NULLRAY_ARTIFACT_CHARS", "100")
+	defer os.unset_env("NULLRAY_ARTIFACT_CHARS")
+	os.set_env("NULLRAY_LID", "0")
+	defer os.unset_env("NULLRAY_LID")
+
+	big := strings.repeat("y", 500, context.temp_allocator)
+	m: Harness_Metrics
+	out := offload_tool_result("run_shell", big, "echo", false, &m)
+	defer delete(out)
+	testing.expect_value(t, m.artifacts_stored, 0)
+	testing.expect(t, !strings.contains(out, "artifact="))
 	testing.expect(t, strings.contains(out, "status=ok"))
 }
 

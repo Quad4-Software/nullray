@@ -344,8 +344,14 @@ print_strict_fail :: proc(s: ^session.Session, res: Result, living: int, tool_on
 		return true, "print-strict: verify failed"
 	}
 	switch res.stopped {
-	case "max_steps", "loop", "timeout":
+	case "loop", "timeout":
 		return true, fmt.tprintf("print-strict: stopped with %s", res.stopped)
+	case "max_steps":
+		had_writes := agent.turn_had_writes(s.messages[:])
+		had_tools := agent.turn_had_tool_calls(s.messages[:])
+		if !had_writes && !had_tools {
+			return true, "print-strict: stopped with max_steps"
+		}
 	}
 	if living > 0 {
 		return true, fmt.tprintf("print-strict: %d subagent(s) still running", living)

@@ -189,9 +189,11 @@ run_turn :: proc(req: Run_Request, cfg: Config, allocator := context.allocator) 
 	if reg == nil {
 		reg = tools.registry()
 	}
+	harness: Harness_Metrics
 	if tools_on {
 		// Own across every chat step. Stream callbacks must not free this.
-		tools_json = tools.openai_tools_json(reg, mode_s, allocator)
+		tools_json = tools.openai_tools_json(reg, mode_s, prompt_lean_enabled(), allocator)
+		harness.tools_json_chars = len(tools_json)
 	}
 	defer if len(tools_json) > 0 {
 		delete(tools_json)
@@ -219,7 +221,6 @@ run_turn :: proc(req: Run_Request, cfg: Config, allocator := context.allocator) 
 	prev_asst := ""
 	asst_streak := 0
 	verify_fails := cfg.verify_fail_count
-	harness: Harness_Metrics
 	had_writes := false
 
 	for step in 0 ..< max_steps {
@@ -572,6 +573,59 @@ run_turn :: proc(req: Run_Request, cfg: Config, allocator := context.allocator) 
 			emit(cfg, .Status, "paused")
 			harness_log_metrics(harness)
 			return Run_Result{ok = true, messages = msgs, content = last_content, stopped = owned_stop("paused", allocator), usage = usage_sum, harness = harness}
+		}
+	}
+
+	if tools_on &&
+		cfg.mode == .Edit &&
+		(had_writes || turn_had_writes(msgs[:])) {
+		vcmd, voff := resolve_verify_command(cfg.plan_verify, context.temp_allocator)
+		if !voff && len(vcmd) > 0 {
+			vargs := fmt.aprintf(`{{"command":%q}}`, vcmd, allocator = context.temp_allocator)
+			emit(cfg, .Status, fmt.tprintf("verify (step budget): %s", vcmd))
+			emit(cfg, .Tool_Start, vargs, "verify")
+			vok, vout := run_verify_command(vcmd, reg, allocator)
+			tui_out := truncate_bytes(vout, constants.MAX_VERIFY_OUTPUT_BYTES, context.temp_allocator)
+			emit(cfg, .Tool_Done, tui_out, "verify")
+			if vok {
+				delete(vout)
+				emit(cfg, .Status, "verify ok")
+				harness_log_metrics(harness)
+				return Run_Result{
+					ok = true,
+					messages = msgs,
+					content = last_content,
+					stopped = owned_stop("done", allocator),
+					usage = usage_sum,
+					verify_fail_count = 0,
+					harness = harness,
+				}
+			}
+			verify_fails += 1
+			aid := verify_store_output(vout, allocator)
+			fail_msg := format_verify_nudge(
+				vcmd,
+				verify_fails,
+				verify_max_fails_from_env(),
+				vout,
+				true,
+				allocator,
+				aid,
+			)
+			delete(vout)
+			delete(aid)
+			emit(cfg, .Status, "verify failed (step budget)")
+			append(&msgs, provider.Message{role = .User, content = fail_msg})
+			harness_log_metrics(harness)
+			return Run_Result{
+				ok = true,
+				messages = msgs,
+				content = fail_msg,
+				stopped = owned_stop("verify_failed", allocator),
+				usage = usage_sum,
+				verify_fail_count = verify_fails,
+				harness = harness,
+			}
 		}
 	}
 

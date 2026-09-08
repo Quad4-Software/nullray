@@ -49,8 +49,9 @@ Event :: struct {
 	harness_artifacts:  int,
 	harness_clear:      int,
 	harness_compact:    int,
-	harness_midturn:    int,
-	harness_writeback:  int,
+	harness_midturn:       int,
+	harness_writeback:     int,
+	harness_tools_json:    int,
 }
 
 session_enqueue :: proc(s: ^Session, ev: Event) {
@@ -275,6 +276,7 @@ session_record_turn_usage :: proc(s: ^Session, ev: Event) {
 		harness_compact = ev.harness_compact,
 		harness_midturn = ev.harness_midturn,
 		harness_writeback = ev.harness_writeback,
+		harness_tools_json = ev.harness_tools_json,
 	})
 	session_save_meta(s)
 }

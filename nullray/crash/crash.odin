@@ -14,6 +14,7 @@ import "core:strings"
 import "core:time"
 import "nullray:constants"
 import "nullray:sandbox"
+import "nullray:store"
 import "nullray:ui"
 
 State :: struct {
@@ -316,6 +317,8 @@ doctor :: proc() -> int {
 	} else {
 		fmt.println("latest crash: (none)")
 	}
+	n := store.artifact_gc()
+	fmt.printf("artifact gc: removed %d file(s)\n", n)
 	fmt.println("tips:")
 	fmt.println("  make debug            build with symbols for richer backtraces")
 	fmt.println("  NULLRAY_DEBUG=1       verbose stderr lifecycle logs")

@@ -248,9 +248,21 @@ turn_had_writes :: proc(messages: []provider.Message) -> bool {
 		}
 		for tc in m.tool_calls {
 			switch tc.name {
-			case "write_file", "edit_file", "apply_edits":
+			case "write_file", "edit_file", "apply_edits", "scaffold":
 				return true
 			}
+		}
+	}
+	return false
+}
+
+turn_had_tool_calls :: proc(messages: []provider.Message) -> bool {
+	for m in messages {
+		if m.role != .Assistant {
+			continue
+		}
+		if len(m.tool_calls) > 0 {
+			return true
 		}
 	}
 	return false

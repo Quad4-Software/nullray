@@ -74,6 +74,7 @@ SLASH_COMMANDS := []Slash_Command{
 	{"checkpoint", "/checkpoint [list|restore N|diff N]", "list or restore file checkpoints", slash_cmd_checkpoint},
 	{"attach", "/attach PATH", "attach a file into the next prompt", slash_cmd_attach},
 	{"view", "/view PATH", "open a file in the side pane", slash_cmd_view},
+	{"artifact", "/artifact ID", "open an LID artifact in the side pane", slash_cmd_artifact},
 	{"close", "/close", "close the file view pane", slash_cmd_close},
 	{"copy", "/copy", "copy selection or last assistant reply", slash_cmd_copy},
 }

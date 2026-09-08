@@ -140,3 +140,84 @@ artifact_chars_threshold :: proc() -> int {
 	}
 	return constants.ARTIFACT_CHARS_DEFAULT
 }
+
+Artifact_File_Info :: struct {
+	path:  string,
+	size:  i64,
+	mtime: i64,
+}
+
+/*
+Delete aged or excess artifacts under .nullray/artifacts. Oldest first when over quota.
+Returns number of files removed.
+*/
+artifact_gc :: proc(
+	max_bytes: i64 = constants.ARTIFACT_GC_MAX_BYTES,
+	max_age_days: int = constants.ARTIFACT_GC_MAX_AGE_DAYS,
+) -> int {
+	dir := artifact_dir(context.temp_allocator)
+	entries, err := os.read_directory_by_path(dir, -1, context.temp_allocator)
+	if err != nil {
+		return 0
+	}
+	defer os.file_info_slice_delete(entries, context.temp_allocator)
+	now := time.time_to_unix(time.now())
+	max_age_secs: i64 = 0
+	if max_age_days > 0 {
+		max_age_secs = i64(max_age_days) * 24 * 60 * 60
+	}
+	infos := make([dynamic]Artifact_File_Info, context.temp_allocator)
+	total: i64 = 0
+	removed := 0
+	for e in entries {
+		if e.type == .Directory {
+			continue
+		}
+		name := e.name
+		if !strings.has_suffix(name, ".txt") {
+			continue
+		}
+		id := name[:len(name) - 4]
+		if !artifact_id_ok(id) {
+			continue
+		}
+		path, pok := artifact_path(id, context.temp_allocator)
+		if !pok {
+			continue
+		}
+		size := e.size
+		mtime := time.to_unix_seconds(e.modification_time)
+		if max_age_secs > 0 && (now - mtime) > max_age_secs {
+			if os.remove(path) == nil {
+				removed += 1
+			}
+			continue
+		}
+		total += size
+		append(&infos, Artifact_File_Info{
+			path = strings.clone(path, context.temp_allocator),
+			size = size,
+			mtime = mtime,
+		})
+	}
+	if max_bytes <= 0 || total <= max_bytes {
+		return removed
+	}
+	for i in 0 ..< len(infos) {
+		for j in i + 1 ..< len(infos) {
+			if infos[j].mtime < infos[i].mtime {
+				infos[i], infos[j] = infos[j], infos[i]
+			}
+		}
+	}
+	for info in infos {
+		if total <= max_bytes {
+			break
+		}
+		if os.remove(info.path) == nil {
+			total -= info.size
+			removed += 1
+		}
+	}
+	return removed
+}

@@ -40,7 +40,7 @@ build_system_prompt :: proc(extra_skills: string = "", tools_reg: ^tools.Registr
 	if lean {
 		strings.write_string(
 			&b,
-			"\n\nLID harness: large tool payloads arrive as status/path/artifact/excerpt envelopes. Use read_artifact or grep_artifact for detail. Prefer short steps.",
+			"\n\nLID harness: large tool payloads arrive as status/path/artifact/excerpt envelopes. Prefer grep_artifact then bounded read_artifact (default line/byte caps). Prefer short steps.",
 		)
 	}
 	if workspace_trust_warning() {

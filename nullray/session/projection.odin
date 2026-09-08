@@ -111,14 +111,15 @@ session_writeback_prepare :: proc(s: ^Session, flat: []provider.Message, stats: 
 		if fm.role != .Tool {
 			continue
 		}
+		if len(fm.tool_call_id) == 0 {
+			continue
+		}
 		for i in 0 ..< len(s.messages) {
 			sm := s.messages[i]
 			if sm.role != .Tool {
 				continue
 			}
-			same_id := len(fm.tool_call_id) > 0 && fm.tool_call_id == sm.tool_call_id
-			same_name := len(fm.tool_call_id) == 0 && fm.name == sm.name && len(fm.name) > 0
-			if !same_id && !same_name {
+			if fm.tool_call_id != sm.tool_call_id {
 				continue
 			}
 			if sm.content == fm.content {

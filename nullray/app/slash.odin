@@ -852,6 +852,21 @@ slash_cmd_view :: proc(a: ^App, args: string) {
 	_ = app_view_open(a, path)
 }
 
+slash_cmd_artifact :: proc(a: ^App, args: string) {
+	id := strings.trim_space(args)
+	if len(id) == 0 {
+		session.session_set_status(&a.session, "usage: /artifact ID")
+		return
+	}
+	body, err := store.artifact_read(id, context.temp_allocator)
+	if len(err) > 0 {
+		session.session_set_status(&a.session, err)
+		return
+	}
+	title := fmt.tprintf("artifact:%s", id)
+	_ = app_view_open_text(a, title, body)
+}
+
 slash_cmd_close :: proc(a: ^App, args: string) {
 	_ = args
 	if !a.view_open {

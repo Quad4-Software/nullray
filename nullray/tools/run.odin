@@ -5,6 +5,7 @@ Tool dispatch, mode gating, and OpenAI tools JSON.
 
 package tools
 
+import "core:encoding/json"
 import "core:fmt"
 import "core:strings"
 import "nullray:subagent"
@@ -15,6 +16,112 @@ subagent_runtime_enabled :: proc() -> bool {
 		return false
 	}
 	return subagent.runtime_enabled(rt)
+}
+
+SUBAGENT_TOOL_NAMES :: []string{
+	"task",
+	"agents_status",
+	"agents_peek",
+	"agents_progress",
+	"agents_wait",
+	"agents_verify",
+	"knowledge_get",
+	"knowledge_put",
+	"knowledge_list",
+	"model_use",
+	"board_list",
+	"board_add",
+	"board_claim",
+	"send_message",
+	"read_messages",
+}
+
+is_subagent_tool_name :: proc(name: string) -> bool {
+	for n in SUBAGENT_TOOL_NAMES {
+		if n == name {
+			return true
+		}
+	}
+	return false
+}
+
+lean_core_tool :: proc(name: string) -> bool {
+	switch name {
+	case "read_file", "write_file", "edit_file", "apply_edits", "list_dir",
+		"grep_files", "glob_files", "run_shell", "run_script",
+		"load_skill", "list_skills", "compact_context",
+		"read_artifact", "grep_artifact",
+		"memory_get", "memory_put", "memory_list":
+		return true
+	}
+	return false
+}
+
+json_escape_string :: proc(s: string, allocator := context.allocator) -> string {
+	b: strings.Builder
+	strings.builder_init(&b, allocator)
+	for r in s {
+		switch r {
+		case '"':
+			strings.write_string(&b, `\"`)
+		case '\\':
+			strings.write_string(&b, `\\`)
+		case '\b':
+			strings.write_string(&b, `\b`)
+		case '\f':
+			strings.write_string(&b, `\f`)
+		case '\n':
+			strings.write_string(&b, `\n`)
+		case '\r':
+			strings.write_string(&b, `\r`)
+		case '\t':
+			strings.write_string(&b, `\t`)
+		case:
+			if r < 0x20 {
+				fmt.sbprintf(&b, `\u%04x`, int(r))
+			} else {
+				strings.write_rune(&b, r)
+			}
+		}
+	}
+	return strings.to_string(b)
+}
+
+schema_strip_descriptions :: proc(schema: string, allocator := context.allocator) -> string {
+	doc, perr := json.parse_string(schema, .JSON, allocator = context.temp_allocator)
+	if perr != nil {
+		return strings.clone(schema, allocator)
+	}
+	stripped := schema_strip_descriptions_clone(doc, context.temp_allocator)
+	out, uerr := json.unparse(stripped, allocator = allocator)
+	if uerr != nil {
+		return strings.clone(schema, allocator)
+	}
+	return out
+}
+
+schema_strip_descriptions_clone :: proc(v: json.Value, allocator := context.allocator) -> json.Value {
+	#partial switch val in v {
+	case json.Object:
+		out: json.Object
+		out = make(json.Object, allocator = allocator)
+		for k, child in val {
+			if k == "description" {
+				continue
+			}
+			out[strings.clone(k, allocator)] = schema_strip_descriptions_clone(child, allocator)
+		}
+		return out
+	case json.Array:
+		out := make(json.Array, 0, len(val), allocator)
+		for item in val {
+			append(&out, schema_strip_descriptions_clone(item, allocator))
+		}
+		return out
+	case json.String:
+		return strings.clone(val, allocator)
+	}
+	return v
 }
 
 /*
@@ -99,18 +206,18 @@ describe_for_prompt :: proc(r: ^Registry, allocator := context.allocator, mode :
 	return strings.to_string(b)
 }
 
-openai_tools_json :: proc(r: ^Registry, mode: string, allocator := context.allocator) -> string {
+openai_tools_json :: proc(r: ^Registry, mode: string, lean := false, allocator := context.allocator) -> string {
 	b: strings.Builder
 	strings.builder_init(&b, allocator)
 	strings.write_string(&b, "[")
 	first := true
-	sub_on := true
-	if rt := subagent_runtime_enabled(); !rt {
-		sub_on = false
-	}
+	sub_on := subagent_runtime_enabled()
 	if r != nil {
 		for t in r.tools {
-			if t.name == "task" && !sub_on {
+			if !sub_on && is_subagent_tool_name(t.name) {
+				continue
+			}
+			if lean && !lean_core_tool(t.name) {
 				continue
 			}
 			if ok, _ := tool_kind_allowed(r, t.name, mode); !ok {
@@ -120,12 +227,21 @@ openai_tools_json :: proc(r: ^Registry, mode: string, allocator := context.alloc
 				strings.write_string(&b, ",")
 			}
 			first = false
+			desc := t.description
+			if lean {
+				desc = ""
+			}
+			esc := json_escape_string(desc, context.temp_allocator)
+			schema := t.schema_json
+			if lean {
+				schema = schema_strip_descriptions(t.schema_json, context.temp_allocator)
+			}
 			strings.write_string(&b, `{"type":"function","function":{"name":"`)
 			strings.write_string(&b, t.name)
 			strings.write_string(&b, `","description":"`)
-			strings.write_string(&b, t.description)
+			strings.write_string(&b, esc)
 			strings.write_string(&b, `","parameters":`)
-			strings.write_string(&b, t.schema_json)
+			strings.write_string(&b, schema)
 			strings.write_string(&b, "}}")
 		}
 	}

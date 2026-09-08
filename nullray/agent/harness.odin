@@ -14,16 +14,17 @@ import "nullray:provider"
 import "nullray:store"
 
 Harness_Metrics :: struct {
-	call_count:            int,
-	total_prompt_chars:    int,
-	peak_prompt_chars:     int,
-	stubbed_bytes:         int,
-	retained_tool_bytes:   int,
-	artifacts_stored:      int,
-	compact_events:        int,
-	clear_events:          int,
-	writeback_events:      int,
+	call_count:             int,
+	total_prompt_chars:     int,
+	peak_prompt_chars:      int,
+	stubbed_bytes:          int,
+	retained_tool_bytes:    int,
+	artifacts_stored:       int,
+	compact_events:         int,
+	clear_events:           int,
+	writeback_events:       int,
 	midturn_prepare_events: int,
+	tools_json_chars:       int,
 }
 
 Prepare_Stats :: struct {
@@ -267,7 +268,7 @@ offload_tool_result :: proc(
 	}
 	threshold := store.artifact_chars_threshold()
 	lines := count_lines(raw)
-	if threshold > 0 && len(raw) > threshold {
+	if lid_enabled() && threshold > 0 && len(raw) > threshold {
 		id, ok := store.artifact_store(raw)
 		if ok {
 			if metrics != nil {
@@ -302,7 +303,7 @@ tool_clear_stub :: proc(m: provider.Message, allocator := context.allocator) -> 
 	}
 	body := m.content
 	id := ""
-	if store.artifact_chars_threshold() > 0 && len(body) > store.artifact_chars_threshold() {
+	if lid_enabled() && store.artifact_chars_threshold() > 0 && len(body) > store.artifact_chars_threshold() {
 		aid, ok := store.artifact_store(body)
 		if ok {
 			id = aid
@@ -470,7 +471,7 @@ harness_log_metrics :: proc(m: Harness_Metrics) {
 		mean = m.total_prompt_chars / m.call_count
 	}
 	fmt.eprintf(
-		"nullray harness: calls=%d mean_chars=%d peak_chars=%d stubbed=%d retained=%d artifacts=%d clear=%d compact=%d writeback=%d midturn=%d\n",
+		"nullray harness: calls=%d mean_chars=%d peak_chars=%d stubbed=%d retained=%d artifacts=%d clear=%d compact=%d writeback=%d midturn=%d tools_json=%d\n",
 		m.call_count,
 		mean,
 		m.peak_prompt_chars,
@@ -481,6 +482,7 @@ harness_log_metrics :: proc(m: Harness_Metrics) {
 		m.compact_events,
 		m.writeback_events,
 		m.midturn_prepare_events,
+		m.tools_json_chars,
 	)
 }
 

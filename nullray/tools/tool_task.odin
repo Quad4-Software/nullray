@@ -286,9 +286,26 @@ tool_read_messages :: proc(args_json: string, allocator := context.allocator) ->
 	return subagent.peer_read(&rt.messages, aid, allocator), ""
 }
 
-register_subagent_tools :: proc(r: ^Registry, enabled: bool) {
-	_ = enabled
+unregister_subagent_tools :: proc(r: ^Registry) {
 	if r == nil {
+		return
+	}
+	i := 0
+	for i < len(r.tools) {
+		if is_subagent_tool_name(r.tools[i].name) {
+			ordered_remove(&r.tools, i)
+			continue
+		}
+		i += 1
+	}
+}
+
+register_subagent_tools :: proc(r: ^Registry, enabled: bool) {
+	if r == nil {
+		return
+	}
+	if !enabled {
+		unregister_subagent_tools(r)
 		return
 	}
 	registry_register(r, Tool{

@@ -166,6 +166,22 @@ app_view_open :: proc(a: ^App, path: string) -> bool {
 	return true
 }
 
+app_view_open_text :: proc(a: ^App, title: string, body: string) -> bool {
+	if a == nil || len(body) == 0 {
+		return false
+	}
+	delete(a.view_path)
+	delete(a.view_body)
+	a.view_path = strings.clone(title)
+	a.view_body = strings.clone(body)
+	a.view_scroll = 0
+	a.view_open = true
+	a.view_focus = true
+	session.session_set_status(&a.session, fmt.tprintf("view: %s", title))
+	app_mark_dirty(a)
+	return true
+}
+
 app_view_reload :: proc(a: ^App) -> bool {
 	if !a.view_open || len(a.view_path) == 0 {
 		return false

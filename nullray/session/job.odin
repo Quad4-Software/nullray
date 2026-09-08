@@ -326,6 +326,7 @@ chat_job :: proc(data: rawptr) {
 		harness_compact = result.harness.compact_events,
 		harness_midturn = result.harness.midturn_prepare_events,
 		harness_writeback = result.harness.writeback_events,
+		harness_tools_json = result.harness.tools_json_chars,
 	})
 
 	delete(args.session.last_stopped)

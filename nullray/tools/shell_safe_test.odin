@@ -64,7 +64,9 @@ test_shell_strict_still_blocks_soft_denies :: proc(t: ^testing.T) {
 @(test)
 test_shell_allow_list :: proc(t: ^testing.T) {
 	os.set_env(constants.ENV_SHELL_ALLOW, "git ,ls")
+	os.set_env(constants.ENV_PERMS, "allow")
 	defer os.unset_env(constants.ENV_SHELL_ALLOW)
+	defer os.unset_env(constants.ENV_PERMS)
 
 	ok, reason := shell_command_allowed("git status")
 	testing.expect(t, ok)
