@@ -23,9 +23,11 @@ static int nullray_wsa_refs = 0;
 #else
 #include <sys/types.h>
 #include <sys/socket.h>
-#include <sys/random.h>
 #include <unistd.h>
 #include <fcntl.h>
+#if defined(__linux__)
+#include <sys/random.h>
+#endif
 typedef int nullray_sock_t;
 #define NULLRAY_SOCK_INVALID (-1)
 #define nullray_sock_send(s, b, l) send(s, b, l, 0)
@@ -79,6 +81,7 @@ static int nullray_os_entropy_poll(void *data, unsigned char *output, size_t len
     if (output == NULL || olen == NULL || len == 0) {
         return MBEDTLS_ERR_ENTROPY_SOURCE_FAILED;
     }
+#if defined(__linux__)
     while (got < len) {
         ssize_t n = getrandom(output + got, len - got, 0);
         if (n < 0) {
@@ -89,6 +92,12 @@ static int nullray_os_entropy_poll(void *data, unsigned char *output, size_t len
         }
         got += (size_t) n;
     }
+#elif defined(__APPLE__) || defined(__FreeBSD__) || defined(__OpenBSD__) || \
+    defined(__NetBSD__) || defined(__DragonFly__)
+    arc4random_buf(output, len);
+    *olen = len;
+    return 0;
+#endif
     if (got == 0) {
         int fd = open("/dev/urandom", O_RDONLY);
         if (fd >= 0) {

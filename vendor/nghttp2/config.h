@@ -2,6 +2,29 @@
 #ifndef CONFIG_H
 #define CONFIG_H
 
+#if defined(_WIN32) || defined(_WIN32_WCE)
+
+#define HAVE_INTTYPES_H 1
+#define HAVE_LIMITS_H 1
+#define HAVE_STDDEF_H 1
+#define HAVE_STDINT_H 1
+#define HAVE_STDIO_H 1
+#define HAVE_STDLIB_H 1
+#define HAVE_STRING_H 1
+#define HAVE_SYS_TYPES_H 1
+#define HAVE_TIME_H 1
+#define HAVE_MEMMOVE 1
+#define HAVE_MEMSET 1
+#define STDC_HEADERS 1
+
+#include <BaseTsd.h>
+#ifndef _SSIZE_T_DEFINED
+typedef SSIZE_T ssize_t;
+#define _SSIZE_T_DEFINED
+#endif
+
+#else
+
 #define HAVE_ARPA_INET_H 1
 #define HAVE_NETINET_IN_H 1
 #define HAVE_NETINET_IP_H 1
@@ -20,6 +43,8 @@
 #define HAVE_MEMMOVE 1
 #define HAVE_MEMSET 1
 #define STDC_HEADERS 1
+
+#endif
 
 #define PACKAGE "nghttp2"
 #define PACKAGE_NAME "nghttp2"

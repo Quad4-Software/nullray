@@ -75,9 +75,9 @@ jobs:
           path: |
             ~/Odin
             ~/.cache/odin
-          key: odin-${{ runner.os }}-${{ hashFiles('packaging/odin-pin') }}-${{ hashFiles('.github/workflows/ci.yml') }}
+          key: odin-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('packaging/odin-pin') }}-${{ hashFiles('.github/workflows/ci.yml') }}
           restore-keys: |
-            odin-${{ runner.os }}-
+            odin-${{ runner.os }}-${{ runner.arch }}-
 
       - name: Ensure Odin
         run: |
@@ -117,9 +117,9 @@ jobs:
           path: |
             ~/Odin
             ~/.cache/odin
-          key: odin-${{ runner.os }}-${{ hashFiles('packaging/odin-pin') }}-${{ hashFiles('.github/workflows/ci.yml') }}
+          key: odin-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('packaging/odin-pin') }}-${{ hashFiles('.github/workflows/ci.yml') }}
           restore-keys: |
-            odin-${{ runner.os }}-
+            odin-${{ runner.os }}-${{ runner.arch }}-
 
       - name: Ensure Odin
         run: |
@@ -213,9 +213,9 @@ jobs:
           path: |
             ~/Odin
             ~/.cache/odin
-          key: odin-${{ runner.os }}-${{ hashFiles('packaging/odin-pin') }}-${{ hashFiles('.github/workflows/ci.yml') }}
+          key: odin-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('packaging/odin-pin') }}-${{ hashFiles('.github/workflows/ci.yml') }}
           restore-keys: |
-            odin-${{ runner.os }}-
+            odin-${{ runner.os }}-${{ runner.arch }}-
 
       - name: Ensure Odin
         run: |

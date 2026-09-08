@@ -45,8 +45,13 @@ need_build=1
 if [[ -x "${DEST}/odin" && -d "${DEST}/.git" ]]; then
 	actual="$(git -C "${DEST}" rev-parse HEAD 2>/dev/null || true)"
 	if [[ "${actual}" == "${COMMIT}" ]]; then
-		need_build=0
-		echo "odin already at ${COMMIT} in ${DEST}" >&2
+		# Reject cross-arch cache restores (Exec format error).
+		if "${DEST}/odin" version >/dev/null 2>&1; then
+			need_build=0
+			echo "odin already at ${COMMIT} in ${DEST}" >&2
+		else
+			echo "odin at ${COMMIT} in ${DEST} is not runnable, rebuilding" >&2
+		fi
 	fi
 fi
 

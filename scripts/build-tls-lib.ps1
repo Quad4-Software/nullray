@@ -60,7 +60,7 @@ if ($LASTEXITCODE -ne 0) { throw "compile failed: mlkem_native.c" }
 $Objs += $MlkemO
 
 $H2Flags = @(
-  "-Os", "-DHAVE_CONFIG_H", "-DNGHTTP2_STATICLIB", "-DBUILDING_NGHTTP2",
+  "-Os", "-DHAVE_CONFIG_H", "-DNGHTTP2_STATICLIB", "-DBUILDING_NGHTTP2", "-DWIN32",
   "-I$NgDir", "-I$NgInc"
 )
 Get-ChildItem -Path $NgLib -Filter "*.c" | ForEach-Object {
