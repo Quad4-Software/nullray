@@ -114,7 +114,7 @@ install -m 0755 "$tmp/$name" "$dest/nullray" || die "install to $dest failed"
 if "$dest/nullray" --version >/dev/null 2>&1; then
 	say "installed: $("$dest/nullray" --version | head -n1)"
 else
-	die "installed to $dest/nullray but it failed to run; on Linux install libcurl (libcurl4 / libcurl.so.4)"
+	die "installed to $dest/nullray but it failed to run"
 fi
 
 case ":$PATH:" in

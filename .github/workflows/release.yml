@@ -86,11 +86,11 @@ jobs:
 
       - name: Install deps (Linux)
         if: runner.os == 'Linux'
-        run: sudo apt-get update && sudo apt-get install -y libcurl4-openssl-dev clang llvm
+        run: sudo apt-get update && sudo apt-get install -y build-essential clang llvm make
 
       - name: Install deps (macOS)
         if: runner.os == 'macOS'
-        run: brew install curl llvm
+        run: brew install llvm
 
       - name: Cache Odin toolchain (Unix)
         if: runner.os != 'Windows'
@@ -104,39 +104,23 @@ jobs:
           restore-keys: |
             odin-${{ runner.os }}-${{ runner.arch }}-
 
-      - name: Cache Odin and vcpkg (Windows)
+      - name: Cache Odin (Windows)
         if: runner.os == 'Windows'
         id: cache-odin-windows
         uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: |
             ~/Odin
-            ~/vcpkg/installed
-            ~/vcpkg/downloads
-          key: odin-windows-release-dev-2026-09-curl-vcpkg1
+          key: odin-windows-release-dev-2026-09-mbedtls1
           restore-keys: |
             odin-windows-release-
 
-      - name: Install curl and vcpkg libcurl (Windows)
+      - name: Install LLVM (Windows)
         if: runner.os == 'Windows'
         shell: pwsh
         run: |
-          choco install curl -y
-          $vcpkg = "$env:USERPROFILE\vcpkg"
-          if (-not (Test-Path "$vcpkg\vcpkg.exe")) {
-            if (-not (Test-Path "$vcpkg\bootstrap-vcpkg.bat")) {
-              $src = "$env:RUNNER_TEMP\vcpkg-src"
-              git clone --depth 1 https://github.com/microsoft/vcpkg $src
-              New-Item -ItemType Directory -Force $vcpkg | Out-Null
-              Get-ChildItem -LiteralPath $src -Force | Copy-Item -Destination $vcpkg -Recurse -Force
-            }
-            & "$vcpkg\bootstrap-vcpkg.bat" -disableMetrics
-          }
-          & "$env:USERPROFILE\vcpkg\vcpkg.exe" install curl:x64-windows --disable-metrics
-          $root = "$env:USERPROFILE\vcpkg\installed\x64-windows"
-          Add-Content -Path $env:GITHUB_PATH -Value "$root\bin"
-          Add-Content -Path $env:GITHUB_ENV -Value "LIB=$root\lib;$env:LIB"
-          Add-Content -Path $env:GITHUB_ENV -Value "INCLUDE=$root\include;$env:INCLUDE"
+          choco install llvm -y
+          Add-Content -Path $env:GITHUB_PATH -Value "C:\Program Files\LLVM\bin"
 
       - name: Ensure Odin (Unix)
         if: runner.os != 'Windows'
@@ -181,8 +165,8 @@ jobs:
           if (Test-Path dist) { Remove-Item -Recurse -Force dist }
           New-Item -ItemType Directory -Force bin, dist | Out-Null
           where.exe odin
-          Write-Host "LIB=$env:LIB"
-          odin build cmd\nullray -out:bin\nullray.exe -collection:nullray=nullray "-define:NULLRAY_BUILD_DATE=$((Get-Date).ToUniversalTime().ToString('yyyy-MM-dd'))" "-define:NULLRAY_BUILD_TIME=$((Get-Date).ToUniversalTime().ToString('HH:mm:ss'))"
+          .\scripts\build-tls-lib.ps1
+          odin build cmd\nullray -out:bin\nullray.exe -collection:nullray=nullray -extra-linker-flags:"-lws2_32" "-define:NULLRAY_BUILD_DATE=$((Get-Date).ToUniversalTime().ToString('yyyy-MM-dd'))" "-define:NULLRAY_BUILD_TIME=$((Get-Date).ToUniversalTime().ToString('HH:mm:ss'))"
           if (-not (Test-Path bin\nullray.exe)) { throw "bin\nullray.exe missing" }
           Copy-Item bin\nullray.exe "dist\${name}.exe"
           Compress-Archive -Path "dist\${name}.exe" -DestinationPath "dist\${name}.zip" -Force
@@ -317,7 +301,7 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y --no-install-recommends \
             curl file librsvg2-bin libfuse2t64 ca-certificates \
-            clang llvm libcurl4-openssl-dev git make python3
+            clang llvm git make python3
           sudo apt-get install -y --no-install-recommends fuse3 || true
 
       - name: Cache Odin toolchain

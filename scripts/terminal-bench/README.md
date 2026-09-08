@@ -43,7 +43,7 @@ cd /tmp/nullray-tbench
   --run-id "nullray-hello-$(date -u +%Y%m%d-%H%M%S)"
 ```
 
-The adapter copies `bin/nullray` into the task container, installs `libcurl4`, then runs:
+The adapter copies `bin/nullray` into the task container, then runs:
 
 ```text
 nullray --print --bare --no-subagents --mode edit --perms yolo --auto --print-strict --workspace /app ...

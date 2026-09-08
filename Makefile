@@ -1,20 +1,17 @@
 ODIN   ?= odin
 ROOT   := $(CURDIR)
+CC     ?= cc
+AR     ?= ar
+
 ifeq ($(OS),Windows_NT)
   OUT := bin/nullray.exe
-  # Rely on LIB/INCLUDE from vcpkg (same as CI). A bare "libcurl" token becomes libcurl.obj.
-  LINKER :=
-else ifeq ($(shell uname -s 2>/dev/null),Darwin)
-  OUT := bin/nullray
-  CURL_PREFIX := $(shell brew --prefix curl 2>/dev/null)
-  ifneq ($(CURL_PREFIX),)
-    LINKER := -extra-linker-flags:"-L$(CURL_PREFIX)/lib -lcurl"
-  else
-    LINKER := -extra-linker-flags:"-lcurl"
-  endif
+  TLS_LIB := lib/libnullray_tls.a
+  # Winsock for the TLS shim. The archive is pulled in via foreign import.
+  LINKER := -extra-linker-flags:"-lws2_32"
 else
   OUT := bin/nullray
-  LINKER := -extra-linker-flags:"-lcurl"
+  TLS_LIB := lib/libnullray_tls.a
+  LINKER :=
 endif
 
 PREFIX ?= /usr/local
@@ -30,19 +27,89 @@ BUILD_DATE := $(shell date -u +%Y-%m-%d)
 BUILD_TIME := $(shell date -u +%H:%M:%S)
 DEFINES    := -define:NULLRAY_BUILD_DATE="$(BUILD_DATE)" -define:NULLRAY_BUILD_TIME="$(BUILD_TIME)"
 
-.PHONY: all clean install uninstall run test selftest chat-smoke print-smoke coverage help completions man \
-	appimage appimage-sdk sdk-smoke flatpak docker-build debug
+MBEDTLS_DIR := $(ROOT)/vendor/mbedtls
+MBEDTLS_INC := $(MBEDTLS_DIR)/include
+MBEDTLS_LIB := $(MBEDTLS_DIR)/library
+NGHTTP2_DIR := $(ROOT)/vendor/nghttp2
+NGHTTP2_INC := $(NGHTTP2_DIR)/include
+NGHTTP2_LIB := $(NGHTTP2_DIR)/lib
+MLKEM_DIR   := $(ROOT)/vendor/mlkem-native
+MLKEM_INC   := $(MLKEM_DIR)/mlkem
+TLS_BUILD   := $(ROOT)/lib/mbedtls-objs
+TLS_CFLAGS  := -Os -fPIC -I$(MBEDTLS_INC) -I$(MBEDTLS_DIR) -I$(MBEDTLS_LIB) -I$(MLKEM_INC)
+H2_CFLAGS   := -Os -fPIC -DHAVE_CONFIG_H -DNGHTTP2_STATICLIB -DBUILDING_NGHTTP2 \
+	-I$(NGHTTP2_DIR) -I$(NGHTTP2_INC)
+MLKEM_CFLAGS := -Os -fPIC -std=c99 -I$(MLKEM_INC) -DMLK_CONFIG_PARAMETER_SET=768
 
-TEST_SUITES := ui agent tools skills session store sandbox mcp provider app config subagent elevate structure secure hooks vcs run patch
+# Client-only object set (matches trimmed mbedtls_config.h).
+# TLS 1.3 needs PSA crypto objects plus ssl_tls13_{client,generic,keys}.
+MBEDTLS_SKIP := \
+	net_sockets.c timing.c \
+	ssl_tls13_server.c \
+	ssl_ticket.c ssl_cache.c ssl_cookie.c \
+	debug.c dhm.c camellia.c aria.c des.c ccm.c cmac.c nist_kw.c \
+	ripemd160.c md5.c pkcs7.c x509_crl.c x509_csr.c \
+	x509write_crt.c x509write_csr.c pkwrite.c \
+	havege.c memory_buffer_alloc.c lms.c lms_helpers.c \
+	psa_crypto_storage.c psa_its_file.c psa_crypto_se.c
+
+MBEDTLS_SRCS := $(filter-out $(MBEDTLS_SKIP),$(notdir $(wildcard $(MBEDTLS_LIB)/*.c)))
+MBEDTLS_OBJS := $(addprefix $(TLS_BUILD)/,$(MBEDTLS_SRCS:.c=.o))
+SHIM_OBJ     := $(TLS_BUILD)/nullray_tls_shim.o
+PQ_OBJ       := $(TLS_BUILD)/nullray_tls_pq.o
+MLKEM_OBJ    := $(TLS_BUILD)/mlkem_native.o
+
+NGHTTP2_SRCS := $(notdir $(wildcard $(NGHTTP2_LIB)/*.c))
+NGHTTP2_OBJS := $(addprefix $(TLS_BUILD)/nghttp2_,$(NGHTTP2_SRCS:.c=.o))
+H2_SHIM_OBJ  := $(TLS_BUILD)/nullray_h2_shim.o
+
+.PHONY: all clean install uninstall run test selftest chat-smoke print-smoke coverage help completions man \
+	appimage appimage-sdk sdk-smoke flatpak docker-build debug tls-lib tls-size
+
+TEST_SUITES := ui agent tools skills session store sandbox mcp provider app config subagent elevate structure secure hooks vcs run patch http
 TEST_FLAGS  := $(COLLECTION) -define:ODIN_TEST_THREADS=1 -debug
 
 all: $(OUT)
 
-$(OUT): $(shell find cmd/nullray nullray -name '*.odin' 2>/dev/null)
+tls-lib: $(TLS_LIB)
+
+$(TLS_BUILD):
+	@mkdir -p $(TLS_BUILD)
+
+$(TLS_BUILD)/%.o: $(MBEDTLS_LIB)/%.c $(MBEDTLS_INC)/mbedtls/mbedtls_config.h | $(TLS_BUILD)
+	$(CC) $(TLS_CFLAGS) -c $< -o $@
+
+$(TLS_BUILD)/nghttp2_%.o: $(NGHTTP2_LIB)/%.c $(NGHTTP2_DIR)/config.h | $(TLS_BUILD)
+	$(CC) $(H2_CFLAGS) -c $< -o $@
+
+$(SHIM_OBJ): $(MBEDTLS_DIR)/nullray_tls_shim.c $(MBEDTLS_DIR)/nullray_tls_shim.h $(MBEDTLS_INC)/mbedtls/mbedtls_config.h | $(TLS_BUILD)
+	$(CC) $(TLS_CFLAGS) -c $< -o $@
+
+$(PQ_OBJ): $(MBEDTLS_DIR)/nullray_tls_pq.c $(MBEDTLS_DIR)/nullray_tls_pq.h $(MBEDTLS_INC)/mbedtls/mbedtls_config.h | $(TLS_BUILD)
+	$(CC) $(TLS_CFLAGS) -c $< -o $@
+
+$(MLKEM_OBJ): $(MLKEM_INC)/mlkem_native.c $(MLKEM_INC)/mlkem_native.h $(MLKEM_INC)/mlkem_native_config.h | $(TLS_BUILD)
+	$(CC) $(MLKEM_CFLAGS) -c $< -o $@
+
+$(H2_SHIM_OBJ): $(NGHTTP2_DIR)/nullray_h2_shim.c $(NGHTTP2_DIR)/nullray_h2_shim.h | $(TLS_BUILD)
+	$(CC) $(H2_CFLAGS) -c $< -o $@
+
+$(TLS_LIB): $(MBEDTLS_OBJS) $(SHIM_OBJ) $(PQ_OBJ) $(MLKEM_OBJ) $(NGHTTP2_OBJS) $(H2_SHIM_OBJ)
+	@mkdir -p lib
+	$(AR) rcs $@ $^
+	@ls -la $@
+
+tls-size: $(TLS_LIB) $(OUT)
+	@echo "libnullray_tls.a: $$(wc -c < $(TLS_LIB)) bytes"
+	@echo "bin/nullray: $$(wc -c < $(OUT)) bytes"
+	@command -v strip >/dev/null && strip -o /tmp/nullray.stripped $(OUT) && \
+		echo "bin/nullray stripped: $$(wc -c < /tmp/nullray.stripped) bytes" || true
+
+$(OUT): $(TLS_LIB) $(shell find cmd/nullray nullray -name '*.odin' 2>/dev/null)
 	@mkdir -p bin
 	$(ODIN) build $(ROOT)/cmd/nullray -out:$(OUT) $(COLLECTION) $(LINKER) $(DEFINES)
 
-debug:
+debug: $(TLS_LIB)
 	@mkdir -p bin
 	$(ODIN) build $(ROOT)/cmd/nullray -out:$(OUT) $(COLLECTION) $(LINKER) $(DEFINES) -debug
 	@echo "built $(OUT) with -debug (richer crash backtraces)"
@@ -50,7 +117,7 @@ debug:
 run: $(OUT)
 	./$(OUT)
 
-test:
+test: $(TLS_LIB)
 	@for s in $(TEST_SUITES); do \
 		$(ODIN) test $(ROOT)/nullray/$$s $(COLLECTION) -define:ODIN_TEST_THREADS=1 || exit 1; \
 	done
@@ -59,7 +126,7 @@ test:
 	@$(MAKE) --no-print-directory print-smoke
 
 # Local HTML coverage via kcov (Linux). Does not upload or gate CI.
-coverage:
+coverage: $(TLS_LIB)
 	@command -v kcov >/dev/null || { echo 'coverage: install kcov first'; exit 1; }
 	@mkdir -p bin coverage
 	@rm -rf coverage/raw-* coverage/html
@@ -134,7 +201,7 @@ uninstall:
 	rm -f $(DESTDIR)$(FISHCOMPDIR)/nullray.fish
 
 clean:
-	rm -rf bin dist coverage
+	rm -rf bin dist coverage lib
 	rm -f packaging/flatpak/nullray packaging/flatpak/nullray.svg
 
 appimage: $(OUT)
@@ -165,7 +232,7 @@ help:
 		'  selftest     headless smoke only' \
 		'  chat-smoke   one-turn provider smoke' \
 		'  coverage     kcov HTML under coverage/ (needs kcov)' \
-		'  completions  write contrib/completions/' \
+		'  completions  fill contrib/completions/' \
 		'  man          write man/nullray.1' \
 		'  install      install binary, man page, completions' \
 		'  appimage     slim dist/*.AppImage (needs curl or NULLRAY_APPIMAGE_TOOLS)' \
@@ -173,4 +240,6 @@ help:
 		'  sdk-smoke    /tmp extract, rebuild, pack slim from SDK image' \
 		'  flatpak      build dist/*.flatpak (needs flatpak-builder)' \
 		'  docker-build build local Docker image nullray:local' \
-		'  clean        remove bin/ and dist/'
+		'  tls-lib      build lib/libnullray_tls.a from vendored Mbed TLS + nghttp2' \
+		'  tls-size     print TLS archive and binary sizes' \
+		'  clean        remove bin/, dist/, and lib/'

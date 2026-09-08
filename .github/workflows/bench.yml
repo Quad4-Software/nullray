@@ -37,7 +37,7 @@ jobs:
           persist-credentials: false
 
       - name: Install deps
-        run: sudo apt-get update && sudo apt-get install -y libcurl4-openssl-dev clang llvm
+        run: sudo apt-get update && sudo apt-get install -y build-essential clang llvm make
 
       - name: Cache Odin toolchain
         id: cache-odin

@@ -33,7 +33,7 @@ run :: proc() -> int {
 	mcp.mcp_autoload(&mcp_reg)
 
 	if !http.global_init() {
-		fmt.eprintln("selftest: curl init failed")
+		fmt.eprintln("selftest: http/tls init failed")
 		fails += 1
 	} else {
 		http.global_cleanup()

@@ -106,7 +106,7 @@ do_extract() {
 		cp -a "${HERE}/usr/lib/odin/." "${SDK_ROOT}/odin/"
 		chmod +x "${SDK_ROOT}/odin/odin" 2>/dev/null || true
 	fi
-	# Shared libs linuxdeploy bundled for nullray/odin (libLLVM, libcurl, ...).
+	# Shared libs linuxdeploy bundled for nullray/odin (libLLVM, ...).
 	if [ -d "${HERE}/usr/lib" ]; then
 		find "${HERE}/usr/lib" -maxdepth 1 \( -name '*.so' -o -name '*.so.*' \) \
 			-exec cp -a {} "${SDK_ROOT}/lib/" \;

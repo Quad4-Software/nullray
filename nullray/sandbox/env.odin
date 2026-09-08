@@ -26,7 +26,6 @@ ALLOWED_ENV_PREFIXES :: []string{
 	"USER",
 	"PATH",
 	"SSL_CERT_",
-	"CURL_",
 	"OLLAMA_",
 	"OPENROUTER_",
 	"OPENCODE_",

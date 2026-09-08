@@ -18,7 +18,6 @@ test_env_keep_allowlist :: proc(t: ^testing.T) {
 		"LM_API_KEY",
 		"XDG_CONFIG_HOME",
 		"SSL_CERT_FILE",
-		"CURL_CA_BUNDLE",
 	}
 	for k in keep {
 		testing.expectf(t, env_keep(k), "expected keep %s", k)

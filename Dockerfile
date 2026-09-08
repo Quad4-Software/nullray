@@ -17,7 +17,6 @@ RUN apt-get update \
 		ca-certificates \
 		clang \
 		git \
-		libcurl4-openssl-dev \
 		llvm-dev \
 		make \
 		python3 \
@@ -41,7 +40,7 @@ COPY . .
 RUN make clean && make \
 	&& install -D -m 755 bin/nullray /out/nullray
 
-# Runtime: no compiler, no package manager leftovers beyond curl + CA store.
+# Runtime: CA store for HTTPS. No libcurl.
 # hadolint ignore=DL3006
 FROM debian:trixie-20260824-slim@sha256:d7e12182ce18b85b93007c1dedf31f2d29e01ccf3182cc4017c709b6259bc132 AS runtime
 
@@ -55,7 +54,6 @@ ENV DEBIAN_FRONTEND=noninteractive \
 RUN apt-get update \
 	&& apt-get install -y --no-install-recommends \
 		ca-certificates \
-		libcurl4t64 \
 		ncurses-base \
 		ncurses-term \
 	&& rm -rf /var/lib/apt/lists/* \
