@@ -204,18 +204,41 @@ speculate_find :: proc(pool: ^Speculate_Pool, id, name: string, args_hash: u64) 
 	return nil
 }
 
+speculate_find_by_id :: proc(pool: ^Speculate_Pool, id: string) -> ^Speculate_Entry {
+	for e in pool.entries {
+		if e.id == id {
+			return e
+		}
+	}
+	return nil
+}
+
 speculate_join_entry :: proc(e: ^Speculate_Entry) {
 	if e == nil {
 		return
 	}
-	th: ^thread.Thread
-	sync.mutex_lock(&e.mu)
-	th = e.th
-	e.th = nil
-	sync.mutex_unlock(&e.mu)
-	if th != nil {
-		thread.join(th)
-		thread.destroy(th)
+	for {
+		sync.mutex_lock(&e.mu)
+		st := e.state
+		th := e.th
+		if st == .Ready || st == .Failed || st == .Cancelled {
+			e.th = nil
+			sync.mutex_unlock(&e.mu)
+			if th != nil {
+				thread.join(th)
+				thread.destroy(th)
+			}
+			return
+		}
+		// Queued or Running: join if handle exists, else wait for start.
+		e.th = nil
+		sync.mutex_unlock(&e.mu)
+		if th != nil {
+			thread.join(th)
+			thread.destroy(th)
+			continue
+		}
+		time.sleep(1 * time.Millisecond)
 	}
 }
 
@@ -237,11 +260,29 @@ speculate_try_start_locked :: proc(pool: ^Speculate_Pool) {
 		job := new(Speculate_Job, pool.allocator)
 		job.pool = pool
 		job.entry = e
-		// Keep thread handle for join. Parent context so allocators match tests.
-		th := thread.create_and_start_with_data(job, speculate_worker, context, .Normal, false)
+		// Create first, publish handle, then start so take never races a nil th.
+		th := thread.create(proc(t: ^thread.Thread) {
+			fn := cast(proc(rawptr))t.data
+			data := t.user_args[0]
+			fn(data)
+		}, .Normal)
+		if th == nil {
+			pool.active -= 1
+			sync.mutex_lock(&e.mu)
+			e.state = .Failed
+			e.err = strings.clone("speculate thread create failed", pool.allocator)
+			sync.mutex_unlock(&e.mu)
+			free(job, pool.allocator)
+			continue
+		}
+		th.data = rawptr(speculate_worker)
+		th.user_index = 1
+		th.user_args[0] = job
+		th.init_context = context
 		sync.mutex_lock(&e.mu)
 		e.th = th
 		sync.mutex_unlock(&e.mu)
+		thread.start(th)
 	}
 }
 
@@ -315,7 +356,10 @@ speculate_submit :: proc(
 	allocator := context.allocator,
 ) -> bool {
 	_ = allocator
-	if pool == nil || !speculate_allowlisted(name) {
+	if pool == nil {
+		return false
+	}
+	if !speculate_allowlisted(name) {
 		return false
 	}
 	sync.mutex_lock(&pool.mu)
@@ -328,6 +372,10 @@ speculate_submit :: proc(
 		return true
 	}
 	e := new(Speculate_Entry, pool.allocator)
+	if e == nil {
+		return false
+	}
+	e^ = {}
 	e.id = strings.clone(id, pool.allocator)
 	e.name = strings.clone(name, pool.allocator)
 	e.args = strings.clone(args, pool.allocator)
@@ -370,7 +418,7 @@ speculate_take :: proc(
 
 	sync.mutex_lock(&entry.mu)
 	st := entry.state
-	if st == .Cancelled {
+	if st == .Cancelled || (st != .Ready && st != .Failed) {
 		sync.mutex_unlock(&entry.mu)
 		return out
 	}
@@ -385,6 +433,23 @@ speculate_take :: proc(
 	entry.err = ""
 	sync.mutex_unlock(&entry.mu)
 	return out
+}
+
+/*
+True when an entry exists for this id with a different args hash (real speculation miss).
+*/
+speculate_hash_miss :: proc(pool: ^Speculate_Pool, id, name, args: string) -> bool {
+	if pool == nil {
+		return false
+	}
+	ah := speculate_args_hash(args)
+	sync.mutex_lock(&pool.mu)
+	defer sync.mutex_unlock(&pool.mu)
+	e := speculate_find_by_id(pool, id)
+	if e == nil {
+		return false
+	}
+	return e.name == name && e.args_hash != ah
 }
 
 speculate_has :: proc(pool: ^Speculate_Pool, id, name, args: string) -> bool {

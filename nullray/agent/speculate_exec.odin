@@ -5,6 +5,7 @@ Speculative tool handoff helpers for run_turn.
 
 package agent
 
+import "core:fmt"
 import "nullray:hooks"
 import "nullray:provider"
 import "nullray:tools"
@@ -23,13 +24,32 @@ speculate_submit_prefix :: proc(
 		names[i] = c.name
 	}
 	prefix := tools.speculate_leading_prefix_len(names)
+	if harness_metrics_enabled() {
+		fmt.eprintf("nullray speculate: batch=%d prefix=%d first=%s\n", len(calls), prefix, len(calls) > 0 ? calls[0].name : "")
+	}
 	for i in 0 ..< prefix {
 		c := calls[i]
 		kid := tools.speculate_key_id(c.id, i, allocator)
-		if !tools.speculate_has(pool, kid, c.name, c.arguments) {
-			if tools.speculate_submit(pool, kid, c.name, c.arguments) && harness != nil {
+		already := tools.speculate_has(pool, kid, c.name, c.arguments)
+		allowed := tools.speculate_allowlisted(c.name)
+		submitted := false
+		if !already {
+			submitted = tools.speculate_submit(pool, kid, c.name, c.arguments)
+			if submitted && harness != nil {
 				harness.speculate_submit += 1
 			}
+		}
+		if harness_metrics_enabled() {
+			fmt.eprintf(
+				"nullray speculate: i=%d name=%q allowed=%v already=%v submitted=%v pool=%v admit_counter=%d\n",
+				i,
+				c.name,
+				allowed,
+				already,
+				submitted,
+				pool != nil,
+				harness != nil ? harness.speculate_submit : -1,
+			)
 		}
 		delete(kid)
 	}
@@ -51,17 +71,18 @@ tool_exec_maybe_speculate :: proc(
 	if pool != nil && tools.speculate_allowlisted(c.name) {
 		kid := tools.speculate_key_id(c.id, idx, allocator)
 		take := tools.speculate_take(pool, kid, c.name, c.arguments)
-		delete(kid)
 		if take.hit {
+			delete(kid)
 			if harness != nil {
 				harness.speculate_hit += 1
 				harness.speculate_saved_ms += int(take.duration_ms)
 			}
 			return take.result, take.err, !take.blocked_pre
 		}
-		if harness != nil {
+		if harness != nil && tools.speculate_hash_miss(pool, kid, c.name, c.arguments) {
 			harness.speculate_miss += 1
 		}
+		delete(kid)
 	}
 
 	pre := hooks.run(.PreToolUse, c.name, c.arguments, allocator)

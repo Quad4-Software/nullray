@@ -234,6 +234,9 @@ run_turn :: proc(req: Run_Request, cfg: Config, allocator := context.allocator) 
 		tools.speculate_pool_init(&spec_pool, reg, mode_s, cfg.speculate_parallel, allocator)
 		cfg_local.speculate_pool = &spec_pool
 		defer tools.speculate_pool_destroy(&spec_pool)
+		if harness_metrics_enabled() {
+			fmt.eprintf("nullray speculate: on parallel=%d\n", cfg.speculate_parallel)
+		}
 	}
 
 	for step in 0 ..< max_steps {

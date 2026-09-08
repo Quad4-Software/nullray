@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: 0BSD
 package tools
 
+import "core:os"
 import "core:testing"
 
 @(test)
@@ -60,4 +61,13 @@ test_speculate_args_hash_stable :: proc(t: ^testing.T) {
 	c := speculate_args_hash(`{"path":"b"}`)
 	testing.expect(t, a == b)
 	testing.expect(t, a != c)
+}
+
+@(test)
+test_speculate_env_enable :: proc(t: ^testing.T) {
+	os.set_env("NULLRAY_SPECULATE", "1")
+	defer os.unset_env("NULLRAY_SPECULATE")
+	testing.expect(t, speculate_enabled_from_env())
+	os.set_env("NULLRAY_SPECULATE", "0")
+	testing.expect(t, !speculate_enabled_from_env())
 }
