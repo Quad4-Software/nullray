@@ -10,6 +10,7 @@ import "core:fmt"
 import "core:os"
 import "core:strings"
 import "nullray:constants"
+import "nullray:patch"
 import "nullray:sandbox"
 import "nullray:structure"
 import "nullray:subagent"
@@ -174,33 +175,60 @@ parse_files_array :: proc(
 }
 
 @(private)
+staged_index_for :: proc(staged: ^[dynamic]Pending_Write, abs: string) -> int {
+	for s, i in staged {
+		if s.abs == abs {
+			return i
+		}
+	}
+	return -1
+}
+
+@(private)
 validate_and_stage_edits :: proc(
 	edits: []Pending_Edit,
 	staged: ^[dynamic]Pending_Write,
 	allocator := context.allocator,
 ) -> string {
 	for e in edits {
-		data, read_err := os.read_entire_file(e.abs, allocator)
-		if read_err != nil {
-			return fmt.aprintf("read failed for %s: %v", e.abs, read_err, allocator = allocator)
-		}
-		if len(data) > constants.MAX_TOOL_FILE_BYTES {
-			delete(data)
-			return fmt.aprintf("file exceeds %d bytes: %s", constants.MAX_TOOL_FILE_BYTES, e.abs, allocator = allocator)
-		}
-		content := string(data)
-		if !strings.contains(content, e.old_string) {
-			delete(data)
-			return fmt.aprintf("old_string not found in %s", e.abs, allocator = allocator)
-		}
-		updated: string
-		if e.replace_all {
-			updated, _ = strings.replace_all(content, e.old_string, e.new_string, allocator)
+		idx := staged_index_for(staged, e.abs)
+		content: string
+		owned_read: string
+		if idx >= 0 {
+			content = staged[idx].content
 		} else {
-			updated, _ = strings.replace(content, e.old_string, e.new_string, 1, allocator)
+			data, read_err := os.read_entire_file(e.abs, allocator)
+			if read_err != nil {
+				return fmt.aprintf("read failed for %s: %v", e.abs, read_err, allocator = allocator)
+			}
+			if len(data) > constants.MAX_TOOL_FILE_BYTES {
+				delete(data)
+				return fmt.aprintf("file exceeds %d bytes: %s", constants.MAX_TOOL_FILE_BYTES, e.abs, allocator = allocator)
+			}
+			owned_read = string(data)
+			content = owned_read
 		}
-		delete(data)
-		append(staged, Pending_Write{abs = strings.clone(e.abs, allocator), content = updated})
+		updated, _, perr := patch.apply_replace(content, e.old_string, e.new_string, e.replace_all, allocator)
+		if len(perr) > 0 {
+			hint := patch.format_hint(e.abs, perr, content, e.old_string, allocator)
+			delete(perr)
+			if len(owned_read) > 0 {
+				delete(owned_read)
+			}
+			return hint
+		}
+		if idx >= 0 {
+			delete(staged[idx].content)
+			staged[idx].content = updated
+			if len(owned_read) > 0 {
+				delete(owned_read)
+			}
+		} else {
+			if len(owned_read) > 0 {
+				delete(owned_read)
+			}
+			append(staged, Pending_Write{abs = strings.clone(e.abs, allocator), content = updated})
+		}
 	}
 	return ""
 }

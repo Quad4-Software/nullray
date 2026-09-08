@@ -9,6 +9,7 @@ import "core:fmt"
 import "core:os"
 import "core:strings"
 import "nullray:constants"
+import "nullray:patch"
 import "nullray:sandbox"
 import "nullray:structure"
 import "nullray:subagent"
@@ -57,15 +58,11 @@ tool_edit_file :: proc(args_json: string, allocator := context.allocator) -> (re
 	}
 
 	content := string(data)
-	if !strings.contains(content, old_string) {
-		return "", strings.clone("old_string not found", allocator)
-	}
-
-	updated: string
-	if replace_all {
-		updated, _ = strings.replace_all(content, old_string, new_string, allocator)
-	} else {
-		updated, _ = strings.replace(content, old_string, new_string, 1, allocator)
+	updated, kind, perr2 := patch.apply_replace(content, old_string, new_string, replace_all, allocator)
+	if len(perr2) > 0 {
+		hint := patch.format_hint(abs, perr2, content, old_string, allocator)
+		delete(perr2)
+		return "", hint
 	}
 	defer delete(updated)
 
@@ -82,6 +79,9 @@ tool_edit_file :: proc(args_json: string, allocator := context.allocator) -> (re
 	snapshot_before_write(abs)
 	if werr := os.write_entire_file(abs, transmute([]u8)updated); werr != nil {
 		return "", fmt.aprintf("write failed: %v", werr, allocator = allocator)
+	}
+	if kind == .Fuzzy {
+		return strings.clone("ok fuzzy", allocator), ""
 	}
 	return strings.clone("ok", allocator), ""
 }
