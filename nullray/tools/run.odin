@@ -51,7 +51,22 @@ lean_core_tool :: proc(name: string) -> bool {
 		"grep_files", "glob_files", "run_shell", "run_script",
 		"load_skill", "list_skills", "compact_context",
 		"read_artifact", "grep_artifact",
-		"memory_get", "memory_put", "memory_list":
+		"memory_get", "memory_put", "memory_list",
+		"read_man", "apropos":
+		return true
+	}
+	return false
+}
+
+/*
+Lean print keeps a small coordination subset when subagents are enabled.
+Board/messaging stay out to protect tools-JSON size.
+*/
+lean_subagent_tool :: proc(name: string) -> bool {
+	switch name {
+	case "task", "agents_status", "agents_peek", "agents_progress",
+		"agents_wait", "agents_verify",
+		"knowledge_get", "knowledge_put", "knowledge_list":
 		return true
 	}
 	return false
@@ -217,8 +232,12 @@ openai_tools_json :: proc(r: ^Registry, mode: string, lean := false, allocator :
 			if !sub_on && is_subagent_tool_name(t.name) {
 				continue
 			}
-			if lean && !lean_core_tool(t.name) {
-				continue
+			if lean {
+				core := lean_core_tool(t.name)
+				sub := sub_on && lean_subagent_tool(t.name)
+				if !core && !sub {
+					continue
+				}
 			}
 			if ok, _ := tool_kind_allowed(r, t.name, mode); !ok {
 				continue

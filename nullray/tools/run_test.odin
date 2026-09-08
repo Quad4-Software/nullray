@@ -76,10 +76,14 @@ test_openai_tools_json_lean_and_subagent_omit :: proc(t: ^testing.T) {
 	defer delete(lean)
 
 	testing.expect(t, len(lean) < len(full))
-	testing.expect(t, len(lean) < 4000)
+	testing.expect(t, len(lean) < 5500)
 	testing.expect(t, strings.contains(lean, `"read_file"`))
+	testing.expect(t, strings.contains(lean, `"read_man"`))
+	testing.expect(t, strings.contains(lean, `"apropos"`))
 	testing.expect(t, !strings.contains(lean, `"description":"1-based start line"`))
 	testing.expect(t, !strings.contains(lean, `"fetch_url"`))
+	// Subagent runtime off in unit tests: task stays omitted even if registered.
+	testing.expect(t, !strings.contains(lean, `"task"`))
 
 	register_subagent_tools(&reg, false)
 	no_sub := openai_tools_json(&reg, "edit", true, context.allocator)
@@ -87,6 +91,7 @@ test_openai_tools_json_lean_and_subagent_omit :: proc(t: ^testing.T) {
 	testing.expect(t, !strings.contains(no_sub, `"task"`))
 	testing.expect(t, !strings.contains(no_sub, `"agents_status"`))
 	testing.expect(t, !strings.contains(no_sub, `"knowledge_put"`))
+	testing.expect(t, strings.contains(no_sub, `"read_man"`))
 }
 
 @(test)
