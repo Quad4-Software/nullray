@@ -12,7 +12,7 @@ nullray/
   crash/                Fatal signals, crash dumps, doctor, debug log
   elevate/              sudo/doas askpass and privilege broker
   hooks/                hooks.json lifecycle around tools and sessions
-  http/                 libcurl helpers
+  http/                 HTTP/2 (ALPN) / HTTP/1.1 client over sockets, Mbed TLS, nghttp2
   mcp/                  MCP JSON-RPC and stdio client (owned by App)
   memory/               Durable project memory
   patch/                Exact-then-fuzzy SEARCH/REPLACE apply

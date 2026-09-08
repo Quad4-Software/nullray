@@ -33,7 +33,7 @@ nullray loads flat *.md and nested name/SKILL.md from workspace .agents/skills, 
 | nullray/config | Key binds from keys.ini |
 | nullray/constants | Env keys, defaults, limits |
 | nullray/crash | Signal handlers, crash dumps, --doctor / --debug |
-| nullray/http | libcurl JSON helpers |
+| nullray/http | HTTP/2 (ALPN) then HTTP/1.1 JSON helpers over sockets, static Mbed TLS, and nghttp2 |
 | nullray/mcp | MCP client (stdio JSON-RPC), App-owned registry |
 | nullray/provider | Registry, chat, and Provider.stream |
 | nullray/run | Headless --print agent runner |
@@ -70,7 +70,7 @@ make test
 
 Verify: make test
 
-make test runs odin test on ui, agent, tools, skills, session, store, sandbox, mcp, provider, patch, and related packages with -define:ODIN_TEST_THREADS=1, then --self-test, chat-smoke, and print-smoke. Prefer that define by hand too. Binary: bin/nullray. Needs Odin and libcurl.
+make test runs odin test on ui, agent, tools, skills, session, store, sandbox, mcp, provider, patch, http, and related packages with -define:ODIN_TEST_THREADS=1, then --self-test, chat-smoke, and print-smoke. Prefer that define by hand too. Binary: bin/nullray. Needs Odin and a C compiler (builds lib/libnullray_tls.a from vendor/mbedtls, vendor/nghttp2, and vendor/mlkem-native). On Linux amd64 the archive is about 1.2 MB and a stripped binary about 3.4 MB. HTTPS prefers HTTP/2 when ALPN selects h2, else HTTP/1.1. TLS 1.2 and 1.3 with X25519MLKEM768 hybrid PQ key agreement. System CAs via SSL_CERT_FILE / SSL_CERT_DIR, then platform paths. HTTP(S)_PROXY is not honored yet.
 
 Suite layers: package unit tests (adversarial focus in sandbox and tools/shell), headless --self-test, print-smoke (no provider), optional chat-smoke. Local coverage: make coverage (needs kcov) writes HTML under coverage/.
 
@@ -106,7 +106,7 @@ Platform backends: ui/term_linux.odin, ui/term_bsd.odin, ui/term_windows.odin. K
 
 Default root: ~/.config/nullray/ (XDG on Unix). Files: env, keys.ini, mcp.json, sessions/.
 
-LID harness (wave 1): tool dumps above NULLRAY_ARTIFACT_CHARS (default 3000) go to .nullray/artifacts/ and the model sees status/path/artifact/excerpt envelopes. Peek with read_artifact / grep_artifact. Provider history is a projection (NULLRAY_PROJECTION_TURNS / NULLRAY_PROJECTION_TOOL_STUBS). NULLRAY_LID=0 disables projection. NULLRAY_PROMPT=lean|full|auto (auto under print). Metrics: NULLRAY_HARNESS_METRICS=1 or NULLRAY_DEBUG=1, also harness_* fields in .usage.jsonl.
+LID harness (wave 1): tool dumps above NULLRAY_ARTIFACT_CHARS (default 3000) go to .nullray/artifacts/ and the model sees status/path/artifact/excerpt envelopes. Peek with read_artifact / grep_artifact (default line cap NULLRAY_ARTIFACT_READ_LINES=200, hard 32KB). Provider history is a projection (NULLRAY_PROJECTION_TURNS / NULLRAY_PROJECTION_TOOL_STUBS). NULLRAY_LID=0 disables projection, artifact store, and phase reset (envelopes stay, without artifact=). NULLRAY_PROMPT=lean|full|auto (auto under print) also ships a compact tools JSON core set. Metrics: NULLRAY_HARNESS_METRICS=1 or NULLRAY_DEBUG=1, also harness_* fields in .usage.jsonl (including harness_tools_json). TUI stubs artifact tool rows; expand with /artifact ID. Artifact GC runs on session destroy and --doctor (64MB / 7 day sweep).
 
 Key presets: default, neovim, emacs (preset= in keys.ini), or NULLRAY_KEYS / --keys.
 

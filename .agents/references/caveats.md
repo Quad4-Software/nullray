@@ -27,3 +27,9 @@
 | Extra paths | `NULLRAY_SANDBOX_EXTRA_RO` / `EXTRA_RW` accept absolute paths only. Relative paths are ignored. |
 | VCS network | Push/pull/fetch and PR tools stay off until `NULLRAY_VCS_NETWORK=1`. Force-push to main/master needs `NULLRAY_VCS_FORCE=1`. |
 | fetch_url | Read-only HTTP(S) with size caps. It is not a browser and does not execute JavaScript. |
+| TLS verify on | Certificate checks do not make the remote model or MCP server trusted. |
+| System CA load | HTTPS needs the host trust store (or SSL_CERT_FILE / SSL_CERT_DIR). Minimal images without ca-certificates fail closed until a PEM path is set. |
+| HTTP client | HTTPS prefers HTTP/2 (ALPN h2 via nghttp2) then falls back to HTTP/1.1. Plain http stays HTTP/1.1. TLS 1.2 and 1.3 with X25519MLKEM768 hybrid PQ. Not a browser. No JavaScript. HTTP/3 is not available. |
+| HTTP/2 | Application framing only. Same TLS verify and trust model as HTTP/1.1. Not a trust boundary upgrade. |
+| HTTP proxy | HTTP(S)_PROXY and related env vars are not honored until a proxy dialer ships. |
+| Static Mbed TLS / nghttp2 | Linked into the process address space. Not a sandbox boundary. |

@@ -7,20 +7,32 @@ Format follows Keep a Changelog and Semantic Versioning.
 ## [0.1.2] - 2026-09-08
 
 ### Added
-- LID harness: large tool payloads offload to `.nullray/artifacts/` with status/path/artifact/excerpt envelopes. New tools `read_artifact` and `grep_artifact`.
-- Provider projection in `session_start_chat` (last N user/assistant turns and M tool stubs). Prepare clear/compact write-back into the session transcript.
-- Mid-turn clear/compact in `run_turn` when context crosses the compact budget. Mode switches reset the provider window toward digests and stubs.
-- Lean system prompt via `NULLRAY_PROMPT=lean` (auto under print): mode-filtered tool list, harder AGENTS truncation, skill bodies only through `load_skill`.
-- Harness metrics on stderr (`NULLRAY_HARNESS_METRICS=1` or `NULLRAY_DEBUG=1`) and in `.usage.jsonl` (`harness_calls`, `harness_peak_chars`, `harness_stubbed`, `harness_artifacts`, clear/compact/midturn/writeback).
+- Large tool dumps go to .nullray/artifacts/ with a short status path and excerpt envelope. Peek with read_artifact or grep_artifact.
+- The model sees a short projected history (recent turns and stubbed tool results). Clear and compact write back into the session transcript.
+- Mid-turn clear and compact when context crosses the budget. Mode switches reset the provider window toward digests and stubs.
+- Lean system prompt via NULLRAY_PROMPT=lean (auto under print). Mode-filtered tool list, shorter AGENTS head, skill bodies only through load_skill.
+- Harness metrics on stderr (NULLRAY_HARNESS_METRICS=1 or NULLRAY_DEBUG=1) and in .usage.jsonl.
+- Exact-then-fuzzy SEARCH/REPLACE for edit_file and apply_edits. Whitespace and CRLF drift no longer hard-fails. Same-file apply_edits hunks chain in memory.
+- Tree-sitter repo map with a capped symbol digest in the system prompt and a repo_symbols peek tool.
+- Failed NULLRAY_VERIFY runs list ranked path:line findings and may offload the full log to an artifact.
 
 ### Fixed
-- Mid-turn clear/compact no longer triggers on a fat system prompt alone. Budget uses non-system message chars, and empty prepares are not counted as midturn events.
-- Lean prompt uses tool names only (schemas stay in the API tools array) and keeps an 800-char AGENTS head with a path pointer.
-- With an explicit workspace (`-w` / `NULLRAY_WORKSPACE`), AGENTS.md is not loaded from the process cwd. That stopped host-repo instructions leaking into `/tmp` bench workspaces.
-- OpenRouter HTTP 401 responses keep the provider message and point at `~/.config/nullray/env` (avoids a bare `User not found`).
+- Mid-turn clear and compact no longer fires on a fat system prompt alone. Budget uses non-system message size. Empty prepares are not counted as midturn events.
+- Lean prompt lists tool names only. Schemas stay in the API tools array. AGENTS head is about 800 characters with a path pointer.
+- With an explicit workspace (-w or NULLRAY_WORKSPACE), AGENTS.md is not loaded from the process cwd. That stopped host-repo instructions leaking into /tmp bench workspaces.
+- OpenRouter HTTP 401 responses keep the provider message and point at ~/.config/nullray/env instead of a bare User not found.
+- TLS RNG on hardened Linux: Mbed TLS shim adds a getrandom and /dev/urandom entropy source (fixes TLS RNG init failed).
+- HTTP chunked bodies: bytes after response headers are decoded as chunks instead of appended raw (fixes leading chunk-size junk and truncated JSON).
+- --print-strict no longer fails solely on max_steps when the turn had tool calls or workspace writes. Edit turns that hit the step budget still run one verify shot when verify is on.
+- read_artifact defaults to a 200-line window (NULLRAY_ARTIFACT_READ_LINES) with a 32KB hard cap so peeks cannot re-bloat context.
 
 ### Changed
-- Defaults keep LID on (`NULLRAY_LID=0` disables projection). Artifact threshold `NULLRAY_ARTIFACT_CHARS` (default 3000). Projection caps `NULLRAY_PROJECTION_TURNS` and `NULLRAY_PROJECTION_TOOL_STUBS`.
+- LID stays on by default. NULLRAY_LID=0 turns off projection, artifact store, and phase reset. Envelopes remain without artifact=.
+- Lean/print tools JSON uses a core allowlist, strips schema property descriptions, and omits all subagent tools when subagents are off. harness_tools_json is recorded in .usage.jsonl.
+- Prepare write-back matches tool_call_id only (no name-only matching). Artifacts are GC'd on session destroy and --doctor (64MB quota, 7-day age).
+- TUI collapses tool rows that carry artifact= to a one-line stub. Expand with /artifact ID in the side pane.
+- Artifact threshold NULLRAY_ARTIFACT_CHARS (default 3000). Projection caps NULLRAY_PROJECTION_TURNS and NULLRAY_PROJECTION_TOOL_STUBS.
+- Provider and fetch HTTP use sockets plus static Mbed TLS, nghttp2, and mlkem-native instead of libcurl. HTTPS prefers HTTP/2 when ALPN selects h2, else HTTP/1.1. Plain http stays HTTP/1.1. TLS 1.2 and 1.3 with X25519MLKEM768 hybrid PQ. System CAs via SSL_CERT_FILE / SSL_CERT_DIR. HTTP(S)_PROXY is not honored yet. No HTTP/3.
 
 ## [0.1.1] - 2026-09-07
 
