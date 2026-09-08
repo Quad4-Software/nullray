@@ -7,11 +7,6 @@ Format follows Keep a Changelog and Semantic Versioning.
 ## [0.2.0] - 2026-09-08
 
 ### Added
-- Optional speculative read tools (NULLRAY_SPECULATE=1): seal streamed tool calls without trusting partial JSON, run allowlisted reads early, reuse on hash match. Cap with NULLRAY_SPECULATE_PARALLEL (default 2).
-
-## [0.1.2] - 2026-09-08
-
-### Added
 - Big tool output is saved under .nullray/artifacts/. The model sees a short summary. Peek with read_artifact or grep_artifact.
 - Shorter chat history for the model (recent turns, stubbed old tool output).
 - Lean prompts in print mode (NULLRAY_PROMPT=lean, or auto under --print).
@@ -19,6 +14,7 @@ Format follows Keep a Changelog and Semantic Versioning.
 - Softer file edits: exact match first, then fuzzy whitespace. Multi-hunk apply_edits on one file chains in memory.
 - Optional repo symbol digest in the prompt, plus repo_symbols.
 - Failed verify runs show path:line hints and may save the full log as an artifact.
+- Optional speculative read tools (NULLRAY_SPECULATE=1): seal streamed tool calls without trusting partial JSON, run allowlisted reads early, reuse on hash match. Cap with NULLRAY_SPECULATE_PARALLEL (default 2).
 
 ### Fixed
 - Context cleanup no longer triggers just because the system prompt is large.
