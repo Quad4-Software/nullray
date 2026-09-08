@@ -23,7 +23,7 @@ main :: proc() {
 	tools.registry_init(&tools_reg)
 	defer tools.registry_destroy(&tools_reg)
 	if !http.global_init() {
-		fmt.eprintln("nullray_chat_smoke: curl init failed")
+		fmt.eprintln("nullray_chat_smoke: TLS init failed")
 		os.exit(1)
 	}
 	defer http.global_cleanup()

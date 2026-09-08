@@ -277,6 +277,26 @@ static int nullray_tls_load_global_cas(char *err, size_t err_len)
     }
     mbedtls_x509_crt_free(&g_ca_chain);
     mbedtls_x509_crt_init(&g_ca_chain);
+#elif defined(_WIN32) || defined(_WIN32_WCE)
+    {
+        /* Prefer Git for Windows / curl-style bundles when SSL_CERT_* is unset. */
+        static const char *win_ca_files[] = {
+            "C:\\Program Files\\Git\\mingw64\\ssl\\certs\\ca-bundle.crt",
+            "C:\\Program Files\\Git\\usr\\ssl\\certs\\ca-bundle.crt",
+            "C:\\Program Files (x86)\\Git\\mingw32\\ssl\\certs\\ca-bundle.crt",
+            NULL
+        };
+        size_t i;
+        for (i = 0; win_ca_files[i] != NULL; i++) {
+            if (nullray_tls_try_load_file(&g_ca_chain, win_ca_files[i]) == 0 &&
+                g_ca_chain.version != 0) {
+                g_ca_loaded = 1;
+                return 0;
+            }
+            mbedtls_x509_crt_free(&g_ca_chain);
+            mbedtls_x509_crt_init(&g_ca_chain);
+        }
+    }
 #else
     if (nullray_tls_try_load_path(&g_ca_chain, "/etc/ssl/certs") == 0 &&
         g_ca_chain.version != 0) {
@@ -329,7 +349,9 @@ int nullray_tls_global_init(void)
         return -1;
     }
 #endif
-    return nullray_tls_load_global_cas(NULL, 0);
+    /* Best-effort at startup. Handshake reloads and surfaces a clear error. */
+    (void) nullray_tls_load_global_cas(NULL, 0);
+    return 0;
 }
 
 void nullray_tls_global_cleanup(void)

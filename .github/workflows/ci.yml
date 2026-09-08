@@ -298,8 +298,11 @@ jobs:
           where clang
           if not exist bin mkdir bin
           odin build cmd\nullray -out:bin\nullray.exe -collection:nullray=nullray -extra-linker-flags:"-lws2_32" -define:NULLRAY_BUILD_DATE=2026-09-07 -define:NULLRAY_BUILD_TIME=00:00:00
+          if errorlevel 1 exit /b 1
           bin\nullray.exe --self-test
+          if errorlevel 1 exit /b 1
           bin\nullray.exe --version
+          if errorlevel 1 exit /b 1
 
       - name: Print smoke
         shell: pwsh

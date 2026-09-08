@@ -174,7 +174,7 @@ main :: proc() {
 	crash.logf("sandbox ok")
 
 	if !http.global_init() {
-		fmt.eprintln("nullray: curl init failed")
+		fmt.eprintln("nullray: TLS init failed")
 		os.exit(1)
 	}
 	defer http.global_cleanup()
@@ -659,7 +659,7 @@ apply_cli_env :: proc(cli: ^Cli) {
 
 run_list_models :: proc() -> int {
 	if !http.global_init() {
-		fmt.eprintln("nullray: curl init failed")
+		fmt.eprintln("nullray: TLS init failed")
 		return 1
 	}
 	defer http.global_cleanup()
