@@ -17,9 +17,9 @@
 #define HAVE_MEMSET 1
 #define STDC_HEADERS 1
 
-#include <BaseTsd.h>
+#include <stddef.h>
 #ifndef _SSIZE_T_DEFINED
-typedef SSIZE_T ssize_t;
+typedef ptrdiff_t ssize_t;
 #define _SSIZE_T_DEFINED
 #endif
 

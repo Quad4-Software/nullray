@@ -86,6 +86,9 @@ jobs:
           bash scripts/ensure-odin.sh "$HOME/Odin"
           echo "$HOME/Odin" >> "$GITHUB_PATH"
 
+      - name: Build TLS static lib
+        run: make tls-lib
+
       - name: Package tests
         env:
           SUITE_PATH: ${{ matrix.path }}

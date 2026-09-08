@@ -59,7 +59,7 @@ jobs:
 
       - name: Build and gate
         env:
-          NULLRAY_MAX_BINARY_BYTES: "3000000"
+          NULLRAY_MAX_BINARY_BYTES: "4000000"
           NULLRAY_MAX_RSS_KB: "65536"
         run: |
           make

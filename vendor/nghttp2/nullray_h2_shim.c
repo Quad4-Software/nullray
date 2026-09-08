@@ -2,6 +2,10 @@
  * Minimal HTTP/2 client for one request over an existing TLS socket.
  */
 
+#ifdef HAVE_CONFIG_H
+#include "config.h"
+#endif
+
 #include "nullray_h2_shim.h"
 
 #include <stdio.h>

@@ -59,9 +59,10 @@ $MlkemO = Join-Path $ObjDir "mlkem_native.o"
 if ($LASTEXITCODE -ne 0) { throw "compile failed: mlkem_native.c" }
 $Objs += $MlkemO
 
+$SsizeCompat = Join-Path $NgDir "ssize_compat.h"
 $H2Flags = @(
   "-Os", "-DHAVE_CONFIG_H", "-DNGHTTP2_STATICLIB", "-DBUILDING_NGHTTP2", "-DWIN32",
-  "-I$NgDir", "-I$NgInc"
+  "-I$NgDir", "-I$NgInc", "-include", $SsizeCompat
 )
 Get-ChildItem -Path $NgLib -Filter "*.c" | ForEach-Object {
   $o = Join-Path $ObjDir ("nghttp2_" + $_.BaseName + ".o")
