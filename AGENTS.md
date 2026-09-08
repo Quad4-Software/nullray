@@ -108,6 +108,8 @@ Default root: ~/.config/nullray/ (XDG on Unix). Files: env, keys.ini, mcp.json, 
 
 LID harness (wave 1): tool dumps above NULLRAY_ARTIFACT_CHARS (default 3000) go to .nullray/artifacts/ and the model sees status/path/artifact/excerpt envelopes. Peek with read_artifact / grep_artifact (default line cap NULLRAY_ARTIFACT_READ_LINES=200, hard 32KB). Provider history is a projection (NULLRAY_PROJECTION_TURNS / NULLRAY_PROJECTION_TOOL_STUBS). NULLRAY_LID=0 disables projection, artifact store, and phase reset (envelopes stay, without artifact=). NULLRAY_PROMPT=lean|full|auto (auto under print) ships a compact tools JSON core set that still includes read_man/apropos, and a small subagent subset (task/agents_*/knowledge_*) when subagents are on. Metrics: NULLRAY_HARNESS_METRICS=1 or NULLRAY_DEBUG=1, also harness_* fields in .usage.jsonl (including harness_tools_json). TUI stubs artifact tool rows; expand with /artifact ID. Artifact GC runs on session destroy and --doctor (64MB / 7 day sweep).
 
+Speculative tools (off by default): NULLRAY_SPECULATE=1 pre-runs allowlisted read-only tools once a streamed tool_calls index is sealed (next index or stream end), and parallelizes a leading read-only prefix after the response. Cap with NULLRAY_SPECULATE_PARALLEL (default 2). Writes, shell, compact_context, task, and fetch_url never speculate. Handoff matches on tool id, name, and args hash. Misses fall back to the serial path. LID offload and PostToolUse run only on handoff.
+
 Key presets: default, neovim, emacs (preset= in keys.ini), or NULLRAY_KEYS / --keys.
 
 Splash defaults on. Off: NULLRAY_SPLASH=0 (also false/off/no/disable) or --no-splash. Force: --splash or NULLRAY_SPLASH=1.

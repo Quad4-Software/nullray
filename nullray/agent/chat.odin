@@ -9,7 +9,8 @@ import "core:strings"
 import "nullray:provider"
 
 Delta_Ctx :: struct {
-	cfg: Config,
+	cfg:     Config,
+	harness: ^Harness_Metrics,
 }
 
 @(private)
@@ -24,7 +25,7 @@ delta_bridge :: proc(kind: provider.Delta_Kind, text: string, user: rawptr) {
 }
 
 @(private)
-single_chat :: proc(p: ^provider.Provider, msgs: []provider.Message, model, tools_json: string, cfg: Config, allocator := context.allocator) -> provider.Chat_Response {
+single_chat :: proc(p: ^provider.Provider, msgs: []provider.Message, model, tools_json: string, cfg: Config, harness: ^Harness_Metrics = nil, allocator := context.allocator) -> provider.Chat_Response {
 	choice := ""
 	if len(tools_json) > 0 {
 		choice = "auto"
@@ -45,7 +46,11 @@ single_chat :: proc(p: ^provider.Provider, msgs: []provider.Message, model, tool
 				err = strings.clone("streaming not supported by this provider", allocator),
 			}
 		}
-		dctx := Delta_Ctx{cfg = cfg}
+		dctx := Delta_Ctx{cfg = cfg, harness = harness}
+		if cfg.speculate_pool != nil {
+			req.on_tool_seal = tool_seal_bridge
+			req.seal_user = &dctx
+		}
 		res := p.stream(p, req, delta_bridge, &dctx, allocator)
 		if !res.ok {
 			err := res.err

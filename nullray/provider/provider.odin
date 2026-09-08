@@ -38,6 +38,8 @@ Chat_Request :: struct {
 	tool_choice:      string,
 	reasoning_effort: string,
 	max_tokens:       int,
+	on_tool_seal:     Tool_Seal_Proc,
+	seal_user:        rawptr,
 }
 
 Chat_Response :: struct {
@@ -76,6 +78,10 @@ Delta_Kind :: enum {
 }
 
 Delta_Proc :: #type proc(kind: Delta_Kind, text: string, user: rawptr)
+
+// Fired when a streamed tool_calls index is sealed (next index appeared or stream ended).
+// Never means args are final because JSON happened to parse mid-stream.
+Tool_Seal_Proc :: #type proc(idx: int, id, name, args: string, user: rawptr)
 
 Provider :: struct {
 	id:            string,

@@ -14,17 +14,20 @@ import "nullray:constants"
 import "nullray:http"
 
 Stream_Accum :: struct {
-	content:     strings.Builder,
-	reasoning:   strings.Builder,
-	tool_calls:  [dynamic]Tool_Call,
-	finish:      string,
-	model:       string,
-	err:         string,
-	usage:       Usage,
-	on_delta:    Delta_Proc,
-	user:        rawptr,
-	mu:          sync.Mutex,
-	ok:          bool,
+	content:      strings.Builder,
+	reasoning:    strings.Builder,
+	tool_calls:   [dynamic]Tool_Call,
+	tool_sealed:  [dynamic]bool,
+	finish:       string,
+	model:        string,
+	err:          string,
+	usage:        Usage,
+	on_delta:     Delta_Proc,
+	on_tool_seal: Tool_Seal_Proc,
+	user:         rawptr,
+	seal_user:    rawptr,
+	mu:           sync.Mutex,
+	ok:           bool,
 }
 
 openai_chat_stream :: proc(
@@ -62,8 +65,11 @@ openai_chat_stream :: proc(
 		strings.builder_init(&accum.content, allocator)
 		strings.builder_init(&accum.reasoning, allocator)
 		accum.tool_calls = make([dynamic]Tool_Call, allocator)
+		accum.tool_sealed = make([dynamic]bool, allocator)
 		accum.on_delta = on_delta
+		accum.on_tool_seal = req.on_tool_seal
 		accum.user = user
+		accum.seal_user = req.seal_user
 		accum.ok = true
 
 		body := build_openai_chat_body(p, req, model, true, ignore[:])
@@ -75,10 +81,35 @@ openai_chat_stream :: proc(
 				strings.builder_destroy(&accum.reasoning)
 				destroy_tool_calls(accum.tool_calls[:])
 				delete(accum.tool_calls)
+				delete(accum.tool_sealed)
 				delete(accum.err)
 				delete(accum.finish)
 				delete(accum.model)
 				return Chat_Response{ok = false, err = out_err}
+			}
+
+			// Seal remaining tool indices before handing calls to the agent.
+			{
+				sync.mutex_lock(&accum.mu)
+				newly := make([dynamic]int, context.temp_allocator)
+				for i in 0 ..< len(accum.tool_calls) {
+					for len(accum.tool_sealed) <= i {
+						append(&accum.tool_sealed, false)
+					}
+					if !accum.tool_sealed[i] {
+						accum.tool_sealed[i] = true
+						append(&newly, i)
+					}
+				}
+				cb := accum.on_tool_seal
+				su := accum.seal_user
+				sync.mutex_unlock(&accum.mu)
+				if cb != nil {
+					for i in newly {
+						tc := accum.tool_calls[i]
+						cb(i, tc.id, tc.name, tc.arguments, su)
+					}
+				}
 			}
 
 			content := strings.clone(strings.to_string(accum.content), allocator)
@@ -86,6 +117,7 @@ openai_chat_stream :: proc(
 			strings.builder_destroy(&accum.content)
 			strings.builder_destroy(&accum.reasoning)
 			calls := accum.tool_calls[:]
+			delete(accum.tool_sealed)
 			if len(content) == 0 && len(reasoning) == 0 && len(calls) == 0 {
 				delete(content)
 				delete(reasoning)
@@ -114,6 +146,7 @@ openai_chat_stream :: proc(
 		strings.builder_destroy(&accum.reasoning)
 		destroy_tool_calls(accum.tool_calls[:])
 		delete(accum.tool_calls)
+		delete(accum.tool_sealed)
 		delete(accum.finish)
 		delete(accum.model)
 
@@ -281,6 +314,7 @@ sse_line_cb :: proc(line: string, user: rawptr) {
 	}
 	if tcv, tok := dobj["tool_calls"]; tok {
 		if tc_arr, taok := tcv.(json.Array); taok {
+			newly := make([dynamic]int, context.temp_allocator)
 			sync.mutex_lock(&accum.mu)
 			for item in tc_arr {
 				tc_obj, to_ok := item.(json.Object)
@@ -296,35 +330,65 @@ sse_line_cb :: proc(line: string, user: rawptr) {
 						idx = int(n)
 					}
 				}
-				for len(accum.tool_calls) <= idx {
-					append(&accum.tool_calls, Tool_Call{})
-				}
-				tc := &accum.tool_calls[idx]
+				id_s, name_s, args_s := "", "", ""
 				if idv, iok := tc_obj["id"]; iok {
 					if s, sok := idv.(json.String); sok {
-						if len(tc.id) == 0 {
-							tc.id = strings.clone(string(s))
-						}
+						id_s = string(s)
 					}
 				}
 				if fnv, fok := tc_obj["function"]; fok {
 					if fn, fnok := fnv.(json.Object); fnok {
 						if nv, nok := fn["name"]; nok {
 							if s, sok := nv.(json.String); sok {
-								if len(tc.name) == 0 {
-									tc.name = strings.clone(string(s))
-								}
+								name_s = string(s)
 							}
 						}
 						if av, aok := fn["arguments"]; aok {
 							if s, sok := av.(json.String); sok {
-								tc.arguments = strings.concatenate({tc.arguments, string(s)})
+								args_s = string(s)
 							}
 						}
 					}
 				}
+				for len(accum.tool_calls) <= idx {
+					append(&accum.tool_calls, Tool_Call{})
+				}
+				for len(accum.tool_sealed) <= idx {
+					append(&accum.tool_sealed, false)
+				}
+				tc := &accum.tool_calls[idx]
+				if len(id_s) > 0 && len(tc.id) == 0 {
+					tc.id = strings.clone(id_s)
+				}
+				if len(name_s) > 0 && len(tc.name) == 0 {
+					tc.name = strings.clone(name_s)
+				}
+				if len(args_s) > 0 {
+					old := tc.arguments
+					tc.arguments = strings.concatenate({tc.arguments, args_s})
+					delete(old)
+				}
+				for j in 0 ..< idx {
+					if j < len(accum.tool_sealed) && !accum.tool_sealed[j] {
+						accum.tool_sealed[j] = true
+						append(&newly, j)
+					}
+				}
 			}
+			cb := accum.on_tool_seal
+			su := accum.seal_user
 			sync.mutex_unlock(&accum.mu)
+			if cb != nil {
+				for i in newly {
+					sync.mutex_lock(&accum.mu)
+					tc := accum.tool_calls[i]
+					id := tc.id
+					name := tc.name
+					args := tc.arguments
+					sync.mutex_unlock(&accum.mu)
+					cb(i, id, name, args, su)
+				}
+			}
 		}
 	}
 }

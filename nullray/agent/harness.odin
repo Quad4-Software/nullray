@@ -25,6 +25,10 @@ Harness_Metrics :: struct {
 	writeback_events:       int,
 	midturn_prepare_events: int,
 	tools_json_chars:       int,
+	speculate_hit:          int,
+	speculate_miss:         int,
+	speculate_submit:       int,
+	speculate_saved_ms:     int,
 }
 
 Prepare_Stats :: struct {
@@ -471,7 +475,7 @@ harness_log_metrics :: proc(m: Harness_Metrics) {
 		mean = m.total_prompt_chars / m.call_count
 	}
 	fmt.eprintf(
-		"nullray harness: calls=%d mean_chars=%d peak_chars=%d stubbed=%d retained=%d artifacts=%d clear=%d compact=%d writeback=%d midturn=%d tools_json=%d\n",
+		"nullray harness: calls=%d mean_chars=%d peak_chars=%d stubbed=%d retained=%d artifacts=%d clear=%d compact=%d writeback=%d midturn=%d tools_json=%d spec_hit=%d spec_miss=%d spec_submit=%d spec_saved_ms=%d\n",
 		m.call_count,
 		mean,
 		m.peak_prompt_chars,
@@ -483,6 +487,10 @@ harness_log_metrics :: proc(m: Harness_Metrics) {
 		m.writeback_events,
 		m.midturn_prepare_events,
 		m.tools_json_chars,
+		m.speculate_hit,
+		m.speculate_miss,
+		m.speculate_submit,
+		m.speculate_saved_ms,
 	)
 }
 

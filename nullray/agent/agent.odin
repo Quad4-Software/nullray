@@ -26,19 +26,22 @@ Stop_Kind :: enum {
 Stop_Check :: #type proc(user: rawptr) -> Stop_Kind
 
 Config :: struct {
-	max_steps:         int,
-	enable_tools:      bool,
-	stream:            bool,
-	reasoning_effort:  string,
-	max_tokens:        int,
-	mode:              Agent_Mode,
-	tools_registry:    ^tools.Registry,
-	on_event:          Event_Proc,
-	user:              rawptr,
-	stop_check:        Stop_Check,
-	plan_verify:       string,
-	verify_fail_count: int,
-	prepare_context:   Prepare_Context_Proc,
+	max_steps:           int,
+	enable_tools:        bool,
+	stream:              bool,
+	reasoning_effort:    string,
+	max_tokens:          int,
+	mode:                Agent_Mode,
+	tools_registry:      ^tools.Registry,
+	on_event:            Event_Proc,
+	user:                rawptr,
+	stop_check:          Stop_Check,
+	plan_verify:         string,
+	verify_fail_count:   int,
+	prepare_context:     Prepare_Context_Proc,
+	speculate:           bool,
+	speculate_parallel:  int,
+	speculate_pool:      ^tools.Speculate_Pool,
 }
 
 Event_Kind :: enum {
@@ -96,6 +99,8 @@ default_config :: proc() -> Config {
 		max_tokens = max_tokens,
 		mode = mode_from_env(),
 		tools_registry = tools.registry(),
+		speculate = tools.speculate_enabled_from_env(),
+		speculate_parallel = tools.speculate_parallel_from_env(),
 	}
 }
 
@@ -223,26 +228,36 @@ run_turn :: proc(req: Run_Request, cfg: Config, allocator := context.allocator) 
 	verify_fails := cfg.verify_fail_count
 	had_writes := false
 
+	cfg_local := cfg
+	spec_pool: tools.Speculate_Pool
+	if cfg.speculate && tools_on {
+		tools.speculate_pool_init(&spec_pool, reg, mode_s, cfg.speculate_parallel, allocator)
+		cfg_local.speculate_pool = &spec_pool
+		defer tools.speculate_pool_destroy(&spec_pool)
+	}
+
 	for step in 0 ..< max_steps {
 		loop_intervene = false
-		switch check_stop(cfg) {
+		switch check_stop(cfg_local) {
 		case .Cancel:
-			emit(cfg, .Status, "cancelled")
+			tools.speculate_discard_all(cfg_local.speculate_pool)
+			emit(cfg_local, .Status, "cancelled")
 			harness_log_metrics(harness)
 			return Run_Result{ok = true, messages = msgs, content = last_content, stopped = owned_stop("cancelled", allocator), usage = usage_sum, harness = harness}
 		case .Pause:
-			emit(cfg, .Status, "paused")
+			tools.speculate_stop_admit(cfg_local.speculate_pool)
+			emit(cfg_local, .Status, "paused")
 			harness_log_metrics(harness)
 			return Run_Result{ok = true, messages = msgs, content = last_content, stopped = owned_stop("paused", allocator), usage = usage_sum, harness = harness}
 		case .None:
 		}
 
 		if tools_on {
-			emit(cfg, .Step, fmt.tprintf("step %d/%d", step + 1, max_steps))
+			emit(cfg_local, .Step, fmt.tprintf("step %d/%d", step + 1, max_steps))
 		}
 		prompt_chars := messages_content_chars(msgs[:])
 		harness_record_call(&harness, prompt_chars)
-		res := single_chat(req.prov, msgs[:], model, tools_json, cfg, allocator)
+		res := single_chat(req.prov, msgs[:], model, tools_json, cfg_local, &harness, allocator)
 		if !res.ok {
 			provider.destroy_messages(msgs[:])
 			delete(msgs)
@@ -434,11 +449,15 @@ run_turn :: proc(req: Run_Request, cfg: Config, allocator := context.allocator) 
 		}
 
 		elevate_stop := false
-		for c in calls {
-			if check_stop(cfg) == .Cancel {
+		if !loop_intervene && cfg_local.speculate_pool != nil && len(calls) > 0 {
+			speculate_submit_prefix(cfg_local.speculate_pool, calls, &harness, allocator)
+		}
+		for c, ci in calls {
+			if check_stop(cfg_local) == .Cancel {
+				tools.speculate_discard_all(cfg_local.speculate_pool)
 				break
 			}
-			emit(cfg, .Tool_Start, c.arguments, c.name)
+			emit(cfg_local, .Tool_Start, c.arguments, c.name)
 			tool_result, tool_err := "", ""
 			if loop_intervene {
 				tool_err = strings.clone(
@@ -446,16 +465,17 @@ run_turn :: proc(req: Run_Request, cfg: Config, allocator := context.allocator) 
 					allocator,
 				)
 			} else {
-				pre := hooks.run(.PreToolUse, c.name, c.arguments, allocator)
-				if !pre.blocked && c.name == "vcs_commit" {
-					delete(pre.message)
-					pre = hooks.run(.PreCommit, c.name, c.arguments, allocator)
-				}
-				if pre.blocked {
-					tool_err = pre.message
-				} else {
-					delete(pre.message)
-					tool_result, tool_err = tools.run(reg, c.name, c.arguments, mode_s, allocator)
+				do_post: bool
+				tool_result, tool_err, do_post = tool_exec_maybe_speculate(
+					cfg_local.speculate_pool,
+					reg,
+					mode_s,
+					c,
+					ci,
+					&harness,
+					allocator,
+				)
+				if do_post {
 					post_payload := tool_result
 					if len(tool_err) > 0 {
 						post_payload = tool_err
@@ -481,8 +501,8 @@ run_turn :: proc(req: Run_Request, cfg: Config, allocator := context.allocator) 
 			delete(tool_result)
 			delete(tool_err)
 			store.audit_log_append("tool", c.name, "", "")
-			emit(cfg, .Tool_Done, result_text, c.name)
-			emit(cfg, .Tool_Message, result_text, c.name)
+			emit(cfg_local, .Tool_Done, result_text, c.name)
+			emit(cfg_local, .Tool_Message, result_text, c.name)
 			detail := cmd_or_path_from_args(c.name, c.arguments)
 			envelope := offload_tool_result(c.name, result_text, detail, is_err || looks_like_tool_error(result_text), &harness, allocator)
 			trusted_boundary := untrusted_tool_result(envelope, allocator)

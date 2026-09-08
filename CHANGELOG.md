@@ -4,6 +4,11 @@ Notable changes for nullray.
 
 Format follows Keep a Changelog and Semantic Versioning.
 
+## [0.2.0] - 2026-09-08
+
+### Added
+- Optional speculative read tools (NULLRAY_SPECULATE=1): seal streamed tool calls without trusting partial JSON, run allowlisted reads early, reuse on hash match. Cap with NULLRAY_SPECULATE_PARALLEL (default 2).
+
 ## [0.1.2] - 2026-09-08
 
 ### Added
@@ -47,4 +52,3 @@ Format follows Keep a Changelog and Semantic Versioning.
 - Modes ask, plan, review, edit. Headless --print. Plans with --plan-out / --plan-in. Optional verify.
 - Subagents, skills, /setup wizard, session usage, hooks, memory, local VCS, /undo checkpoints.
 - Ops profiles (NULLRAY_OPS), optional network VCS, packaging (Docker, Flatpak, AppImage, AUR).
-- Linux arm64 builds. Shell timeouts and anti-loop limits. Elevate broker when needed.

@@ -9,4 +9,4 @@ Terminal=true
 Categories=Development;
 Keywords=agent;llm;tui;coding;
 StartupNotify=false
-X-AppImage-Version=0.1.1
+X-AppImage-Version=0.2.0
