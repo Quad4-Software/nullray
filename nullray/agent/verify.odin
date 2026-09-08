@@ -13,6 +13,7 @@ import "core:strings"
 import "nullray:constants"
 import "nullray:elevate"
 import "nullray:provider"
+import "nullray:store"
 import "nullray:tools"
 
 VERIFY_USER_PREFIX :: "[nullray verify]"
@@ -113,7 +114,8 @@ shell_output_ok :: proc(output: string) -> bool {
 }
 
 /*
-Run verify via run_shell on the session tools registry. Returns ok and truncated output.
+Run verify via run_shell on the session tools registry.
+Returns ok and full output (caller truncates for TUI / nudge).
 */
 run_verify_command :: proc(
 	cmd: string,
@@ -144,15 +146,11 @@ run_verify_command :: proc(
 	args := fmt.aprintf(`{{"command":%q}}`, cmd, allocator = context.temp_allocator)
 	result, err := tools.run(reg, "run_shell", args, "edit", allocator)
 	if len(err) > 0 {
-		out := truncate_bytes(err, constants.MAX_VERIFY_OUTPUT_BYTES, allocator)
 		delete(result)
-		delete(err)
-		return false, out
+		return false, err
 	}
 	ok = shell_output_ok(result)
-	out := truncate_bytes(result, constants.MAX_VERIFY_OUTPUT_BYTES, allocator)
-	delete(result)
-	return ok, out
+	return ok, result
 }
 
 format_verify_nudge :: proc(
@@ -162,26 +160,85 @@ format_verify_nudge :: proc(
 	output: string,
 	breaker: bool,
 	allocator := context.allocator,
+	artifact_id: string = "",
 ) -> string {
+	findings := parse_diagnostics(output, allocator)
+	defer delete_findings(&findings)
+	findings_text := format_findings_block(findings[:], context.temp_allocator)
+
+	excerpt := output
+	if len(excerpt) > constants.ARTIFACT_EXCERPT_CHARS {
+		excerpt = excerpt[:constants.ARTIFACT_EXCERPT_CHARS]
+	}
+
+	b: strings.Builder
+	strings.builder_init(&b, allocator)
 	if breaker {
-		return fmt.aprintf(
-			"%s circuit breaker after %d fails\ncommand: %s\n---\n%s\n---\nStop. Tell the user verify is blocked until they fix the project or /verify off.",
+		fmt.sbprintf(
+			&b,
+			"%s circuit breaker after %d fails\ncommand: %s\n",
 			VERIFY_USER_PREFIX,
 			fail_n,
 			cmd,
-			output,
-			allocator = allocator,
+		)
+	} else {
+		fmt.sbprintf(
+			&b,
+			"%s failed (%d/%d)\ncommand: %s\n",
+			VERIFY_USER_PREFIX,
+			fail_n,
+			max_fails,
+			cmd,
 		)
 	}
-	return fmt.aprintf(
-		"%s failed (%d/%d)\ncommand: %s\n---\n%s\n---\nFix the failures, then stop when verify is green. Do not invent a tool named run_shell beyond the registered tools.",
-		VERIFY_USER_PREFIX,
-		fail_n,
-		max_fails,
-		cmd,
-		output,
-		allocator = allocator,
-	)
+	if len(findings_text) > 0 {
+		strings.write_string(&b, findings_text)
+	}
+	if len(artifact_id) > 0 {
+		fmt.sbprintf(
+			&b,
+			"artifact=%s\nUse read_artifact or grep_artifact for the full verify log.\n",
+			artifact_id,
+		)
+		strings.write_string(&b, "--- excerpt ---\n")
+		strings.write_string(&b, excerpt)
+		strings.write_string(&b, "\n")
+	} else if lid_enabled() {
+		strings.write_string(&b, "--- excerpt ---\n")
+		strings.write_string(&b, excerpt)
+		strings.write_string(&b, "\n")
+	} else {
+		raw := truncate_bytes(output, constants.MAX_VERIFY_OUTPUT_BYTES, context.temp_allocator)
+		strings.write_string(&b, "---\n")
+		strings.write_string(&b, raw)
+		strings.write_string(&b, "\n---\n")
+	}
+	if breaker {
+		strings.write_string(
+			&b,
+			"Stop. Tell the user verify is blocked until they fix the project or /verify off.",
+		)
+	} else {
+		strings.write_string(
+			&b,
+			"Fix the failures, then stop when verify is green. Do not invent a tool named run_shell beyond the registered tools.",
+		)
+	}
+	return strings.to_string(b)
+}
+
+verify_store_output :: proc(output: string, allocator := context.allocator) -> string {
+	if !lid_enabled() {
+		return ""
+	}
+	if len(output) == 0 {
+		return ""
+	}
+	id, ok := store.artifact_store(output, allocator)
+	if !ok {
+		return ""
+	}
+	return id
 }
 
 turn_had_writes :: proc(messages: []provider.Message) -> bool {

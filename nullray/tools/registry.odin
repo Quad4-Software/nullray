@@ -67,7 +67,7 @@ registry_init :: proc(r: ^Registry) {
 	})
 	registry_register(r, Tool{
 		name = "edit_file",
-		description = "Replace text in a UTF-8 file under the workspace",
+		description = "Replace a unique old_string with new_string in a UTF-8 workspace file. Prefer small unique anchors. Exact match first, then whitespace-tolerant fuzzy (ambiguous matches are refused)",
 		schema_json = `{"type":"object","properties":{"path":{"type":"string"},"old_string":{"type":"string"},"new_string":{"type":"string"},"replace_all":{"type":"string","description":"true or false"},"allow_godfile":{"type":"string","description":"true to allow growth past the structure limit"}},"required":["path","old_string","new_string"]}`,
 		kind = .Write,
 		run = tool_edit_file,
@@ -95,7 +95,7 @@ registry_init :: proc(r: ^Registry) {
 	})
 	registry_register(r, Tool{
 		name = "apply_edits",
-		description = "Apply multiple search-replace edits or create files atomically under the workspace",
+		description = "Apply multiple search-replace edits or create files under the workspace. Each old_string must uniquely identify its target. Exact then fuzzy whitespace match, ambiguous refused",
 		schema_json = `{"type":"object","properties":{"allow_godfile":{"type":"string","description":"true to allow growth past the structure limit"},"edits":{"type":"array","items":{"type":"object","properties":{"path":{"type":"string"},"old_string":{"type":"string"},"new_string":{"type":"string"},"replace_all":{"type":"string"}},"required":["path","old_string","new_string"]}},"files":{"type":"array","items":{"type":"object","properties":{"path":{"type":"string"},"content":{"type":"string"}},"required":["path","content"]}}}}`,
 		kind = .Write,
 		run = tool_apply_edits,

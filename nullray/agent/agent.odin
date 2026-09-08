@@ -368,13 +368,24 @@ run_turn :: proc(req: Run_Request, cfg: Config, allocator := context.allocator) 
 					emit(cfg, .Status, fmt.tprintf("verify: %s", vcmd))
 					emit(cfg, .Tool_Start, vargs, "verify")
 					vok, vout := run_verify_command(vcmd, reg, allocator)
-					emit(cfg, .Tool_Done, vout, "verify")
+					tui_out := truncate_bytes(vout, constants.MAX_VERIFY_OUTPUT_BYTES, context.temp_allocator)
+					emit(cfg, .Tool_Done, tui_out, "verify")
 					if !vok {
 						verify_fails += 1
 						max_fails := verify_max_fails_from_env()
+						aid := verify_store_output(vout, allocator)
 						if verify_fails >= max_fails {
-							fail_msg := format_verify_nudge(vcmd, verify_fails, max_fails, vout, true, allocator)
+							fail_msg := format_verify_nudge(
+								vcmd,
+								verify_fails,
+								max_fails,
+								vout,
+								true,
+								allocator,
+								aid,
+							)
 							delete(vout)
+							delete(aid)
 							emit(cfg, .Status, "verify failed (breaker)")
 							append(&msgs, provider.Message{role = .User, content = fail_msg})
 							harness_log_metrics(harness)
@@ -388,8 +399,17 @@ run_turn :: proc(req: Run_Request, cfg: Config, allocator := context.allocator) 
 								harness = harness,
 							}
 						}
-						nudge := format_verify_nudge(vcmd, verify_fails, max_fails, vout, false, allocator)
+						nudge := format_verify_nudge(
+							vcmd,
+							verify_fails,
+							max_fails,
+							vout,
+							false,
+							allocator,
+							aid,
+						)
 						delete(vout)
+						delete(aid)
 						emit(cfg, .Status, fmt.tprintf("verify failed (%d/%d)", verify_fails, max_fails))
 						append(&msgs, provider.Message{role = .User, content = nudge})
 						continue
@@ -512,7 +532,8 @@ run_turn :: proc(req: Run_Request, cfg: Config, allocator := context.allocator) 
 			}
 		}
 
-		// Mid-turn LID: re-apply clear/compact when the live window grows.
+		// Mid-turn LID: budget the live window excluding the system prompt.
+		// Large AGENTS/tool catalogs must not force prepare every step.
 		budget := compact_chars_budget()
 		trigger := 0
 		if budget > 0 {
@@ -521,9 +542,9 @@ run_turn :: proc(req: Run_Request, cfg: Config, allocator := context.allocator) 
 				trigger = budget
 			}
 		}
-		ctx_chars := messages_content_chars(msgs[:])
-		next := suggest_next_action(had_writes, true, false, 0, ctx_chars, budget)
-		if next == .Compact || (budget > 0 && ctx_chars > trigger) {
+		body_chars := messages_content_chars_excluding_system(msgs[:])
+		next := suggest_next_action(had_writes, true, false, 0, body_chars, budget)
+		if next == .Compact || (budget > 0 && body_chars > trigger) {
 			emit(cfg, .Status, "harness: mid-turn prepare")
 			stats: Prepare_Stats
 			if cfg.prepare_context != nil {
@@ -531,7 +552,9 @@ run_turn :: proc(req: Run_Request, cfg: Config, allocator := context.allocator) 
 			} else {
 				stats = prepare_context(&msgs, req.prov)
 			}
-			harness.midturn_prepare_events += 1
+			if stats.cleared > 0 || stats.compacted || stats.writeback {
+				harness.midturn_prepare_events += 1
+			}
 			harness.clear_events += stats.cleared
 			if stats.compacted {
 				harness.compact_events += 1

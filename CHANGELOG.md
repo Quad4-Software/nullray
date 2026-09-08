@@ -13,6 +13,12 @@ Format follows Keep a Changelog and Semantic Versioning.
 - Lean system prompt via `NULLRAY_PROMPT=lean` (auto under print): mode-filtered tool list, harder AGENTS truncation, skill bodies only through `load_skill`.
 - Harness metrics on stderr (`NULLRAY_HARNESS_METRICS=1` or `NULLRAY_DEBUG=1`) and in `.usage.jsonl` (`harness_calls`, `harness_peak_chars`, `harness_stubbed`, `harness_artifacts`, clear/compact/midturn/writeback).
 
+### Fixed
+- Mid-turn clear/compact no longer triggers on a fat system prompt alone. Budget uses non-system message chars, and empty prepares are not counted as midturn events.
+- Lean prompt uses tool names only (schemas stay in the API tools array) and keeps an 800-char AGENTS head with a path pointer.
+- With an explicit workspace (`-w` / `NULLRAY_WORKSPACE`), AGENTS.md is not loaded from the process cwd. That stopped host-repo instructions leaking into `/tmp` bench workspaces.
+- OpenRouter HTTP 401 responses keep the provider message and point at `~/.config/nullray/env` (avoids a bare `User not found`).
+
 ### Changed
 - Defaults keep LID on (`NULLRAY_LID=0` disables projection). Artifact threshold `NULLRAY_ARTIFACT_CHARS` (default 3000). Projection caps `NULLRAY_PROJECTION_TURNS` and `NULLRAY_PROJECTION_TOOL_STUBS`.
 

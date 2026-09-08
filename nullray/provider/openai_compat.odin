@@ -250,11 +250,18 @@ provider_http_error :: proc(res: http.Response, p: ^Provider = nil, allocator :=
 		}
 		return strings.clone("HTTP 429 rate limited (retry later or lower concurrency)", allocator)
 	}
+	if res.status == 401 {
+		if msg := extract_provider_error_message(res.body); len(msg) > 0 {
+			return fmt.aprintf(
+				"HTTP 401 unauthorized: %s (check API key in ~/.config/nullray/env)",
+				msg,
+				allocator = allocator,
+			)
+		}
+		return strings.clone("HTTP 401 unauthorized (check API key in ~/.config/nullray/env)", allocator)
+	}
 	if msg := extract_provider_error_message(res.body); len(msg) > 0 {
 		return strings.clone(msg, allocator)
-	}
-	if res.status == 401 {
-		return strings.clone("HTTP 401 unauthorized (check API key in ~/.config/nullray/env)", allocator)
 	}
 	if res.status == 402 {
 		if p != nil && p.id == "openrouter" {

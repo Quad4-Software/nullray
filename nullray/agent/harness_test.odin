@@ -67,6 +67,25 @@ test_prepare_clear_writeback_style :: proc(t: ^testing.T) {
 }
 
 @(test)
+test_midturn_budget_ignores_system :: proc(t: ^testing.T) {
+	msgs := make([dynamic]provider.Message)
+	defer {
+		for m in msgs {
+			provider.destroy_message(m)
+		}
+		delete(msgs)
+	}
+	fat_sys := strings.repeat("S", 20_000, context.temp_allocator)
+	append(&msgs, provider.Message{role = .System, content = strings.clone(fat_sys)})
+	append(&msgs, provider.Message{role = .User, content = strings.clone("hi")})
+	append(&msgs, provider.Message{role = .Tool, name = strings.clone("run_shell"), content = strings.clone("ok")})
+	total := messages_content_chars(msgs[:])
+	body := messages_content_chars_excluding_system(msgs[:])
+	testing.expect(t, total > 20_000)
+	testing.expect(t, body < 100)
+}
+
+@(test)
 test_projection_caps_synthetic :: proc(t: ^testing.T) {
 	os.set_env("NULLRAY_ARTIFACT_CHARS", "80")
 	defer os.unset_env("NULLRAY_ARTIFACT_CHARS")

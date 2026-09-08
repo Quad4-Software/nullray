@@ -1,6 +1,8 @@
 # Build
 /bin/
 /dist/
+/build/
+/lib/
 *.o
 *.obj
 *.a

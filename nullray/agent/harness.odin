@@ -147,6 +147,20 @@ messages_content_chars :: proc(msgs: []provider.Message) -> int {
 	return total
 }
 
+messages_content_chars_excluding_system :: proc(msgs: []provider.Message) -> int {
+	total := 0
+	for m in msgs {
+		if m.role == .System {
+			continue
+		}
+		total += len(m.content) + len(m.reasoning) + len(m.name)
+		for tc in m.tool_calls {
+			total += len(tc.name) + len(tc.arguments) + len(tc.id)
+		}
+	}
+	return total
+}
+
 is_cleared_tool_content :: proc(content: string) -> bool {
 	return strings.has_prefix(content, constants.TOOL_CLEAR_STUB_PREFIX) ||
 		strings.contains(content, "artifact=")
@@ -368,7 +382,7 @@ prepare_context :: proc(msgs: ^[dynamic]provider.Message, p: ^provider.Provider)
 	keep := tool_clear_keep()
 	stats.cleared = clear_old_tool_results(msgs, keep)
 
-	total := messages_content_chars(msgs[:])
+	total := messages_content_chars_excluding_system(msgs[:])
 	trigger := (budget * 70) / 100
 	if trigger < 8_000 {
 		trigger = budget
@@ -379,7 +393,7 @@ prepare_context :: proc(msgs: ^[dynamic]provider.Message, p: ^provider.Provider)
 
 	if keep > 2 {
 		stats.cleared += clear_old_tool_results(msgs, 2)
-		total = messages_content_chars(msgs[:])
+		total = messages_content_chars_excluding_system(msgs[:])
 		if total <= trigger {
 			return stats
 		}

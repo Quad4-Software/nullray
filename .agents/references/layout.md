@@ -15,6 +15,7 @@ nullray/
   http/                 libcurl helpers
   mcp/                  MCP JSON-RPC and stdio client (owned by App)
   memory/               Durable project memory
+  patch/                Exact-then-fuzzy SEARCH/REPLACE apply
   provider/             Registry, builtins, openai_chat wrappers, streaming via Provider.stream
   run/                  Headless --print agent (no TUI)
   sandbox/              Landlock/seccomp, ops profiles, secrets, redact
