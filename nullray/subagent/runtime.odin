@@ -10,21 +10,23 @@ import "core:sync"
 import "nullray:provider"
 
 Runtime :: struct {
-	mu:             sync.Mutex,
-	roster:         Roster,
-	knowledge:      Knowledge_Store,
-	leases:         Lease_Board,
-	board:          Task_Board,
-	messages:       Peer_Inbox,
-	limits:         Limits,
-	current_agent:  string,
-	tools_reg:      rawptr,
-	provider:       ^provider.Provider,
-	main_model:     string,
-	session_path:   string,
+	mu:              sync.Mutex,
+	roster:          Roster,
+	knowledge:       Knowledge_Store,
+	leases:          Lease_Board,
+	board:           Task_Board,
+	messages:        Peer_Inbox,
+	limits:          Limits,
+	current_agent:   string,
+	tools_reg:       rawptr,
+	provider:        ^provider.Provider,
+	main_model:      string,
+	session_path:    string,
 	session_persist: bool,
-	model_locked:   bool,
-	active:         bool,
+	model_locked:    bool,
+	active:          bool,
+	// Sum of child turn tokens not yet rolled into the parent session.
+	child_total_tokens: int,
 }
 
 g_runtime: ^Runtime
@@ -82,6 +84,27 @@ runtime_set_session :: proc(rt: ^Runtime, session_path: string, persist: bool) {
 	delete(rt.session_path)
 	rt.session_path = strings.clone(session_path)
 	rt.session_persist = persist
+}
+
+runtime_add_child_tokens :: proc(rt: ^Runtime, total: int) {
+	if rt == nil || total <= 0 {
+		return
+	}
+	sync.mutex_lock(&rt.mu)
+	rt.child_total_tokens += total
+	sync.mutex_unlock(&rt.mu)
+}
+
+// Read and clear pending child tokens for parent session rollup.
+runtime_take_child_tokens :: proc(rt: ^Runtime) -> int {
+	if rt == nil {
+		return 0
+	}
+	sync.mutex_lock(&rt.mu)
+	n := rt.child_total_tokens
+	rt.child_total_tokens = 0
+	sync.mutex_unlock(&rt.mu)
+	return n
 }
 
 runtime_set_provider :: proc(rt: ^Runtime, p: ^provider.Provider) {

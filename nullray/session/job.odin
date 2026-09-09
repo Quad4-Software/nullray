@@ -330,6 +330,18 @@ chat_job :: proc(data: rawptr) {
 		harness_tools_json = result.harness.tools_json_chars,
 	})
 
+	// Child turns write usage files but do not emit session events. Roll pending
+	// locate/task tokens into subagent_total_tokens before the parent turn ends.
+	if rt := subagent.runtime(); rt != nil {
+		if kids := subagent.runtime_take_child_tokens(rt); kids > 0 {
+			session_enqueue(args.session, Event{
+				kind = .Usage,
+				agent_id = strings.clone("subagents"),
+				total_tokens = kids,
+			})
+		}
+	}
+
 	delete(args.session.last_stopped)
 	args.session.last_stopped = strings.clone(result.stopped)
 

@@ -4,6 +4,8 @@ Notable changes for nullray.
 
 ## [Unreleased]
 
+## [0.3.0] - 2026-09-09
+
 ### Added
 - Locate subagent: finds file spans and hands path:start-end cites back to the parent.
 - repo_map tool for a quick workspace tree.
@@ -32,6 +34,7 @@ Notable changes for nullray.
 ### Fixed
 - Ephemeral print sessions still keep memory put/delete/forget.
 - Locate no longer crashes after returning cites.
+- Print usage rolls subagent tokens from locate/task children into the session total.
 - Hunt auto spends less on the second pass and keeps audit tools in lean mode.
 - Local Ollama / LM Studio chat works again (Host and Origin headers).
 - Print mode respects turning tools off.

@@ -134,3 +134,14 @@ test_locate_preamble_mentions_cites :: proc(t: ^testing.T) {
 	testing.expect(t, strings.contains(text, "repo_map"))
 	testing.expect(t, !strings.contains(text, "knowledge_put"))
 }
+
+@(test)
+test_runtime_child_token_rollup :: proc(t: ^testing.T) {
+	rt: Runtime
+	runtime_add_child_tokens(&rt, 0)
+	testing.expect_value(t, runtime_take_child_tokens(&rt), 0)
+	runtime_add_child_tokens(&rt, 120)
+	runtime_add_child_tokens(&rt, 30)
+	testing.expect_value(t, runtime_take_child_tokens(&rt), 150)
+	testing.expect_value(t, runtime_take_child_tokens(&rt), 0)
+}

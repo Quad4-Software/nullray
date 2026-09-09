@@ -325,6 +325,7 @@ child_job_proc :: proc(data: rawptr) {
 		if tt == 0 {
 			tt = result.usage.prompt_tokens + result.usage.completion_tokens
 		}
+		runtime_add_child_tokens(job.rt, tt)
 		_ = store.append_turn_metrics(path, store.Turn_Metrics{
 			model = job.prov.default_model,
 			agent_id = job.handle_id,
@@ -336,6 +337,12 @@ child_job_proc :: proc(data: rawptr) {
 			cost_known = result.usage.cost_known,
 			stopped = result.stopped,
 		})
+	} else {
+		tt := result.usage.total_tokens
+		if tt == 0 {
+			tt = result.usage.prompt_tokens + result.usage.completion_tokens
+		}
+		runtime_add_child_tokens(job.rt, tt)
 	}
 
 	if hok && isol == .Worktree && len(wt_path) > 0 {
