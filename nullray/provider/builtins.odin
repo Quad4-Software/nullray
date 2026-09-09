@@ -33,6 +33,7 @@ make_ollama :: proc(base_url := "", api_key := "", model := "") -> Provider {
 		chat = openai_chat,
 		stream = openai_chat_stream,
 		list_models = ollama_list_models,
+		embed = openai_embed,
 	}
 }
 
@@ -68,6 +69,7 @@ make_lmstudio :: proc(base_url := "", api_key := "", model := "") -> Provider {
 		chat = openai_chat,
 		stream = openai_chat_stream,
 		list_models = lmstudio_list_models,
+		embed = openai_embed,
 	}
 }
 
@@ -101,6 +103,7 @@ make_llamacpp :: proc(base_url := "", api_key := "", model := "") -> Provider {
 		chat = openai_chat,
 		stream = openai_chat_stream,
 		list_models = llamacpp_list_models,
+		embed = openai_embed,
 	}
 }
 
@@ -126,6 +129,7 @@ make_openrouter :: proc(base_url := "", api_key := "", model := "") -> Provider 
 		chat = openai_chat,
 		stream = openai_chat_stream,
 		list_models = openai_list_models,
+		embed = openai_embed,
 	}
 }
 
@@ -151,6 +155,7 @@ make_opencode_go :: proc(base_url := "", api_key := "", model := "") -> Provider
 		chat = openai_chat,
 		stream = openai_chat_stream,
 		list_models = openai_list_models,
+		embed = openai_embed,
 	}
 }
 
@@ -176,6 +181,7 @@ make_opencode :: proc(base_url := "", api_key := "", model := "") -> Provider {
 		chat = openai_chat,
 		stream = openai_chat_stream,
 		list_models = openai_list_models,
+		embed = openai_embed,
 	}
 }
 
@@ -207,6 +213,7 @@ make_openai :: proc(base_url := "", api_key := "", model := "") -> Provider {
 		chat = openai_chat,
 		stream = openai_chat_stream,
 		list_models = openai_list_models,
+		embed = openai_embed,
 	}
 }
 
@@ -243,6 +250,7 @@ make_openai_compat :: proc(base_url := "", api_key := "", model := "") -> Provid
 		chat = openai_chat,
 		stream = openai_chat_stream,
 		list_models = openai_list_models,
+		embed = openai_embed,
 	}
 }
 
@@ -272,6 +280,7 @@ make_azure :: proc(base_url := "", api_key := "", model := "") -> Provider {
 		chat = openai_chat,
 		stream = openai_chat_stream,
 		list_models = openai_list_models,
+		embed = openai_embed,
 	}
 }
 

@@ -87,6 +87,18 @@ Delta_Proc :: #type proc(kind: Delta_Kind, text: string, user: rawptr)
 // Never means args are final because JSON happened to parse mid-stream.
 Tool_Seal_Proc :: #type proc(idx: int, id, name, args: string, user: rawptr)
 
+Embed_Request :: struct {
+	model: string,
+	input: []string,
+}
+
+Embed_Response :: struct {
+	ok:      bool,
+	model:   string,
+	vectors: [][]f32,
+	err:     string,
+}
+
 Provider :: struct {
 	id:            string,
 	name:          string,
@@ -96,11 +108,13 @@ Provider :: struct {
 	chat:          Chat_Proc,
 	stream:        Stream_Proc,
 	list_models:   List_Proc,
+	embed:         Embed_Proc,
 	user_data:     rawptr,
 }
 
 Chat_Proc :: #type proc(p: ^Provider, req: Chat_Request, allocator := context.allocator) -> Chat_Response
 List_Proc :: #type proc(p: ^Provider, allocator := context.allocator) -> (models: []Model_Info, err: string)
+Embed_Proc :: #type proc(p: ^Provider, req: Embed_Request, allocator := context.allocator) -> Embed_Response
 Stream_Proc :: #type proc(
 	p: ^Provider,
 	req: Chat_Request,
@@ -108,6 +122,19 @@ Stream_Proc :: #type proc(
 	user: rawptr,
 	allocator := context.allocator,
 ) -> Chat_Response
+
+destroy_embed_response :: proc(res: ^Embed_Response) {
+	if res == nil {
+		return
+	}
+	for v in res.vectors {
+		delete(v)
+	}
+	delete(res.vectors)
+	delete(res.model)
+	delete(res.err)
+	res^ = {}
+}
 
 role_string :: proc(r: Role) -> string {
 	switch r {

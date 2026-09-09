@@ -39,6 +39,7 @@ make_compat_named :: proc(
 		chat = openai_chat,
 		stream = openai_chat_stream,
 		list_models = openai_list_models,
+		embed = openai_embed,
 	}
 }
 
