@@ -70,6 +70,9 @@ Landlock sets NO_NEW_PRIVS. Elevated cmds need the pre-sandbox broker (nullray/e
 - Improve/review return owned strings to caller
 - Plan artifacts: agent.save_plan_artifact, default under .nullray/plans/
 - Done Contract gate includes Steps (not only Verify/Success/Budget)
+- Incomplete plans get a repair nudge and are not saved. Prefer ending the turn with only the markdown plan.
+- Lean print hides non-core tools unless listed (scaffold, list_scaffolds, audit_structure are in lean core).
+- Step anchoring after approve injects one current step. Number Steps (1. 2. 3.) for reliable parsing.
 - Print-strict is opt-in (NULLRAY_PRINT_STRICT / --print-strict). Default print-smoke stays exit 0 on soft incompleteness.
 - Usage files next to sessions may show project intensity. hide-sensitive hides UI cost/credits only.
 - Ephemeral print skips .usage.jsonl unless NULLRAY_USAGE_PERSIST=1

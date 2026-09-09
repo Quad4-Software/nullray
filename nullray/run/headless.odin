@@ -171,6 +171,7 @@ run_print :: proc(cfg: Config) -> Result {
 		}
 		s.plan_contract_ok = true
 		session.session_set_mode(&s, .Edit)
+		session.session_ensure_plan_step_note(&s)
 	}
 	session.session_rebuild_system_prompt(&s)
 

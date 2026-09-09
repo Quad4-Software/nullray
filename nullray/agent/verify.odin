@@ -13,6 +13,7 @@ import "core:strings"
 import "nullray:constants"
 import "nullray:elevate"
 import "nullray:provider"
+import "nullray:sandbox"
 import "nullray:store"
 import "nullray:tools"
 
@@ -74,6 +75,17 @@ resolve_verify_command :: proc(
 	if len(plan_verify) > 0 {
 		first := first_verify_command(plan_verify, allocator)
 		if len(first) > 0 {
+			if verify_command_missing_makefile(first) {
+				delete(first)
+				agents, _ := load_agents_md(context.temp_allocator)
+				if len(agents) > 0 {
+					cmds := parse_agents_verify_commands(agents, context.temp_allocator)
+					if len(cmds) > 0 {
+						return strings.clone(cmds[0], allocator), false
+					}
+				}
+				return strings.clone("verify skipped: no Makefile", allocator), false
+			}
 			return first, false
 		}
 	}
@@ -84,7 +96,32 @@ resolve_verify_command :: proc(
 			return strings.clone(cmds[0], allocator), false
 		}
 	}
-	return strings.clone("make test", allocator), false
+	default_cmd := "make test"
+	if verify_command_missing_makefile(default_cmd) {
+		return strings.clone("verify skipped: no Makefile", allocator), false
+	}
+	return strings.clone(default_cmd, allocator), false
+}
+
+verify_command_missing_makefile :: proc(cmd: string) -> bool {
+	t := strings.trim_space(cmd)
+	if t != "make test" && !strings.has_prefix(t, "make test ") {
+		return false
+	}
+	ws := ""
+	if st := sandbox.state(); st != nil {
+		ws = st.workspace
+	}
+	if len(ws) == 0 {
+		if cwd, err := os.get_working_directory(context.temp_allocator); err == nil {
+			ws = cwd
+		}
+	}
+	if len(ws) == 0 {
+		return false
+	}
+	path := fmt.tprintf("%s/Makefile", ws)
+	return !os.exists(path)
 }
 
 truncate_bytes :: proc(s: string, max: int, allocator := context.allocator) -> string {
@@ -124,6 +161,9 @@ run_verify_command :: proc(
 ) -> (ok: bool, output: string) {
 	if len(strings.trim_space(cmd)) == 0 {
 		return true, strings.clone("verify skipped (empty)", allocator)
+	}
+	if strings.has_prefix(strings.trim_space(cmd), "verify skipped:") {
+		return true, strings.clone(cmd, allocator)
 	}
 	if elevate.needs_elevate(cmd) {
 		return false, strings.clone(

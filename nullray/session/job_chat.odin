@@ -200,8 +200,24 @@ chat_job :: proc(data: rawptr) {
 				kind = .Status,
 				text = strings.clone(fmt.tprintf("plan incomplete: %s", contract.err)),
 			})
+			if hint := agent.lint_plan_contract(out, context.temp_allocator); len(hint) > 0 {
+				session_enqueue(args.session, Event{
+					kind = .Status,
+					text = strings.clone(fmt.tprintf("plan hint: %s", hint)),
+				})
+			}
+			nudge := agent.plan_repair_nudge(contract.err, out)
+			delete(args.session.pending_plan_nudge)
+			args.session.pending_plan_nudge = nudge
 			agent.done_contract_destroy(&contract)
 		} else {
+			lint_hint := agent.lint_plan_contract(out, context.temp_allocator)
+			if len(lint_hint) > 0 {
+				session_enqueue(args.session, Event{
+					kind = .Status,
+					text = strings.clone(fmt.tprintf("plan hint: %s", lint_hint)),
+				})
+			}
 			agent.done_contract_destroy(&contract)
 			saved, perr := agent.save_plan_artifact(out, plan_out, out_path, ws)
 			if len(perr) > 0 {
@@ -212,10 +228,24 @@ chat_job :: proc(data: rawptr) {
 				args.session.last_plan_path = strings.clone(saved)
 				delete(args.session.plan_body)
 				args.session.plan_body = strings.clone(strings.trim_space(out))
-				session_enqueue(args.session, Event{kind = .Status, text = strings.clone(fmt.tprintf("plan saved %s", saved))})
+				session_seed_plan_steps(args.session, out, saved)
+				session_enqueue(args.session, Event{
+					kind = .Status,
+					text = strings.clone(fmt.tprintf("plan saved %s; /approve to edit", saved)),
+				})
 				delete(saved)
 			}
 		}
+	}
+
+	if args.session.agent_mode == .Edit &&
+		result.stopped == "done" &&
+		result.verify_fail_count == 0 &&
+		args.session.plan_contract_ok &&
+		len(args.session.plan_steps) > 0 &&
+		args.session.plan_step_index < len(args.session.plan_steps) &&
+		agent.turn_had_writes(result.messages[:]) {
+		_ = session_advance_plan_step(args.session, true)
 	}
 
 	do_review := agent.review_enabled_from_env() &&

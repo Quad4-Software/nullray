@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: 0BSD
 /*
-Copy a named scaffold template into the workspace.
+Copy a named scaffold template or pack into the workspace.
 */
 
 package tools
@@ -10,6 +10,115 @@ import "core:os"
 import "core:path/filepath"
 import "core:strings"
 import "nullray:sandbox"
+
+scaffold_force_true :: proc(force: string) -> bool {
+	fl := strings.to_lower(force, context.temp_allocator)
+	return fl == "true" || fl == "1" || fl == "yes"
+}
+
+scaffold_copy_file :: proc(src, abs: string, allocator := context.allocator) -> string {
+	if sandbox.path_is_secret_blocked(abs) {
+		return strings.clone("secret path blocked", allocator)
+	}
+	if !sandbox.path_allowed(sandbox.state(), abs, true) {
+		return strings.clone("path not allowed for write", allocator)
+	}
+	data, rerr := os.read_entire_file(src, context.temp_allocator)
+	if rerr != nil {
+		return fmt.aprintf("read scaffold failed: %v", rerr, allocator = allocator)
+	}
+	parent := filepath.dir(abs)
+	_ = os.make_directory_all(parent)
+	snapshot_before_write(abs)
+	werr := os.write_entire_file(abs, data)
+	if werr != nil {
+		return fmt.aprintf("write scaffold failed: %v", werr, allocator = allocator)
+	}
+	return ""
+}
+
+scaffold_pack_entries :: proc(pack_dir: string, allocator := context.allocator) -> (
+	entries: [dynamic]string,
+	err: string,
+) {
+	entries = make([dynamic]string, allocator)
+	manifest := fmt.tprintf("%s/MANIFEST.txt", pack_dir)
+	data, rerr := os.read_entire_file(manifest, context.temp_allocator)
+	if rerr != nil {
+		return entries, fmt.aprintf("read MANIFEST failed: %v", rerr, allocator = allocator)
+	}
+	for line in strings.split_lines(string(data), context.temp_allocator) {
+		t := strings.trim_space(line)
+		if len(t) == 0 || strings.has_prefix(t, "#") {
+			continue
+		}
+		if strings.contains(t, "..") || strings.has_prefix(t, "/") {
+			return entries, strings.clone("invalid MANIFEST path", allocator)
+		}
+		append(&entries, strings.clone(t, allocator))
+	}
+	if len(entries) == 0 {
+		return entries, strings.clone("empty MANIFEST", allocator)
+	}
+	return entries, ""
+}
+
+tool_scaffold_pack :: proc(
+	name, force: string,
+	allocator := context.allocator,
+) -> (result: string, err: string) {
+	roots := scaffold_roots(context.temp_allocator)
+	pack_dir := ""
+	for root in roots {
+		cand := scaffold_pack_dir(root, name, context.temp_allocator)
+		if scaffold_is_pack(root, name) {
+			pack_dir = cand
+			break
+		}
+	}
+	if len(pack_dir) == 0 {
+		return "", fmt.aprintf("scaffold pack not found: %s", name, allocator = allocator)
+	}
+	entries, eerr := scaffold_pack_entries(pack_dir, context.temp_allocator)
+	if len(eerr) > 0 {
+		return "", eerr
+	}
+	force_ok := scaffold_force_true(force)
+	abs_paths := make([dynamic]string, context.temp_allocator)
+	src_paths := make([dynamic]string, context.temp_allocator)
+	for rel in entries {
+		src := fmt.tprintf("%s/%s", pack_dir, rel)
+		if !os.exists(src) || os.is_dir(src) {
+			return "", fmt.aprintf("pack missing file: %s", rel, allocator = allocator)
+		}
+		abs := resolve_path(rel, context.temp_allocator)
+		if os.exists(abs) && !force_ok {
+			return "", fmt.aprintf(
+				"refusing overwrite (pass force=true): %s",
+				abs,
+				allocator = allocator,
+			)
+		}
+		append(&abs_paths, abs)
+		append(&src_paths, src)
+	}
+	for i in 0 ..< len(entries) {
+		if cerr := scaffold_copy_file(src_paths[i], abs_paths[i], allocator); len(cerr) > 0 {
+			return "", cerr
+		}
+	}
+	warn := ""
+	if force_ok {
+		warn = " (force=true may overwrite)"
+	}
+	return fmt.aprintf(
+		"scaffolded pack %s -> %d files%s",
+		name,
+		len(entries),
+		warn,
+		allocator = allocator,
+	), ""
+}
 
 tool_scaffold :: proc(args_json: string, allocator := context.allocator) -> (result: string, err: string) {
 	name, nerr := json_arg_string(args_json, "name", allocator)
@@ -33,16 +142,11 @@ tool_scaffold :: proc(args_json: string, allocator := context.allocator) -> (res
 		return "", strings.clone("invalid scaffold name", allocator)
 	}
 
-	roots := make([dynamic]string, context.temp_allocator)
-	if exe, eerr := os.get_executable_path(context.temp_allocator); eerr == nil {
-		exe_dir := filepath.dir(exe)
-		append(&roots, fmt.tprintf("%s/../share/nullray/scaffolds", exe_dir))
-		append(&roots, fmt.tprintf("%s/share/nullray/scaffolds", exe_dir))
-	}
-	st := sandbox.state()
-	if st != nil && len(st.workspace) > 0 {
-		append(&roots, fmt.tprintf("%s/share/nullray/scaffolds", st.workspace))
-		append(&roots, fmt.tprintf("%s/.agents/skills/scaffold/references", st.workspace))
+	roots := scaffold_roots(context.temp_allocator)
+	for root in roots {
+		if scaffold_is_pack(root, n) {
+			return tool_scaffold_pack(n, force, allocator)
+		}
 	}
 
 	src := ""
@@ -69,29 +173,11 @@ tool_scaffold :: proc(args_json: string, allocator := context.allocator) -> (res
 	}
 	abs := resolve_path(out_name, allocator)
 	defer delete(abs)
-	if sandbox.path_is_secret_blocked(abs) {
-		return "", strings.clone("secret path blocked", allocator)
+	if os.exists(abs) && !scaffold_force_true(force) {
+		return "", fmt.aprintf("refusing overwrite (pass force=true): %s", abs, allocator = allocator)
 	}
-	if !sandbox.path_allowed(sandbox.state(), abs, true) {
-		return "", strings.clone("path not allowed for write", allocator)
-	}
-	if os.exists(abs) {
-		fl := strings.to_lower(force, context.temp_allocator)
-		if fl != "true" && fl != "1" && fl != "yes" {
-			return "", fmt.aprintf("refusing overwrite (pass force=true): %s", abs, allocator = allocator)
-		}
-	}
-
-	data, rerr := os.read_entire_file(src, context.temp_allocator)
-	if rerr != nil {
-		return "", fmt.aprintf("read scaffold failed: %v", rerr, allocator = allocator)
-	}
-	parent := filepath.dir(abs)
-	_ = os.make_directory_all(parent)
-	snapshot_before_write(abs)
-	werr := os.write_entire_file(abs, data)
-	if werr != nil {
-		return "", fmt.aprintf("write scaffold failed: %v", werr, allocator = allocator)
+	if cerr := scaffold_copy_file(src, abs, allocator); len(cerr) > 0 {
+		return "", cerr
 	}
 	return fmt.aprintf("scaffolded %s -> %s", n, abs, allocator = allocator), ""
 }

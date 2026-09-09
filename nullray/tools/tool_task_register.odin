@@ -29,8 +29,8 @@ register_subagent_tools :: proc(r: ^Registry, enabled: bool) {
 	}
 	registry_register(r, Tool{
 		name = "task",
-		description = "Spawn a subagent (explore/locate/review/edit). locate returns CITES path:start-end spans. Returns summary or background id.",
-		schema_json = `{"type":"object","properties":{"description":{"type":"string"},"prompt":{"type":"string"},"subagent_type":{"type":"string","description":"explore|locate|review|edit"},"model":{"type":"string"},"isolation":{"type":"string"},"background":{"type":"string"},"group":{"type":"string"},"resume":{"type":"string"},"max_steps":{"type":"string"},"path_hints":{"type":"array","items":{"type":"string"}}},"required":["prompt"]}`,
+		description = "Spawn a subagent (explore/locate/architect/review/edit). locate returns CITES. architect returns a Done Contract. Returns summary or background id.",
+		schema_json = `{"type":"object","properties":{"description":{"type":"string"},"prompt":{"type":"string"},"subagent_type":{"type":"string","description":"explore|locate|architect|review|edit"},"model":{"type":"string"},"isolation":{"type":"string"},"background":{"type":"string"},"group":{"type":"string"},"resume":{"type":"string"},"max_steps":{"type":"string"},"path_hints":{"type":"array","items":{"type":"string"}}},"required":["prompt"]}`,
 		kind = .Read,
 		run = tool_task,
 	})

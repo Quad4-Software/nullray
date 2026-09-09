@@ -1,0 +1,6 @@
+.bin/
+.nullray/plans/
+.nullray/artifacts/
+.nullray/worktrees/
+*.o
+*.a

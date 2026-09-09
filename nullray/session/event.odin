@@ -165,6 +165,18 @@ session_poll :: proc(s: ^Session) -> (changed: bool) {
 				session_push_assistant(s, body, r)
 				session_set_status(s, session_ready_status(s))
 			}
+			if len(s.pending_plan_nudge) > 0 {
+				nudge := s.pending_plan_nudge
+				s.pending_plan_nudge = ""
+				session_push_user(s, nudge)
+				delete(nudge)
+			}
+			if len(s.pending_step_note) > 0 {
+				note := s.pending_step_note
+				s.pending_step_note = ""
+				session_push_user(s, note)
+				delete(note)
+			}
 			if owned_body {
 				delete(body)
 			}

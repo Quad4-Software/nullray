@@ -93,3 +93,15 @@ test_is_locate_type :: proc(t: ^testing.T) {
 	testing.expect(t, is_locate_type("Locate-Agent"))
 	testing.expect(t, !is_locate_type("explore"))
 }
+
+@(test)
+test_is_architect_type :: proc(t: ^testing.T) {
+	testing.expect(t, is_architect_type("architect"))
+	testing.expect(t, is_architect_type("Architect-Agent"))
+	testing.expect(t, !is_architect_type("locate"))
+}
+
+@(test)
+test_architect_steps_from_env :: proc(t: ^testing.T) {
+	testing.expect(t, architect_steps_from_env() >= 1 && architect_steps_from_env() <= 8)
+}

@@ -6,8 +6,11 @@ Done Contract validation and plan apply notes.
 package agent
 
 import "core:fmt"
+import "core:os"
+import "core:path/filepath"
 import "core:strings"
 import "nullray:constants"
+import "nullray:sandbox"
 
 Done_Contract :: struct {
 	goal:     string,
@@ -104,6 +107,151 @@ validate_plan_contract :: proc(body: string, allocator := context.allocator) -> 
 	return c
 }
 
+PLAN_EXAMPLE_INLINE :: `## Goal
+Add a list_dir smoke test.
+
+## Scope
+nullray/tools tests only.
+
+## Steps
+1. Read existing list_dir tests.
+2. Add one failing case for an empty path.
+3. Run make test and fix until green.
+
+## Risks
+Sandbox workspace override in tests.
+
+## Verify
+make test
+
+## Success
+New test passes in the tools package.
+
+## Budget
+4
+
+## Failure
+Same failure twice after a fix attempt.
+`
+
+PLAN_EXAMPLE_PROMPT_CAP :: 600
+
+/*
+Load a short Done Contract example for plan-mode prompts. Prefer share file.
+*/
+load_plan_example_excerpt :: proc(allocator := context.allocator) -> string {
+	roots := make([dynamic]string, context.temp_allocator)
+	if exe, eerr := os.get_executable_path(context.temp_allocator); eerr == nil {
+		exe_dir := filepath.dir(exe)
+		append(&roots, fmt.tprintf("%s/../share/nullray/plan-example.md", exe_dir))
+		append(&roots, fmt.tprintf("%s/share/nullray/plan-example.md", exe_dir))
+	}
+	if st := sandbox.state(); st != nil && len(st.workspace) > 0 {
+		append(&roots, fmt.tprintf("%s/share/nullray/plan-example.md", st.workspace))
+	}
+	if cwd, cerr := os.get_working_directory(context.temp_allocator); cerr == nil {
+		append(&roots, fmt.tprintf("%s/share/nullray/plan-example.md", cwd))
+	}
+	raw := ""
+	for p in roots {
+		if data, rerr := os.read_entire_file(p, context.temp_allocator); rerr == nil && len(data) > 0 {
+			raw = string(data)
+			break
+		}
+	}
+	if len(raw) == 0 {
+		raw = PLAN_EXAMPLE_INLINE
+	}
+	trimmed := strings.trim_space(raw)
+	if len(trimmed) > PLAN_EXAMPLE_PROMPT_CAP {
+		trimmed = trimmed[:PLAN_EXAMPLE_PROMPT_CAP]
+	}
+	return strings.clone(trimmed, allocator)
+}
+
+/*
+Non-blocking hints for local models. Never flips valid to false.
+*/
+lint_plan_contract :: proc(body: string, allocator := context.allocator) -> string {
+	c := validate_plan_contract(body)
+	defer done_contract_destroy(&c)
+	hints: strings.Builder
+	strings.builder_init(&hints, context.temp_allocator)
+	if len(c.steps) > 0 {
+		numbered := false
+		for line in strings.split_lines(c.steps, context.temp_allocator) {
+			t := strings.trim_space(line)
+			if len(t) == 0 {
+				continue
+			}
+			if strings.has_prefix(t, "-") || strings.has_prefix(t, "*") {
+				t = strings.trim_space(t[1:])
+			}
+			if len(t) >= 2 && t[0] >= '1' && t[0] <= '9' {
+				rest := t[1:]
+				if strings.has_prefix(rest, ".") || strings.has_prefix(rest, ")") {
+					numbered = true
+					break
+				}
+			}
+		}
+		if !numbered {
+			strings.write_string(&hints, "Prefer numbered Steps (1. 2. 3.). ")
+		}
+	}
+	if len(c.budget) > 0 {
+		has_digit := false
+		for r in c.budget {
+			if r >= '0' && r <= '9' {
+				has_digit = true
+				break
+			}
+		}
+		if !has_digit {
+			strings.write_string(&hints, "Budget should include a number. ")
+		}
+	}
+	if len(c.verify) > 0 {
+		cmd := first_verify_command(c.verify, context.temp_allocator)
+		if len(cmd) == 0 {
+			strings.write_string(&hints, "Verify should list a runnable shell command. ")
+		}
+	}
+	out := strings.trim_space(strings.to_string(hints))
+	if len(out) == 0 {
+		return ""
+	}
+	return strings.clone(out, allocator)
+}
+
+/*
+User-facing repair note after an incomplete Done Contract. Cap length.
+*/
+plan_repair_nudge :: proc(err: string, body := "", allocator := context.allocator) -> string {
+	b: strings.Builder
+	strings.builder_init(&b, allocator)
+	strings.write_string(&b, "Plan incomplete. Rewrite the full Done Contract in one reply with these exact headings:\n")
+	strings.write_string(&b, "## Goal\n## Scope\n## Steps\n## Risks\n## Verify\n## Success\n## Budget\n## Failure\n")
+	if len(err) > 0 {
+		strings.write_string(&b, "Missing: ")
+		strings.write_string(&b, err)
+		strings.write_byte(&b, '\n')
+	}
+	if hint := lint_plan_contract(body, context.temp_allocator); len(hint) > 0 {
+		strings.write_string(&b, "Hints: ")
+		strings.write_string(&b, hint)
+		strings.write_byte(&b, '\n')
+	}
+	strings.write_string(&b, "End the turn with only the markdown plan. Number Steps. Put a real shell command under Verify.\n")
+	out := strings.to_string(b)
+	if len(out) > 1200 {
+		trimmed := strings.clone(out[:1200], allocator)
+		delete(out)
+		return trimmed
+	}
+	return out
+}
+
 /*
 Short volatile-tail reminder from a validated contract.
 */
@@ -179,6 +327,34 @@ first_verify_command :: proc(verify_section: string, allocator := context.alloca
 		return strings.clone(t, allocator)
 	}
 	return ""
+}
+
+/*
+Rewrite architect child text into a parent-facing Done Contract handoff.
+*/
+format_architect_summary :: proc(raw: string, allocator := context.allocator) -> string {
+	c := validate_plan_contract(raw)
+	defer done_contract_destroy(&c)
+	if c.valid {
+		return strings.clone(strings.trim_space(raw), allocator)
+	}
+	b: strings.Builder
+	strings.builder_init(&b, allocator)
+	strings.write_string(&b, "architect plan incomplete")
+	if len(c.err) > 0 {
+		strings.write_string(&b, ": ")
+		strings.write_string(&b, c.err)
+	}
+	strings.write_byte(&b, '\n')
+	excerpt := strings.trim_space(raw)
+	if len(excerpt) > 800 {
+		excerpt = excerpt[:800]
+	}
+	if len(excerpt) > 0 {
+		strings.write_string(&b, excerpt)
+		strings.write_byte(&b, '\n')
+	}
+	return strings.to_string(b)
 }
 
 /*

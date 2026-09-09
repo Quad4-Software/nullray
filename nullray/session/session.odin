@@ -61,6 +61,11 @@ Session :: struct {
 	plan_body:           string,
 	plan_verify:         string,
 	plan_contract_ok:    bool,
+	pending_plan_nudge:  string,
+	pending_step_note:   string,
+	plan_steps:          [dynamic]string,
+	plan_step_index:     int,
+	plan_steps_path:     string,
 	verify_fail_count:   int,
 	last_input_chars:    int,
 	verify_obligations:  [dynamic]string,
@@ -74,6 +79,7 @@ session_init :: proc(s: ^Session) {
 	s.pending = make([dynamic]Event)
 	s.pending_commit = make([dynamic]provider.Message)
 	s.verify_obligations = make([dynamic]string)
+	s.plan_steps = make([dynamic]string)
 	s.status = strings.clone("ready")
 	s.status_set_at = time.tick_now()
 	s.tools_enabled = tools_enabled_from_env()
@@ -162,6 +168,10 @@ session_destroy :: proc(s: ^Session) {
 	delete(s.last_plan_path)
 	delete(s.plan_body)
 	delete(s.plan_verify)
+	delete(s.pending_plan_nudge)
+	delete(s.pending_step_note)
+	session_clear_plan_steps(s)
+	delete(s.plan_steps_path)
 	delete(s.live_tool)
 	delete(s.live_tool_detail)
 	delete(s.last_stopped)

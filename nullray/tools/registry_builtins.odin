@@ -196,8 +196,15 @@ registry_register_builtins :: proc(r: ^Registry) {
 		run = tool_lang_doc,
 	})
 	registry_register(r, Tool{
+		name = "list_scaffolds",
+		description = "List available scaffold templates and packs",
+		schema_json = `{"type":"object","properties":{}}`,
+		kind = .Read,
+		run = tool_list_scaffolds,
+	})
+	registry_register(r, Tool{
 		name = "scaffold",
-		description = "Copy a named secure scaffold template into the workspace",
+		description = "Copy a named secure scaffold template or pack into the workspace",
 		schema_json = `{"type":"object","properties":{"name":{"type":"string"},"dest":{"type":"string"},"force":{"type":"string"}},"required":["name"]}`,
 		kind = .Write,
 		run = tool_scaffold,

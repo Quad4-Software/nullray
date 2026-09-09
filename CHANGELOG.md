@@ -4,6 +4,17 @@ Notable changes for nullray.
 
 ## [Unreleased]
 
+### Added
+- Plan mode shows a short Done Contract example and nudges incomplete plans to rewrite required sections.
+- list_scaffolds tool and lean print visibility for scaffolds and structure audit.
+- Multi-file scaffold packs (nullray-workspace, odin-cli) plus a greenfield skill.
+- Step-anchored plan apply after approve, with a steps sidecar next to the plan file.
+- Architect subagent type that returns a Done Contract for the parent.
+
+### Changed
+- /status shows plan step progress and the steps sidecar path.
+- Verify soft-skips make test when no Makefile exists instead of failing the gate.
+
 ## [0.3.1] - 2026-09-09
 
 ### Added

@@ -49,6 +49,9 @@ run_child_turn_impl :: proc(
 		cfg.tool_allow = tools.LOCATE_TOOL_ALLOW
 		cfg.speculate_parallel = subagent.locate_parallel_from_env()
 	}
+	if job != nil && subagent.is_architect_type(job.spec.subagent_type) {
+		cfg.tool_allow = tools.ARCHITECT_TOOL_ALLOW
+	}
 
 	req := Run_Request{
 		prov = prov,
@@ -57,9 +60,15 @@ run_child_turn_impl :: proc(
 		model = model,
 	}
 	result := run_turn(req, cfg, allocator)
+	content := strings.clone(result.content, allocator)
+	if job != nil && subagent.is_architect_type(job.spec.subagent_type) {
+		formatted := format_architect_summary(result.content, allocator)
+		delete(content)
+		content = formatted
+	}
 	out := subagent.Child_Turn_Result{
 		ok = result.ok,
-		content = strings.clone(result.content, allocator),
+		content = content,
 		err = strings.clone(result.err, allocator),
 		stopped = strings.clone(result.stopped, allocator),
 		usage = result.usage,

@@ -54,7 +54,8 @@ lean_core_tool :: proc(name: string) -> bool {
 		"load_skill", "list_skills", "compact_context",
 		"read_artifact", "grep_artifact",
 		"memory_get", "memory_put", "memory_list", "memory_delete", "memory_forget", "memory_search",
-		"read_man", "apropos", "read_tldr", "read_info", "read_help", "lang_doc", "fetch_url":
+		"read_man", "apropos", "read_tldr", "read_info", "read_help", "lang_doc", "fetch_url",
+		"list_scaffolds", "scaffold", "audit_structure":
 		return true
 	}
 	return false
@@ -183,6 +184,14 @@ tool_name_in_allow :: proc(name: string, allow: []string) -> bool {
 }
 
 LOCATE_TOOL_ALLOW :: []string{"repo_map", "glob_files", "grep_files", "read_file", "list_dir"}
+ARCHITECT_TOOL_ALLOW :: []string{
+	"repo_map",
+	"glob_files",
+	"grep_files",
+	"read_file",
+	"list_dir",
+	"list_scaffolds",
+}
 
 tool_kind_allowed :: proc(
 	r: ^Registry,

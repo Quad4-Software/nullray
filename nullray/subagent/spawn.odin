@@ -62,7 +62,8 @@ spawn_child :: proc(
 		isol = spec.isolation
 	}
 	locate := is_locate_type(type_name)
-	if locate {
+	architect := is_architect_type(type_name)
+	if locate || architect {
 		isol = .Shared
 	}
 
@@ -103,6 +104,16 @@ spawn_child :: proc(
 		if max_steps < 1 {
 			max_steps = 1
 		}
+	} else if architect {
+		if max_steps <= 0 {
+			max_steps = architect_steps_from_env()
+		}
+		if max_steps > constants.MAX_ARCHITECT_STEPS {
+			max_steps = constants.MAX_ARCHITECT_STEPS
+		}
+		if max_steps < 1 {
+			max_steps = 1
+		}
 	} else {
 		if max_steps <= 0 {
 			max_steps = rt.limits.steps
@@ -138,7 +149,7 @@ spawn_child :: proc(
 	roster_register(&rt.roster, h)
 	roster_group_add(&rt.roster, group_id, id)
 
-	preamble := locate ? build_locate_preamble(rt, id, parent_id, allocator) : build_coord_preamble(rt, id, parent_id, allocator)
+	preamble := locate ? build_locate_preamble(rt, id, parent_id, allocator) : architect ? build_architect_preamble(rt, id, parent_id, allocator) : build_coord_preamble(rt, id, parent_id, allocator)
 
 	user_prompt := strings.clone(spec.prompt, allocator)
 	if len(user_prompt) == 0 {

@@ -66,17 +66,25 @@ session_set_mode :: proc(s: ^Session, mode: agent.Agent_Mode) {
 		session_phase_reset_provider_window(s)
 	}
 	if mode == .Edit && (len(s.plan_verify) > 0 || s.plan_contract_ok) {
-		note: string
-		if len(s.plan_body) > 0 {
-			note = agent.plan_apply_note(s.plan_body, verify_max_remaining(s), context.temp_allocator)
-		} else {
-			c := agent.Done_Contract{
-				verify = s.plan_verify,
-				valid = s.plan_contract_ok,
+		// Only inject on Plan -> Edit transition to avoid duplicate notes.
+		if prev == .Plan {
+			note: string
+			if len(s.plan_body) > 0 {
+				if len(s.plan_steps) == 0 {
+					session_seed_plan_steps(s, s.plan_body, s.last_plan_path, true)
+				}
+				note = session_plan_step_note(s, context.temp_allocator)
+			} else {
+				c := agent.Done_Contract{
+					verify = s.plan_verify,
+					valid = s.plan_contract_ok,
+				}
+				note = agent.plan_summary_note(c, verify_max_remaining(s), context.temp_allocator)
 			}
-			note = agent.plan_summary_note(c, verify_max_remaining(s), context.temp_allocator)
+			if len(note) > 0 {
+				session_push_user(s, note)
+			}
 		}
-		session_push_user(s, note)
 	}
 	session_set_status(s, fmt.tprintf("mode %s", agent.mode_string(mode)))
 }
@@ -126,6 +134,7 @@ session_seed_plan :: proc(s: ^Session, path: string, body: string) -> string {
 	s.last_plan_path = strings.clone(trimmed_path)
 	delete(s.plan_body)
 	s.plan_body = strings.clone(trimmed_body)
+	session_seed_plan_steps(s, trimmed_body, trimmed_path, true)
 	return ""
 }
 

@@ -186,8 +186,11 @@ mode_prompt_section :: proc(mode: Agent_Mode, policy: Mode_Policy, allocator := 
 		)
 		strings.write_string(
 			&b,
-			"Do not edit project source or run shell until edit mode.\n",
+			"Do not edit project source or run shell until edit mode. End the turn with only the markdown plan.\n",
 		)
+		strings.write_string(&b, "Example (shape only):\n")
+		example := load_plan_example_excerpt(context.temp_allocator)
+		strings.write_string(&b, example)
 	case .Review:
 		strings.write_string(
 			&b,
@@ -282,7 +285,19 @@ ASK_KEYWORDS :: []string{
 }
 
 @(private)
-PLAN_KEYWORDS :: []string{"plan", "design", "approach", "architect", "strategy", "roadmap"}
+PLAN_KEYWORDS :: []string{
+	"plan",
+	"design",
+	"approach",
+	"architect",
+	"strategy",
+	"roadmap",
+	"scaffold",
+	"bootstrap",
+	"greenfield",
+	"new project",
+	"new repo",
+}
 
 @(private)
 REVIEW_KEYWORDS :: []string{

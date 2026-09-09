@@ -2,6 +2,10 @@
 
 Odin coding agent with a custom TUI. Library under nullray/. CLI entry cmd/nullray. Collection: -collection:nullray=nullray.
 
+Verify: make test
+
+Bootstrap: plan mode Done Contract (Steps, Verify, Success, Budget), then /approve or --plan-in, then scaffold packs via list_scaffolds if the tree is empty, then verify with NULLRAY_VERIFY=1. Prefer numbered Steps. Incomplete plans get a repair nudge and are not saved.
+
 ## Agent layout
 
 Portable layout used by Agent Skills (agentskills.io) and most coding agents:
@@ -88,6 +92,8 @@ Modes: ask, plan, review, edit. Tool gate: `--gate` / `NULLRAY_GATE` / `/gate` 0
 | odin-idioms | any .odin under nullray/ or cmd/ |
 | memory | owned strings, dynamics, teardown |
 | ci-pinned-actions | .github/workflows |
+| scaffold | secure templates, list_scaffolds, packs under share/nullray/scaffolds |
+| greenfield | empty-repo bootstrap, Done Contract before edit |
 | owasp | security review, secrets, injection, authz |
 | bug-hunting | vuln/crash hunting: audit_*, oracles, exploratory, adversarial, NULLRAY_HUNT |
 
@@ -133,10 +139,11 @@ Package nullray/subagent. Tools: task, agents_status/peek/progress/wait/verify, 
 
 - Cap: NULLRAY_SUBAGENTS (default 3). Zero or /agents off / --no-subagents disables task.
 - Depth: NULLRAY_SUBAGENT_DEPTH (default 1).
-- Models: ~/.config/nullray/models.json and .nullray/models.json. /model lock freezes switches. Roles explore/edit/review/verify.
+- Models: ~/.config/nullray/models.json and .nullray/models.json. /model lock freezes switches. Roles explore/edit/review/verify. For local setups, map explore (and plan/architect work) to a fast local model and edit/verify to a stronger one.
 - Isolation: shared + path leases for explore. Worktrees under .nullray/worktrees/ for edit. Never auto git stash.
 - Join with agents_wait, then agents_verify before /agents apply. Peer messaging needs NULLRAY_SUBAGENT_TEAMS=1.
 - Locate: `task` with `subagent_type=locate` returns a CITES block of workspace-relative `path:start-end` spans. Hard step budget NULLRAY_LOCATE_STEPS (default 4, max 8). In-child speculate parallel NULLRAY_LOCATE_PARALLEL (default 8). Cap cites with NULLRAY_LOCATE_MAX_CITES (default 12). Tools allowlisted to repo_map, glob_files, grep_files, read_file, list_dir. Shared isolation only. Prefer sync task. Optional path_hints and max_steps on task.
+- Architect: `task` with `subagent_type=architect` returns a Done Contract for the parent. Hard step budget NULLRAY_ARCHITECT_STEPS (default 6, max 8). Tools allowlisted to locate set plus list_scaffolds. Ask mode, shared isolation. Child does not save the parent plan file.
 
 ## CI
 

@@ -209,6 +209,8 @@ builtin_type_defaults :: proc(type_name: string) -> (mode: string, isolation: Is
 		return "ask", .Shared, "explore"
 	case "locate", "locate-agent":
 		return "ask", .Shared, "explore"
+	case "architect", "architect-agent":
+		return "ask", .Shared, "explore"
 	case "review", "review-agent":
 		return "review", .Shared, "review"
 	case "edit", "edit-agent":

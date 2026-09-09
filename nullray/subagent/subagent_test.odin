@@ -126,6 +126,24 @@ test_locate_type_defaults :: proc(t: ^testing.T) {
 }
 
 @(test)
+test_architect_type_defaults :: proc(t: ^testing.T) {
+	mode, isol, role := builtin_type_defaults("architect")
+	testing.expect(t, mode == "ask")
+	testing.expect(t, isol == .Shared)
+	testing.expect(t, role == "explore")
+}
+
+@(test)
+test_architect_preamble_mentions_contract :: proc(t: ^testing.T) {
+	rt: Runtime
+	text := build_architect_preamble(&rt, "a1", "main", context.allocator)
+	defer delete(text)
+	testing.expect(t, strings.contains(text, "## Steps"))
+	testing.expect(t, strings.contains(text, "list_scaffolds"))
+	testing.expect(t, !strings.contains(text, "knowledge_put"))
+}
+
+@(test)
 test_locate_preamble_mentions_cites :: proc(t: ^testing.T) {
 	rt: Runtime
 	text := build_locate_preamble(&rt, "a1", "main", context.allocator)

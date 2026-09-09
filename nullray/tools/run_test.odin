@@ -76,7 +76,7 @@ test_openai_tools_json_lean_and_subagent_omit :: proc(t: ^testing.T) {
 	defer delete(lean)
 
 	testing.expect(t, len(lean) < len(full))
-	testing.expect(t, len(lean) < 6500)
+	testing.expect(t, len(lean) < 8000)
 	testing.expect(t, strings.contains(lean, `"read_file"`))
 	testing.expect(t, strings.contains(lean, `"read_man"`))
 	testing.expect(t, strings.contains(lean, `"apropos"`))
@@ -93,7 +93,11 @@ test_openai_tools_json_lean_and_subagent_omit :: proc(t: ^testing.T) {
 	testing.expect(t, !strings.contains(no_sub, `"agents_status"`))
 	testing.expect(t, !strings.contains(no_sub, `"knowledge_put"`))
 	testing.expect(t, strings.contains(lean, `"read_man"`))
+	testing.expect(t, strings.contains(lean, `"list_scaffolds"`))
+	testing.expect(t, strings.contains(lean, `"scaffold"`))
+	testing.expect(t, strings.contains(lean, `"audit_structure"`))
 	testing.expect(t, !strings.contains(lean, `"audit_owasp"`))
+	testing.expect(t, len(lean) < 8000)
 
 	os.set_env("NULLRAY_HUNT", "auto")
 	defer os.unset_env("NULLRAY_HUNT")

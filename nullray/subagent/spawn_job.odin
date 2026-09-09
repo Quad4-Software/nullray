@@ -180,3 +180,24 @@ build_locate_preamble :: proc(rt: ^Runtime, id: string, parent_id: string, alloc
 	}
 	return out
 }
+
+build_architect_preamble :: proc(rt: ^Runtime, id: string, parent_id: string, allocator := context.allocator) -> string {
+	_ = rt
+	b: strings.Builder
+	strings.builder_init(&b, allocator)
+	strings.write_string(&b, "You are a nullray architect subagent.\n")
+	fmt.sbprintf(&b, "Your id: %s\nParent: %s\n", id, parent_id)
+	strings.write_string(&b, "Mission: explore read-only and output one Done Contract plan for the parent.\n")
+	strings.write_string(&b, "Tools: repo_map, glob_files, grep_files, read_file, list_dir, list_scaffolds only.\n")
+	strings.write_string(&b, "Do not edit files. Do not run shell. Do not spawn task.\n")
+	strings.write_string(&b, "Final reply must be a markdown Done Contract with exact headings:\n")
+	strings.write_string(&b, "## Goal\n## Scope\n## Steps\n## Risks\n## Verify\n## Success\n## Budget\n## Failure\n")
+	strings.write_string(&b, "Number Steps. Verify must list a real shell command. End with only the plan.\n")
+	out := strings.to_string(b)
+	if len(out) > constants.MAX_COORD_PREAMBLE_CHARS {
+		trimmed := strings.clone(out[:constants.MAX_COORD_PREAMBLE_CHARS], allocator)
+		delete(out)
+		return trimmed
+	}
+	return out
+}

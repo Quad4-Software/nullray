@@ -129,6 +129,8 @@ growth_error :: proc(
 	return ""
 }
 
+// Audit Odin sources under workspace. Skips vendor and build trees.
+// Report lines look like godfile|path|lines=N max=M or warn|... or none.
 audit :: proc(workspace: string, allocator := context.allocator) -> (string, string) {
 	policy, perr := load_policy(workspace, allocator)
 	if len(perr) > 0 {
@@ -144,6 +146,36 @@ audit :: proc(workspace: string, allocator := context.allocator) -> (string, str
 	return strings.to_string(b), ""
 }
 
+report_has_godfiles :: proc(report: string) -> bool {
+	if len(report) == 0 || report == "none" {
+		return false
+	}
+	start := 0
+	for i := 0; i <= len(report); i += 1 {
+		if i < len(report) && report[i] != '\n' {
+			continue
+		}
+		line := report[start:i]
+		if strings.has_prefix(line, "godfile|") {
+			return true
+		}
+		start = i + 1
+	}
+	return false
+}
+
+audit_skip_dir :: proc(name: string) -> bool {
+	switch name {
+	case ".git", "node_modules", "bin", ".cache", "vendor", ".tmp", "coverage", "dist":
+		return true
+	}
+	return false
+}
+
+audit_is_source :: proc(name: string) -> bool {
+	return strings.has_suffix(strings.to_lower(name, context.temp_allocator), ".odin")
+}
+
 audit_walk :: proc(
 	root, dir: string,
 	policy: Policy,
@@ -157,7 +189,7 @@ audit_walk :: proc(
 	}
 	defer os.file_info_slice_delete(entries, context.temp_allocator)
 	for entry in entries {
-		if entry.name == ".git" || entry.name == "node_modules" || entry.name == "bin" || entry.name == ".cache" {
+		if audit_skip_dir(entry.name) {
 			continue
 		}
 		child, jerr := filepath.join({dir, entry.name}, context.temp_allocator)
@@ -168,7 +200,7 @@ audit_walk :: proc(
 			audit_walk(root, child, policy, b, findings, allocator)
 			continue
 		}
-		if entry.type != .Regular {
+		if entry.type != .Regular || !audit_is_source(entry.name) {
 			continue
 		}
 		data, rerr := os.read_entire_file(child, context.temp_allocator)
@@ -187,6 +219,26 @@ audit_walk :: proc(
 		fmt.sbprintf(b, "%s|%s|lines=%d max=%d", level, rel, lines, policy.max_file_lines)
 		findings^ += 1
 	}
+}
+
+find_repo_root :: proc(allocator := context.allocator) -> string {
+	cwd, cerr := os.get_working_directory(context.temp_allocator)
+	if cerr != nil {
+		return ""
+	}
+	dir := cwd
+	for {
+		marker, jerr := filepath.join({dir, "nullray", "structure", "structure.odin"}, context.temp_allocator)
+		if jerr == nil && os.exists(marker) {
+			return strings.clone(dir, allocator)
+		}
+		parent := filepath.dir(dir)
+		if parent == dir || len(parent) == 0 {
+			break
+		}
+		dir = parent
+	}
+	return ""
 }
 
 relative_path :: proc(root, path: string) -> string {
