@@ -151,6 +151,7 @@ Hybrid_Search :: proc(
 	hits = make([dynamic]Hit, allocator)
 	sem, serr := Query(q, top_k * 2, context.temp_allocator)
 	defer destroy_hits(&sem, context.temp_allocator)
+	defer delete(serr, context.temp_allocator)
 	if len(serr) > 0 {
 		note = strings.clone(fmt.tprintf("semantic unavailable: %s", serr), allocator)
 	}
