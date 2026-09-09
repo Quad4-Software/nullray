@@ -72,7 +72,7 @@ make test
 
 Verify: make test
 
-make test runs odin test on ui, agent, tools, skills, session, store, sandbox, mcp, provider, patch, http, and related packages with -define:ODIN_TEST_THREADS=1, then --self-test, chat-smoke, and print-smoke. Prefer that define by hand too. Binary: bin/nullray. Needs Odin and a C compiler (builds lib/libnullray_tls.a from vendor/mbedtls, vendor/nghttp2, and vendor/mlkem-native). On Linux amd64 the archive is about 1.2 MB and a stripped binary about 3.4 MB. HTTPS prefers HTTP/2 when ALPN selects h2, else HTTP/1.1. TLS 1.2 and 1.3 with X25519MLKEM768 hybrid PQ key agreement. System CAs via SSL_CERT_FILE / SSL_CERT_DIR, then platform paths. HTTP(S)_PROXY / ALL_PROXY / NO_PROXY are honored (CONNECT for HTTPS).
+make test runs odin test on ui, agent, tools, skills, session, store, sandbox, mcp, provider, patch, http, and related packages with -define:ODIN_TEST_THREADS=1, then --self-test, chat-smoke, and print-smoke. Prefer that define by hand too. Binary: bin/nullray. Needs Odin and a C compiler (builds lib/libnullray_tls.a from vendor/mbedtls, vendor/nghttp2, and vendor/mlkem-native). On Linux amd64 the archive is about 1.2 MB and a stripped binary about 3.8 MB. HTTPS prefers HTTP/2 when ALPN selects h2, else HTTP/1.1. TLS 1.2 and 1.3 with X25519MLKEM768 hybrid PQ key agreement. System CAs via SSL_CERT_FILE / SSL_CERT_DIR, then platform paths. HTTP(S)_PROXY / ALL_PROXY / NO_PROXY are honored (CONNECT for HTTPS).
 
 Suite layers: package unit tests (adversarial focus in sandbox and tools/shell), headless --self-test, print-smoke (no provider), optional chat-smoke. Local coverage: make coverage (needs kcov) writes HTML under coverage/.
 
@@ -83,6 +83,7 @@ Modes: ask, plan, review, edit. Tool gate: `--gate` / `NULLRAY_GATE` / `/gate` 0
 | Skill | When |
 |-------|------|
 | prose | docs, comments, AGENTS, commit text (detail in skill references/tells.md) |
+| changelog | CHANGELOG.md and release notes (user-facing, no internals) |
 | tui | nullray/ui, app, binds, draw/input (map in skill references/map.md) |
 | odin-idioms | any .odin under nullray/ or cmd/ |
 | memory | owned strings, dynamics, teardown |
