@@ -5,6 +5,7 @@ import "core:strings"
 import "core:testing"
 import "nullray:config"
 import "nullray:constants"
+import "nullray:provider"
 import "nullray:session"
 import "nullray:ui"
 
@@ -106,6 +107,46 @@ test_stop_agent_bind_cancels :: proc(t: ^testing.T) {
 	testing.expect(t, a.session.cancel_requested)
 	testing.expect(t, !a.session.pause_requested)
 	testing.expect(t, !a.pasting)
+}
+
+@(test)
+test_ctrl_c_busy_soft_stops :: proc(t: ^testing.T) {
+	a, loop := test_app_minimal()
+	_ = loop
+	defer test_app_destroy_minimal(&a)
+	session.session_init(&a.session)
+	defer session.session_destroy(&a.session)
+	a.session.busy = true
+	quit := app_on_event(ui.Event{kind = .Ctrl_C}, &a)
+	testing.expect(t, !quit)
+	testing.expect(t, a.session.cancel_requested)
+}
+
+@(test)
+test_ctrl_c_idle_quits :: proc(t: ^testing.T) {
+	a, loop := test_app_minimal()
+	_ = loop
+	defer test_app_destroy_minimal(&a)
+	session.session_init(&a.session)
+	defer session.session_destroy(&a.session)
+	a.session.busy = false
+	quit := app_on_event(ui.Event{kind = .Ctrl_C}, &a)
+	testing.expect(t, quit)
+}
+
+@(test)
+test_clear_chat_blocked_when_busy :: proc(t: ^testing.T) {
+	a, loop := test_app_minimal()
+	_ = loop
+	defer test_app_destroy_minimal(&a)
+	session.session_init(&a.session)
+	defer session.session_destroy(&a.session)
+	a.session.busy = true
+	before := len(a.session.messages)
+	append(&a.session.messages, provider.Message{role = .User, content = strings.clone("keep")})
+	testing.expect_value(t, len(a.session.messages), before + 1)
+	_ = app_on_event(ui.Event{kind = .Ctrl_L}, &a)
+	testing.expect_value(t, len(a.session.messages), before + 1)
 }
 
 @(test)

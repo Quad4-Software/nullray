@@ -82,8 +82,8 @@ registry_init :: proc(r: ^Registry) {
 	})
 	registry_register(r, Tool{
 		name = "grep_files",
-		description = "Search for a substring in files under the workspace",
-		schema_json = `{"type":"object","properties":{"pattern":{"type":"string"},"path":{"type":"string"},"glob":{"type":"string"}},"required":["pattern"]}`,
+		description = "Search files under the workspace (substring or regex). Uses ripgrep when available. Optional case_insensitive, regex, engine=auto|rg|builtin",
+		schema_json = `{"type":"object","properties":{"pattern":{"type":"string"},"path":{"type":"string"},"glob":{"type":"string"},"case_insensitive":{"type":"string","description":"true or false"},"regex":{"type":"string","description":"true or false"},"engine":{"type":"string","description":"auto, rg, or builtin"}},"required":["pattern"]}`,
 		kind = .Read,
 		run = tool_grep_files,
 	})
@@ -205,6 +205,34 @@ registry_init :: proc(r: ^Registry) {
 		schema_json = `{"type":"object","properties":{"keyword":{"type":"string"}},"required":["keyword"]}`,
 		kind = .Read,
 		run = tool_apropos,
+	})
+	registry_register(r, Tool{
+		name = "read_tldr",
+		description = "Read a local tldr page when tldr/tealdeer is installed",
+		schema_json = `{"type":"object","properties":{"page":{"type":"string"},"platform":{"type":"string"},"max_chars":{"type":"string"}},"required":["page"]}`,
+		kind = .Read,
+		run = tool_read_tldr,
+	})
+	registry_register(r, Tool{
+		name = "read_info",
+		description = "Read a GNU info node as plain text",
+		schema_json = `{"type":"object","properties":{"node":{"type":"string"},"max_chars":{"type":"string"}},"required":["node"]}`,
+		kind = .Read,
+		run = tool_read_info,
+	})
+	registry_register(r, Tool{
+		name = "read_help",
+		description = "Run command --help for a PATH binary (no shell)",
+		schema_json = `{"type":"object","properties":{"command":{"type":"string"},"max_chars":{"type":"string"}},"required":["command"]}`,
+		kind = .Read,
+		run = tool_read_help,
+	})
+	registry_register(r, Tool{
+		name = "lang_doc",
+		description = "Read installed language docs (go doc, pydoc, ri, rustup doc)",
+		schema_json = `{"type":"object","properties":{"lang":{"type":"string","description":"go, python, ruby, or rust"},"query":{"type":"string"},"max_chars":{"type":"string"}},"required":["lang","query"]}`,
+		kind = .Read,
+		run = tool_lang_doc,
 	})
 	registry_register(r, Tool{
 		name = "scaffold",
@@ -341,9 +369,9 @@ registry_init :: proc(r: ^Registry) {
 	})
 	registry_register(r, Tool{
 		name = "fetch_url",
-		description = "Fetch a public http(s) URL as text (size-capped, edit mode, no browser)",
-		schema_json = `{"type":"object","properties":{"url":{"type":"string"}},"required":["url"]}`,
-		kind = .Write,
+		description = "Fetch a public http(s) URL as text (HTML to plain when useful, size-capped, no browser)",
+		schema_json = `{"type":"object","properties":{"url":{"type":"string"},"format":{"type":"string","description":"auto, text, or raw"},"max_chars":{"type":"string"}},"required":["url"]}`,
+		kind = .Read,
 		run = tool_fetch_url,
 	})
 }

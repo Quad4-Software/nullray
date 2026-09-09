@@ -30,7 +30,7 @@
 | Kube allow | `NULLRAY_SECRETS_ALLOW` plus ops kube keeps `KUBECONFIG`. Cluster credentials can reach the model if tools read them. |
 | Extra paths | `NULLRAY_SANDBOX_EXTRA_RO` / `EXTRA_RW` accept absolute paths only. Relative paths are ignored. |
 | VCS network | Push/pull/fetch and PR tools stay off until `NULLRAY_VCS_NETWORK=1`. Force-push to main/master needs `NULLRAY_VCS_FORCE=1`. |
-| fetch_url | Read-only HTTP(S) with size caps, private IPv4/IPv6 SSRF checks, and optional `NULLRAY_FETCH_ALLOW`. Not a browser. No JavaScript. |
+| fetch_url | Read-only HTTP(S) in any mode with size caps, HTML-to-text, private IPv4/IPv6 SSRF checks, and optional NULLRAY_FETCH_ALLOW. Not a browser. No JavaScript. |
 | Speculative tools | Speculative allowlisted reads are on by default (NULLRAY_SPECULATE=0 disables). They do not remove TOCTOU, widen Landlock, or make PreToolUse hooks safe if they are not idempotent. PreToolUse may fire early on speculated tools. |
 | LID excerpts | Envelope excerpts are privacy-reduced (secret-aware stubs). They are not a proof that artifacts are free of secrets. |
 | Artifact ids | Artifact ids are workspace-scoped under `.nullray/artifacts`. They are not secret capability tokens. |

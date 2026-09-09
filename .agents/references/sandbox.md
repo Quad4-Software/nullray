@@ -13,7 +13,7 @@
 | Warn mode | Continues if an OS control fails | Continues without Job Object isolation | Continues without OS isolation |
 | Strict mode | Fails if a requested control fails | Fails while the Job Object helper is unavailable | Fails because no backend exists |
 | Doctor report | Mode, extras, ops, Landlock ABI, seccomp support | Backend availability | Unsupported backend |
-| Host man tools | `read_man` and `apropos` | Unavailable | Unavailable |
+| Host docs tools | `read_man`, `apropos`, `read_tldr`, `read_info`, `read_help`, `lang_doc` | Soft-fail if missing | Soft-fail if missing |
 
 `NULLRAY_SANDBOX=warn` is the soft mode and the default. `strict` and `on` request fail-closed startup. `off` disables OS sandbox application.
 

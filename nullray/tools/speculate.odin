@@ -86,7 +86,7 @@ speculate_parallel_from_env :: proc() -> int {
 speculate_allowlisted :: proc(name: string) -> bool {
 	switch name {
 	case "read_file", "list_dir", "repo_map", "grep_files", "glob_files",
-		"read_man", "apropos",
+		"read_man", "apropos", "read_tldr", "read_info", "read_help", "lang_doc",
 		"list_skills", "load_skill",
 		"memory_get", "memory_list", "memory_search",
 		"read_artifact", "grep_artifact",

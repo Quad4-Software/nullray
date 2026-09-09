@@ -76,12 +76,13 @@ test_openai_tools_json_lean_and_subagent_omit :: proc(t: ^testing.T) {
 	defer delete(lean)
 
 	testing.expect(t, len(lean) < len(full))
-	testing.expect(t, len(lean) < 5500)
+	testing.expect(t, len(lean) < 6500)
 	testing.expect(t, strings.contains(lean, `"read_file"`))
 	testing.expect(t, strings.contains(lean, `"read_man"`))
 	testing.expect(t, strings.contains(lean, `"apropos"`))
+	testing.expect(t, strings.contains(lean, `"read_tldr"`))
+	testing.expect(t, strings.contains(lean, `"fetch_url"`))
 	testing.expect(t, !strings.contains(lean, `"description":"1-based start line"`))
-	testing.expect(t, !strings.contains(lean, `"fetch_url"`))
 	// Subagent runtime off in unit tests: task stays omitted even if registered.
 	testing.expect(t, !strings.contains(lean, `"task"`))
 

@@ -27,7 +27,7 @@ Goals:
 - For where-is / find-callers questions when subagents are on, prefer task with subagent_type=locate before deep parent grepping. Locate returns CITES path:start-end spans.
 - Use load_skill when a catalog skill matches the task. Prefer list_skills if unsure.
 - Use run_shell for builds and tests when sandbox allows.
-- On Linux, use read_man and apropos for command and flag questions before inventing options.
+- On Linux, use read_man, apropos, read_tldr, read_info, and read_help for command questions before inventing options. Use lang_doc for go/python/ruby/rust API docs from local toolchains. Use fetch_url for known public doc URLs (HTML is converted to text).
 - Be concise in chat replies. Put durable notes in files when useful.
 - Stop when the task is complete or blocked. Do not invent tool results.
 - Never dump large code blocks into chat when file tools are available unless the user asked to see code in chat.
@@ -245,13 +245,13 @@ load_agents_md :: proc(allocator := context.allocator) -> (text: string, path: s
 			data, rerr := os.read_entire_file(fpath, allocator)
 			if rerr == nil && len(data) > 0 {
 				if len(data) > constants.MAX_TOOL_FILE_BYTES {
-					delete(data)
+					delete(data, allocator)
 					continue
 				}
 				path = strings.clone(fpath, allocator)
 				if len(data) > constants.MAX_AGENTS_PROMPT_CHARS {
 					head := strings.clone(string(data[:constants.MAX_AGENTS_PROMPT_CHARS]), allocator)
-					delete(data)
+					delete(data, allocator)
 					return head, path
 				}
 				return string(data), path

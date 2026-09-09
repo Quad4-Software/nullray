@@ -185,6 +185,7 @@ app_init :: proc(a: ^App, loop: ^ui.Loop) {
 app_destroy :: proc(a: ^App) {
 	cfg_dir := sandbox.resolve_config_dir(context.temp_allocator)
 	session.crash_lock_clear(cfg_dir)
+	session.session_shutdown(&a.session)
 	subagent.runtime_set(nil)
 	subagent.runtime_destroy(&a.subagents)
 	provider.registry_destroy(&a.registry)

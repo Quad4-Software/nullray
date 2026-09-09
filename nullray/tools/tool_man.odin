@@ -95,6 +95,13 @@ tool_apropos :: proc(args_json: string, allocator := context.allocator) -> (resu
 
 @(private)
 run_capture_cmd :: proc(command: string, allocator := context.allocator) -> (result: string, err: string) {
+	return run_capture_argv([]string{"/bin/sh", "-c", command}, allocator)
+}
+
+run_capture_argv :: proc(argv: []string, allocator := context.allocator) -> (result: string, err: string) {
+	if len(argv) == 0 {
+		return "", strings.clone("empty command", allocator)
+	}
 	stdout_r, stdout_w, pipe_err := os.pipe()
 	if pipe_err != nil {
 		return "", fmt.aprintf("pipe failed: %v", pipe_err, allocator = allocator)
@@ -110,7 +117,6 @@ run_capture_cmd :: proc(command: string, allocator := context.allocator) -> (res
 	{
 		defer os.close(stdout_w)
 		defer os.close(stderr_w)
-		argv := []string{"/bin/sh", "-c", command}
 		desc := os.Process_Desc{
 			command = argv,
 			stdout = stdout_w,

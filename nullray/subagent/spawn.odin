@@ -181,7 +181,13 @@ spawn_child :: proc(
 	if spec.background {
 		msg := fmt.aprintf("spawned background agent %s group=%s model=%s isolation=%s", id, group_id, job.prov.default_model, isolation_string(isol), allocator = allocator)
 		delete(id)
-		thread.run_with_data(job, child_job_proc)
+		th := thread.create_and_start_with_data(job, child_job_proc, nil, .Normal, false)
+		if th == nil {
+			cleanup_child_job(job)
+			free(job)
+			return "", strings.clone("failed to start subagent worker", allocator)
+		}
+		runtime_track_worker(rt, th)
 		return msg, ""
 	}
 

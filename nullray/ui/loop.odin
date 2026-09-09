@@ -81,6 +81,11 @@ loop_run :: proc(
 		ev, ok := poll_event(constants.POLL_TIMEOUT_MS)
 		for ok {
 			if ev.kind == .Ctrl_C || ev.kind == .Ctrl_Q {
+				// Let the app soft-stop a busy turn (or cancel elevate) before quitting.
+				if on_event != nil && !on_event(ev, user) {
+					ev, ok = poll_event(0)
+					continue
+				}
 				l.quit = true
 				break
 			}

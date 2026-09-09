@@ -7,6 +7,9 @@ package subagent
 
 import "core:strings"
 import "core:sync"
+import "core:thread"
+import "core:time"
+import "nullray:constants"
 import "nullray:provider"
 
 Runtime :: struct {
@@ -27,6 +30,8 @@ Runtime :: struct {
 	active:          bool,
 	// Sum of child turn tokens not yet rolled into the parent session.
 	child_total_tokens: int,
+	workers_mu:      sync.Mutex,
+	workers:         [dynamic]^thread.Thread,
 }
 
 g_runtime: ^Runtime
@@ -65,6 +70,7 @@ runtime_destroy :: proc(rt: ^Runtime) {
 	if rt == nil {
 		return
 	}
+	runtime_join_workers(rt, constants.SHUTDOWN_JOIN_MS)
 	roster_destroy(&rt.roster)
 	knowledge_destroy(&rt.knowledge)
 	lease_board_destroy(&rt.leases)
@@ -75,6 +81,49 @@ runtime_destroy :: proc(rt: ^Runtime) {
 	delete(rt.session_path)
 	policy_clear_global()
 	rt^ = {}
+}
+
+runtime_track_worker :: proc(rt: ^Runtime, th: ^thread.Thread) {
+	if rt == nil || th == nil {
+		return
+	}
+	sync.mutex_lock(&rt.workers_mu)
+	defer sync.mutex_unlock(&rt.workers_mu)
+	if rt.workers == nil {
+		rt.workers = make([dynamic]^thread.Thread)
+	}
+	append(&rt.workers, th)
+}
+
+/*
+Cancel living children, then join tracked background workers.
+*/
+runtime_join_workers :: proc(rt: ^Runtime, wait_ms := constants.SHUTDOWN_JOIN_MS) {
+	if rt == nil {
+		return
+	}
+	roster_cancel_children_of(&rt.roster, "main")
+
+	sync.mutex_lock(&rt.workers_mu)
+	workers := rt.workers[:]
+	rt.workers = {}
+	sync.mutex_unlock(&rt.workers_mu)
+	for th in workers {
+		if th != nil {
+			thread.join(th)
+			thread.destroy(th)
+		}
+	}
+	delete(workers)
+
+	deadline := time.tick_now()
+	limit := time.Millisecond * time.Duration(wait_ms)
+	for roster_living_count(&rt.roster) > 0 {
+		if time.tick_since(deadline) > limit {
+			break
+		}
+		time.sleep(10 * time.Millisecond)
+	}
 }
 
 runtime_set_session :: proc(rt: ^Runtime, session_path: string, persist: bool) {

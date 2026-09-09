@@ -75,6 +75,7 @@ session_request_cancel :: proc(s: ^Session) {
 	s.pause_requested = false
 	sync.mutex_unlock(&s.control_mu)
 	http.cancel_request()
+	tools.shell_cancel_active()
 	if rt := subagent.runtime(); rt != nil {
 		subagent.roster_cancel_children_of(&rt.roster, "main")
 	}
@@ -125,7 +126,9 @@ session_start_chat :: proc(s: ^Session, p: ^provider.Provider) {
 	if s.busy || p == nil || p.chat == nil {
 		return
 	}
+	session_join_job(s)
 	session_clear_control(s)
+	s.busy = true
 
 	session_remember_model(s, p.id, p.default_model)
 
@@ -200,7 +203,20 @@ session_start_chat :: proc(s: ^Session, p: ^provider.Provider) {
 		status = "waiting (agent)"
 	}
 	session_enqueue(s, Event{kind = .Job_Started, text = strings.clone(status)})
-	thread.run_with_data(args, chat_job)
+	th := thread.create_and_start_with_data(args, chat_job, nil, .Normal, false)
+	if th == nil {
+		s.busy = false
+		provider.destroy_messages(args.messages)
+		delete(args.messages)
+		provider.provider_destroy(&args.prov)
+		delete(args.reasoning_effort)
+		free(args)
+		session_enqueue(s, Event{kind = .Error, text = strings.clone("failed to start chat worker")})
+		return
+	}
+	sync.mutex_lock(&s.job_mu)
+	s.job_thread = th
+	sync.mutex_unlock(&s.job_mu)
 }
 
 @(private)

@@ -10,6 +10,7 @@ import "core:os"
 import "core:path/filepath"
 import "core:strings"
 import "core:sync"
+import "core:thread"
 import "core:time"
 import "nullray:agent"
 import "nullray:constants"
@@ -50,6 +51,8 @@ Session :: struct {
 	cancel_requested:    bool,
 	pause_requested:     bool,
 	control_mu:          sync.Mutex,
+	job_mu:              sync.Mutex,
+	job_thread:          ^thread.Thread,
 	turn_base:           int,
 	pending_commit:      [dynamic]provider.Message,
 	commit_mu:           sync.Mutex,
@@ -124,6 +127,7 @@ session_init :: proc(s: ^Session) {
 }
 
 session_destroy :: proc(s: ^Session) {
+	session_shutdown(s)
 	_ = store.artifact_gc()
 	if len(s.session_path) > 0 {
 		store.session_unlock(s.session_path)

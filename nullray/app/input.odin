@@ -271,11 +271,26 @@ app_on_event :: proc(ev: ui.Event, user: rawptr) -> bool {
 	action := config.binds_resolve(a.binds, ev.kind)
 	switch action {
 	case .Quit:
+		// Ctrl-C while busy stops the agent. Ctrl-Q (or Ctrl-C when idle) quits.
+		if a.session.busy && ev.kind == .Ctrl_C {
+			session.session_request_cancel(&a.session)
+			a.pasting = false
+			app_mark_dirty(a)
+			return false
+		}
+		if a.session.busy {
+			session.session_request_cancel(&a.session)
+		}
 		return true
 	case .Help:
 		app_toggle_help(a)
 		return false
 	case .Clear_Chat:
+		if a.session.busy {
+			session.session_set_status(&a.session, "stopping · clear chat after stop")
+			app_mark_dirty(a)
+			return false
+		}
 		for m in a.session.messages {
 			provider.destroy_message(m)
 		}

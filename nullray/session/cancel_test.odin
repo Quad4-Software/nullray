@@ -29,3 +29,13 @@ test_cancel_idempotent :: proc(t: ^testing.T) {
 	session_clear_control(&s)
 	testing.expect(t, !s.cancel_requested)
 }
+
+@(test)
+test_shutdown_idle_is_safe :: proc(t: ^testing.T) {
+	s: Session
+	session_init(&s)
+	defer session_destroy(&s)
+	session_shutdown(&s, 100)
+	testing.expect(t, !s.busy)
+	testing.expect(t, s.job_thread == nil)
+}

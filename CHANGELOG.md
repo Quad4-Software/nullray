@@ -4,6 +4,18 @@ Notable changes for nullray.
 
 ## [Unreleased]
 
+### Added
+- Offline docs tools: tldr, GNU info, command --help, and lang_doc for go/python/ruby/rust.
+- grep_files supports case-insensitive and regex search, and uses ripgrep when available.
+
+### Changed
+- fetch_url works in ask and plan modes and turns HTML into readable text.
+
+### Fixed
+- Large AGENTS.md no longer crashes print mode when lean prompt truncates it.
+- Esc and Ctrl-C stop a busy turn without tearing down the session under the worker.
+- Quit waits for the agent to finish stopping before exit.
+
 ## [0.3.0] - 2026-09-09
 
 ### Added

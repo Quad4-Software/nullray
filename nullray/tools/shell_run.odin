@@ -95,6 +95,8 @@ run_process_capture :: proc(
 		}
 	}
 	shell_claim_process_group(process)
+	shell_register_active(process)
+	defer shell_clear_active(process)
 
 	stdout_b: [dynamic]byte
 	stdout_b.allocator = context.temp_allocator

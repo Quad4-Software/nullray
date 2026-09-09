@@ -230,6 +230,6 @@ test_lean_prompt_tool_names_match_core :: proc(t: ^testing.T) {
 	testing.expect(t, strings.contains(section, "list_dir"))
 	testing.expect(t, strings.contains(section, "read_file"))
 	testing.expect(t, strings.contains(section, "read_man"))
-	testing.expect(t, !strings.contains(section, "fetch_url"))
+	testing.expect(t, strings.contains(section, "fetch_url"))
 	testing.expect(t, !strings.contains(section, "task"))
 }
