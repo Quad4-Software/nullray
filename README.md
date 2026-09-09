@@ -4,7 +4,7 @@ Lightweight coding agent with a custom TUI built in Odin.
 
 ![nullray](logo/nullray-social.png)
 
-Providers: OpenAI and OpenAI-compatible endpoints, Anthropic, Gemini, Groq, DeepSeek, Mistral, Together, Fireworks, xAI, Azure OpenAI, OpenRouter, LM Studio, Ollama, OpenCode.
+Providers: OpenAI and OpenAI-compatible endpoints, Anthropic, Gemini, Groq, DeepSeek, Mistral, Together, Fireworks, xAI, Azure OpenAI, OpenRouter, LM Studio, Ollama, llama.cpp, OpenCode.
 
 Platforms: Linux (amd64, arm64/aarch64), macOS (arm64), Windows (amd64). Android is not a target.
 
@@ -62,6 +62,7 @@ NULLRAY_MODEL=my-local-model
 | azure | AZURE_OPENAI_ENDPOINT + AZURE_OPENAI_API_KEY |
 | ollama | OLLAMA_HOST |
 | lmstudio | LM_API_TOKEN (defaults to lm-studio) |
+| llamacpp | LLAMA_CPP_HOST (default http://127.0.0.1:8080/v1), optional LLAMA_CPP_API_KEY |
 | openrouter | OPENROUTER_API_KEY |
 | opencode / opencode-go | OpenCode Zen |
 
@@ -140,14 +141,6 @@ docker run --rm -it \
 flatpak install --user ./nullray_*_linux_amd64.flatpak
 flatpak run xyz.nullray.code
 ```
-
-### Arch / Omarchy (AUR)
-
-```sh
-yay -S nullray-bin
-```
-
-Recipe: [packaging/aur/PKGBUILD](packaging/aur/PKGBUILD).
 
 ## License
 

@@ -8,6 +8,7 @@ package app
 import "core:fmt"
 import "core:strings"
 import "core:unicode/utf8"
+import "nullray:sandbox"
 import "nullray:ui"
 
 app_sel_clear_rows :: proc(a: ^App) {
@@ -181,7 +182,8 @@ app_sel_copy :: proc(a: ^App) -> bool {
 		app_toast(a, "nothing selected", .Warn)
 		return false
 	}
-	if ui.clipboard_copy(text) {
+	safe := sandbox.redact_secrets(text, context.temp_allocator)
+	if ui.clipboard_copy(safe) {
 		app_toast_ok(a, "copied to clipboard")
 		return true
 	}
@@ -242,7 +244,6 @@ app_sel_click_message :: proc(a: ^App, screen_y: int) -> bool {
 	a.sel_ay = a.sel_rows_top + lo
 	a.sel_bx = max(0, ui.string_cols(a.sel_rows[hi]) - 1)
 	a.sel_by = a.sel_rows_top + hi
-	_ = app_sel_copy(a)
 	app_mark_dirty(a)
 	return true
 }

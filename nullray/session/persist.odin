@@ -143,6 +143,18 @@ session_overlay_usage_file :: proc(s: ^Session) {
 }
 
 session_new :: proc(s: ^Session, name: string) -> bool {
+	want := strings.trim_space(name)
+	safe: string
+	if len(want) == 0 {
+		safe = store.unique_session_name()
+	} else {
+		cand := store.sanitize_name(want)
+		if s.persist && store.session_exists(cand) {
+			session_set_status(s, fmt.tprintf("session %s already exists (use /resume or pick another name)", cand))
+			return false
+		}
+		safe = strings.clone(cand)
+	}
 	session_maybe_persist(s)
 	for m in s.messages {
 		provider.destroy_message(m)
@@ -150,7 +162,7 @@ session_new :: proc(s: ^Session, name: string) -> bool {
 	clear(&s.messages)
 	delete(s.session_path)
 	delete(s.name)
-	s.name = strings.clone(store.sanitize_name(name))
+	s.name = safe
 	s.session_path = store.named_session_path(s.name)
 	session_clear_streaming(s)
 	if s.persist {
@@ -162,15 +174,45 @@ session_new :: proc(s: ^Session, name: string) -> bool {
 	return true
 }
 
-session_rename :: proc(s: ^Session, name: string) -> bool {
+session_rename :: proc(s: ^Session, name: string, force := false) -> bool {
 	safe := store.sanitize_name(name)
-	path := store.named_session_path(safe)
+	if safe == s.name {
+		session_set_status(s, fmt.tprintf("named %s", s.name))
+		return true
+	}
+	if !s.persist {
+		delete(s.name)
+		s.name = strings.clone(safe)
+		delete(s.session_path)
+		s.session_path = strings.clone("")
+		session_set_status(s, fmt.tprintf("named %s (ephemeral)", s.name))
+		return true
+	}
+	old_name := strings.clone(s.name)
+	defer delete(old_name)
+	old_path := strings.clone(s.session_path)
+	defer delete(old_path)
 	session_maybe_persist(s)
+	had_file := len(old_path) > 0 && os.exists(old_path)
+	if had_file {
+		ok, err := store.rename_session_files(old_name, safe, force)
+		if !ok {
+			session_set_status(s, err)
+			return false
+		}
+		store.session_unlock(old_path)
+	} else if store.session_exists(safe) && !force {
+		session_set_status(s, fmt.tprintf("session %s already exists", safe))
+		return false
+	}
 	delete(s.session_path)
 	delete(s.name)
-	s.session_path = path
 	s.name = strings.clone(safe)
+	s.session_path = store.named_session_path(s.name)
 	session_maybe_persist(s)
+	if len(s.session_path) > 0 {
+		_, _ = store.session_try_lock(s.session_path)
+	}
 	session_set_status(s, fmt.tprintf("named %s", s.name))
 	return true
 }
@@ -219,10 +261,22 @@ session_switch :: proc(s: ^Session, name: string) -> bool {
 	return true
 }
 
-session_fork :: proc(s: ^Session, name: string) -> bool {
+session_fork :: proc(s: ^Session, name: string, force := false) -> bool {
 	new_name := store.sanitize_name(name)
+	if s.persist && store.session_exists(new_name) && !force {
+		session_set_status(s, fmt.tprintf("session %s already exists", new_name))
+		return false
+	}
 	path := store.named_session_path(new_name)
 	if s.persist {
+		if force && store.session_exists(new_name) {
+			dok, derr := store.delete_session(new_name)
+			if !dok {
+				delete(path)
+				session_set_status(s, derr)
+				return false
+			}
+		}
 		_ = store.save_transcript(path, s.messages[:])
 		_ = store.save_session_meta(path, store.Session_Meta{
 			provider = s.provider_id,

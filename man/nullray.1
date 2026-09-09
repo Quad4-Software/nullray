@@ -163,6 +163,21 @@ Force the startup splash animation.
 .B \-\-list\-models
 List models from the active provider and exit.
 .TP
+.B \-\-list\-sessions
+List saved sessions and exit.
+.TP
+.B \-\-rename\-session \fINAME\fR
+Rename a saved session (needs
+.B \-\-as
+for the new name, optional
+.B \-\-force
+).
+.TP
+.B \-\-inspect\-session [\fINAME\fR]
+Print session summary. Add
+.B \-\-follow
+to watch for updates.
+.TP
 .B \-\-completions \fISHELL\fR
 Print completion script for bash, zsh, fish, powershell, elvish, or nushell.
 .TP
@@ -175,9 +190,10 @@ Config file:
 Common variables: NULLRAY_PROVIDER, NULLRAY_MODEL, NULLRAY_THEME, NULLRAY_MODE, NULLRAY_PERMS,
 NULLRAY_SANDBOX, NULLRAY_WORKSPACE, NULLRAY_SESSION, NULLRAY_EPHEMERAL, NULLRAY_SPLASH,
 NULLRAY_KEYS, NULLRAY_STREAM, NULLRAY_HTTP_RETRIES, NULLRAY_FALLBACK_MODELS,
-NULLRAY_OPENROUTER_IGNORE, NULLRAY_BARE, NULLRAY_SKILLS, NULLRAY_PRINT_TIMEOUT, NULLRAY_OUT, NULLRAY_PLAN_OUT, NULLRAY_PLAN_IN,
+NULLRAY_OPENROUTER_IGNORE, NULLRAY_OPENROUTER_ZDR, NULLRAY_LOCAL_PROBE, NULLRAY_QUIRKS,
+NULLRAY_BARE, NULLRAY_SKILLS, NULLRAY_PRINT_TIMEOUT, NULLRAY_OUT, NULLRAY_PLAN_OUT, NULLRAY_PLAN_IN,
 NULLRAY_COLOR, NULLRAY_ALT_SCREEN, NULLRAY_MOUSE, NULLRAY_DEBUG,
-OPENROUTER_API_KEY, OLLAMA_HOST, LM_STUDIO_HOST, LM_API_TOKEN.
+OPENROUTER_API_KEY, OLLAMA_HOST, LM_STUDIO_HOST, LM_API_TOKEN, LLAMA_CPP_HOST.
 .SH FILES
 .TP
 .I ~/.config/nullray/env
@@ -190,7 +206,7 @@ User-installed skills (flat .md or name/SKILL.md packages).
 Key bindings and optional preset= line.
 .TP
 .I ~/.config/nullray/sessions/
-Session transcripts and metadata.
+Session transcripts (.msgpack default, .jsonl fallback) and metadata.
 .TP
 .I ~/.config/nullray/mcp.json
 MCP server autoload config.
@@ -205,6 +221,8 @@ nullray --print --mode review --fail-on-findings "Review the staged diff"
 git diff | nullray --print --mode review --bare "Review this PR diff"
 nullray --list-models
 nullray --list-sessions
+nullray --rename-session oldname --as newname
+nullray --inspect-session mywork
 nullray --list-skills
 nullray --install-skill ./pack/my-skill --as demo
 nullray --skills ~/extra-skills --print "hello"

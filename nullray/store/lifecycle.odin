@@ -10,6 +10,7 @@ import "core:os"
 import "core:path/filepath"
 import "core:strconv"
 import "core:strings"
+import "nullray:provider"
 
 copy_file_bytes :: proc(src, dst: string) -> bool {
 	data, err := os.read_entire_file(src, context.temp_allocator)
@@ -60,6 +61,60 @@ delete_session :: proc(name: string) -> (ok: bool, err: string) {
 	return true, ""
 }
 
+// Move transcript, meta, usage, and lock from old name to new name.
+rename_session_files :: proc(old_name, new_name: string, force := false) -> (ok: bool, err: string) {
+	from := sanitize_name(old_name)
+	to := sanitize_name(new_name)
+	if from == to {
+		return true, ""
+	}
+	src := named_session_path(from, context.temp_allocator)
+	dst := named_session_path(to, context.temp_allocator)
+	if !os.exists(src) {
+		return false, fmt.tprintf("session %s not found", from)
+	}
+	if held, holder := session_lock_held_by_other(src); held {
+		return false, fmt.tprintf("session locked by %s", holder)
+	}
+	if os.exists(dst) {
+		if !force {
+			return false, fmt.tprintf("session %s already exists", to)
+		}
+		if held, holder := session_lock_held_by_other(dst); held {
+			return false, fmt.tprintf("destination locked by %s", holder)
+		}
+		dok, derr := delete_session(to)
+		if !dok {
+			return false, derr
+		}
+	}
+	if !copy_file_bytes(src, dst) {
+		return false, fmt.tprintf("failed to copy transcript to %s", to)
+	}
+	meta_src := meta_path_for(src, context.temp_allocator)
+	if os.exists(meta_src) {
+		meta_dst := meta_path_for(dst, context.temp_allocator)
+		if !copy_file_bytes(meta_src, meta_dst) {
+			_ = os.remove(dst)
+			return false, fmt.tprintf("failed to copy meta to %s", to)
+		}
+	}
+	usage_src := usage_path_for(src, context.temp_allocator)
+	if os.exists(usage_src) {
+		usage_dst := usage_path_for(dst, context.temp_allocator)
+		if !copy_file_bytes(usage_src, usage_dst) {
+			_ = os.remove(dst)
+			_ = os.remove(meta_path_for(dst, context.temp_allocator))
+			return false, fmt.tprintf("failed to copy usage to %s", to)
+		}
+	}
+	_ = os.remove(src)
+	_ = os.remove(meta_src)
+	_ = os.remove(usage_src)
+	_ = os.remove(session_lock_path(src, context.temp_allocator))
+	return true, ""
+}
+
 export_session :: proc(name: string, dest_dir: string) -> (ok: bool, err: string) {
 	dest := strings.trim_space(dest_dir)
 	if len(dest) == 0 {
@@ -79,7 +134,11 @@ export_session :: proc(name: string, dest_dir: string) -> (ok: bool, err: string
 	if jerr != nil {
 		dst_jsonl = fmt.tprintf("%s/%s.jsonl", dest, safe)
 	}
-	if !copy_file_bytes(src, dst_jsonl) {
+	if session_path_is_msgpack(src) {
+		if !export_transcript_jsonl(src, dst_jsonl) {
+			return false, fmt.tprintf("failed to export transcript to %s", dst_jsonl)
+		}
+	} else if !copy_file_bytes(src, dst_jsonl) {
 		return false, fmt.tprintf("failed to copy transcript to %s", dst_jsonl)
 	}
 	meta_src := meta_path_for(src, context.temp_allocator)
@@ -170,8 +229,18 @@ import_session :: proc(src_path: string, as_name: string) -> (name: string, ok: 
 	if os.exists(dest) {
 		return "", false, fmt.tprintf("session %s already exists", safe)
 	}
-	if !copy_file_bytes(jsonl_src, dest) {
-		return "", false, fmt.tprintf("failed to copy transcript to %s", dest)
+	msgs, lok := load_transcript(jsonl_src)
+	if !lok {
+		return "", false, fmt.tprintf("failed to read transcript %s", jsonl_src)
+	}
+	defer {
+		for m in msgs {
+			provider.destroy_message(m)
+		}
+		delete(msgs)
+	}
+	if !save_transcript(dest, msgs[:]) {
+		return "", false, fmt.tprintf("failed to write transcript to %s", dest)
 	}
 	meta_src := meta_path_for(jsonl_src, context.temp_allocator)
 	if os.exists(meta_src) {

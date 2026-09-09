@@ -35,6 +35,11 @@ tool_task :: proc(args_json: string, allocator := context.allocator) -> (result:
 	resume, _ := json_arg_string_optional(args_json, "resume", "", allocator)
 	defer delete(resume)
 	bg, _ := json_arg_bool_string(args_json, "background", false)
+	max_steps, _ := json_arg_int_optional(args_json, "max_steps", 0, allocator)
+	path_hints, pherr := json_arg_strings_optional(args_json, "path_hints", allocator)
+	if pherr != "" {
+		return "", pherr
+	}
 
 	spec := subagent.Spawn_Spec{
 		description = strings.clone(desc),
@@ -44,6 +49,8 @@ tool_task :: proc(args_json: string, allocator := context.allocator) -> (result:
 		background = bg,
 		resume_id = strings.clone(resume),
 		group_id = strings.clone(group),
+		max_steps = max_steps,
+		path_hints = path_hints,
 	}
 	if len(isol_s) > 0 {
 		if isol, ok := subagent.isolation_from_string(isol_s); ok {
@@ -310,8 +317,8 @@ register_subagent_tools :: proc(r: ^Registry, enabled: bool) {
 	}
 	registry_register(r, Tool{
 		name = "task",
-		description = "Spawn a subagent (explore/review/edit). Returns summary or background id.",
-		schema_json = `{"type":"object","properties":{"description":{"type":"string"},"prompt":{"type":"string"},"subagent_type":{"type":"string"},"model":{"type":"string"},"isolation":{"type":"string"},"background":{"type":"string"},"group":{"type":"string"},"resume":{"type":"string"}},"required":["prompt"]}`,
+		description = "Spawn a subagent (explore/locate/review/edit). locate returns CITES path:start-end spans. Returns summary or background id.",
+		schema_json = `{"type":"object","properties":{"description":{"type":"string"},"prompt":{"type":"string"},"subagent_type":{"type":"string","description":"explore|locate|review|edit"},"model":{"type":"string"},"isolation":{"type":"string"},"background":{"type":"string"},"group":{"type":"string"},"resume":{"type":"string"},"max_steps":{"type":"string"},"path_hints":{"type":"array","items":{"type":"string"}}},"required":["prompt"]}`,
 		kind = .Read,
 		run = tool_task,
 	})

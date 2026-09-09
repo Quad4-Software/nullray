@@ -285,7 +285,7 @@ landlock_apply :: proc(cfg: Config, state: ^State) -> (ok: bool, msg: string) {
 	}
 
 	if attr.handled_access_net != 0 {
-		ports := []u64{11434, 1234, 443, 80}
+		ports := []u64{11434, 1234, 8080, 443, 80}
 		for port in ports {
 			_ = landlock_add_net_port(ruleset, port, LANDLOCK_ACCESS_NET_CONNECT_TCP)
 		}

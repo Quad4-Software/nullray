@@ -48,6 +48,7 @@ Speculate_Pool :: struct {
 	admit:        bool,
 	reg:          ^Registry,
 	mode:         string,
+	tool_allow:   []string,
 	allocator:    mem.Allocator,
 }
 
@@ -59,11 +60,13 @@ Speculate_Job :: struct {
 speculate_enabled_from_env :: proc() -> bool {
 	if v, ok := os.lookup_env(constants.ENV_SPECULATE, context.temp_allocator); ok {
 		switch strings.to_lower(strings.trim_space(v), context.temp_allocator) {
+		case "0", "false", "no", "off", "disable":
+			return false
 		case "1", "true", "yes", "on":
 			return true
 		}
 	}
-	return false
+	return true
 }
 
 speculate_parallel_from_env :: proc() -> int {
@@ -82,10 +85,10 @@ speculate_parallel_from_env :: proc() -> int {
 
 speculate_allowlisted :: proc(name: string) -> bool {
 	switch name {
-	case "read_file", "list_dir", "grep_files", "glob_files",
+	case "read_file", "list_dir", "repo_map", "grep_files", "glob_files",
 		"read_man", "apropos",
 		"list_skills", "load_skill",
-		"memory_get", "memory_list",
+		"memory_get", "memory_list", "memory_search",
 		"read_artifact", "grep_artifact",
 		"vcs_status", "vcs_diff", "vcs_log", "vcs_pr_view",
 		"audit_structure", "audit_actions", "audit_dockerfile",
@@ -123,6 +126,7 @@ speculate_pool_init :: proc(
 	mode: string,
 	max_parallel: int,
 	allocator := context.allocator,
+	tool_allow: []string = nil,
 ) {
 	pool^ = {}
 	pool.entries = make([dynamic]^Speculate_Entry, allocator)
@@ -133,6 +137,7 @@ speculate_pool_init :: proc(
 	pool.admit = true
 	pool.reg = reg
 	pool.mode = strings.clone(mode, allocator)
+	pool.tool_allow = tool_allow
 	pool.allocator = allocator
 }
 
@@ -322,7 +327,7 @@ speculate_worker :: proc(data: rawptr) {
 		blocked_pre = true
 	} else {
 		delete(pre.message)
-		tool_result, tool_err = run(pool.reg, name, args, pool.mode, alloc)
+		tool_result, tool_err = run(pool.reg, name, args, pool.mode, alloc, pool.tool_allow)
 	}
 	elapsed := time.duration_milliseconds(time.tick_since(start))
 
@@ -360,6 +365,9 @@ speculate_submit :: proc(
 		return false
 	}
 	if !speculate_allowlisted(name) {
+		return false
+	}
+	if !tool_name_in_allow(name, pool.tool_allow) {
 		return false
 	}
 	sync.mutex_lock(&pool.mu)

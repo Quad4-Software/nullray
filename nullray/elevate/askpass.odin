@@ -50,9 +50,17 @@ stash_askpass_secret :: proc(password: string) {
 	}
 	g_secret_path = askpass_secret_path()
 	_ = os.remove(g_secret_path)
-	_ = os.write_entire_file(g_secret_path, transmute([]byte)password)
 	when ODIN_OS != .Windows {
-		_ = os.chmod(g_secret_path, os.perm(0o600))
+		f, oerr := os.open(g_secret_path, {.Write, .Create, .Trunc, .Excl}, {.Read_User, .Write_User})
+		if oerr == nil {
+			_, _ = os.write(f, transmute([]byte)password)
+			os.close(f)
+		} else {
+			_ = os.write_entire_file(g_secret_path, transmute([]byte)password)
+			_ = os.chmod(g_secret_path, os.perm(0o600))
+		}
+	} else {
+		_ = os.write_entire_file(g_secret_path, transmute([]byte)password)
 	}
 	os.set_env(ENV_ASKPASS_SECRET, g_secret_path)
 }

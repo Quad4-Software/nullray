@@ -1,8 +1,10 @@
 // SPDX-License-Identifier: 0BSD
 package provider
 
+import "core:os"
 import "core:strings"
 import "core:testing"
+import "nullray:constants"
 
 @(test)
 test_openrouter_credits_parse :: proc(t: ^testing.T) {
@@ -31,6 +33,8 @@ test_openrouter_rate_limit_providers :: proc(t: ^testing.T) {
 
 @(test)
 test_openrouter_extras_json :: proc(t: ^testing.T) {
+	os.unset_env(constants.ENV_OPENROUTER_ZDR)
+	defer os.unset_env(constants.ENV_OPENROUTER_ZDR)
 	b: strings.Builder
 	strings.builder_init(&b, context.allocator)
 	defer strings.builder_destroy(&b)
@@ -39,4 +43,42 @@ test_openrouter_extras_json :: proc(t: ^testing.T) {
 	testing.expect(t, strings.contains(s, `"allow_fallbacks":true`))
 	testing.expect(t, strings.contains(s, `"DeepInfra"`))
 	testing.expect(t, strings.contains(s, `"Fireworks"`))
+	testing.expect(t, !strings.contains(s, `"zdr":true`))
+}
+
+@(test)
+test_openrouter_zdr_require_emits_provider_fields :: proc(t: ^testing.T) {
+	os.set_env(constants.ENV_OPENROUTER_ZDR, "require")
+	defer os.unset_env(constants.ENV_OPENROUTER_ZDR)
+	b: strings.Builder
+	strings.builder_init(&b, context.allocator)
+	defer strings.builder_destroy(&b)
+	write_openrouter_extras(&b, nil)
+	s := strings.to_string(b)
+	testing.expect(t, strings.contains(s, `"allow_fallbacks":true`))
+	testing.expect(t, strings.contains(s, `"zdr":true`))
+	testing.expect(t, strings.contains(s, `"data_collection":"deny"`))
+}
+
+@(test)
+test_openrouter_zdr_off_no_injection :: proc(t: ^testing.T) {
+	os.set_env(constants.ENV_OPENROUTER_ZDR, "off")
+	defer os.unset_env(constants.ENV_OPENROUTER_ZDR)
+	b: strings.Builder
+	strings.builder_init(&b, context.allocator)
+	defer strings.builder_destroy(&b)
+	write_openrouter_extras(&b, nil)
+	s := strings.to_string(b)
+	testing.expect(t, strings.contains(s, `"allow_fallbacks":true`))
+	testing.expect(t, !strings.contains(s, `"zdr":true`))
+	testing.expect(t, !strings.contains(s, `"data_collection"`))
+}
+
+@(test)
+test_openrouter_zdr_effective_non_openrouter :: proc(t: ^testing.T) {
+	os.unset_env(constants.ENV_OPENROUTER_ZDR)
+	defer os.unset_env(constants.ENV_OPENROUTER_ZDR)
+	testing.expect_value(t, openrouter_zdr_effective("openrouter"), OpenRouter_ZDR_Mode.Warn)
+	testing.expect_value(t, openrouter_zdr_effective("ollama"), OpenRouter_ZDR_Mode.Off)
+	testing.expect_value(t, openrouter_zdr_effective("groq"), OpenRouter_ZDR_Mode.Off)
 }

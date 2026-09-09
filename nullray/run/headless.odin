@@ -7,6 +7,7 @@ package run
 
 import "core:fmt"
 import "core:os"
+import "core:strconv"
 import "core:strings"
 import "core:time"
 import "nullray:agent"
@@ -128,18 +129,20 @@ run_print :: proc(cfg: Config) -> Result {
 	provider.registry_init(&reg)
 	defer provider.registry_destroy(&reg)
 
+	s: session.Session
+	session.session_init(&s)
+	defer session.session_destroy(&s)
+	_ = session.session_apply_saved_model(&s, &reg)
+	session.session_sticky_auto_provider(&s, &reg)
+	provider.set_session(s.name)
+	s.tools_registry = &tools_reg
+	s.tools_enabled = session.tools_enabled_from_env()
+
 	p := provider.registry_active(&reg)
 	if p == nil || p.chat == nil {
 		res.err = strings.clone("no provider")
 		return res
 	}
-
-	s: session.Session
-	session.session_init(&s)
-	defer session.session_destroy(&s)
-	provider.set_session(s.name)
-	s.tools_registry = &tools_reg
-	s.tools_enabled = true
 
 	rt: subagent.Runtime
 	subagent.runtime_init(&rt, s.name, &tools_reg)
@@ -175,62 +178,22 @@ run_print :: proc(cfg: Config) -> Result {
 	delete(res.mode)
 	res.mode = strings.clone(agent.mode_string(s.agent_mode))
 
+	hunt := agent.hunt_from_env()
+	do_auto := agent.hunt_auto_twopass(hunt) && s.agent_mode == .Review
+	if do_auto {
+		agent.hunt_set_phase(.Explore)
+		session.session_rebuild_system_prompt(&s)
+	}
+
 	session.session_push_user(&s, prompt)
 	session.session_start_chat(&s, p)
 
 	deadline := time.tick_now()
 	timeout := time.Duration(timeout_sec) * time.Second
-	ok_done := false
-	for {
-		_ = session.session_poll(&s)
-		if !s.busy {
-			ok_done = true
-			break
-		}
-		if time.tick_since(deadline) > timeout {
-			session.session_request_cancel(&s)
-			for _ in 0 ..< 40 {
-				_ = session.session_poll(&s)
-				if !s.busy {
-					break
-				}
-				time.sleep(50 * time.Millisecond)
-			}
-			delete(res.err)
-			res.err = strings.clone(fmt.tprintf("timed out after %d seconds", timeout_sec))
-			delete(res.stopped)
-			res.stopped = strings.clone("timeout")
-			res.usage = s.last_usage
-			res.session_usage = s.session_usage
-			res.input_chars = s.last_input_chars
-			res.peak_input_chars = s.peak_input_chars
-			res.usage_turns = s.usage_turns
-			res.subagent_total_tokens = s.subagent_total_tokens
-			text := last_assistant_text(&s)
-			if len(text) > 0 {
-				delete(res.text)
-				res.text = text
-			}
-			living := subagent.roster_living_count(&rt.roster)
-			if living > 0 {
-				fmt.eprintf("nullray: %d subagent(s) still running\n", living)
-			}
-			strict := cfg.print_strict || print_strict_from_env()
-			if strict {
-				if fail, reason := print_strict_fail(&s, res, living, false); fail {
-					res.ok = false
-					res.exit_code = 1
-					fmt.eprintln("nullray:", reason)
-					return res
-				}
-			}
-			res.ok = false
-			res.exit_code = 2
-			return res
-		}
-		time.sleep(50 * time.Millisecond)
+	ok_done, wait_err := wait_session_chat(&s, &rt, deadline, timeout, timeout_sec, &res)
+	if len(wait_err) > 0 {
+		return res
 	}
-
 	if !ok_done {
 		res.err = strings.clone("job did not finish")
 		return res
@@ -241,6 +204,33 @@ run_print :: proc(cfg: Config) -> Result {
 		return res
 	}
 
+	explore_text := ""
+	if do_auto {
+		explore_text = last_assistant_text(&s)
+		agent.hunt_set_phase(.Oracle)
+		// Shrink tool blobs and cap explore reply before the second billed pass.
+		session.session_phase_reset_provider_window(&s)
+		session.session_cap_last_assistant(&s, constants.MAX_HUNT_EXPLORE_CHARS)
+		session.session_rebuild_system_prompt(&s)
+		session.session_push_user(&s, agent.HUNT_ORACLE_FOLLOWUP)
+		session.session_start_chat(&s, p)
+		ok2, wait_err2 := wait_session_chat(&s, &rt, deadline, timeout, timeout_sec, &res)
+		if len(wait_err2) > 0 {
+			delete(explore_text)
+			return res
+		}
+		if !ok2 {
+			delete(explore_text)
+			res.err = strings.clone("hunt oracle phase did not finish")
+			return res
+		}
+		if len(s.status) >= 5 && s.status[:5] == "error" {
+			delete(explore_text)
+			res.err = strings.clone(s.status)
+			return res
+		}
+	}
+
 	text := last_assistant_text(&s)
 	tool_only := false
 	if len(text) == 0 {
@@ -249,9 +239,21 @@ run_print :: proc(cfg: Config) -> Result {
 			text = strings.clone("(ok: tools completed, no final assistant text)")
 			tool_only = true
 		} else {
+			delete(explore_text)
 			res.err = strings.clone("no assistant reply")
 			return res
 		}
+	}
+	if do_auto && len(explore_text) > 0 {
+		combined := strings.concatenate(
+			{explore_text, "\n\n--- hunt oracle ---\n\n", text},
+			context.allocator,
+		)
+		delete(explore_text)
+		delete(text)
+		text = combined
+	} else {
+		delete(explore_text)
 	}
 	res.text = text
 	res.tool_only = tool_only
@@ -311,6 +313,74 @@ run_print :: proc(cfg: Config) -> Result {
 	}
 
 	return res
+}
+
+@(private)
+wait_session_chat :: proc(
+	s: ^session.Session,
+	rt: ^subagent.Runtime,
+	deadline: time.Tick,
+	timeout: time.Duration,
+	timeout_sec: int,
+	res: ^Result,
+) -> (
+	ok_done: bool,
+	fatal: string,
+) {
+	for {
+		_ = session.session_poll(s)
+		if !s.busy {
+			return true, ""
+		}
+		if time.tick_since(deadline) > timeout {
+			session.session_request_cancel(s)
+			for _ in 0 ..< 40 {
+				_ = session.session_poll(s)
+				if !s.busy {
+					break
+				}
+				time.sleep(50 * time.Millisecond)
+			}
+			delete(res.err)
+			res.err = strings.clone(fmt.tprintf("timed out after %d seconds", timeout_sec))
+			delete(res.stopped)
+			res.stopped = strings.clone("timeout")
+			res.usage = s.last_usage
+			res.session_usage = s.session_usage
+			res.input_chars = s.last_input_chars
+			res.peak_input_chars = s.peak_input_chars
+			res.usage_turns = s.usage_turns
+			res.subagent_total_tokens = s.subagent_total_tokens
+			text := last_assistant_text(s)
+			if len(text) > 0 {
+				delete(res.text)
+				res.text = text
+			}
+			living := subagent.roster_living_count(&rt.roster)
+			if living > 0 {
+				fmt.eprintf("nullray: %d subagent(s) still running\n", living)
+			}
+			strict := false
+			if v, ok := os.lookup_env(constants.ENV_PRINT_STRICT, context.temp_allocator); ok {
+				switch strings.to_lower(strings.trim_space(v), context.temp_allocator) {
+				case "1", "true", "yes", "on":
+					strict = true
+				}
+			}
+			if strict {
+				if fail, reason := print_strict_fail(s, res^, living, false); fail {
+					res.ok = false
+					res.exit_code = 1
+					fmt.eprintln("nullray:", reason)
+					return false, "timeout"
+				}
+			}
+			res.ok = false
+			res.exit_code = 2
+			return false, "timeout"
+		}
+		time.sleep(50 * time.Millisecond)
+	}
 }
 
 @(private)
@@ -407,6 +477,8 @@ emit_usage :: proc(res: Result, json_already: bool) {
 	cost := "unknown"
 	if res.session_usage.cost_known {
 		cost = fmt.tprintf("%.6f", res.session_usage.cost_usd)
+	} else if res.session_usage.total_tokens > 0 {
+		cost = "unknown (provider omitted)"
 	}
 	fmt.eprintf(
 		"nullray: usage turn=%d/%d/%d session=%d/%d/%d reasoning=%d chars=%d/%d cost=%s subagent_tok=%d\n",
@@ -431,8 +503,16 @@ print_json :: proc(res: Result) {
 	esc_plan := json_escape(res.plan_path, context.temp_allocator)
 	esc_mode := json_escape(res.mode, context.temp_allocator)
 	esc_stopped := json_escape(res.stopped, context.temp_allocator)
+	count, found := agent.parse_findings_trailer(res.text)
+	items := agent.parse_findings_list(res.text, context.temp_allocator)
+	findings_json := agent.findings_to_json(items, count, found, context.temp_allocator)
+	cost_note := ""
+	if !res.session_usage.cost_known && res.session_usage.total_tokens > 0 {
+		cost_note = "provider omitted cost"
+	}
+	esc_cost_note := json_escape(cost_note, context.temp_allocator)
 	fmt.printf(
-		`{{"ok":%v,"mode":"%s","text":"%s","plan_path":"%s","stopped":"%s","err":"%s","exit_code":%d,"usage":{{"prompt_tokens":%d,"completion_tokens":%d,"total_tokens":%d,"reasoning_tokens":%d,"cost_usd":%.6f,"cost_known":%v,"input_chars":%d}},"session_usage":{{"turns":%d,"prompt_tokens":%d,"completion_tokens":%d,"total_tokens":%d,"reasoning_tokens":%d,"cost_usd":%.6f,"cost_known":%v,"peak_input_chars":%d,"subagent_total_tokens":%d}}}}`+"\n",
+		`{{"ok":%v,"mode":"%s","text":"%s","plan_path":"%s","stopped":"%s","err":"%s","exit_code":%d,"findings":%s,"cost_note":"%s","usage":{{"prompt_tokens":%d,"completion_tokens":%d,"total_tokens":%d,"reasoning_tokens":%d,"cost_usd":%.6f,"cost_known":%v,"input_chars":%d}},"session_usage":{{"turns":%d,"prompt_tokens":%d,"completion_tokens":%d,"total_tokens":%d,"reasoning_tokens":%d,"cost_usd":%.6f,"cost_known":%v,"peak_input_chars":%d,"subagent_total_tokens":%d}}}}`+"\n",
 		res.ok,
 		esc_mode,
 		esc_text,
@@ -440,6 +520,8 @@ print_json :: proc(res: Result) {
 		esc_stopped,
 		esc_err,
 		res.exit_code,
+		findings_json,
+		esc_cost_note,
 		res.usage.prompt_tokens,
 		res.usage.completion_tokens,
 		res.usage.total_tokens,
@@ -552,9 +634,38 @@ parse_positive_int :: proc(s: string) -> (int, bool) {
 	return n, n > 0
 }
 
+stdin_context_max_chars :: proc() -> int {
+	if v, ok := os.lookup_env(constants.ENV_STDIN_CONTEXT_MAX, context.temp_allocator); ok {
+		n, n_ok := strconv.parse_int(v)
+		if n_ok && n > 0 {
+			return n
+		}
+	}
+	return constants.STDIN_CONTEXT_MAX_CHARS
+}
+
 build_prompt :: proc(positional: string, message_file: string, read_stdin: bool, allocator := context.allocator) -> (string, string) {
 	b: strings.Builder
 	strings.builder_init(&b, allocator)
+
+	has_args := len(strings.trim_space(positional)) > 0
+	stdin_data := ""
+	stdin_ok := false
+	if read_stdin {
+		stdin_data, stdin_ok = read_all_stdin(context.temp_allocator)
+	}
+
+	if has_args && stdin_ok && len(stdin_data) > 0 {
+		cap_n := stdin_context_max_chars()
+		body := stdin_data
+		if len(body) > cap_n {
+			body = body[:cap_n]
+		}
+		strings.write_string(&b, "[stdin context]\n")
+		strings.write_string(&b, body)
+		strings.write_string(&b, "\n\n")
+	}
+
 	if len(positional) > 0 {
 		strings.write_string(&b, positional)
 	}
@@ -568,14 +679,8 @@ build_prompt :: proc(positional: string, message_file: string, read_stdin: bool,
 		}
 		strings.write_string(&b, string(data))
 	}
-	if read_stdin {
-		data, ok := read_all_stdin(context.temp_allocator)
-		if ok && len(data) > 0 {
-			if strings.builder_len(b) > 0 {
-				strings.write_string(&b, "\n\n")
-			}
-			strings.write_string(&b, data)
-		}
+	if !has_args && len(message_file) == 0 && stdin_ok && len(stdin_data) > 0 {
+		strings.write_string(&b, stdin_data)
 	}
 	return strings.to_string(b), ""
 }

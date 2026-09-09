@@ -19,6 +19,7 @@ registry_init :: proc(r: ^Registry) {
 	r.providers = make([dynamic]Provider)
 	registry_register(r, make_ollama())
 	registry_register(r, make_lmstudio())
+	registry_register(r, make_llamacpp())
 	registry_register(r, make_openai())
 	registry_register(r, make_openai_compat())
 	registry_register(r, make_openrouter())
@@ -110,8 +111,31 @@ normalize_provider_id :: proc(id: string, allocator := context.temp_allocator) -
 		return "nvidia"
 	case "co":
 		return "cohere"
+	case "llama.cpp", "llama-cpp", "llama":
+		return "llamacpp"
+	case "lm-studio":
+		return "lmstudio"
 	}
 	return s
+}
+
+provider_env_set :: proc() -> bool {
+	if id, ok := os.lookup_env(constants.ENV_PROVIDER, context.temp_allocator); ok {
+		return len(strings.trim_space(id)) > 0
+	}
+	return false
+}
+
+registry_auto_select_local :: proc(r: ^Registry) -> bool {
+	if !local_probe_enabled_from_env() || provider_env_set() {
+		return false
+	}
+	for id in LOCAL_PROBE_IDS {
+		if probe_local_provider(id, 2) {
+			return registry_set_active(r, id)
+		}
+	}
+	return false
 }
 
 registry_cycle :: proc(r: ^Registry, delta: int) {
@@ -126,8 +150,12 @@ registry_cycle :: proc(r: ^Registry, delta: int) {
 }
 
 registry_select_from_env :: proc(r: ^Registry) {
-	if id, ok := os.lookup_env(constants.ENV_PROVIDER, context.temp_allocator); ok {
-		_ = registry_set_active(r, id)
+	if provider_env_set() {
+		if id, ok := os.lookup_env(constants.ENV_PROVIDER, context.temp_allocator); ok {
+			_ = registry_set_active(r, id)
+		}
+	} else {
+		_ = registry_auto_select_local(r)
 	}
 	p := registry_active(r)
 	if p == nil {

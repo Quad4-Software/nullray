@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: 0BSD
 package sandbox
 
+import "core:fmt"
 import "core:os"
 import "core:testing"
 import "nullray:constants"
@@ -94,9 +95,9 @@ test_shell_secret_abs_env_local :: proc(t: ^testing.T) {
 @(test)
 test_shell_secret_quote_concat_current :: proc(t: ^testing.T) {
 	os.unset_env(constants.ENV_SECRETS_ALLOW)
-	// fields() tokenization misses quote-split names today.
+	// Quote-stripped scan catches split basenames.
 	blocked, _ := shell_mentions_secret("cat .e''nv")
-	testing.expect(t, !blocked)
+	testing.expect(t, blocked)
 }
 
 @(test)
@@ -110,14 +111,12 @@ test_shell_secret_redir_no_space_substring :: proc(t: ^testing.T) {
 test_shell_secret_var_indirection_current :: proc(t: ^testing.T) {
 	os.unset_env(constants.ENV_SECRETS_ALLOW)
 	blocked, _ := shell_mentions_secret("x=.env; cat $x")
-	// Substring ".env" in the command still trips the name scan.
 	testing.expect(t, blocked)
 }
 
 @(test)
 test_secret_homoglyph_env_current :: proc(t: ^testing.T) {
 	os.unset_env(constants.ENV_SECRETS_ALLOW)
-	// Cyrillic ye in place of Latin e: not matched by ASCII heuristics today.
 	cyrillic := "/tmp/proj/.еnv"
 	testing.expect(t, !path_is_secret_blocked(cyrillic))
 }
@@ -126,4 +125,29 @@ test_secret_homoglyph_env_current :: proc(t: ^testing.T) {
 test_secret_trailing_space_basename_current :: proc(t: ^testing.T) {
 	os.unset_env(constants.ENV_SECRETS_ALLOW)
 	testing.expect(t, !path_is_secret_blocked("/tmp/proj/.env "))
+}
+
+@(test)
+test_secret_nullray_env_blocked :: proc(t: ^testing.T) {
+	os.unset_env(constants.ENV_SECRETS_ALLOW)
+	testing.expect(t, path_is_secret_blocked("/home/u/.config/nullray/env"))
+	testing.expect(t, !path_is_secret_blocked("/tmp/proj/env"))
+}
+
+@(test)
+test_secret_symlink_to_env :: proc(t: ^testing.T) {
+	os.unset_env(constants.ENV_SECRETS_ALLOW)
+	dir := "/tmp/nullray-secret-symlink-test"
+	_ = os.remove_all(dir)
+	_ = os.make_directory_all(dir)
+	defer _ = os.remove_all(dir)
+	env_path := fmt.tprintf("%s/.env", dir)
+	leak_path := fmt.tprintf("%s/leak", dir)
+	_ = os.write_entire_file(env_path, transmute([]u8)string("K=1\n"))
+	when ODIN_OS != .Windows {
+		err := os.symlink(env_path, leak_path)
+		if err == nil {
+			testing.expect(t, path_is_secret_blocked(leak_path))
+		}
+	}
 }

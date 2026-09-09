@@ -12,6 +12,7 @@ import "core:strings"
 import "nullray:agent"
 import "nullray:config"
 import "nullray:constants"
+import "nullray:hooks"
 import "nullray:provider"
 import "nullray:sandbox"
 import "nullray:session"
@@ -126,6 +127,20 @@ slash_cmd_compact :: proc(a: ^App, args: string) {
 	_ = session.session_compact_with_provider(&a.session, p)
 }
 
+slash_cmd_drop :: proc(a: ^App, args: string) {
+	rest := strings.trim_space(args)
+	if len(rest) == 0 {
+		session.session_set_status(&a.session, "usage: /drop N")
+		return
+	}
+	n, ok := strconv.parse_int(rest)
+	if !ok || n <= 0 {
+		session.session_set_status(&a.session, "usage: /drop N")
+		return
+	}
+	_ = session.session_drop_pairs(&a.session, n)
+}
+
 slash_cmd_tools :: proc(a: ^App, args: string) {
 	_ = args
 	a.session.tools_enabled = !a.session.tools_enabled
@@ -190,35 +205,56 @@ slash_cmd_resume :: proc(a: ^App, args: string) {
 }
 
 slash_cmd_name :: proc(a: ^App, args: string) {
-	name := strings.trim_space(args)
-	if len(name) == 0 {
-		session.session_set_status(&a.session, "usage: /name name")
+	rest := strings.trim_space(args)
+	force := false
+	name := rest
+	if strings.has_suffix(rest, " --force") {
+		force = true
+		name = strings.trim_space(rest[:len(rest) - len(" --force")])
+	} else if strings.has_prefix(rest, "--force ") {
+		force = true
+		name = strings.trim_space(rest[len("--force "):])
+	} else if rest == "--force" {
+		session.session_set_status(&a.session, "usage: /name NAME [--force]")
 		return
 	}
-	_ = session.session_rename(&a.session, name)
-	subagent.runtime_set_session(&a.subagents, a.session.session_path, a.session.persist)
-	provider.set_session(a.session.name)
+	if len(name) == 0 {
+		session.session_set_status(&a.session, "usage: /name NAME [--force]")
+		return
+	}
+	if session.session_rename(&a.session, name, force) {
+		subagent.runtime_set_session(&a.subagents, a.session.session_path, a.session.persist)
+		provider.set_session(a.session.name)
+	}
 }
 
 slash_cmd_new :: proc(a: ^App, args: string) {
 	name := strings.trim_space(args)
-	if len(name) == 0 {
-		name = "session"
+	if session.session_new(&a.session, name) {
+		subagent.runtime_set_session(&a.subagents, a.session.session_path, a.session.persist)
+		provider.set_session(a.session.name)
 	}
-	_ = session.session_new(&a.session, name)
-	subagent.runtime_set_session(&a.subagents, a.session.session_path, a.session.persist)
-	provider.set_session(a.session.name)
 }
 
 slash_cmd_fork :: proc(a: ^App, args: string) {
-	name := strings.trim_space(args)
+	rest := strings.trim_space(args)
+	force := false
+	name := rest
+	if strings.has_suffix(rest, " --force") {
+		force = true
+		name = strings.trim_space(rest[:len(rest) - len(" --force")])
+	} else if strings.has_prefix(rest, "--force ") {
+		force = true
+		name = strings.trim_space(rest[len("--force "):])
+	}
 	if len(name) == 0 {
-		session.session_set_status(&a.session, "usage: /fork name")
+		session.session_set_status(&a.session, "usage: /fork NAME [--force]")
 		return
 	}
-	_ = session.session_fork(&a.session, name)
-	subagent.runtime_set_session(&a.subagents, a.session.session_path, a.session.persist)
-	provider.set_session(a.session.name)
+	if session.session_fork(&a.session, name, force) {
+		subagent.runtime_set_session(&a.subagents, a.session.session_path, a.session.persist)
+		provider.set_session(a.session.name)
+	}
 }
 
 slash_cmd_delete :: proc(a: ^App, args: string) {
@@ -274,6 +310,91 @@ slash_cmd_mode :: proc(a: ^App, args: string) {
 		return
 	}
 	session.session_set_mode(&a.session, m)
+}
+
+slash_cmd_hunt :: proc(a: ^App, args: string) {
+	rest := strings.trim_space(args)
+	if len(rest) == 0 {
+		p := agent.hunt_from_env()
+		samp := agent.sampling_from_env(p)
+		label := agent.sampling_label(samp, context.temp_allocator)
+		session.session_set_status(
+			&a.session,
+			fmt.tprintf("hunt %s %s (off|auto|balanced|explore|oracle|adversarial)", agent.hunt_profile_string(p), label),
+		)
+		return
+	}
+	p, ok := agent.hunt_profile_from_string(rest)
+	if !ok {
+		session.session_set_status(&a.session, "usage: /hunt off|auto|balanced|explore|oracle|adversarial")
+		return
+	}
+	if p == .Off {
+		os.unset_env(constants.ENV_HUNT)
+		os.unset_env(constants.ENV_HUNT_PHASE)
+	} else {
+		os.set_env(constants.ENV_HUNT, agent.hunt_profile_string(p))
+		if p == .Auto {
+			agent.hunt_set_phase(.Explore)
+		}
+		if a.session.agent_mode != .Review {
+			session.session_set_mode(&a.session, .Review)
+		}
+	}
+	session.session_rebuild_system_prompt(&a.session)
+	samp := agent.sampling_from_env(p)
+	label := agent.sampling_label(samp, context.temp_allocator)
+	session.session_set_status(&a.session, fmt.tprintf("hunt %s %s", agent.hunt_profile_string(p), label))
+}
+
+slash_cmd_temp :: proc(a: ^App, args: string) {
+	rest := strings.trim_space(args)
+	if len(rest) == 0 {
+		if v, ok := os.lookup_env(constants.ENV_TEMPERATURE, context.temp_allocator); ok {
+			session.session_set_status(&a.session, fmt.tprintf("temp %s", v))
+		} else {
+			session.session_set_status(&a.session, "temp default (usage: /temp 0-2|off)")
+		}
+		return
+	}
+	low := strings.to_lower(rest, context.temp_allocator)
+	if low == "off" || low == "default" {
+		os.unset_env(constants.ENV_TEMPERATURE)
+		session.session_set_status(&a.session, "temp default")
+		return
+	}
+	n, n_ok := strconv.parse_f64(rest)
+	if !n_ok || n < 0 || n > 2 {
+		session.session_set_status(&a.session, "usage: /temp 0-2|off")
+		return
+	}
+	os.set_env(constants.ENV_TEMPERATURE, fmt.tprintf("%g", n))
+	session.session_set_status(&a.session, fmt.tprintf("temp %g", n))
+}
+
+slash_cmd_top_p :: proc(a: ^App, args: string) {
+	rest := strings.trim_space(args)
+	if len(rest) == 0 {
+		if v, ok := os.lookup_env(constants.ENV_TOP_P, context.temp_allocator); ok {
+			session.session_set_status(&a.session, fmt.tprintf("top_p %s", v))
+		} else {
+			session.session_set_status(&a.session, "top_p default (usage: /top_p 0-1|off)")
+		}
+		return
+	}
+	low := strings.to_lower(rest, context.temp_allocator)
+	if low == "off" || low == "default" {
+		os.unset_env(constants.ENV_TOP_P)
+		session.session_set_status(&a.session, "top_p default")
+		return
+	}
+	n, n_ok := strconv.parse_f64(rest)
+	if !n_ok || n <= 0 || n > 1 {
+		session.session_set_status(&a.session, "usage: /top_p 0-1|off")
+		return
+	}
+	os.set_env(constants.ENV_TOP_P, fmt.tprintf("%g", n))
+	session.session_set_status(&a.session, fmt.tprintf("top_p %g", n))
 }
 
 slash_cmd_model :: proc(a: ^App, args: string) {
@@ -435,27 +556,31 @@ slash_cmd_status :: proc(a: ^App, args: string) {
 	if len(stopped) == 0 {
 		stopped = "-"
 	}
-	session.session_set_status(
-		&a.session,
-		fmt.tprintf(
-			"mode=%s sandbox_applied=%v %s ask_simple=%v plan_ok=%v verify=%s fails=%d chars=%d/%d peak=%d tok=%d/%d %s stopped=%s plan=%s",
-			agent.mode_string(a.session.agent_mode),
-			sandbox_applied,
-			ops_line,
-			agent.ask_simple_from_env(),
-			a.session.plan_contract_ok,
-			verify,
-			a.session.verify_fail_count,
-			a.session.last_input_chars,
-			char_budget,
-			a.session.peak_input_chars,
-			a.session.last_usage.total_tokens,
-			a.session.session_usage.total_tokens,
-			cost_line,
-			stopped,
-			plan,
-		),
+	body := fmt.tprintf(
+		"mode=%s\nhunt=%s\nsandbox_applied=%v\n%s\nask_simple=%v\nplan_ok=%v\nverify=%s\nfails=%d\nchars=%d/%d\npeak=%d\ntok=%d/%d\n%s\nstopped=%s\nplan=%s\nview_auto=%v",
+		agent.mode_string(a.session.agent_mode),
+		agent.hunt_profile_string(agent.hunt_from_env()),
+		sandbox_applied,
+		ops_line,
+		agent.ask_simple_from_env(),
+		a.session.plan_contract_ok,
+		verify,
+		a.session.verify_fail_count,
+		a.session.last_input_chars,
+		char_budget,
+		a.session.peak_input_chars,
+		a.session.last_usage.total_tokens,
+		a.session.session_usage.total_tokens,
+		cost_line,
+		stopped,
+		plan,
+		a.view_auto,
 	)
+	delete(a.status_body)
+	a.status_body = strings.clone(body)
+	a.status_scroll = 0
+	a.show_status = true
+	app_mark_dirty(a)
 }
 
 slash_cmd_ops :: proc(a: ^App, args: string) {
@@ -564,14 +689,72 @@ slash_cmd_perms :: proc(a: ^App, args: string) {
 	if p == .Yolo {
 		os.set_env(constants.ENV_SHELL_CONFIRM, "0")
 		os.set_env(constants.ENV_AUTONOMY, "1")
+		os.set_env(constants.ENV_GATE, "3")
 	} else if p == .Ask {
 		os.unset_env(constants.ENV_AUTONOMY)
 		os.set_env(constants.ENV_SHELL_CONFIRM, "1")
+		// Shell-confirm UX stays at gate 2. Use /gate ask for read-only.
+		os.set_env(constants.ENV_GATE, "2")
 	} else {
 		os.unset_env(constants.ENV_AUTONOMY)
 		os.unset_env(constants.ENV_SHELL_CONFIRM)
+		os.set_env(constants.ENV_GATE, "2")
 	}
-	session.session_set_status(&a.session, fmt.tprintf("perms %s", tools.perms_string(p)))
+	session.session_set_status(&a.session, fmt.tprintf("perms %s gate %s", tools.perms_string(p), tools.gate_string(tools.gate_from_env())))
+}
+
+slash_cmd_quirks :: proc(a: ^App, args: string) {
+	_ = args
+	model := a.session.model
+	p := provider.registry_active(&a.registry)
+	if p != nil && len(p.default_model) > 0 && len(model) == 0 {
+		model = p.default_model
+	}
+	body := provider.quirks_active_labels(model, context.temp_allocator)
+	session.session_set_status(&a.session, body)
+}
+
+slash_cmd_gate :: proc(a: ^App, args: string) {
+	rest := strings.trim_space(args)
+	if len(rest) == 0 {
+		session.session_set_status(
+			&a.session,
+			fmt.tprintf("gate %s (0 read | 1 write | 2 shell | 3 destructive)", tools.gate_label(tools.gate_from_env())),
+		)
+		return
+	}
+	g, ok := tools.gate_parse(rest)
+	if !ok {
+		session.session_set_status(&a.session, "usage: /gate 0..3|ask|allow|yolo")
+		return
+	}
+	os.set_env(constants.ENV_GATE, tools.gate_string(g))
+	switch g {
+	case 0:
+		os.set_env(constants.ENV_PERMS, "ask")
+		os.set_env(constants.ENV_SHELL_CONFIRM, "1")
+		os.unset_env(constants.ENV_AUTONOMY)
+	case 1, 2:
+		os.set_env(constants.ENV_PERMS, "allow")
+		os.unset_env(constants.ENV_SHELL_CONFIRM)
+		os.unset_env(constants.ENV_AUTONOMY)
+	case 3:
+		os.set_env(constants.ENV_PERMS, "yolo")
+		os.set_env(constants.ENV_SHELL_CONFIRM, "0")
+		os.set_env(constants.ENV_AUTONOMY, "1")
+	}
+	session.session_set_status(&a.session, fmt.tprintf("gate %s", tools.gate_label(g)))
+}
+
+slash_cmd_hooks :: proc(a: ^App, args: string) {
+	rest := strings.trim_space(args)
+	if rest == "trust" || rest == "approve" {
+		_ = hooks.hooks_trust_workspace()
+		session.session_set_status(&a.session, "workspace hooks trusted")
+		return
+	}
+	path := hooks.hooks_workspace_source(context.temp_allocator)
+	session.session_set_status(&a.session, fmt.tprintf("hooks: %s · /hooks trust to re-approve", path))
 }
 
 slash_cmd_improve :: proc(a: ^App, args: string) {
@@ -803,7 +986,8 @@ slash_cmd_copy :: proc(a: ^App, args: string) {
 		session.session_set_status(&a.session, "nothing to copy")
 		return
 	}
-	if ui.clipboard_copy(last) {
+	safe := sandbox.redact_secrets(last, context.temp_allocator)
+	if ui.clipboard_copy(safe) {
 		app_toast_ok(a, "copied to clipboard")
 		session.session_set_status(&a.session, "last reply on clipboard")
 	} else {
@@ -846,7 +1030,24 @@ slash_cmd_view :: proc(a: ^App, args: string) {
 			session.session_set_status(&a.session, "view closed")
 			return
 		}
-		session.session_set_status(&a.session, "usage: /view path")
+		session.session_set_status(&a.session, "usage: /view path|auto on|off")
+		return
+	}
+	low := strings.to_lower(path, context.temp_allocator)
+	if strings.has_prefix(low, "auto") {
+		rest := strings.trim_space(path[4:])
+		r := strings.to_lower(rest, context.temp_allocator)
+		switch r {
+		case "", "on", "1", "true":
+			a.view_auto = true
+			session.session_set_status(&a.session, "view auto on")
+		case "off", "0", "false":
+			a.view_auto = false
+			session.session_set_status(&a.session, "view auto off")
+		case:
+			session.session_set_status(&a.session, "usage: /view auto on|off")
+		}
+		app_mark_dirty(a)
 		return
 	}
 	_ = app_view_open(a, path)

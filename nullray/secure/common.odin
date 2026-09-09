@@ -75,7 +75,17 @@ walk_files :: proc(
 	}
 	defer os.file_info_slice_delete(entries, context.temp_allocator)
 	for entry in entries {
-		if entry.name == ".git" || entry.name == "node_modules" || entry.name == "bin" || entry.name == ".cache" {
+		if entry.name == ".git" ||
+		   entry.name == "node_modules" ||
+		   entry.name == "bin" ||
+		   entry.name == ".cache" ||
+		   entry.name == "vendor" ||
+		   entry.name == "third_party" ||
+		   entry.name == ".venv" ||
+		   entry.name == "coverage" ||
+		   entry.name == "dist" ||
+		   entry.name == "target" ||
+		   entry.name == "__pycache__" {
 			continue
 		}
 		child, jerr := filepath.join({dir, entry.name}, context.temp_allocator)

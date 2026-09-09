@@ -38,6 +38,10 @@ Chat_Request :: struct {
 	tool_choice:      string,
 	reasoning_effort: string,
 	max_tokens:       int,
+	temperature:      f64,
+	top_p:            f64,
+	temperature_set:  bool,
+	top_p_set:        bool,
 	on_tool_seal:     Tool_Seal_Proc,
 	seal_user:        rawptr,
 }

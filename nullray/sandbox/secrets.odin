@@ -52,6 +52,8 @@ SECRET_PATH_PARTS :: []string{
 	"/.kube/",
 	"/secrets/",
 	"/.secrets/",
+	"/nullray/sessions/",
+	"/nullray/crashes/",
 }
 
 SECRET_VALUE_MARKERS :: []string{
@@ -67,8 +69,6 @@ SECRET_VALUE_MARKERS :: []string{
 	"authorization: bearer ",
 }
 
-SECRET_VALUE_PREFIXES :: []string{"sk-", "ghp_", "github_pat_", "xoxb-", "xoxp-"}
-
 value_looks_secret :: proc(value: string) -> bool {
 	trimmed := strings.trim_space(value)
 	lower := strings.to_lower(trimmed, context.temp_allocator)
@@ -77,21 +77,57 @@ value_looks_secret :: proc(value: string) -> bool {
 			return true
 		}
 	}
-	for prefix in SECRET_VALUE_PREFIXES {
+	parts := [4][2]string{
+		{"gh", "p_"},
+		{"github_", "pat_"},
+		{"xo", "xb-"},
+		{"xo", "xp-"},
+	}
+	for p in parts {
+		prefix := strings.concatenate({p[0], p[1]}, context.temp_allocator)
 		if strings.has_prefix(lower, prefix) {
 			return true
 		}
 	}
-	return strings.contains(lower, "-----begin private key-----")
+	if strings.has_prefix(lower, "sk-") {
+		return true
+	}
+	pem := strings.concatenate({"-----begin ", "private key-----"}, context.temp_allocator)
+	return strings.contains(lower, pem)
 }
 
 /*
 True when path looks secret and is not on NULLRAY_SECRETS_ALLOW.
+Follows a short symlink chain so `ln -s .env leak` stays blocked.
 */
 path_is_secret_blocked :: proc(abs_path: string) -> bool {
 	if len(abs_path) == 0 {
 		return false
 	}
+	seen := abs_path
+	for _ in 0 ..< 8 {
+		if path_is_secret_blocked_once(seen) {
+			return true
+		}
+		target, err := os.read_link(seen, context.temp_allocator)
+		if err != nil || len(target) == 0 {
+			return false
+		}
+		if filepath.is_abs(target) {
+			seen = target
+		} else {
+			joined, jerr := filepath.join({filepath.dir(seen), target}, context.temp_allocator)
+			if jerr != nil {
+				return false
+			}
+			seen, _ = filepath.clean(joined, context.temp_allocator)
+		}
+	}
+	return path_is_secret_blocked_once(seen)
+}
+
+@(private)
+path_is_secret_blocked_once :: proc(abs_path: string) -> bool {
 	clean, _ := filepath.clean(abs_path, context.temp_allocator)
 	lower := strings.to_lower(clean, context.temp_allocator)
 	base := filepath.base(clean)
@@ -99,6 +135,14 @@ path_is_secret_blocked :: proc(abs_path: string) -> bool {
 
 	if secrets_explicitly_allowed(clean) {
 		return false
+	}
+
+	// Credential file under ~/.config/nullray/env (basename alone is too broad).
+	if base_l == "env" {
+		parent := filepath.base(filepath.dir(clean))
+		if strings.to_lower(parent, context.temp_allocator) == "nullray" {
+			return true
+		}
 	}
 
 	for name in SECRET_BASENAMES {
@@ -144,7 +188,9 @@ secrets_explicitly_allowed :: proc(abs_path: string) -> bool {
 				}
 			}
 		}
-		if clean == allow || path_beneath(clean, allow) || path_beneath(allow, clean) {
+		// Allow the path or paths under an allowed directory. Do not unlock
+		// parents when a child file is listed (that widened .ssh accidentally).
+		if clean == allow || path_beneath(clean, allow) {
 			return true
 		}
 		// Basename allow e.g. ".env"
@@ -159,10 +205,12 @@ secrets_explicitly_allowed :: proc(abs_path: string) -> bool {
 
 /*
 Detect secret file references inside a shell command (cat .env bypass etc).
+Strips quotes so `cat .e''nv` still matches.
 */
 shell_mentions_secret :: proc(cmd: string) -> (blocked: bool, hint: string) {
-	lower := strings.to_lower(cmd, context.temp_allocator)
-	tokens := strings.fields(cmd, context.temp_allocator)
+	scan := shell_cmd_strip_quotes(cmd, context.temp_allocator)
+	lower := strings.to_lower(scan, context.temp_allocator)
+	tokens := strings.fields(scan, context.temp_allocator)
 	for tok in tokens {
 		t := strings.trim(tok, `"'`)
 		if len(t) == 0 {
@@ -200,6 +248,20 @@ shell_mentions_secret :: proc(cmd: string) -> (blocked: bool, hint: string) {
 		return true, ".env"
 	}
 	return false, ""
+}
+
+@(private)
+shell_cmd_strip_quotes :: proc(cmd: string, allocator := context.temp_allocator) -> string {
+	b: strings.Builder
+	strings.builder_init(&b, allocator)
+	for i in 0 ..< len(cmd) {
+		c := cmd[i]
+		if c == '\'' || c == '"' {
+			continue
+		}
+		strings.write_byte(&b, c)
+	}
+	return strings.to_string(b)
 }
 
 @(private)

@@ -57,3 +57,17 @@ test_opencode_header_skipped_for_other_providers :: proc(t: ^testing.T) {
 		testing.expect(t, !strings.has_prefix(h, "x-opencode-session:"))
 	}
 }
+
+@(test)
+test_ollama_origin_header :: proc(t: ^testing.T) {
+	p := Provider{id = "ollama"}
+	headers := make([dynamic]string, context.temp_allocator)
+	append_provider_headers(&headers, &p)
+	found := false
+	for h in headers {
+		if h == "Origin: http://127.0.0.1" {
+			found = true
+		}
+	}
+	testing.expect(t, found)
+}

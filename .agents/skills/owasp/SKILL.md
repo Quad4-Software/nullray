@@ -7,7 +7,9 @@ description: >
 
 # OWASP review
 
-Start with `audit_owasp` and `audit_deps`, then inspect data flow manually.
+Start with audit_owasp and audit_deps (or --audit). Then trace data flow by hand.
+
+audit_owasp flags secrets and tokens, shell/eval sinks, SQL string concat, XSS sinks, path traversal near file opens, and a few unsafe deserializers. It does not prove absence of vulns.
 
 ## Review order
 
@@ -20,4 +22,4 @@ Start with `audit_owasp` and `audit_deps`, then inspect data flow manually.
 7. Check logs and errors for credentials, tokens, personal data, and internal paths.
 8. Add negative tests for denied access and malformed input.
 
-Pattern scanners find a limited class of mistakes. Report their scope and inspect context before assigning severity.
+Report scanner scope when citing audit_* results. Inspect context before severity.

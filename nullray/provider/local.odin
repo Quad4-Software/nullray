@@ -1,13 +1,27 @@
 // SPDX-License-Identifier: 0BSD
 /*
-Ollama and LM Studio helpers beyond plain OpenAI-compat.
+Ollama, LM Studio, and llama.cpp helpers beyond plain OpenAI-compat.
 */
 
 package provider
 
 import "core:encoding/json"
+import "core:os"
 import "core:strings"
+import "nullray:constants"
 import "nullray:http"
+
+LOCAL_PROBE_IDS :: []string{"ollama", "lmstudio", "llamacpp"}
+
+local_probe_enabled_from_env :: proc() -> bool {
+	if v, ok := os.lookup_env(constants.ENV_LOCAL_PROBE, context.temp_allocator); ok {
+		switch strings.to_lower(strings.trim_space(v), context.temp_allocator) {
+		case "0", "false", "off", "no", "disable", "disabled":
+			return false
+		}
+	}
+	return true
+}
 
 ollama_list_models :: proc(p: ^Provider, allocator := context.allocator) -> (models: []Model_Info, err: string) {
 	return ollama_list_models_timeout(p, 30, allocator)
@@ -67,8 +81,26 @@ lmstudio_list_models_timeout :: proc(
 	return openai_list_models_timeout(p, timeout_sec, allocator)
 }
 
-// Short probe used by TUI setup. Does not run in headless paths.
+llamacpp_list_models :: proc(p: ^Provider, allocator := context.allocator) -> (models: []Model_Info, err: string) {
+	return openai_list_models(p, allocator)
+}
+
+llamacpp_list_models_timeout :: proc(
+	p: ^Provider,
+	timeout_sec: int,
+	allocator := context.allocator,
+) -> (
+	models: []Model_Info,
+	err: string,
+) {
+	return openai_list_models_timeout(p, timeout_sec, allocator)
+}
+
+// Short HTTP probe for local OpenAI-compat hosts (setup, readiness, auto-select).
 probe_local_provider :: proc(id: string, timeout_sec := 2) -> bool {
+	if !local_probe_enabled_from_env() {
+		return false
+	}
 	p: Provider
 	switch id {
 	case "ollama":
@@ -82,6 +114,13 @@ probe_local_provider :: proc(id: string, timeout_sec := 2) -> bool {
 		p = make_lmstudio()
 		defer provider_destroy(&p)
 		models, err := lmstudio_list_models_timeout(&p, timeout_sec)
+		defer destroy_models(models)
+		defer delete(err)
+		return err == "" && len(models) > 0
+	case "llamacpp":
+		p = make_llamacpp()
+		defer provider_destroy(&p)
+		models, err := llamacpp_list_models_timeout(&p, timeout_sec)
 		defer destroy_models(models)
 		defer delete(err)
 		return err == "" && len(models) > 0

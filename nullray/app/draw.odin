@@ -32,6 +32,9 @@ Transcript_Block :: struct {
 	is_code:      bool,
 	lang:         string,
 	is_md:        bool,
+	expand_kind:  string,
+	expand_id:    string,
+	expand_body:  string,
 }
 
 CODE_PREVIEW_LINES :: 16
@@ -221,6 +224,8 @@ app_append_md_content :: proc(
 				is_code = true,
 				lang = lang,
 				caret = caret && is_last,
+				expand_kind = "code",
+				expand_body = b.body,
 			})
 			first = false
 		case .Text:
@@ -275,7 +280,7 @@ tool_artifact_stub :: proc(content: string, allocator := context.allocator) -> (
 		head = content[:nl]
 	}
 	if len(head) > 120 {
-		head = head[:120]
+		head = ui.truncate_utf8_bytes(head, 120)
 	}
 	return fmt.aprintf("%s (expand: /artifact %s)", head, id, allocator = allocator), true
 }
@@ -341,9 +346,26 @@ app_collect_blocks :: proc(a: ^App, accent: ui.Color, allocator := context.temp_
 
 		pfx := fmt.tprintf("%s  ", label)
 		body := m.content
+		expand_kind := ""
+		expand_id := ""
 		if m.role == .Tool {
 			if stub, ok := tool_artifact_stub(m.content, context.temp_allocator); ok {
 				body = stub
+				expand_kind = "artifact"
+				idx := strings.index(m.content, "artifact=")
+				if idx >= 0 {
+					rest := m.content[idx + len("artifact="):]
+					end := 0
+					for end < len(rest) {
+						c := rest[end]
+						if (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || (c >= '0' && c <= '9') || c == '-' || c == '_' {
+							end += 1
+							continue
+						}
+						break
+					}
+					expand_id = rest[:end]
+				}
 			}
 		}
 		if render_md {
@@ -360,6 +382,8 @@ app_collect_blocks :: proc(a: ^App, accent: ui.Color, allocator := context.temp_
 				has_bg = has_bg,
 				gutter = gutter,
 				is_md = true,
+				expand_kind = expand_kind,
+				expand_id = expand_id,
 			})
 		}
 	}
@@ -435,6 +459,7 @@ app_collect_blocks :: proc(a: ^App, accent: ui.Color, allocator := context.temp_
 
 @(private)
 app_draw_blocks :: proc(
+	a: ^App,
 	buf: ^ui.Buffer,
 	blocks: []Transcript_Block,
 	heights: []int,
@@ -473,7 +498,11 @@ app_draw_blocks :: proc(
 		}
 
 		if block.is_code {
+			y_start := y
 			used := app_draw_code_block(buf, block, y, remain, local_skip, area_x, content_w)
+			if a != nil && len(block.expand_kind) > 0 && used > 0 {
+				app_expand_hit_push(a, y_start, y_start + used - 1, block.expand_kind, block.expand_id, block.expand_body)
+			}
 			y += used
 			remain -= used
 			continue
@@ -490,6 +519,7 @@ app_draw_blocks :: proc(
 
 		bw := block_body_width(content_w, block.prefix)
 		px := area_x + CONTENT_X + ui.string_cols(block.prefix)
+		y_start := y
 
 		if local_skip == 0 {
 			if block.gutter {
@@ -503,6 +533,9 @@ app_draw_blocks :: proc(
 		body := block.body
 		if len(body) == 0 {
 			if local_skip == 0 {
+				if a != nil && len(block.expand_kind) > 0 {
+					app_expand_hit_push(a, y_start, y_start, block.expand_kind, block.expand_id, block.expand_body)
+				}
 				y += 1
 				remain -= 1
 			}
@@ -524,6 +557,9 @@ app_draw_blocks :: proc(
 		if block.caret && local_skip + used >= h {
 			end_col := ui.wrap_last_line_cols(ui.md_strip_inline_ticks(body), bw)
 			ui.draw_stream_caret(buf, px, y + used - 1, end_col, caret_fg, caret_bg)
+		}
+		if a != nil && len(block.expand_kind) > 0 && used > 0 {
+			app_expand_hit_push(a, y_start, y_start + used - 1, block.expand_kind, block.expand_id, block.expand_body)
 		}
 		y += used
 		remain -= used
@@ -654,7 +690,8 @@ app_draw :: proc(buf: ^ui.Buffer, user: rawptr) {
 	a.help_btn_x = max(1, buf.width - ui.string_cols(ver) - 1)
 
 	mid_x := max(string_cols_safe(title) + 2, 1)
-	counts := fmt.tprintf("%d sess · %d live", a.banner_sess, a.banner_live)
+	mode_chip := agent.mode_string(a.session.agent_mode)
+	counts := fmt.tprintf("%s · %d sess · %d live", mode_chip, a.banner_sess, a.banner_live)
 	count_end := mid_x + ui.string_cols(counts) + 2
 	ui.buffer_text_clip(buf, mid_x, 0, min(count_end, a.help_btn_x - 1), counts, t.accent, t.status_bg)
 
@@ -691,12 +728,19 @@ app_draw :: proc(buf: ^ui.Buffer, user: rawptr) {
 		a.dirty = false
 		return
 	}
+	if a.show_status {
+		app_draw_status_overlay(buf, a)
+		a.dirty = false
+		return
+	}
 
+	input_rows := app_input_rows(a, buf.width)
 	msg_top := 2
-	msg_bottom := buf.height - 4
+	msg_bottom := buf.height - 3 - input_rows
 	msg_h := max(msg_bottom - msg_top + 1, 1)
 
 	lay := app_view_layout(a, buf.width, buf.height)
+	app_expand_hits_clear(a)
 
 	if !(lay.open && lay.overlay) {
 		content_w := buf.width
@@ -707,10 +751,17 @@ app_draw :: proc(buf: ^ui.Buffer, user: rawptr) {
 		blocks := app_collect_blocks(a, accent)
 		heights := make([]int, len(blocks), context.temp_allocator)
 		total_h := 0
+		frozen_n := layout_frozen_count(a, blocks)
+		reuse := layout_cache_key_match(a, content_w, accent) && a.layout_cache.frozen_count == frozen_n
 		for b, i in blocks {
-			heights[i] = block_height(b, content_w)
+			if reuse && i < frozen_n {
+				heights[i] = a.layout_cache.frozen_heights[i]
+			} else {
+				heights[i] = block_height(b, content_w)
+			}
 			total_h += heights[i]
 		}
+		layout_cache_store_frozen(a, heights, frozen_n, content_w, accent)
 
 		if a.follow {
 			a.scroll = 0
@@ -723,14 +774,14 @@ app_draw :: proc(buf: ^ui.Buffer, user: rawptr) {
 			a.follow = true
 		}
 		skip := max(0, total_h - msg_h - a.scroll)
-		app_draw_blocks(buf, blocks, heights, msg_top, msg_h, skip, t.accent, t.bg, 0, content_w)
+		app_draw_blocks(a, buf, blocks, heights, msg_top, msg_h, skip, t.accent, t.bg, 0, content_w)
 	}
 
 	if lay.open {
 		app_draw_view_pane(buf, a, lay)
 	}
 
-	ui.buffer_hline(buf, 0, buf.height - 3, buf.width, '─', t.border, t.bg)
+	ui.buffer_hline(buf, 0, buf.height - 2 - input_rows, buf.width, '─', t.border, t.bg)
 
 	status_left := a.session.status
 	status_fg := t.status_fg
@@ -769,7 +820,8 @@ app_draw :: proc(buf: ^ui.Buffer, user: rawptr) {
 	} else if a.sel_has || a.sel_dragging {
 		help = "drag select · /copy · Esc clear"
 	}
-	ui.draw_status_bar_ex(buf, buf.height - 2, status_left, help, status_fg, t.muted, t.status_bg)
+	status_y := buf.height - 1 - input_rows
+	ui.draw_status_bar_ex(buf, status_y, status_left, help, status_fg, t.muted, t.status_bg)
 
 	cap_x1 := buf.width - 1
 	if lay.open && !lay.overlay {
@@ -777,14 +829,38 @@ app_draw :: proc(buf: ^ui.Buffer, user: rawptr) {
 	}
 	app_sel_capture_buffer(a, buf, msg_top, msg_bottom, 0, cap_x1)
 
-	text := strings.to_string(a.input)
-	ui.draw_input_line(buf, buf.height - 1, "❯ ", text, a.cursor, t.fg, t.input_bg, t.accent)
+	app_draw_input_box(buf, a, buf.height - input_rows, input_rows, t.fg, t.input_bg, t.accent)
 	app_draw_suggestions(buf, a)
 	app_apply_selection_style(buf, a)
 	app_draw_toasts(buf, a)
 	app_draw_elevate_modal(buf, a)
 
 	a.dirty = false
+}
+
+@(private)
+app_draw_status_overlay :: proc(buf: ^ui.Buffer, a: ^App) {
+	t := ui.theme()
+	body := a.status_body
+	lines := strings.split_lines(body, context.temp_allocator)
+	view_h := max(1, buf.height - 5)
+	max_scroll := max(0, len(lines) - view_h)
+	if a.status_scroll > max_scroll {
+		a.status_scroll = max_scroll
+	}
+	y := 2
+	for i := a.status_scroll; i < len(lines) && y < buf.height - 3; i += 1 {
+		ui.buffer_fill_rect(buf, 0, y, buf.width, 1, ' ', t.fg, t.bg)
+		ui.buffer_text_clip(buf, 1, y, buf.width - 1, lines[i], t.fg, t.bg)
+		y += 1
+	}
+	ui.buffer_hline(buf, 0, buf.height - 3, buf.width, '─', t.border, t.bg)
+	help_right := "PgUp/PgDn · Esc close"
+	if max_scroll > 0 {
+		help_right = fmt.tprintf("%d/%d · %s", a.status_scroll + 1, max_scroll + 1, help_right)
+	}
+	ui.draw_status_bar_ex(buf, buf.height - 2, "status", help_right, t.status_fg, t.muted, t.status_bg)
+	ui.draw_input_line(buf, buf.height - 1, "❯ ", strings.to_string(a.input), a.cursor, t.fg, t.input_bg, t.accent)
 }
 
 @(private)
@@ -817,9 +893,10 @@ app_draw_help :: proc(buf: ^ui.Buffer, a: ^App) {
 app_draw_suggestions :: proc(buf: ^ui.Buffer, a: ^App) {
 	text := strings.to_string(a.input)
 	t := ui.theme()
+	input_rows := app_input_rows(a, buf.width)
 	hint := slash_arg_hint(text)
 	if len(hint) > 0 {
-		y := buf.height - 3
+		y := buf.height - 1 - input_rows
 		if y < 2 {
 			y = 2
 		}
@@ -832,7 +909,7 @@ app_draw_suggestions :: proc(buf: ^ui.Buffer, a: ^App) {
 		return
 	}
 	max_show := min(len(matches), 6)
-	start_y := buf.height - 3 - max_show
+	start_y := buf.height - 1 - input_rows - max_show
 	if start_y < 2 {
 		start_y = 2
 	}

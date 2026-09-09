@@ -22,9 +22,11 @@ g_artifact_mu: sync.Mutex
 g_artifact_seq: int
 
 artifact_dir :: proc(allocator := context.allocator) -> string {
-	ws := ""
-	if st := sandbox.state(); st != nil {
-		ws = st.workspace
+	ws := sandbox.workspace_current()
+	if len(ws) == 0 {
+		if st := sandbox.state(); st != nil {
+			ws = st.workspace
+		}
 	}
 	if len(ws) == 0 {
 		ws = "."

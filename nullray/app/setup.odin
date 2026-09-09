@@ -9,6 +9,7 @@ package app
 import "core:fmt"
 import "core:os"
 import "core:strings"
+import "core:unicode/utf8"
 import "nullray:config"
 import "nullray:constants"
 import "nullray:provider"
@@ -36,6 +37,7 @@ setup_env_configured :: proc() -> bool {
 		constants.ENV_BASE_URL,
 		constants.ENV_OLLAMA_HOST,
 		constants.ENV_LMSTUDIO_HOST,
+		constants.ENV_LLAMACPP_HOST,
 		constants.ENV_OPENAI_BASE,
 	}
 	for key in keys {
@@ -52,15 +54,19 @@ setup_needed :: proc(a: ^App) -> bool {
 	}
 	p := provider.registry_active(&a.registry)
 	if p != nil {
-		if p.id == "ollama" || p.id == "lmstudio" {
-			if provider.probe_local_provider(p.id, 2) {
+		if provider.provider_is_local(p.id) {
+			if provider.local_probe_enabled_from_env() &&
+			   provider.probe_local_provider(p.id, 2) {
 				return false
 			}
 		} else if len(p.api_key) > 0 {
 			return false
 		}
 	}
-	if provider.probe_local_provider("ollama", 2) || provider.probe_local_provider("lmstudio", 2) {
+	if provider.local_probe_enabled_from_env() &&
+	   (provider.probe_local_provider("ollama", 2) ||
+	    provider.probe_local_provider("lmstudio", 2) ||
+	    provider.probe_local_provider("llamacpp", 2)) {
 		return false
 	}
 	return true
@@ -81,13 +87,21 @@ app_setup_open :: proc(a: ^App, forced: bool) {
 	a.show_setup = true
 	a.setup_forced = forced
 	a.setup_step = .Provider
-	a.ollama_live = provider.probe_local_provider("ollama", 2)
-	a.lmstudio_live = provider.probe_local_provider("lmstudio", 2)
+	a.ollama_live = false
+	a.lmstudio_live = false
+	a.llamacpp_live = false
+	if provider.local_probe_enabled_from_env() {
+		a.ollama_live = provider.probe_local_provider("ollama", 2)
+		a.lmstudio_live = provider.probe_local_provider("lmstudio", 2)
+		a.llamacpp_live = provider.probe_local_provider("llamacpp", 2)
+	}
 	a.setup_provider_sel = 0
 	if a.ollama_live {
 		a.setup_provider_sel = setup_provider_index(a, "ollama")
 	} else if a.lmstudio_live {
 		a.setup_provider_sel = setup_provider_index(a, "lmstudio")
+	} else if a.llamacpp_live {
+		a.setup_provider_sel = setup_provider_index(a, "llamacpp")
 	} else if p := provider.registry_active(&a.registry); p != nil {
 		a.setup_provider_sel = setup_provider_index(a, p.id)
 	}
@@ -185,6 +199,8 @@ setup_provider_key_env :: proc(id: string) -> string {
 		return constants.ENV_DASHSCOPE_KEY
 	case "lmstudio":
 		return constants.ENV_LMSTUDIO_KEY
+	case "llamacpp":
+		return constants.ENV_LLAMACPP_KEY
 	}
 	return ""
 }
@@ -196,6 +212,8 @@ setup_provider_host_env :: proc(id: string) -> string {
 		return constants.ENV_OLLAMA_HOST
 	case "lmstudio":
 		return constants.ENV_LMSTUDIO_HOST
+	case "llamacpp":
+		return constants.ENV_LLAMACPP_HOST
 	case "openai", "openai-compat":
 		return constants.ENV_OPENAI_BASE
 	case "azure":
@@ -206,7 +224,8 @@ setup_provider_host_env :: proc(id: string) -> string {
 
 @(private)
 setup_provider_needs_key :: proc(id: string) -> bool {
-	return id != "ollama"
+	// lmstudio still shows the token field (default lm-studio).
+	return id == "lmstudio" || !provider.provider_is_local(id)
 }
 
 @(private)
@@ -237,14 +256,10 @@ setup_apply_provider_defaults :: proc(a: ^App) {
 	a.setup_base = setup_env_or({host_env, constants.ENV_BASE_URL}, p.base_url)
 	a.setup_key = setup_env_or({key_env, constants.ENV_API_KEY}, p.api_key)
 	a.setup_model = setup_env_or({constants.ENV_MODEL}, p.default_model)
-	switch p.id {
-	case "ollama", "lmstudio":
+	if provider.provider_is_local(p.id) || p.id == "anthropic" {
 		a.setup_effort = strings.clone("none")
 		a.setup_thinking_on = false
-	case "anthropic":
-		a.setup_effort = strings.clone("none")
-		a.setup_thinking_on = false
-	case:
+	} else {
 		a.setup_effort = setup_env_or({constants.ENV_REASONING}, constants.DEFAULT_REASONING)
 		a.setup_thinking_on = a.setup_effort != "none"
 	}
@@ -303,6 +318,8 @@ setup_load_models :: proc(a: ^App) {
 		models, err = provider.ollama_list_models_timeout(&p, 8)
 	case "lmstudio":
 		models, err = provider.lmstudio_list_models_timeout(&p, 8)
+	case "llamacpp":
+		models, err = provider.llamacpp_list_models_timeout(&p, 8)
 	case:
 		models, err = provider.openai_list_models_timeout(&p, 15)
 	}
@@ -385,7 +402,7 @@ setup_skip_reasoning_step :: proc(a: ^App) -> bool {
 	if p == nil {
 		return true
 	}
-	return p.id == "anthropic" || p.id == "ollama" || p.id == "lmstudio"
+	return p.id == "anthropic" || provider.provider_is_local(p.id)
 }
 
 @(private)
@@ -394,9 +411,10 @@ setup_reason_value :: proc(a: ^App) -> string {
 	if p == nil {
 		return "low"
 	}
-	switch p.id {
-	case "anthropic", "ollama", "lmstudio":
+	if p.id == "anthropic" || provider.provider_is_local(p.id) {
 		return "none"
+	}
+	switch p.id {
 	case "dashscope", "cohere":
 		if a.setup_thinking_on {
 			return "low"
@@ -581,7 +599,7 @@ app_draw_setup :: proc(buf: ^ui.Buffer, a: ^App) {
 	step_name := "provider"
 	switch a.setup_step {
 	case .Provider:
-		step_name = "1/5 provider"
+		step_name = "1/5 provider (local / cloud)"
 	case .Connection:
 		step_name = "2/5 connection"
 	case .Model:
@@ -609,42 +627,139 @@ app_draw_setup :: proc(buf: ^ui.Buffer, a: ^App) {
 
 	foot := a.setup_status
 	if len(foot) == 0 {
-		foot = "config first, then defaults"
+		if a.setup_step == .Provider {
+			foot = "local hosts first, then cloud APIs"
+		} else {
+			foot = "config first, then defaults"
+		}
 	}
 	ui.draw_status_bar(buf, buf.height - 1, foot, "/setup later", t.status_fg, t.status_bg)
+}
+
+Setup_Prov_Row_Kind :: enum {
+	Header,
+	Item,
+}
+
+Setup_Prov_Row :: struct {
+	kind:         Setup_Prov_Row_Kind,
+	label:        string,
+	provider_idx: int,
+}
+
+@(private)
+setup_provider_live_badge :: proc(a: ^App, id: string) -> string {
+	switch id {
+	case "ollama":
+		if a.ollama_live {
+			return " live"
+		}
+	case "lmstudio":
+		if a.lmstudio_live {
+			return " live"
+		}
+	case "llamacpp":
+		if a.llamacpp_live {
+			return " live"
+		}
+	}
+	return ""
+}
+
+@(private)
+setup_provider_rows :: proc(a: ^App, allocator := context.temp_allocator) -> []Setup_Prov_Row {
+	rows := make([dynamic]Setup_Prov_Row, allocator)
+	local_n := 0
+	cloud_n := 0
+	for p in a.registry.providers {
+		if provider.provider_is_local(p.id) {
+			local_n += 1
+		} else {
+			cloud_n += 1
+		}
+	}
+	if local_n > 0 {
+		append(&rows, Setup_Prov_Row{kind = .Header, label = "Local", provider_idx = -1})
+		for p, i in a.registry.providers {
+			if provider.provider_is_local(p.id) {
+				append(&rows, Setup_Prov_Row{kind = .Item, label = "", provider_idx = i})
+			}
+		}
+	}
+	if cloud_n > 0 {
+		append(&rows, Setup_Prov_Row{kind = .Header, label = "Cloud", provider_idx = -1})
+		for p, i in a.registry.providers {
+			if !provider.provider_is_local(p.id) {
+				append(&rows, Setup_Prov_Row{kind = .Item, label = "", provider_idx = i})
+			}
+		}
+	}
+	return rows[:]
+}
+
+@(private)
+setup_provider_sel_row :: proc(rows: []Setup_Prov_Row, provider_idx: int) -> int {
+	for row, i in rows {
+		if row.kind == .Item && row.provider_idx == provider_idx {
+			return i
+		}
+	}
+	return 0
+}
+
+@(private)
+setup_provider_move :: proc(a: ^App, delta: int) {
+	rows := setup_provider_rows(a)
+	if len(rows) == 0 {
+		return
+	}
+	cur := setup_provider_sel_row(rows, a.setup_provider_sel)
+	next := cur
+	step := 1 if delta > 0 else -1
+	remain := abs(delta)
+	for remain > 0 {
+		next += step
+		if next < 0 || next >= len(rows) {
+			break
+		}
+		if rows[next].kind == .Item {
+			remain -= 1
+			a.setup_provider_sel = rows[next].provider_idx
+		}
+	}
 }
 
 @(private)
 setup_draw_provider_list :: proc(buf: ^ui.Buffer, a: ^App, start_y: int) {
 	t := ui.theme()
+	rows := setup_provider_rows(a)
 	view_h := max(1, buf.height - start_y - 2)
-	n := len(a.registry.providers)
-	if a.setup_provider_sel < a.setup_scroll {
-		a.setup_scroll = a.setup_provider_sel
+	sel_row := setup_provider_sel_row(rows, a.setup_provider_sel)
+	if sel_row < a.setup_scroll {
+		a.setup_scroll = sel_row
 	}
-	if a.setup_provider_sel >= a.setup_scroll + view_h {
-		a.setup_scroll = a.setup_provider_sel - view_h + 1
+	if sel_row >= a.setup_scroll + view_h {
+		a.setup_scroll = sel_row - view_h + 1
 	}
 	y := start_y
-	for i in a.setup_scroll ..< min(n, a.setup_scroll + view_h) {
-		p := a.registry.providers[i]
-		mark := " "
-		if i == a.setup_provider_sel {
-			mark = ">"
+	for i in a.setup_scroll ..< min(len(rows), a.setup_scroll + view_h) {
+		row := rows[i]
+		ui.buffer_fill_rect(buf, 0, y, buf.width, 1, ' ', t.fg, t.bg)
+		switch row.kind {
+		case .Header:
+			ui.buffer_text_clip(buf, 1, y, buf.width - 1, row.label, t.muted, t.bg, {.Dim, .Bold})
+		case .Item:
+			p := a.registry.providers[row.provider_idx]
+			mark := " "
+			fg := t.fg
+			if row.provider_idx == a.setup_provider_sel {
+				mark = ">"
+				fg = t.accent
+			}
+			badge := setup_provider_live_badge(a, p.id)
+			line := fmt.tprintf("%s %s (%s)%s", mark, p.name, p.id, badge)
+			ui.buffer_text_clip(buf, 1, y, buf.width - 1, line, fg, t.bg)
 		}
-		badge := ""
-		if p.id == "ollama" && a.ollama_live {
-			badge = " live"
-		} else if p.id == "lmstudio" && a.lmstudio_live {
-			badge = " live"
-		}
-		line := fmt.tprintf("%s %s (%s)%s", mark, p.name, p.id, badge)
-		fg := t.fg
-		if i == a.setup_provider_sel {
-			fg = t.accent
-		}
-		ui.buffer_fill_rect(buf, 0, y, buf.width, 1, ' ', fg, t.bg)
-		ui.buffer_text_clip(buf, 1, y, buf.width - 1, line, fg, t.bg)
 		y += 1
 	}
 }
@@ -788,10 +903,10 @@ app_setup_on_event :: proc(a: ^App, ev: ui.Event) -> bool {
 	case .Provider:
 		#partial switch ev.kind {
 		case .Up, .Mouse_Wheel_Up:
-			a.setup_provider_sel = max(0, a.setup_provider_sel - 1)
+			setup_provider_move(a, -1)
 			app_mark_dirty(a)
 		case .Down, .Mouse_Wheel_Down:
-			a.setup_provider_sel = min(len(a.registry.providers) - 1, a.setup_provider_sel + 1)
+			setup_provider_move(a, 1)
 			app_mark_dirty(a)
 		}
 	case .Connection:
@@ -887,7 +1002,11 @@ setup_edit_backspace :: proc(a: ^App) {
 	if len(target^) == 0 {
 		return
 	}
-	n := strings.clone(target^[:len(target^) - 1])
+	_, sz := utf8.decode_last_rune_in_string(target^)
+	if sz <= 0 {
+		sz = 1
+	}
+	n := strings.clone(target^[:len(target^) - sz])
 	delete(target^)
 	target^ = n
 	app_mark_dirty(a)
@@ -911,7 +1030,11 @@ setup_filter_backspace :: proc(a: ^App) {
 	if len(a.setup_filter) == 0 {
 		return
 	}
-	n := strings.clone(a.setup_filter[:len(a.setup_filter) - 1])
+	_, sz := utf8.decode_last_rune_in_string(a.setup_filter)
+	if sz <= 0 {
+		sz = 1
+	}
+	n := strings.clone(a.setup_filter[:len(a.setup_filter) - sz])
 	delete(a.setup_filter)
 	a.setup_filter = n
 }
@@ -921,7 +1044,11 @@ setup_model_backspace :: proc(a: ^App) {
 	if len(a.setup_model) == 0 {
 		return
 	}
-	n := strings.clone(a.setup_model[:len(a.setup_model) - 1])
+	_, sz := utf8.decode_last_rune_in_string(a.setup_model)
+	if sz <= 0 {
+		sz = 1
+	}
+	n := strings.clone(a.setup_model[:len(a.setup_model) - sz])
 	delete(a.setup_model)
 	a.setup_model = n
 }

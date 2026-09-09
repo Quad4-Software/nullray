@@ -26,6 +26,9 @@ Cli :: struct {
 	audit:            bool,
 	list_models:      bool,
 	list_sessions:    bool,
+	inspect_session:  string,
+	inspect_follow:   bool,
+	inspect_set:      bool,
 	show_help:        bool,
 	show_version:     bool,
 	show_man:         bool,
@@ -47,7 +50,9 @@ Cli :: struct {
 	model:            string,
 	theme:            string,
 	mode:             string,
+	hunt:             string,
 	perms:            string,
+	gate:             string,
 	sandbox:          string,
 	workspace:        string,
 	session:          string,
@@ -60,6 +65,8 @@ Cli :: struct {
 	timeout_sec:      int,
 	search_sessions:  string,
 	delete_session:   string,
+	rename_session:   string,
+	rename_force:     bool,
 	export_session:   string,
 	import_session:   string,
 	as_name:          string,
@@ -119,11 +126,17 @@ main :: proc() {
 	if cli.list_sessions {
 		os.exit(run_list_sessions())
 	}
+	if cli.inspect_set {
+		os.exit(run_inspect_session(&cli))
+	}
 	if len(cli.search_sessions) > 0 {
 		os.exit(run_search_sessions(cli.search_sessions))
 	}
 	if len(cli.delete_session) > 0 {
 		os.exit(run_delete_session(cli.delete_session))
+	}
+	if len(cli.rename_session) > 0 {
+		os.exit(run_rename_session(cli.rename_session, cli.as_name, cli.rename_force))
 	}
 	if len(cli.export_session) > 0 {
 		os.exit(run_export_session(cli.export_session, cli.out_path))
@@ -160,6 +173,7 @@ main :: proc() {
 	defer elevate.elevate_shutdown()
 
 	crash.logf("sandbox apply begin")
+	provider.cache_api_keys_from_env()
 	cfg := sandbox.config_from_env()
 	defer sandbox.config_destroy(&cfg)
 
@@ -275,6 +289,16 @@ parse_cli :: proc(args: []string) -> Cli {
 			cli.list_models = true
 		case "--list-sessions":
 			cli.list_sessions = true
+		case "--inspect-session":
+			cli.inspect_set = true
+			if i + 1 < len(args) && !strings.has_prefix(args[i + 1], "-") {
+				v, ok := take_value(args, &i)
+				if ok {
+					cli.inspect_session = v
+				}
+			}
+		case "--follow":
+			cli.inspect_follow = true
 		case "--search-sessions":
 			v, ok := take_value(args, &i)
 			if !ok {
@@ -289,6 +313,15 @@ parse_cli :: proc(args: []string) -> Cli {
 				return cli
 			}
 			cli.delete_session = v
+		case "--rename-session":
+			v, ok := take_value(args, &i)
+			if !ok {
+				cli.err = "--rename-session needs a name"
+				return cli
+			}
+			cli.rename_session = v
+		case "--force":
+			cli.rename_force = true
 		case "--export-session":
 			v, ok := take_value(args, &i)
 			if !ok {
@@ -376,6 +409,14 @@ parse_cli :: proc(args: []string) -> Cli {
 				return cli
 			}
 			cli.mode = v
+		case "--hunt":
+			cli.hunt = "auto"
+			if i + 1 < len(args) && !strings.has_prefix(args[i + 1], "-") {
+				v, ok := take_value(args, &i)
+				if ok {
+					cli.hunt = v
+				}
+			}
 		case "--perms":
 			v, ok := take_value(args, &i)
 			if !ok {
@@ -383,6 +424,13 @@ parse_cli :: proc(args: []string) -> Cli {
 				return cli
 			}
 			cli.perms = v
+		case "--gate":
+			v, ok := take_value(args, &i)
+			if !ok {
+				cli.err = "--gate needs 0..3 or ask|allow|yolo"
+				return cli
+			}
+			cli.gate = v
 		case "--askpass":
 			cli.askpass = true
 		case "--elevate-broker":
@@ -599,8 +647,19 @@ apply_cli_env :: proc(cli: ^Cli) {
 	if len(cli.mode) > 0 {
 		os.set_env(constants.ENV_MODE, cli.mode)
 	}
+	if len(cli.hunt) > 0 {
+		os.set_env(constants.ENV_HUNT, cli.hunt)
+		if len(cli.mode) == 0 {
+			if _, ok := os.lookup_env(constants.ENV_MODE, context.temp_allocator); !ok {
+				os.set_env(constants.ENV_MODE, "review")
+			}
+		}
+	}
 	if len(cli.perms) > 0 {
 		os.set_env(constants.ENV_PERMS, cli.perms)
+	}
+	if len(cli.gate) > 0 {
+		os.set_env(constants.ENV_GATE, cli.gate)
 	}
 	if len(cli.sandbox) > 0 {
 		os.set_env(constants.ENV_SANDBOX, cli.sandbox)
@@ -697,6 +756,20 @@ run_list_sessions :: proc() -> int {
 	return 0
 }
 
+run_inspect_session :: proc(cli: ^Cli) -> int {
+	name := cli.inspect_session
+	if len(name) == 0 && len(cli.session) > 0 {
+		name = cli.session
+	}
+	path := session.resolve_inspect_path(name, context.temp_allocator)
+	if cli.inspect_follow {
+		return session.session_inspect_follow(path)
+	}
+	text := session.session_inspect_text(path, context.temp_allocator)
+	fmt.println(text)
+	return 0
+}
+
 run_search_sessions :: proc(query: string) -> int {
 	text := session.session_search_text(query)
 	defer delete(text)
@@ -711,6 +784,20 @@ run_delete_session :: proc(name: string) -> int {
 		return 1
 	}
 	fmt.printf("deleted session %s\n", store.sanitize_name(name))
+	return 0
+}
+
+run_rename_session :: proc(old_name, new_name: string, force: bool) -> int {
+	if len(strings.trim_space(new_name)) == 0 {
+		fmt.eprintln("nullray: --rename-session needs --as NEW")
+		return 2
+	}
+	ok, err := store.rename_session_files(old_name, new_name, force)
+	if !ok {
+		fmt.eprintln("nullray:", err)
+		return 1
+	}
+	fmt.printf("renamed session %s -> %s\n", store.sanitize_name(old_name), store.sanitize_name(new_name))
 	return 0
 }
 
@@ -802,19 +889,22 @@ print_help :: proc() {
 	fmt.println("  -V, --version           show version and build stamp")
 	fmt.println("  -e, --ephemeral         do not load or save session transcripts")
 	fmt.println("  -t, --self-test         headless smoke (tools, mcp, draw, shell deny)")
-	fmt.println("      --audit             run workspace security scanners and exit")
+	fmt.println("      --audit             run workspace security scanners and exit (1 if any high)")
 	fmt.println("      --doctor            print env, TTY, and latest crash dump path")
 	fmt.println("      --debug             verbose stderr logs (also NULLRAY_DEBUG=1)")
 	fmt.println("  -P, --print             one-shot agent (no TUI), print reply and exit")
 	fmt.println("  -q, --ask               simple Q&A (print + ask + ephemeral, read-only tools)")
-	fmt.println("  -p, --provider ID       ollama | lmstudio | openai | openai-compat |")
-	fmt.println("                          openrouter | opencode | opencode-go |")
-	fmt.println("                          anthropic | gemini | groq | deepseek |")
-	fmt.println("                          mistral | together | fireworks | xai | azure")
+	fmt.println("  -p, --provider ID       ollama | lmstudio | llamacpp | openai |")
+	fmt.println("                          openai-compat | openrouter | opencode |")
+	fmt.println("                          opencode-go | anthropic | gemini | groq |")
+	fmt.println("                          deepseek | mistral | together | fireworks |")
+	fmt.println("                          xai | azure")
 	fmt.println("  -m, --model NAME        override default model")
 	fmt.println("      --theme NAME        ink | ember | moss | slate | rose | mono | dusk")
 	fmt.println("      --mode MODE         ask | plan | review | edit")
+	fmt.println("      --hunt [PROFILE]    vuln hunt auto|balanced|explore|oracle|adversarial (sets review)")
 	fmt.println("      --perms POLICY      ask | allow | yolo")
+	fmt.println("      --gate LEVEL        0..3 or ask|allow|yolo (tool capability)")
 	fmt.println("      --sandbox MODE      off | soft | warn | strict | on")
 	fmt.println("      --askpass            sudo/doas askpass helper (internal)")
 	fmt.println("      --elevate-broker P   run privilege broker on path (internal)")
@@ -822,11 +912,15 @@ print_help :: proc() {
 	fmt.println("  -w, --workspace PATH    workspace root for tools/sandbox")
 	fmt.println("      --session NAME      resume or create named session")
 	fmt.println("      --list-sessions     list saved sessions and exit")
+	fmt.println("      --inspect-session [NAME]  print session summary (name, meta, preview)")
+	fmt.println("      --follow            with --inspect-session, tail new transcript lines")
 	fmt.println("      --search-sessions Q search session names and text")
 	fmt.println("      --delete-session N  delete a named session")
+	fmt.println("      --rename-session N  rename session (needs --as NEW, optional --force)")
 	fmt.println("      --export-session N  export session to --out DIR")
 	fmt.println("      --import-session P  import session from path or dir")
-	fmt.println("      --as NAME           name for --import-session or --install-skill")
+	fmt.println("      --as NAME           name for --import-session, --rename-session, or --install-skill")
+	fmt.println("      --force             overwrite destination on --rename-session")
 	fmt.println("      --list-skills       list loaded skills and exit")
 	fmt.println("      --install-skill P   copy skill .md or package into config skills")
 	fmt.println("      --uninstall-skill N remove a skill from config skills")
@@ -858,6 +952,7 @@ print_help :: proc() {
 	fmt.println("")
 	fmt.println("env file:  ~/.config/nullray/env")
 	fmt.println("env vars:  NULLRAY_PROVIDER NULLRAY_MODEL NULLRAY_THEME NULLRAY_MODE NULLRAY_PERMS")
+	fmt.println("           NULLRAY_HUNT NULLRAY_TEMPERATURE NULLRAY_TOP_P NULLRAY_HUNT_REASONING")
 	fmt.println("           NULLRAY_SANDBOX NULLRAY_WORKSPACE NULLRAY_SESSION NULLRAY_EPHEMERAL")
 	fmt.println("           NULLRAY_SPLASH NULLRAY_KEYS NULLRAY_STREAM OPENROUTER_API_KEY")
 	fmt.println("           NULLRAY_HTTP_RETRIES NULLRAY_FALLBACK_MODELS NULLRAY_OPENROUTER_IGNORE")

@@ -99,6 +99,9 @@ conn_past_deadline :: proc(conn: ^Conn) -> bool {
 }
 
 conn_dial :: proc(parts: Url_Parts, timeout_sec: int) -> (conn: Conn, err: string) {
+	if px := proxy_for_url(parts); px.ok {
+		return conn_dial_proxy_connect(parts, px, timeout_sec)
+	}
 	conn.deadline = time.time_add(time.now(), time.Duration(timeout_sec) * time.Second)
 	sock, dial_err := net.dial_tcp_from_hostname_with_port_override(parts.hostname, parts.port)
 	if dial_err != nil {

@@ -13,19 +13,14 @@ import "core:time"
 import "nullray:constants"
 import "nullray:provider"
 
-save_transcript :: proc(path: string, messages: []provider.Message) -> bool {
+save_transcript_jsonl :: proc(path: string, messages: []provider.Message) -> bool {
 	ensure_session_dir()
-	f, err := os.open(path, {.Write, .Create, .Trunc}, {.Read_User, .Write_User})
-	if err != nil {
-		return false
-	}
-	defer os.close(f)
+	b: strings.Builder
+	strings.builder_init(&b, context.temp_allocator)
 	for m in messages {
 		if m.role == .System {
 			continue
 		}
-		b: strings.Builder
-		strings.builder_init(&b, context.temp_allocator)
 		strings.write_string(&b, `{"ts":`)
 		fmt.sbprint(&b, time.to_unix_seconds(time.now()))
 		strings.write_string(&b, `,"role":`)
@@ -61,15 +56,25 @@ save_transcript :: proc(path: string, messages: []provider.Message) -> bool {
 			strings.write_byte(&b, ']')
 		}
 		strings.write_string(&b, "}\n")
-		_, werr := os.write_string(f, strings.to_string(b))
-		if werr != nil {
-			return false
-		}
 	}
-	return true
+	return atomic_write_bytes(path, transmute([]u8)strings.to_string(b))
+}
+
+save_transcript :: proc(path: string, messages: []provider.Message) -> bool {
+	if session_path_is_msgpack(path) {
+		return save_transcript_msgpack(path, messages)
+	}
+	return save_transcript_jsonl(path, messages)
 }
 
 load_transcript :: proc(path: string, allocator := context.allocator) -> (msgs: [dynamic]provider.Message, ok: bool) {
+	if session_path_is_msgpack(path) {
+		return load_transcript_msgpack(path, allocator)
+	}
+	return load_transcript_jsonl(path, allocator)
+}
+
+load_transcript_jsonl :: proc(path: string, allocator := context.allocator) -> (msgs: [dynamic]provider.Message, ok: bool) {
 	msgs = make([dynamic]provider.Message, allocator)
 	data, err := os.read_entire_file(path, context.temp_allocator)
 	if err != nil {
@@ -187,6 +192,25 @@ load_transcript :: proc(path: string, allocator := context.allocator) -> (msgs: 
 }
 
 session_body_contains :: proc(path: string, query_lower: string) -> bool {
+	if session_path_is_msgpack(path) {
+		msgs, ok := load_transcript_msgpack(path, context.temp_allocator)
+		if !ok {
+			return false
+		}
+		defer {
+			for m in msgs {
+				provider.destroy_message(m)
+			}
+			delete(msgs)
+		}
+		for m in msgs {
+			hay := fmt.tprintf("%s %s %s", m.content, m.name, m.reasoning)
+			if strings.contains(strings.to_lower(hay, context.temp_allocator), query_lower) {
+				return true
+			}
+		}
+		return false
+	}
 	data, err := os.read_entire_file(path, context.temp_allocator)
 	if err != nil || len(data) == 0 {
 		return false
@@ -252,8 +276,34 @@ session_group_snippet :: proc(path: string, max_chars: int, allocator := context
 	return out
 }
 
-@(private)
 session_preview :: proc(path: string, allocator := context.allocator) -> string {
+	if session_path_is_msgpack(path) {
+		msgs, ok := load_transcript_msgpack(path, context.temp_allocator)
+		if !ok || len(msgs) == 0 {
+			return strings.clone("(empty)", allocator)
+		}
+		defer {
+			for m in msgs {
+				provider.destroy_message(m)
+			}
+			delete(msgs)
+		}
+		last := ""
+		for m in msgs {
+			role_s := provider.role_string(m.role)
+			if role_s == "user" || role_s == "assistant" {
+				snip := m.content
+				if len(snip) > 72 {
+					snip = snip[:72]
+				}
+				last = fmt.tprintf("%s: %s", role_s, snip)
+			}
+		}
+		if len(last) == 0 {
+			return strings.clone("(empty)", allocator)
+		}
+		return strings.clone(last, allocator)
+	}
 	data, err := os.read_entire_file(path, context.temp_allocator)
 	if err != nil || len(data) == 0 {
 		return strings.clone("(empty)", allocator)

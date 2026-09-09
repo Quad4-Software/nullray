@@ -17,12 +17,15 @@ Response :: struct {
 	retry_after: int,
 }
 
+Url_Allow :: #type proc(url: string) -> bool
+
 Request :: struct {
-	method:  string,
-	url:     string,
-	headers: []string,
-	body:    string,
-	timeout: int,
+	method:    string,
+	url:       string,
+	headers:   []string,
+	body:      string,
+	timeout:   int,
+	allow_url: Url_Allow,
 }
 
 global_init :: proc() -> bool {
@@ -39,6 +42,22 @@ get :: proc(url: string, headers: []string = {}, timeout_sec: int = 30, allocato
 		url = url,
 		headers = headers,
 		timeout = timeout_sec,
+	}, allocator)
+}
+
+get_checked :: proc(
+	url: string,
+	headers: []string = {},
+	timeout_sec: int = 30,
+	allow_url: Url_Allow = nil,
+	allocator := context.allocator,
+) -> Response {
+	return do_request(Request{
+		method = "GET",
+		url = url,
+		headers = headers,
+		timeout = timeout_sec,
+		allow_url = allow_url,
 	}, allocator)
 }
 
@@ -64,6 +83,7 @@ do_request :: proc(req: Request, allocator := context.allocator) -> Response {
 		req.body,
 		req.timeout,
 		constants.DEFAULT_FETCH_MAX_BYTES,
+		req.allow_url,
 	)
 	if cancel_requested() {
 		return Response{ok = false, err = "cancelled"}

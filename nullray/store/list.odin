@@ -29,15 +29,24 @@ list_sessions :: proc(allocator := context.allocator) -> []Session_Info {
 	}
 	defer os.file_info_slice_delete(entries, context.temp_allocator)
 	out := make([dynamic]Session_Info, allocator)
+	seen := make(map[string]bool, context.temp_allocator)
 	for e in entries {
 		if e.type == .Directory {
 			continue
 		}
 		name := e.name
-		if !strings.has_suffix(name, ".jsonl") {
+		stem := ""
+		if strings.has_suffix(name, ".msgpack") {
+			stem = name[:len(name) - len(".msgpack")]
+		} else if strings.has_suffix(name, ".jsonl") {
+			stem = name[:len(name) - len(".jsonl")]
+		} else {
 			continue
 		}
-		stem := name[:len(name) - 5]
+		if seen[stem] {
+			continue
+		}
+		seen[stem] = true
 		path := named_session_path(stem, allocator)
 		preview := session_preview(path, context.temp_allocator)
 		meta, _ := load_session_meta(path, allocator)

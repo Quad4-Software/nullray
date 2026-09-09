@@ -73,6 +73,22 @@ test_parse_reasoning_content_field :: proc(t: ^testing.T) {
 }
 
 @(test)
+test_write_sampling_json :: proc(t: ^testing.T) {
+	b: strings.Builder
+	strings.builder_init(&b)
+	defer strings.builder_destroy(&b)
+	p := Provider{id = "openrouter"}
+	write_sampling_json(&b, &p, "google/gemini-2.5-flash", 0.7, 0.95, true, true)
+	s := strings.to_string(b)
+	testing.expect(t, strings.contains(s, `"temperature":0.7`))
+	testing.expect(t, strings.contains(s, `"top_p":0.95`))
+
+	strings.builder_reset(&b)
+	write_sampling_json(&b, &p, "o3-mini", 0.9, 0.9, true, true)
+	testing.expect_value(t, strings.to_string(b), "")
+}
+
+@(test)
 test_write_reasoning_json_provider_shapes :: proc(t: ^testing.T) {
 	b: strings.Builder
 	strings.builder_init(&b)
@@ -98,4 +114,9 @@ test_write_reasoning_json_provider_shapes :: proc(t: ^testing.T) {
 	dash := Provider{id = "dashscope"}
 	write_reasoning_json(&b, &dash, "high")
 	testing.expect(t, strings.contains(strings.to_string(b), `"enable_thinking":true`))
+
+	strings.builder_reset(&b)
+	ol := Provider{id = "ollama"}
+	write_reasoning_json(&b, &ol, "low")
+	testing.expect_value(t, strings.to_string(b), "")
 }

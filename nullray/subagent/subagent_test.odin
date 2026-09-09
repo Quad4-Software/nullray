@@ -116,3 +116,21 @@ test_roster_depth_no_alloc_crash :: proc(t: ^testing.T) {
 	testing.expect(t, ok)
 	testing.expect(t, d == 0)
 }
+
+@(test)
+test_locate_type_defaults :: proc(t: ^testing.T) {
+	mode, isol, role := builtin_type_defaults("locate")
+	testing.expect(t, mode == "ask")
+	testing.expect(t, isol == .Shared)
+	testing.expect(t, role == "explore")
+}
+
+@(test)
+test_locate_preamble_mentions_cites :: proc(t: ^testing.T) {
+	rt: Runtime
+	text := build_locate_preamble(&rt, "a1", "main", context.allocator)
+	defer delete(text)
+	testing.expect(t, strings.contains(text, "CITES"))
+	testing.expect(t, strings.contains(text, "repo_map"))
+	testing.expect(t, !strings.contains(text, "knowledge_put"))
+}

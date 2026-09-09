@@ -1,42 +1,9 @@
 // SPDX-License-Identifier: 0BSD
 package secure
 
-import "base:runtime"
 import "core:os"
 import "core:path/filepath"
 import "core:strings"
-
-audit_owasp :: proc(workspace: string, allocator := context.allocator) -> string {
-	w: Finding_Writer
-	writer_init(&w, allocator)
-	walk_files(workspace, workspace, &w, owasp_visit, allocator)
-	return writer_text(&w)
-}
-
-owasp_visit :: proc(root, path: string, user: rawptr, allocator: runtime.Allocator) {
-	ext := strings.to_lower(filepath.ext(path), context.temp_allocator)
-	switch ext {
-	case ".odin", ".go", ".py", ".js", ".ts", ".java", ".rs", ".rb":
-	case:
-		return
-	}
-	text, ok := read_small_file(path, allocator)
-	if !ok {
-		return
-	}
-	defer delete(text)
-	w := cast(^Finding_Writer)user
-	rel := relative_path(root, path)
-	for line, index in strings.split_lines(text, context.temp_allocator) {
-		lower := strings.to_lower(strings.trim_space(line), context.temp_allocator)
-		if strings.contains(lower, "password = \"") ||
-		   strings.contains(lower, "password: \"") ||
-		   strings.contains(lower, "secret = \"") ||
-		   strings.contains(lower, "secret: \"") {
-			finding(w, "warn", "owasp", rel, index + 1, "possible hardcoded credential")
-		}
-	}
-}
 
 audit_deps :: proc(workspace: string, allocator := context.allocator) -> string {
 	w: Finding_Writer

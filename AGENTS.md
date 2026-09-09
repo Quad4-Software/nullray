@@ -40,7 +40,7 @@ nullray loads flat *.md and nested name/SKILL.md from workspace .agents/skills, 
 | nullray/sandbox | Landlock, seccomp, secrets, redaction, ops profiles |
 | nullray/elevate | Elevated auth: classify, askpass, broker, circuit |
 | nullray/hooks | hooks.json PreToolUse and session lifecycle |
-| nullray/memory | Project memory under .nullray/memory |
+| nullray/memory | Project memory under `.nullray/memory` |
 | nullray/vcs | Local and gated network Git/Fossil tools |
 | nullray/secure | Dockerfile/compose/actions/OWASP/deps audits |
 | nullray/subagent | Roster, knowledge, leases, worktrees, model policy, spawn |
@@ -59,7 +59,9 @@ nullray loads flat *.md and nested name/SKILL.md from workspace .agents/skills, 
 | Dockerfile | Multi-stage rootless image (Debian trixie) |
 | docker-compose.yml | Interactive terminal attach |
 
-Project maps: .agents/references/layout.md, providers.md, footguns.md. Sandbox capabilities and security claim limits are in .agents/references/sandbox.md and caveats.md. TUI file map: tui skill references/map.md.
+Project maps: .agents/references/layout.md, providers.md, footguns.md.
+
+Project memory: AGENTS.md holds standing instructions you maintain. `.nullray/memory` holds learned observations the agent writes (keys, JSONL, MEMORY.md index, optional topics/). Keep values short. Use topic files for long notes, not huge docs in AGENTS.md. Sandbox capabilities and security claim limits are in .agents/references/sandbox.md and caveats.md. TUI file map: tui skill references/map.md.
 
 ## Build and test
 
@@ -70,11 +72,11 @@ make test
 
 Verify: make test
 
-make test runs odin test on ui, agent, tools, skills, session, store, sandbox, mcp, provider, patch, http, and related packages with -define:ODIN_TEST_THREADS=1, then --self-test, chat-smoke, and print-smoke. Prefer that define by hand too. Binary: bin/nullray. Needs Odin and a C compiler (builds lib/libnullray_tls.a from vendor/mbedtls, vendor/nghttp2, and vendor/mlkem-native). On Linux amd64 the archive is about 1.2 MB and a stripped binary about 3.4 MB. HTTPS prefers HTTP/2 when ALPN selects h2, else HTTP/1.1. TLS 1.2 and 1.3 with X25519MLKEM768 hybrid PQ key agreement. System CAs via SSL_CERT_FILE / SSL_CERT_DIR, then platform paths. HTTP(S)_PROXY is not honored yet.
+make test runs odin test on ui, agent, tools, skills, session, store, sandbox, mcp, provider, patch, http, and related packages with -define:ODIN_TEST_THREADS=1, then --self-test, chat-smoke, and print-smoke. Prefer that define by hand too. Binary: bin/nullray. Needs Odin and a C compiler (builds lib/libnullray_tls.a from vendor/mbedtls, vendor/nghttp2, and vendor/mlkem-native). On Linux amd64 the archive is about 1.2 MB and a stripped binary about 3.4 MB. HTTPS prefers HTTP/2 when ALPN selects h2, else HTTP/1.1. TLS 1.2 and 1.3 with X25519MLKEM768 hybrid PQ key agreement. System CAs via SSL_CERT_FILE / SSL_CERT_DIR, then platform paths. HTTP(S)_PROXY / ALL_PROXY / NO_PROXY are honored (CONNECT for HTTPS).
 
 Suite layers: package unit tests (adversarial focus in sandbox and tools/shell), headless --self-test, print-smoke (no provider), optional chat-smoke. Local coverage: make coverage (needs kcov) writes HTML under coverage/.
 
-Modes: ask, plan, review, edit. Print mode: nullray --print (no TUI). Plan mode writes .md under .nullray/plans/ or --plan-out. Done Contract needs Steps, Verify, Success, and Budget (incomplete plans skip --plan-out). Apply with --plan-in / NULLRAY_PLAN_IN (headless auto-approves into edit, empty prompt becomes Execute the approved plan). Post-edit verify is off by default. Opt in with NULLRAY_VERIFY=1, /verify on, or NULLRAY_VERIFY=<cmd>. When on, uses plan Verify, AGENTS Verify, or make test. Failed verify nudges list parsed path:line findings and may offload the full log to an artifact (read_artifact / grep_artifact). Print exit: --print-strict / NULLRAY_PRINT_STRICT fails incomplete plan, verify_failed, max_steps/loop/timeout, living subagents, and tool-only writes with verify on. Session metrics: .usage.jsonl + meta summary, /usage, --usage / NULLRAY_PRINT_USAGE. Cost only when the provider sends it (never invent from /credits). NULLRAY_USAGE=0 disables persist. Ephemeral needs NULLRAY_USAGE_PERSIST=1 to write usage.
+Modes: ask, plan, review, edit. Tool gate: `--gate` / `NULLRAY_GATE` / `/gate` 0..3 (ask|allow|yolo aliases). Vuln hunts: NULLRAY_HUNT / --hunt / /hunt. auto (default --hunt) runs explore then oracle in print mode. Static presets: balanced|explore|oracle|adversarial (NULLRAY_TEMPERATURE / NULLRAY_TOP_P override). Print mode: nullray --print (no TUI). Plan mode writes .md under .nullray/plans/ or --plan-out. Done Contract needs Steps, Verify, Success, and Budget (incomplete plans skip --plan-out). Apply with --plan-in / NULLRAY_PLAN_IN (headless auto-approves into edit, empty prompt becomes Execute the approved plan). Post-edit verify is off by default. Opt in with NULLRAY_VERIFY=1, /verify on, or NULLRAY_VERIFY=<cmd>. When on, uses plan Verify, AGENTS Verify, or make test. Failed verify nudges list parsed path:line findings and may offload the full log to an artifact (read_artifact / grep_artifact). Print exit: --print-strict / NULLRAY_PRINT_STRICT fails incomplete plan, verify_failed, max_steps/loop/timeout, living subagents, and tool-only writes with verify on. Session metrics: .usage.jsonl + meta summary, /usage, --usage / NULLRAY_PRINT_USAGE. Cost only when the provider sends it (never invent from /credits). NULLRAY_USAGE=0 disables persist. Ephemeral needs NULLRAY_USAGE_PERSIST=1 to write usage.
 
 ## Skills (read before editing)
 
@@ -85,6 +87,8 @@ Modes: ask, plan, review, edit. Print mode: nullray --print (no TUI). Plan mode 
 | odin-idioms | any .odin under nullray/ or cmd/ |
 | memory | owned strings, dynamics, teardown |
 | ci-pinned-actions | .github/workflows |
+| owasp | security review, secrets, injection, authz |
+| bug-hunting | vuln/crash hunting: audit_*, oracles, exploratory, adversarial, NULLRAY_HUNT |
 
 ## Providers
 
@@ -104,21 +108,23 @@ Platform backends: ui/term_linux.odin, ui/term_bsd.odin, ui/term_windows.odin. K
 
 ## Config
 
-Default root: ~/.config/nullray/ (XDG on Unix). Files: env, keys.ini, mcp.json, sessions/.
+Default root: ~/.config/nullray/ (XDG on Unix). Files: env, keys.ini, mcp.json, sessions/ (`.msgpack` default, `.jsonl` fallback). Rename with `/name` or `--rename-session`.
 
 LID harness (wave 1): tool dumps above NULLRAY_ARTIFACT_CHARS (default 3000) go to .nullray/artifacts/ and the model sees status/path/artifact/excerpt envelopes. Peek with read_artifact / grep_artifact (default line cap NULLRAY_ARTIFACT_READ_LINES=200, hard 32KB). Provider history is a projection (NULLRAY_PROJECTION_TURNS / NULLRAY_PROJECTION_TOOL_STUBS). NULLRAY_LID=0 disables projection, artifact store, and phase reset (envelopes stay, without artifact=). NULLRAY_PROMPT=lean|full|auto (auto under print) ships a compact tools JSON core set that still includes read_man/apropos, and a small subagent subset (task/agents_*/knowledge_*) when subagents are on. Metrics: NULLRAY_HARNESS_METRICS=1 or NULLRAY_DEBUG=1, also harness_* fields in .usage.jsonl (including harness_tools_json). TUI stubs artifact tool rows; expand with /artifact ID. Artifact GC runs on session destroy and --doctor (64MB / 7 day sweep).
 
-Speculative tools (off by default): NULLRAY_SPECULATE=1 pre-runs allowlisted read-only tools once a streamed tool_calls index is sealed (next index or stream end), and parallelizes a leading read-only prefix after the response. Cap with NULLRAY_SPECULATE_PARALLEL (default 2). Writes, shell, compact_context, task, and fetch_url never speculate. Handoff matches on tool id, name, and args hash. Misses fall back to the serial path. LID offload and PostToolUse run only on handoff.
+Speculative tools (on by default): set NULLRAY_SPECULATE=0 to disable. Pre-runs allowlisted read-only tools once a streamed tool_calls index is sealed (next index or stream end), and parallelizes a leading read-only prefix after the response. Cap with NULLRAY_SPECULATE_PARALLEL (default 2). Writes, shell, compact_context, task, and fetch_url never speculate. Handoff matches on tool id, name, and args hash. Misses fall back to the serial path. LID offload and PostToolUse run only on handoff.
 
 Key presets: default, neovim, emacs (preset= in keys.ini), or NULLRAY_KEYS / --keys.
 
 Splash defaults on. Off: NULLRAY_SPLASH=0 (also false/off/no/disable) or --no-splash. Force: --splash or NULLRAY_SPLASH=1.
 
+View pane auto-opens the last write path after a turn. Off: NULLRAY_VIEW_AUTO=0 or `/view auto off`.
+
 Terminals: NULLRAY_COLOR=none|16|256|true. TERM=dumb / empty skips mouse and alt-screen (NULLRAY_MOUSE / NULLRAY_ALT_SCREEN override). WSL uses COLUMNS/LINES when ioctl size is 0. NO_COLOR disables color.
 
 Crash dumps land in ~/.config/nullray/crashes/ on fatal signals and asserts. --doctor prints env and the latest dump path. --debug / NULLRAY_DEBUG=1 logs lifecycle on stderr. make debug builds with symbols for richer backtraces.
 
-OpenRouter: retries on 429/502/503 (NULLRAY_HTTP_RETRIES). NULLRAY_FALLBACK_MODELS and NULLRAY_OPENROUTER_IGNORE for provider routing.
+OpenRouter: retries on 429/502/503 (NULLRAY_HTTP_RETRIES). NULLRAY_FALLBACK_MODELS and NULLRAY_OPENROUTER_IGNORE for provider routing. NULLRAY_PROVIDER_FALLBACKS=ollama,groq,... tries other providers on chat auth/payment failure. OPENROUTER_CREDITS_KEY optional for /credits. HTTP(S)_PROXY / ALL_PROXY / NO_PROXY honored for outbound HTTPS CONNECT. NULLRAY_AGENT_TOOLS=0 disables tool schemas in print/TUI (needed for local models that reject tools).
 
 ## Subagents
 
@@ -129,6 +135,7 @@ Package nullray/subagent. Tools: task, agents_status/peek/progress/wait/verify, 
 - Models: ~/.config/nullray/models.json and .nullray/models.json. /model lock freezes switches. Roles explore/edit/review/verify.
 - Isolation: shared + path leases for explore. Worktrees under .nullray/worktrees/ for edit. Never auto git stash.
 - Join with agents_wait, then agents_verify before /agents apply. Peer messaging needs NULLRAY_SUBAGENT_TEAMS=1.
+- Locate: `task` with `subagent_type=locate` returns a CITES block of workspace-relative `path:start-end` spans. Hard step budget NULLRAY_LOCATE_STEPS (default 4, max 8). In-child speculate parallel NULLRAY_LOCATE_PARALLEL (default 8). Cap cites with NULLRAY_LOCATE_MAX_CITES (default 12). Tools allowlisted to repo_map, glob_files, grep_files, read_file, list_dir. Shared isolation only. Prefer sync task. Optional path_hints and max_steps on task.
 
 ## CI
 

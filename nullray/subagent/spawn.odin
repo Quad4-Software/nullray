@@ -12,6 +12,7 @@ import "core:thread"
 import "core:time"
 import "nullray:constants"
 import "nullray:provider"
+import "nullray:sandbox"
 import "nullray:store"
 
 Child_Job :: struct {
@@ -60,6 +61,10 @@ spawn_child :: proc(
 	if spec.isolation_set {
 		isol = spec.isolation
 	}
+	locate := is_locate_type(type_name)
+	if locate {
+		isol = .Shared
+	}
 
 	model, merr := policy_resolve(role, spec.model, rt.provider != nil ? rt.provider.default_model : "", rt.main_model, allocator)
 	if merr != "" {
@@ -88,13 +93,25 @@ spawn_child :: proc(
 	}
 
 	max_steps := spec.max_steps
-	if max_steps <= 0 {
-		max_steps = rt.limits.steps
-	}
-	if max_steps <= 0 {
-		max_steps = constants.MAX_AGENT_STEPS / 2
-		if max_steps < 8 {
-			max_steps = 8
+	if locate {
+		if max_steps <= 0 {
+			max_steps = locate_steps_from_env()
+		}
+		if max_steps > constants.MAX_LOCATE_STEPS {
+			max_steps = constants.MAX_LOCATE_STEPS
+		}
+		if max_steps < 1 {
+			max_steps = 1
+		}
+	} else {
+		if max_steps <= 0 {
+			max_steps = rt.limits.steps
+		}
+		if max_steps <= 0 {
+			max_steps = constants.MAX_AGENT_STEPS / 2
+			if max_steps < 8 {
+				max_steps = 8
+			}
 		}
 	}
 
@@ -121,12 +138,23 @@ spawn_child :: proc(
 	roster_register(&rt.roster, h)
 	roster_group_add(&rt.roster, group_id, id)
 
-	preamble := build_coord_preamble(rt, id, parent_id, allocator)
+	preamble := locate ? build_locate_preamble(rt, id, parent_id, allocator) : build_coord_preamble(rt, id, parent_id, allocator)
 
 	user_prompt := strings.clone(spec.prompt, allocator)
 	if len(user_prompt) == 0 {
 		delete(user_prompt)
 		user_prompt = strings.clone(spec.description, allocator)
+	}
+	if len(spec.path_hints) > 0 {
+		hb: strings.Builder
+		strings.builder_init(&hb, context.temp_allocator)
+		strings.write_string(&hb, user_prompt)
+		strings.write_string(&hb, "\n\nPath hints:\n")
+		for h in spec.path_hints {
+			fmt.sbprintf(&hb, "- %s\n", h)
+		}
+		delete(user_prompt)
+		user_prompt = strings.clone(strings.to_string(hb), allocator)
 	}
 
 	job := new(Child_Job)
@@ -164,10 +192,16 @@ spawn_child :: proc(
 	if hh, ok := roster_get(&rt.roster, saved_id, allocator); ok {
 		sum = strings.clone(hh.result_summary, allocator)
 		if len(sum) > constants.MAX_CHILD_RESULT_CHARS {
+			safe := sandbox.redact_secrets(sum, context.temp_allocator)
+			delete(sum)
+			sum = strings.clone(safe, allocator)
 			aid, aok := store.artifact_store(sum)
 			excerpt := sum
 			if len(excerpt) > 400 {
 				excerpt = excerpt[:400]
+			}
+			if sandbox.value_looks_secret(excerpt) || strings.contains(excerpt, "sk-") {
+				excerpt = "[redacted excerpt]"
 			}
 			structured: string
 			if aok {
@@ -180,10 +214,14 @@ spawn_child :: proc(
 				)
 				delete(aid)
 			} else {
+				cap_n := constants.MAX_CHILD_RESULT_CHARS
+				if cap_n > len(sum) {
+					cap_n = len(sum)
+				}
 				structured = fmt.aprintf(
 					"status=ok path=subagent/%s\n--- excerpt ---\n%s",
 					saved_id,
-					sum[:constants.MAX_CHILD_RESULT_CHARS],
+					sum[:cap_n],
 					allocator = allocator,
 				)
 			}
@@ -226,6 +264,10 @@ cleanup_child_job :: proc(job: ^Child_Job) {
 	delete(job.spec.model)
 	delete(job.spec.resume_id)
 	delete(job.spec.group_id)
+	for h in job.spec.path_hints {
+		delete(h)
+	}
+	delete(job.spec.path_hints)
 }
 
 child_job_proc :: proc(data: rawptr) {
@@ -241,6 +283,11 @@ child_job_proc :: proc(data: rawptr) {
 	runtime_set_current_agent(job.rt, job.handle_id)
 	defer runtime_set_current_agent(job.rt, job.parent_id)
 
+	if len(job.workspace) > 0 {
+		sandbox.workspace_override_set(job.workspace)
+	}
+	defer sandbox.workspace_override_clear()
+
 	max_steps, mode, isol, wt_path, hok := roster_handle_snapshot(&job.rt.roster, job.handle_id)
 	result := g_run_child_turn(
 		&job.prov,
@@ -254,6 +301,12 @@ child_job_proc :: proc(data: rawptr) {
 	summary := result.content
 	if len(summary) == 0 {
 		summary = result.err
+	}
+	if is_locate_type(job.spec.subagent_type) {
+		// Heap-owned: cites_destroy must match parse allocator. roster_finish clones.
+		formatted := format_locate_summary(summary, context.allocator)
+		defer delete(formatted)
+		summary = formatted
 	}
 	if len(summary) > constants.MAX_CHILD_RESULT_CHARS {
 		summary = summary[:constants.MAX_CHILD_RESULT_CHARS]
@@ -310,6 +363,29 @@ build_coord_preamble :: proc(rt: ^Runtime, id: string, parent_id: string, alloca
 		strings.write_string(&b, "Knowledge digest:\n")
 		strings.write_string(&b, digest)
 	}
+	out := strings.to_string(b)
+	if len(out) > constants.MAX_COORD_PREAMBLE_CHARS {
+		trimmed := strings.clone(out[:constants.MAX_COORD_PREAMBLE_CHARS], allocator)
+		delete(out)
+		return trimmed
+	}
+	return out
+}
+
+build_locate_preamble :: proc(rt: ^Runtime, id: string, parent_id: string, allocator := context.allocator) -> string {
+	_ = rt
+	b: strings.Builder
+	strings.builder_init(&b, allocator)
+	strings.write_string(&b, "You are a nullray locate subagent.\n")
+	fmt.sbprintf(&b, "Your id: %s\nParent: %s\n", id, parent_id)
+	strings.write_string(&b, "Mission: find the smallest useful set of code spans for the parent query.\n")
+	strings.write_string(&b, "Tools: repo_map, glob_files, grep_files, read_file, list_dir only.\n")
+	strings.write_string(&b, "Prefer precision over recall. Prefer fewer spans.\n")
+	strings.write_string(&b, "Do not edit files. Do not publish knowledge. Do not spawn task.\n")
+	strings.write_string(&b, "Final reply must be a CITES block:\n")
+	strings.write_string(&b, "CITES: N\npath/relative:start-end\n")
+	strings.write_string(&b, "or CITES: none when nothing relevant is found.\n")
+	strings.write_string(&b, "Paths are workspace-relative. Optional single line path:N means N-N.\n")
 	out := strings.to_string(b)
 	if len(out) > constants.MAX_COORD_PREAMBLE_CHARS {
 		trimmed := strings.clone(out[:constants.MAX_COORD_PREAMBLE_CHARS], allocator)

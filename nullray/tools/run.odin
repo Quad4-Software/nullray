@@ -7,7 +7,9 @@ package tools
 
 import "core:encoding/json"
 import "core:fmt"
+import "core:os"
 import "core:strings"
+import "nullray:constants"
 import "nullray:subagent"
 
 subagent_runtime_enabled :: proc() -> bool {
@@ -47,12 +49,36 @@ is_subagent_tool_name :: proc(name: string) -> bool {
 
 lean_core_tool :: proc(name: string) -> bool {
 	switch name {
-	case "read_file", "write_file", "edit_file", "apply_edits", "list_dir",
+	case "read_file", "write_file", "edit_file", "apply_edits", "list_dir", "repo_map",
 		"grep_files", "glob_files", "run_shell", "run_script",
 		"load_skill", "list_skills", "compact_context",
 		"read_artifact", "grep_artifact",
-		"memory_get", "memory_put", "memory_list",
+		"memory_get", "memory_put", "memory_list", "memory_delete", "memory_forget", "memory_search",
 		"read_man", "apropos":
+		return true
+	}
+	return false
+}
+
+/*
+Audit scanners for lean when NULLRAY_HUNT is on. Keeps review hunt from
+instructing audit_* while tools_json omits them.
+*/
+lean_hunt_tool :: proc(name: string) -> bool {
+	switch name {
+	case "audit_owasp", "audit_deps", "audit_dockerfile", "audit_compose", "audit_actions":
+		return true
+	}
+	return false
+}
+
+lean_hunt_tools_enabled :: proc() -> bool {
+	if v, ok := os.lookup_env(constants.ENV_HUNT, context.temp_allocator); ok {
+		raw := strings.to_lower(strings.trim_space(v), context.temp_allocator)
+		switch raw {
+		case "", "0", "false", "no", "off", "disable", "disabled":
+			return false
+		}
 		return true
 	}
 	return false
@@ -142,8 +168,31 @@ schema_strip_descriptions_clone :: proc(v: json.Value, allocator := context.allo
 /*
 Ask, plan, and review modes are read-only. Edit allows write and shell.
 mode is ask|plan|review|edit (case-insensitive). Unknown modes treat as edit.
+When allow is non-empty, only those tool names pass (after mode checks).
 */
-tool_kind_allowed :: proc(r: ^Registry, name: string, mode: string) -> (ok: bool, reason: string) {
+tool_name_in_allow :: proc(name: string, allow: []string) -> bool {
+	if len(allow) == 0 {
+		return true
+	}
+	for a in allow {
+		if a == name {
+			return true
+		}
+	}
+	return false
+}
+
+LOCATE_TOOL_ALLOW :: []string{"repo_map", "glob_files", "grep_files", "read_file", "list_dir"}
+
+tool_kind_allowed :: proc(
+	r: ^Registry,
+	name: string,
+	mode: string,
+	allow: []string = nil,
+) -> (ok: bool, reason: string) {
+	if !tool_name_in_allow(name, allow) {
+		return false, "tool not in allowlist for this agent"
+	}
 	m := strings.to_lower(strings.trim_space(mode), context.temp_allocator)
 	allow_write := m == "edit" || m == ""
 	allow_shell := allow_write
@@ -176,8 +225,18 @@ tool_kind_allowed :: proc(r: ^Registry, name: string, mode: string) -> (ok: bool
 	return true, ""
 }
 
-run :: proc(r: ^Registry, name: string, args_json: string, mode: string, allocator := context.allocator) -> (result: string, err: string) {
-	if ok, reason := tool_kind_allowed(r, name, mode); !ok {
+run :: proc(
+	r: ^Registry,
+	name: string,
+	args_json: string,
+	mode: string,
+	allocator := context.allocator,
+	allow: []string = nil,
+) -> (result: string, err: string) {
+	if ok, reason := tool_kind_allowed(r, name, mode, allow); !ok {
+		return "", strings.clone(reason, allocator)
+	}
+	if ok, reason := gate_allows_tool(r, name); !ok {
 		return "", strings.clone(reason, allocator)
 	}
 	if strings.has_prefix(name, "mcp:") && r != nil && r.external_run != nil {
@@ -197,7 +256,12 @@ run :: proc(r: ^Registry, name: string, args_json: string, mode: string, allocat
 Names and one-line descriptions only. Full JSON schemas go in the API tools array.
 When mode is non-empty, skip tools blocked for that mode.
 */
-describe_for_prompt :: proc(r: ^Registry, allocator := context.allocator, mode := "") -> string {
+describe_for_prompt :: proc(
+	r: ^Registry,
+	allocator := context.allocator,
+	mode := "",
+	allow: []string = nil,
+) -> string {
 	b: strings.Builder
 	strings.builder_init(&b, allocator)
 	if r == nil {
@@ -206,9 +270,11 @@ describe_for_prompt :: proc(r: ^Registry, allocator := context.allocator, mode :
 	first := true
 	for t in r.tools {
 		if len(mode) > 0 {
-			if ok, _ := tool_kind_allowed(r, t.name, mode); !ok {
+			if ok, _ := tool_kind_allowed(r, t.name, mode, allow); !ok {
 				continue
 			}
+		} else if !tool_name_in_allow(t.name, allow) {
+			continue
 		}
 		if !first {
 			strings.write_string(&b, "\n")
@@ -221,7 +287,13 @@ describe_for_prompt :: proc(r: ^Registry, allocator := context.allocator, mode :
 	return strings.to_string(b)
 }
 
-openai_tools_json :: proc(r: ^Registry, mode: string, lean := false, allocator := context.allocator) -> string {
+openai_tools_json :: proc(
+	r: ^Registry,
+	mode: string,
+	lean := false,
+	allocator := context.allocator,
+	allow: []string = nil,
+) -> string {
 	b: strings.Builder
 	strings.builder_init(&b, allocator)
 	strings.write_string(&b, "[")
@@ -235,11 +307,12 @@ openai_tools_json :: proc(r: ^Registry, mode: string, lean := false, allocator :
 			if lean {
 				core := lean_core_tool(t.name)
 				sub := sub_on && lean_subagent_tool(t.name)
-				if !core && !sub {
+				hunt := lean_hunt_tools_enabled() && lean_hunt_tool(t.name)
+				if !core && !sub && !hunt {
 					continue
 				}
 			}
-			if ok, _ := tool_kind_allowed(r, t.name, mode); !ok {
+			if ok, _ := tool_kind_allowed(r, t.name, mode, allow); !ok {
 				continue
 			}
 			if !first {

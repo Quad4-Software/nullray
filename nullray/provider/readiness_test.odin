@@ -30,6 +30,16 @@ test_provider_readiness_label_key_and_base :: proc(t: ^testing.T) {
 }
 
 @(test)
+test_provider_is_local :: proc(t: ^testing.T) {
+	testing.expect(t, provider_is_local("ollama"))
+	testing.expect(t, provider_is_local("lmstudio"))
+	testing.expect(t, provider_is_local("llamacpp"))
+	testing.expect(t, !provider_is_local("openai"))
+	testing.expect(t, !provider_is_local("openrouter"))
+	testing.expect(t, !provider_is_local("openai-compat"))
+}
+
+@(test)
 test_provider_ids_cover_registry_builtins :: proc(t: ^testing.T) {
 	testing.expect(t, len(PROVIDER_IDS) >= 20)
 	found_dash := false
@@ -44,4 +54,11 @@ test_provider_ids_cover_registry_builtins :: proc(t: ^testing.T) {
 	}
 	testing.expect(t, found_dash)
 	testing.expect(t, found_cerebras)
+	found_llama := false
+	for id in PROVIDER_IDS {
+		if id == "llamacpp" {
+			found_llama = true
+		}
+	}
+	testing.expect(t, found_llama)
 }

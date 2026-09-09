@@ -1,10 +1,11 @@
 // SPDX-License-Identifier: 0BSD
 /*
-Single chat call with optional streaming bridge.
+Single chat call with optional streaming bridge and provider failover.
 */
 
 package agent
 
+import "core:fmt"
 import "core:strings"
 import "nullray:provider"
 
@@ -25,7 +26,14 @@ delta_bridge :: proc(kind: provider.Delta_Kind, text: string, user: rawptr) {
 }
 
 @(private)
-single_chat :: proc(p: ^provider.Provider, msgs: []provider.Message, model, tools_json: string, cfg: Config, harness: ^Harness_Metrics = nil, allocator := context.allocator) -> provider.Chat_Response {
+run_one_chat :: proc(
+	p: ^provider.Provider,
+	msgs: []provider.Message,
+	model, tools_json: string,
+	cfg: Config,
+	harness: ^Harness_Metrics,
+	allocator := context.allocator,
+) -> provider.Chat_Response {
 	choice := ""
 	if len(tools_json) > 0 {
 		choice = "auto"
@@ -38,6 +46,10 @@ single_chat :: proc(p: ^provider.Provider, msgs: []provider.Message, model, tool
 		tool_choice = choice,
 		reasoning_effort = cfg.reasoning_effort,
 		max_tokens = cfg.max_tokens,
+		temperature = cfg.temperature,
+		top_p = cfg.top_p,
+		temperature_set = cfg.temperature_set,
+		top_p_set = cfg.top_p_set,
 	}
 	if cfg.stream {
 		if p.stream == nil {
@@ -62,6 +74,7 @@ single_chat :: proc(p: ^provider.Provider, msgs: []provider.Message, model, tool
 			provider.destroy_chat_response(&res)
 			return provider.Chat_Response{ok = false, err = err}
 		}
+		provider.apply_quirks(&res, model, allocator)
 		return res
 	}
 	res := p.chat(p, req)
@@ -75,7 +88,70 @@ single_chat :: proc(p: ^provider.Provider, msgs: []provider.Message, model, tool
 		provider.destroy_chat_response(&res)
 		return provider.Chat_Response{ok = false, err = err}
 	}
+	provider.apply_quirks(&res, model, allocator)
 	return res
+}
+
+@(private)
+single_chat :: proc(
+	p: ^provider.Provider,
+	msgs: []provider.Message,
+	model, tools_json: string,
+	cfg: Config,
+	harness: ^Harness_Metrics = nil,
+	allocator := context.allocator,
+) -> provider.Chat_Response {
+	res := run_one_chat(p, msgs, model, tools_json, cfg, harness, allocator)
+	if res.ok || !provider.auth_is_failover_worthy(res.err) {
+		return res
+	}
+	fallbacks := provider.provider_fallback_ids()
+	if len(fallbacks) == 0 {
+		return res
+	}
+	primary_err := res.err
+	primary_id := p.id
+	for id in fallbacks {
+		if id == primary_id {
+			continue
+		}
+		alt, ok := provider.make_provider_by_id(id)
+		if !ok {
+			continue
+		}
+		if !provider.provider_ready_for_chat(&alt) {
+			provider.provider_destroy(&alt)
+			continue
+		}
+		emit(cfg, .Status, fmt.tprintf("failover: trying %s after %s auth failure", id, primary_id))
+		// Keep the requested model when it is a plain local name. Swap only when the
+		// primary id looks cloud-scoped (vendor/model) and the fallback has a default.
+		alt_model := model
+		if strings.contains(model, "/") && len(alt.default_model) > 0 {
+			alt_model = alt.default_model
+		}
+		// Failover uses non-stream for reliability across providers.
+		cfg2 := cfg
+		cfg2.stream = false
+		cfg2.speculate_pool = nil
+		try := run_one_chat(&alt, msgs, alt_model, tools_json, cfg2, harness, allocator)
+		provider.provider_destroy(&alt)
+		if try.ok {
+			delete(primary_err)
+			note := provider.failover_note(primary_id, id, "auth", context.temp_allocator)
+			emit(cfg, .Status, note)
+			return try
+		}
+		provider.destroy_chat_response(&try)
+		delete(try.err)
+	}
+	combined := fmt.aprintf(
+		"%s (no working provider in NULLRAY_PROVIDER_FALLBACKS)",
+		primary_err,
+		allocator = allocator,
+	)
+	delete(primary_err)
+	return provider.Chat_Response{ok = false, err = combined}
 }
 
 @(private)

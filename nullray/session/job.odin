@@ -264,6 +264,7 @@ chat_job :: proc(data: rawptr) {
 	cfg.user = args.session
 	cfg.stop_check = session_stop_check
 	cfg.prepare_context = session_prepare_cb
+	agent.hunt_log_sampling(cfg.hunt)
 
 	args.session.last_input_chars = messages_content_chars(args.messages)
 

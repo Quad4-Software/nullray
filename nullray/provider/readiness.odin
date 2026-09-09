@@ -11,6 +11,7 @@ import "core:strings"
 PROVIDER_IDS :: []string{
 	"ollama",
 	"lmstudio",
+	"llamacpp",
 	"openai",
 	"openai-compat",
 	"openrouter",
@@ -31,16 +32,25 @@ PROVIDER_IDS :: []string{
 	"dashscope",
 }
 
+// Local OpenAI-compat hosts (no cloud API key required by default).
+provider_is_local :: proc(id: string) -> bool {
+	switch id {
+	case "ollama", "lmstudio", "llamacpp":
+		return true
+	}
+	return false
+}
+
 /*
 Readiness for status lines. Labels: live, down, configured, no key, no base, none.
-probe enables a short local HTTP check for ollama and lmstudio.
+probe enables a short local HTTP check for ollama, lmstudio, and llamacpp.
 */
 provider_readiness_label :: proc(p: ^Provider, probe := true) -> string {
 	if p == nil {
 		return "none"
 	}
-	if p.id == "ollama" || p.id == "lmstudio" {
-		if !probe {
+	if provider_is_local(p.id) {
+		if !probe || !local_probe_enabled_from_env() {
 			return "local"
 		}
 		if probe_local_provider(p.id, 2) {

@@ -13,6 +13,10 @@ test_fetch_url_blocks_ssrf :: proc(t: ^testing.T) {
 		"http://10.0.0.1/",
 		"http://192.168.1.1/",
 		"ftp://example.com/",
+		"http://2130706433/",
+		"http://0x7f000001/",
+		"http://100.64.0.1/",
+		"http://[::1]/",
 	}
 	for c in cases {
 		blocked, _ := fetch_url_blocked(c)

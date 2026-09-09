@@ -91,7 +91,15 @@ test_openai_tools_json_lean_and_subagent_omit :: proc(t: ^testing.T) {
 	testing.expect(t, !strings.contains(no_sub, `"task"`))
 	testing.expect(t, !strings.contains(no_sub, `"agents_status"`))
 	testing.expect(t, !strings.contains(no_sub, `"knowledge_put"`))
-	testing.expect(t, strings.contains(no_sub, `"read_man"`))
+	testing.expect(t, strings.contains(lean, `"read_man"`))
+	testing.expect(t, !strings.contains(lean, `"audit_owasp"`))
+
+	os.set_env("NULLRAY_HUNT", "auto")
+	defer os.unset_env("NULLRAY_HUNT")
+	lean_hunt := openai_tools_json(&reg, "review", true, context.allocator)
+	defer delete(lean_hunt)
+	testing.expect(t, strings.contains(lean_hunt, `"audit_owasp"`))
+	testing.expect(t, strings.contains(lean_hunt, `"audit_deps"`))
 }
 
 @(test)
@@ -124,4 +132,38 @@ test_read_artifact_default_limit :: proc(t: ^testing.T) {
 	testing.expect_value(t, err, "")
 	testing.expect(t, strings.contains(out, "lines=1..200 of 400") || strings.contains(out, "lines=1..200 of"))
 	testing.expect(t, !strings.contains(out, "line-350"))
+}
+
+@(test)
+test_tool_allow_filters_openai_json :: proc(t: ^testing.T) {
+	reg: Registry
+	registry_init(&reg)
+	defer registry_destroy(&reg)
+	allow := LOCATE_TOOL_ALLOW
+	json := openai_tools_json(&reg, "ask", false, context.allocator, allow)
+	defer delete(json)
+	testing.expect(t, strings.contains(json, `"grep_files"`))
+	testing.expect(t, strings.contains(json, `"repo_map"`))
+	testing.expect(t, !strings.contains(json, `"task"`))
+	testing.expect(t, !strings.contains(json, `"knowledge_put"`))
+	testing.expect(t, !strings.contains(json, `"write_file"`))
+
+	ok, _ := tool_kind_allowed(&reg, "grep_files", "ask", allow)
+	testing.expect(t, ok)
+	ok2, reason := tool_kind_allowed(&reg, "task", "ask", allow)
+	testing.expect(t, !ok2)
+	testing.expect(t, len(reason) > 0)
+}
+
+@(test)
+test_task_schema_mentions_locate :: proc(t: ^testing.T) {
+	reg: Registry
+	registry_init(&reg)
+	defer registry_destroy(&reg)
+	register_subagent_tools(&reg, true)
+	ttool, ok := registry_find(&reg, "task")
+	testing.expect(t, ok)
+	testing.expect(t, strings.contains(ttool.description, "locate"))
+	testing.expect(t, strings.contains(ttool.schema_json, "path_hints"))
+	testing.expect(t, strings.contains(ttool.schema_json, "max_steps"))
 }

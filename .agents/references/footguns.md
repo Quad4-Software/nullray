@@ -14,7 +14,9 @@ Mistakes that burn time in this tree. Pair with memory and tui skills.
 | Use len(s) as display columns | use rune_cols / string_cols |
 | Merge plat backends into one untagged file | #+build files only |
 | Expect splash keys to queue | input dropped while splash_active |
-| Rely on binds_resolve for Esc-stop | busy cancel hardcoded, stop_agent unused |
+| Rely on hardcoded Esc-stop only | busy stop is binds_resolve Stop_Agent (stop= in keys.ini) |
+| Leave pasting true after cancel | clear pasting on cancel and submit |
+| Mutate a.input from improve worker | post pending, apply in app_on_tick |
 | Double-free nested owned strings | delete once, clone on replace |
 | destroy_session_infos with wrong allocator | match list_sessions allocator (banner used temp then heap delete) |
 | Skip destroy pairs | app_destroy, loop_close, buffer_destroy, registry_destroy, session_destroy, tools.registry_destroy, mcp.registry_destroy |

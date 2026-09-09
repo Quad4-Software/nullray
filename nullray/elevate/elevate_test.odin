@@ -105,19 +105,19 @@ test_circuit_busy :: proc(t: ^testing.T) {
 
 @(test)
 test_scrub_secret_from_output :: proc(t: ^testing.T) {
-	secret := "s3cr3t-pass"
-	out := scrub_secret("before s3cr3t-pass after", secret)
+	tok := "s3cr3t-pass"
+	out := scrub_secret("before s3cr3t-pass after", tok)
 	defer delete(out)
-	testing.expect(t, !strings.contains(out, secret))
+	testing.expect(t, !strings.contains(out, tok))
 	testing.expect(t, strings.contains(out, REDACTED))
 
 	r := Result{
 		stdout = strings.clone("cmd: echo s3cr3t-pass"),
 		stderr = strings.clone("warn s3cr3t-pass"),
 	}
-	scrub_result_inplace(&r, secret)
-	testing.expect(t, !strings.contains(r.stdout, secret))
-	testing.expect(t, !strings.contains(r.stderr, secret))
+	scrub_result_inplace(&r, tok)
+	testing.expect(t, !strings.contains(r.stdout, tok))
+	testing.expect(t, !strings.contains(r.stderr, tok))
 	result_destroy(&r)
 }
 

@@ -38,16 +38,20 @@ openrouter_headers :: proc(api_key: string, allocator := context.temp_allocator)
 
 openrouter_fetch_balance :: proc(api_key: string, allocator := context.allocator) -> OpenRouter_Balance {
 	out: OpenRouter_Balance
-	if len(api_key) == 0 {
+	key := openrouter_credits_key(api_key)
+	if len(key) == 0 {
 		out.err = strings.clone("missing OPENROUTER_API_KEY", allocator)
 		return out
 	}
-	headers := openrouter_headers(api_key)
+	headers := openrouter_headers(key)
 
 	key_url := http.join_url(constants.DEFAULT_OPENROUTER_BASE, "/key")
 	key_res := http.get(key_url, headers, 20, context.temp_allocator)
 	if key_res.ok {
 		parse_openrouter_key_body(key_res.body, &out)
+	} else if key_res.status == 401 {
+		out.err = openrouter_auth_err(key_res.body, "credits/key", allocator)
+		return out
 	}
 
 	cred_url := http.join_url(constants.DEFAULT_OPENROUTER_BASE, "/credits")
@@ -55,9 +59,13 @@ openrouter_fetch_balance :: proc(api_key: string, allocator := context.allocator
 	if cred_res.ok {
 		parse_openrouter_credits_body(cred_res.body, &out)
 	} else if !out.has_key_limit {
-		out.err = strings.clone(cred_res.err, allocator)
-		if len(out.err) == 0 {
-			out.err = strings.clone("credits request failed", allocator)
+		if cred_res.status == 401 {
+			out.err = openrouter_auth_err(cred_res.body, "credits", allocator)
+		} else {
+			out.err = strings.clone(cred_res.err, allocator)
+			if len(out.err) == 0 {
+				out.err = strings.clone("credits request failed", allocator)
+			}
 		}
 		return out
 	}
@@ -67,6 +75,23 @@ openrouter_fetch_balance :: proc(api_key: string, allocator := context.allocator
 		out.remaining = out.total_credits - out.total_usage
 	}
 	return out
+}
+
+@(private)
+openrouter_auth_err :: proc(body, surface: string, allocator := context.allocator) -> string {
+	msg := extract_provider_error_message(body)
+	lower := strings.to_lower(msg, context.temp_allocator)
+	if strings.contains(lower, "user not found") {
+		return fmt.aprintf(
+			"OpenRouter %s auth failed: User not found (key revoked or account missing; chat may also fail; set NULLRAY_PROVIDER_FALLBACKS or fix OPENROUTER_API_KEY)",
+			surface,
+			allocator = allocator,
+		)
+	}
+	if len(msg) > 0 {
+		return fmt.aprintf("OpenRouter %s auth failed: %s", surface, msg, allocator = allocator)
+	}
+	return fmt.aprintf("OpenRouter %s auth failed: HTTP 401", surface, allocator = allocator)
 }
 
 openrouter_balance_label :: proc(b: OpenRouter_Balance, allocator := context.allocator) -> string {

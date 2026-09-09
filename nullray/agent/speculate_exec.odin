@@ -47,7 +47,12 @@ tool_exec_maybe_speculate :: proc(
 	idx: int,
 	harness: ^Harness_Metrics,
 	allocator := context.allocator,
+	allow: []string = nil,
 ) -> (tool_result: string, tool_err: string, do_post: bool) {
+	effective_allow := allow
+	if pool != nil && len(pool.tool_allow) > 0 {
+		effective_allow = pool.tool_allow
+	}
 	if pool != nil && tools.speculate_allowlisted(c.name) {
 		kid := tools.speculate_key_id(c.id, idx, allocator)
 		take := tools.speculate_take(pool, kid, c.name, c.arguments)
@@ -74,7 +79,7 @@ tool_exec_maybe_speculate :: proc(
 		return "", pre.message, false
 	}
 	delete(pre.message)
-	tool_result, tool_err = tools.run(reg, c.name, c.arguments, mode_s, allocator)
+	tool_result, tool_err = tools.run(reg, c.name, c.arguments, mode_s, allocator, effective_allow)
 	return tool_result, tool_err, true
 }
 

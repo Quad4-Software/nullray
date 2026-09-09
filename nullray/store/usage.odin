@@ -59,11 +59,8 @@ Session_Metrics :: struct {
 g_usage_mu: sync.Mutex
 
 usage_path_for :: proc(session_jsonl_path: string, allocator := context.allocator) -> string {
-	if strings.has_suffix(session_jsonl_path, ".jsonl") {
-		base := session_jsonl_path[:len(session_jsonl_path) - len(".jsonl")]
-		return fmt.aprintf("%s.usage.jsonl", base, allocator = allocator)
-	}
-	return fmt.aprintf("%s.usage.jsonl", session_jsonl_path, allocator = allocator)
+	base := session_file_stem(session_jsonl_path, context.temp_allocator)
+	return fmt.aprintf("%s.usage.jsonl", base, allocator = allocator)
 }
 
 usage_persist_enabled :: proc(session_persist: bool) -> bool {

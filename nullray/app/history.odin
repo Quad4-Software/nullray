@@ -96,9 +96,14 @@ app_reveal_reset :: proc(a: ^App) {
 app_reveal_tick :: proc(a: ^App) -> bool {
 	changed := false
 	if a.session.has_thinking {
-		full := strings.builder_len(a.session.thinking)
+		full := utf8.rune_count_in_string(strings.to_string(a.session.thinking))
 		if a.reveal_think < full {
-			a.reveal_think = min(full, a.reveal_think + constants.STREAM_REVEAL_THINK_CHARS)
+			step := constants.STREAM_REVEAL_THINK_CHARS
+			if full - a.reveal_think > step * 4 {
+				a.reveal_think = full
+			} else {
+				a.reveal_think = min(full, a.reveal_think + step)
+			}
 			changed = true
 		}
 	} else if a.reveal_think != 0 {
@@ -106,9 +111,14 @@ app_reveal_tick :: proc(a: ^App) -> bool {
 		changed = true
 	}
 	if a.session.has_streaming {
-		full := strings.builder_len(a.session.streaming)
+		full := utf8.rune_count_in_string(strings.to_string(a.session.streaming))
 		if a.reveal_stream < full {
-			a.reveal_stream = min(full, a.reveal_stream + constants.STREAM_REVEAL_CHARS)
+			step := constants.STREAM_REVEAL_CHARS
+			if full - a.reveal_stream > step * 4 {
+				a.reveal_stream = full
+			} else {
+				a.reveal_stream = min(full, a.reveal_stream + step)
+			}
 			changed = true
 		}
 	} else if a.reveal_stream != 0 {

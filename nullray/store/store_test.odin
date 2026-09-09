@@ -141,3 +141,98 @@ test_session_export_import_delete :: proc(t: ^testing.T) {
 		testing.expectf(t, false, "final delete failed: %s", derr2)
 	}
 }
+
+@(test)
+test_transcript_msgpack_roundtrip :: proc(t: ^testing.T) {
+	path := "/tmp/nullray-store-test.msgpack"
+	_ = os.remove(path)
+	defer os.remove(path)
+
+	msgs := make([dynamic]provider.Message)
+	defer {
+		for m in msgs {
+			provider.destroy_message(m)
+		}
+		delete(msgs)
+	}
+	append(&msgs, provider.Message{role = .User, content = strings.clone("hi")})
+	append(&msgs, provider.Message{role = .Assistant, content = strings.clone("yo"), reasoning = strings.clone("think")})
+	append(&msgs, provider.Message{role = .Tool, content = strings.clone("ok"), name = strings.clone("read_file")})
+
+	testing.expect(t, save_transcript(path, msgs[:]))
+	testing.expect(t, session_path_is_msgpack(path))
+
+	loaded, ok := load_transcript(path)
+	testing.expect(t, ok)
+	defer {
+		for m in loaded {
+			provider.destroy_message(m)
+		}
+		delete(loaded)
+	}
+	testing.expect_value(t, len(loaded), 3)
+	testing.expect_value(t, loaded[0].content, "hi")
+	testing.expect_value(t, loaded[1].reasoning, "think")
+	testing.expect_value(t, loaded[2].name, "read_file")
+}
+
+@(test)
+test_session_rename_files :: proc(t: ^testing.T) {
+	from := "nullray_rename_from"
+	to := "nullray_rename_to"
+	src := named_session_path(from)
+	dst := named_session_path(to)
+	defer {
+		_, _ = delete_session(from)
+		_, _ = delete_session(to)
+		delete(src)
+		delete(dst)
+	}
+	_, _ = delete_session(from)
+	_, _ = delete_session(to)
+
+	msgs := make([dynamic]provider.Message)
+	defer {
+		for m in msgs {
+			provider.destroy_message(m)
+		}
+		delete(msgs)
+	}
+	append(&msgs, provider.Message{role = .User, content = strings.clone("rename-me")})
+	testing.expect(t, save_transcript(src, msgs[:]))
+	testing.expect(t, save_session_meta(src, Session_Meta{
+		provider = "ollama",
+		model = "m",
+		group = "",
+		mode = "ask",
+	}))
+
+	ok, err := rename_session_files(from, to, false)
+	testing.expect(t, ok)
+	if !ok {
+		testing.expectf(t, false, "rename failed: %s", err)
+	}
+	testing.expect(t, !os.exists(src))
+	testing.expect(t, os.exists(dst))
+	meta, mok := load_session_meta(dst)
+	testing.expect(t, mok)
+	defer destroy_session_meta(meta)
+	testing.expect_value(t, meta.provider, "ollama")
+
+	ok2, _ := rename_session_files(to, from, false)
+	testing.expect(t, ok2)
+	testing.expect(t, os.exists(src))
+
+	testing.expect(t, save_transcript(dst, msgs[:]))
+	ok3, err3 := rename_session_files(from, to, false)
+	testing.expect(t, !ok3)
+	testing.expect(t, strings.contains(err3, "already exists"))
+
+	ok4, err4 := rename_session_files(from, to, true)
+	testing.expect(t, ok4)
+	if !ok4 {
+		testing.expectf(t, false, "force rename failed: %s", err4)
+	}
+	testing.expect(t, !os.exists(src))
+	testing.expect(t, os.exists(dst))
+}

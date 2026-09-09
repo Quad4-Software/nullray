@@ -42,7 +42,7 @@ draw_input_line :: proc(b: ^Buffer, y: int, prompt, text: string, cursor: int, f
 	buffer_fill_rect(b, 0, y, b.width, 1, ' ', fg, bg)
 	buffer_text(b, 1, y, prompt, prompt_fg, bg, {.Bold})
 	px := 1 + string_cols(prompt)
-	safe_cursor := clamp(cursor, 0, len(text))
+	safe_cursor := cursor_snap_boundary(text, clamp(cursor, 0, len(text)))
 	buffer_text_clip(b, px, y, b.width - 1, text, fg, bg)
 	cx := px + string_cols(text[:safe_cursor])
 	if cx < b.width {

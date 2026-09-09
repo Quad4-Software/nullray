@@ -7,12 +7,15 @@ package app
 
 import "core:fmt"
 import "core:strings"
+import "core:sync"
 import "core:thread"
+import "core:unicode/utf8"
 import "nullray:agent"
 import "nullray:config"
 import "nullray:constants"
 import "nullray:provider"
 import "nullray:session"
+import "nullray:tools"
 import "nullray:ui"
 
 app_toggle_help :: proc(a: ^App) {
@@ -110,6 +113,34 @@ app_on_event :: proc(ev: ui.Event, user: rawptr) -> bool {
 		return false
 	}
 
+	if a.show_status {
+		if ev.kind == .Esc {
+			a.show_status = false
+			app_mark_dirty(a)
+			return false
+		}
+		if ev.kind == .Ctrl_Q || ev.kind == .Ctrl_C {
+			return true
+		}
+		#partial switch ev.kind {
+		case .Page_Up, .Up, .Mouse_Wheel_Up:
+			step := 1
+			if ev.kind == .Page_Up {
+				step = max(8, a.loop.term.height / 2)
+			}
+			a.status_scroll = max(0, a.status_scroll - step)
+			app_mark_dirty(a)
+		case .Page_Down, .Down, .Mouse_Wheel_Down:
+			step := 1
+			if ev.kind == .Page_Down {
+				step = max(8, a.loop.term.height / 2)
+			}
+			a.status_scroll += step
+			app_mark_dirty(a)
+		}
+		return false
+	}
+
 	if ev.kind == .Mouse_Press && ev.my == 0 && ev.mx >= a.help_btn_x {
 		app_toggle_help(a)
 		return false
@@ -136,7 +167,7 @@ app_on_event :: proc(ev: ui.Event, user: rawptr) -> bool {
 			app_mark_dirty(a)
 			return false
 		}
-		if ev.kind == .Esc && len(strings.to_string(a.input)) == 0 {
+		if ev.kind == .Esc && len(strings.to_string(a.input)) == 0 && !a.session.busy {
 			app_view_close(a)
 			session.session_set_status(&a.session, "view closed")
 			return false
@@ -207,11 +238,11 @@ app_on_event :: proc(ev: ui.Event, user: rawptr) -> bool {
 			app_mark_dirty(a)
 			return false
 		case .Esc:
-			strings.builder_reset(&a.input)
-			a.cursor = 0
-			a.suggest_sel = 0
-			app_mark_dirty(a)
-			return false
+			if !a.session.busy {
+				a.suggest_sel = 0
+				app_mark_dirty(a)
+				return false
+			}
 		case .Enter:
 			if app_apply_suggestion(a) {
 				text := strings.to_string(a.input)
@@ -344,16 +375,13 @@ app_on_event :: proc(ev: ui.Event, user: rawptr) -> bool {
 	case .Stop_Agent:
 		if a.session.busy {
 			session.session_request_cancel(&a.session)
+			a.pasting = false
 			app_mark_dirty(a)
+			return false
 		}
+		app_handle_esc_idle(a)
 		return false
 	case .None:
-	}
-
-	if a.session.busy && ev.kind == .Esc {
-		session.session_request_cancel(&a.session)
-		app_mark_dirty(a)
-		return false
 	}
 
 	#partial switch ev.kind {
@@ -381,8 +409,9 @@ app_on_event :: proc(ev: ui.Event, user: rawptr) -> bool {
 		}
 	case .Backspace:
 		text := strings.to_string(a.input)
+		a.cursor = ui.cursor_snap_boundary(text, a.cursor)
 		if a.cursor > 0 && len(text) > 0 {
-			cut := a.cursor - 1
+			cut := ui.cursor_prev_edit(text, a.cursor)
 			left := text[:cut]
 			right := text[a.cursor:]
 			strings.builder_reset(&a.input)
@@ -392,16 +421,16 @@ app_on_event :: proc(ev: ui.Event, user: rawptr) -> bool {
 			a.suggest_sel = 0
 			app_mark_dirty(a)
 		}
+	case .Delete:
+		app_delete_forward(a)
 	case .Left:
-		if a.cursor > 0 {
-			a.cursor -= 1
-			app_mark_dirty(a)
-		}
+		text := strings.to_string(a.input)
+		a.cursor = ui.cursor_prev_rune(text, a.cursor)
+		app_mark_dirty(a)
 	case .Right:
-		if a.cursor < len(strings.to_string(a.input)) {
-			a.cursor += 1
-			app_mark_dirty(a)
-		}
+		text := strings.to_string(a.input)
+		a.cursor = ui.cursor_next_rune(text, a.cursor)
+		app_mark_dirty(a)
 	case .Home:
 		if a.keys_preset != .Default {
 			a.cursor = 0
@@ -417,8 +446,12 @@ app_on_event :: proc(ev: ui.Event, user: rawptr) -> bool {
 	case .Mouse_Wheel_Down:
 		app_scroll_by(a, -3)
 	case .Mouse_Press:
-		if ev.my >= a.loop.term.height - 3 {
+		input_rows := app_input_rows(a, a.loop.term.width)
+		if ev.my >= a.loop.term.height - input_rows {
 			app_follow_bottom(a)
+			return false
+		}
+		if app_try_click_expand(a, ev.mx, ev.my) {
 			return false
 		}
 		if ev.ch == 0 && app_mouse_in_transcript(a, ev.mx, ev.my) {
@@ -437,7 +470,7 @@ app_on_event :: proc(ev: ui.Event, user: rawptr) -> bool {
 				a.sel_dragging = false
 				_ = app_sel_click_message(a, ev.my)
 			} else {
-				app_sel_finish(a, ev.mx, ev.my, true)
+				app_sel_finish(a, ev.mx, ev.my, false)
 			}
 			return false
 		}
@@ -450,29 +483,37 @@ app_on_event :: proc(ev: ui.Event, user: rawptr) -> bool {
 			app_insert_rune(a, ev.ch)
 		}
 	case .Esc:
-		if a.sel_has || a.sel_dragging {
-			app_sel_clear(a)
-			app_mark_dirty(a)
-			return false
-		}
-		if a.view_open && len(strings.to_string(a.input)) == 0 {
-			app_view_close(a)
-			session.session_set_status(&a.session, "view closed")
-		} else if len(strings.to_string(a.input)) > 0 {
-			strings.builder_reset(&a.input)
-			a.cursor = 0
-			a.suggest_sel = 0
-			app_mark_dirty(a)
-		}
+		app_handle_esc_idle(a)
 	}
 	return false
+}
+
+@(private)
+app_handle_esc_idle :: proc(a: ^App) {
+	if a.sel_has || a.sel_dragging {
+		app_sel_clear(a)
+		app_mark_dirty(a)
+		return
+	}
+	if a.view_open && len(strings.to_string(a.input)) == 0 {
+		app_view_close(a)
+		session.session_set_status(&a.session, "view closed")
+		return
+	}
+	if len(strings.to_string(a.input)) > 0 {
+		strings.builder_reset(&a.input)
+		a.cursor = 0
+		a.suggest_sel = 0
+		app_mark_dirty(a)
+	}
 }
 
 @(private)
 app_mouse_in_transcript :: proc(a: ^App, mx, my: int) -> bool {
 	h := a.loop.term.height
 	w := a.loop.term.width
-	if my < 2 || my > h - 4 {
+	input_rows := app_input_rows(a, w)
+	if my < 2 || my > h - 2 - input_rows {
 		return false
 	}
 	lay := app_view_layout(a, w, h)
@@ -507,16 +548,14 @@ app_handle_line_edit :: proc(a: ^App, ev: ui.Event) -> bool {
 			app_mark_dirty(a)
 			return true
 		case .Ctrl_B:
-			if a.cursor > 0 {
-				a.cursor -= 1
-				app_mark_dirty(a)
-			}
+			text := strings.to_string(a.input)
+			a.cursor = ui.cursor_prev_rune(text, a.cursor)
+			app_mark_dirty(a)
 			return true
 		case .Ctrl_F:
-			if a.cursor < len(strings.to_string(a.input)) {
-				a.cursor += 1
-				app_mark_dirty(a)
-			}
+			text := strings.to_string(a.input)
+			a.cursor = ui.cursor_next_rune(text, a.cursor)
+			app_mark_dirty(a)
 			return true
 		case .Ctrl_K:
 			app_kill_to_end(a)
@@ -538,15 +577,26 @@ app_handle_line_edit :: proc(a: ^App, ev: ui.Event) -> bool {
 @(private)
 app_kill_word_back :: proc(a: ^App) {
 	text := strings.to_string(a.input)
+	a.cursor = ui.cursor_snap_boundary(text, a.cursor)
 	if a.cursor <= 0 || len(text) == 0 {
 		return
 	}
 	i := a.cursor
-	for i > 0 && text[i - 1] == ' ' {
-		i -= 1
+	for i > 0 {
+		prev := ui.cursor_prev_rune(text, i)
+		r, _ := utf8.decode_rune_in_string(text[prev:i])
+		if r != ' ' {
+			break
+		}
+		i = prev
 	}
-	for i > 0 && text[i - 1] != ' ' {
-		i -= 1
+	for i > 0 {
+		prev := ui.cursor_prev_rune(text, i)
+		r, _ := utf8.decode_rune_in_string(text[prev:i])
+		if r == ' ' {
+			break
+		}
+		i = prev
 	}
 	left := text[:i]
 	right := text[a.cursor:]
@@ -561,6 +611,7 @@ app_kill_word_back :: proc(a: ^App) {
 @(private)
 app_kill_to_start :: proc(a: ^App) {
 	text := strings.to_string(a.input)
+	a.cursor = ui.cursor_snap_boundary(text, a.cursor)
 	if a.cursor <= 0 {
 		return
 	}
@@ -575,6 +626,7 @@ app_kill_to_start :: proc(a: ^App) {
 @(private)
 app_kill_to_end :: proc(a: ^App) {
 	text := strings.to_string(a.input)
+	a.cursor = ui.cursor_snap_boundary(text, a.cursor)
 	if a.cursor >= len(text) {
 		return
 	}
@@ -588,11 +640,13 @@ app_kill_to_end :: proc(a: ^App) {
 @(private)
 app_delete_forward :: proc(a: ^App) {
 	text := strings.to_string(a.input)
+	a.cursor = ui.cursor_snap_boundary(text, a.cursor)
 	if a.cursor >= len(text) {
 		return
 	}
+	end := ui.cursor_next_rune(text, a.cursor)
 	left := text[:a.cursor]
-	right := text[a.cursor + 1:]
+	right := text[end:]
 	strings.builder_reset(&a.input)
 	strings.write_string(&a.input, left)
 	strings.write_string(&a.input, right)
@@ -603,16 +657,27 @@ app_delete_forward :: proc(a: ^App) {
 @(private)
 app_insert_text :: proc(a: ^App, s: string) {
 	text := strings.to_string(a.input)
-	if len(text)+len(s) > constants.MAX_INPUT_CHARS {
+	a.cursor = ui.cursor_snap_boundary(text, a.cursor)
+	room := constants.MAX_INPUT_CHARS - len(text)
+	if room <= 0 {
+		app_toast_warn(a, "input full")
+		return
+	}
+	chunk := s
+	if len(chunk) > room {
+		chunk = ui.truncate_utf8_bytes(s, room)
+		app_toast_warn(a, fmt.tprintf("paste truncated to %d chars", len(chunk)))
+	}
+	if len(chunk) == 0 {
 		return
 	}
 	left := text[:a.cursor]
 	right := text[a.cursor:]
 	strings.builder_reset(&a.input)
 	strings.write_string(&a.input, left)
-	strings.write_string(&a.input, s)
+	strings.write_string(&a.input, chunk)
 	strings.write_string(&a.input, right)
-	a.cursor += len(s)
+	a.cursor += len(chunk)
 	a.suggest_sel = 0
 	app_mark_dirty(a)
 }
@@ -620,14 +685,20 @@ app_insert_text :: proc(a: ^App, s: string) {
 @(private)
 app_insert_rune :: proc(a: ^App, ch: rune) {
 	text := strings.to_string(a.input)
-	if len(text) >= constants.MAX_INPUT_CHARS {
+	a.cursor = ui.cursor_snap_boundary(text, a.cursor)
+	buf, n := utf8.encode_rune(ch)
+	if n <= 0 {
+		return
+	}
+	if len(text) + n > constants.MAX_INPUT_CHARS {
+		app_toast_warn(a, "input full")
 		return
 	}
 	left := text[:a.cursor]
 	right := text[a.cursor:]
 	strings.builder_reset(&a.input)
 	strings.write_string(&a.input, left)
-	strings.write_rune(&a.input, ch)
+	strings.write_string(&a.input, string(buf[:n]))
 	strings.write_string(&a.input, right)
 	a.cursor = len(strings.to_string(a.input)) - len(right)
 	a.suggest_sel = 0
@@ -678,10 +749,13 @@ app_improve_prompt :: proc(a: ^App) {
 		return
 	}
 	a.improving = true
+	a.improve_gen += 1
+	gen := a.improve_gen
 	session.session_set_status(&a.session, "improving prompt...")
 	app_mark_dirty(a)
 	job := new(Improve_Job)
 	job.app = a
+	job.gen = gen
 	job.draft = strings.clone(draft)
 	job.prov = p^
 	job.prov.base_url = strings.clone(p.base_url)
@@ -692,6 +766,7 @@ app_improve_prompt :: proc(a: ^App) {
 
 Improve_Job :: struct {
 	app:   ^App,
+	gen:   u64,
 	draft: string,
 	prov:  provider.Provider,
 }
@@ -706,22 +781,61 @@ improve_job :: proc(data: rawptr) {
 	}
 	improved, err := agent.improve_prompt(&args.prov, args.draft)
 	a := args.app
+	sync.mutex_lock(&a.improve_pending_mu)
+	delete(a.improve_pending_text)
+	delete(a.improve_pending_err)
+	a.improve_pending_text = ""
+	a.improve_pending_err = ""
+	if len(err) > 0 {
+		a.improve_pending_err = strings.clone(err)
+		delete(err)
+		delete(improved)
+	} else {
+		a.improve_pending_text = improved
+		a.improve_pending_err = ""
+	}
+	a.improve_pending_gen = args.gen
+	a.improve_pending = true
+	sync.mutex_unlock(&a.improve_pending_mu)
+}
+
+app_apply_improve_pending :: proc(a: ^App) -> bool {
+	sync.mutex_lock(&a.improve_pending_mu)
+	if !a.improve_pending {
+		sync.mutex_unlock(&a.improve_pending_mu)
+		return false
+	}
+	gen := a.improve_pending_gen
+	text := a.improve_pending_text
+	err := a.improve_pending_err
+	a.improve_pending_text = ""
+	a.improve_pending_err = ""
+	a.improve_pending = false
+	sync.mutex_unlock(&a.improve_pending_mu)
+
 	a.improving = false
+	if gen != a.improve_gen {
+		delete(text)
+		delete(err)
+		return true
+	}
 	if len(err) > 0 {
 		session.session_set_status(&a.session, fmt.tprintf("improve failed: %s", err))
 		delete(err)
-		delete(improved)
-		a.dirty = true
-		return
+		delete(text)
+		app_mark_dirty(a)
+		return true
 	}
+	draft := strings.to_string(a.input)
 	delete(a.improve_undo)
-	a.improve_undo = strings.clone(args.draft)
+	a.improve_undo = strings.clone(draft)
 	strings.builder_reset(&a.input)
-	strings.write_string(&a.input, improved)
-	a.cursor = len(improved)
-	delete(improved)
+	strings.write_string(&a.input, text)
+	a.cursor = len(text)
+	delete(text)
 	session.session_set_status(&a.session, "prompt improved (ctrl-z undo, enter to send)")
-	a.dirty = true
+	app_mark_dirty(a)
+	return true
 }
 
 @(private)
@@ -746,8 +860,16 @@ app_submit :: proc(a: ^App) {
 		return
 	}
 	if a.session.busy && !slash_busy_exempt(text) {
+		msg := "busy · Esc stop"
+		if pending := tools.shell_pending(context.temp_allocator); len(pending) > 0 {
+			msg = "busy · Esc stop · /allow|/deny"
+		} else if a.elevate_active {
+			msg = "busy · elevate active"
+		}
+		app_toast_warn(a, msg)
 		return
 	}
+	a.pasting = false
 	strings.builder_reset(&a.input)
 	a.cursor = 0
 	a.scroll = 0

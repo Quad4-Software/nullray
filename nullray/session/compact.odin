@@ -10,7 +10,8 @@ import "core:strings"
 import "nullray:agent"
 import "nullray:provider"
 
-session_compact_local :: proc(s: ^Session) -> bool {
+@(private)
+compact_local_impl :: proc(s: ^Session) -> bool {
 	if len(s.messages) < 6 {
 		return false
 	}
@@ -45,8 +46,28 @@ session_compact_local :: proc(s: ^Session) -> bool {
 		append(&s.messages, m)
 	}
 	delete(kept)
-	session_set_status(s, "compacted")
 	session_maybe_persist(s)
+	return true
+}
+
+@(private)
+compact_set_status :: proc(s: ^Session, label: string, backup: string, backed: bool) {
+	if backed {
+		session_set_status(s, fmt.tprintf("%s · backup %s", label, backup))
+	} else {
+		session_set_status(s, label)
+	}
+}
+
+session_compact_local :: proc(s: ^Session) -> bool {
+	if len(s.messages) < 6 {
+		return false
+	}
+	backup, backed := session_backup_before_trim(s, "compact")
+	if !compact_local_impl(s) {
+		return false
+	}
+	compact_set_status(s, "compacted", backup, backed)
 	return true
 }
 
@@ -54,9 +75,14 @@ session_compact_with_provider :: proc(s: ^Session, p: ^provider.Provider) -> boo
 	if p == nil || len(s.messages) < 6 {
 		return session_compact_local(s)
 	}
+	backup, backed := session_backup_before_trim(s, "compact")
 	summary, ok := agent.compact_with_model(p, s.messages[:])
 	if !ok {
-		return session_compact_local(s)
+		if !compact_local_impl(s) {
+			return false
+		}
+		compact_set_status(s, "compacted", backup, backed)
+		return true
 	}
 	keep := 4
 	drop_end := max(0, len(s.messages) - keep)
@@ -78,8 +104,7 @@ session_compact_with_provider :: proc(s: ^Session, p: ^provider.Provider) -> boo
 		append(&s.messages, m)
 	}
 	delete(kept)
-	session_set_status(s, "compacted (model)")
+	compact_set_status(s, "compacted (model)", backup, backed)
 	session_maybe_persist(s)
 	return true
 }
-

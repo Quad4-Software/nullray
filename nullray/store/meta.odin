@@ -28,11 +28,8 @@ Session_Meta :: struct {
 }
 
 meta_path_for :: proc(session_jsonl_path: string, allocator := context.allocator) -> string {
-	if strings.has_suffix(session_jsonl_path, ".jsonl") {
-		base := session_jsonl_path[:len(session_jsonl_path) - len(".jsonl")]
-		return fmt.aprintf("%s.meta.json", base, allocator = allocator)
-	}
-	return fmt.aprintf("%s.meta.json", session_jsonl_path, allocator = allocator)
+	base := session_file_stem(session_jsonl_path, context.temp_allocator)
+	return fmt.aprintf("%s.meta.json", base, allocator = allocator)
 }
 
 save_session_meta :: proc(session_jsonl_path: string, meta: Session_Meta) -> bool {

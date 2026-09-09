@@ -14,6 +14,73 @@ import "core:time"
 import "nullray:constants"
 import "nullray:http"
 
+OpenRouter_ZDR_Mode :: enum {
+	Off,
+	Warn,
+	Require,
+}
+
+@(private)
+openrouter_zdr_warned: bool
+
+openrouter_zdr_reset_for_test :: proc() {
+	openrouter_zdr_warned = false
+}
+
+// Effective ZDR mode for chat routing. Non-openrouter providers always return Off.
+openrouter_zdr_effective :: proc(provider_id: string) -> OpenRouter_ZDR_Mode {
+	if provider_id != "openrouter" {
+		return .Off
+	}
+	return openrouter_zdr_mode_from_env()
+}
+
+@(private)
+openrouter_zdr_mode_from_env :: proc() -> OpenRouter_ZDR_Mode {
+	v, ok := os.lookup_env(constants.ENV_OPENROUTER_ZDR, context.temp_allocator)
+	if !ok || len(strings.trim_space(v)) == 0 {
+		return .Warn
+	}
+	switch strings.to_lower(strings.trim_space(v), context.temp_allocator) {
+	case "off", "0", "false", "no", "disable", "disabled":
+		return .Off
+	case "require", "strict", "on", "1", "true", "yes":
+		return .Require
+	case "warn", "default":
+		return .Warn
+	}
+	return .Warn
+}
+
+@(private)
+openrouter_zdr_data_collection_deny :: proc() -> bool {
+	v, ok := os.lookup_env(constants.ENV_OPENROUTER_DATA_COLLECTION, context.temp_allocator)
+	if !ok || len(strings.trim_space(v)) == 0 {
+		return true
+	}
+	switch strings.to_lower(strings.trim_space(v), context.temp_allocator) {
+	case "allow", "off", "0", "false", "no", "disable", "disabled":
+		return false
+	case "deny", "on", "1", "true", "yes":
+		return true
+	}
+	return true
+}
+
+// One-time stderr note when ZDR is not enforced on OpenRouter chat requests.
+openrouter_zdr_maybe_warn :: proc(provider_id: string) {
+	if provider_id != "openrouter" || openrouter_zdr_warned {
+		return
+	}
+	if openrouter_zdr_effective(provider_id) != .Warn {
+		return
+	}
+	openrouter_zdr_warned = true
+	fmt.eprintf(
+		"nullray: OpenRouter ZDR not enforced (NULLRAY_OPENROUTER_ZDR=warn); set require for zero-data-retention routing\n",
+	)
+}
+
 http_retry_limit :: proc() -> int {
 	if v, ok := os.lookup_env(constants.ENV_HTTP_RETRIES, context.temp_allocator); ok {
 		n, nok := strconv.parse_int(strings.trim_space(v))
@@ -49,7 +116,14 @@ retry_wait :: proc(attempt: int, retry_after_sec: int) {
 
 // Append OpenRouter provider routing and model fallbacks before the closing brace.
 write_openrouter_extras :: proc(b: ^strings.Builder, ignore: []string) {
+	mode := openrouter_zdr_mode_from_env()
 	strings.write_string(b, `,"provider":{"allow_fallbacks":true`)
+	if mode == .Require {
+		strings.write_string(b, `,"zdr":true`)
+		if openrouter_zdr_data_collection_deny() {
+			strings.write_string(b, `,"data_collection":"deny"`)
+		}
+	}
 	merged := merge_openrouter_ignore(ignore, context.temp_allocator)
 	if len(merged) > 0 {
 		strings.write_string(b, `,"ignore":[`)

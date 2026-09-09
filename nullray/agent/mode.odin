@@ -28,10 +28,11 @@ Mode_Policy :: enum {
 	Model,
 }
 
-REVIEW_PROMPT :: `You are a separate code reviewer. Review the DIFF only for correctness, risks, regressions, and test gaps.
+REVIEW_PROMPT :: `You are a separate code reviewer. Review the DIFF only for correctness, risks, regressions, security, and test gaps.
 Reply with structured findings. Each finding on its own line:
 SEVERITY|path|reason
 SEVERITY is block, warn, or note.
+Treat scanner-like pattern matches as leads. Prefer issues with a clear attacker path or broken invariant.
 End with FINDINGS: N or FINDINGS: none.
 Do not rewrite the code. Be brief.`
 
@@ -98,6 +99,9 @@ mode_from_env :: proc() -> Agent_Mode {
 		if m, found := mode_from_string(v); found {
 			return m
 		}
+	}
+	if hunt_enabled(hunt_from_env()) {
+		return .Review
 	}
 	return .Edit
 }
@@ -191,6 +195,16 @@ mode_prompt_section :: proc(mode: Agent_Mode, policy: Mode_Policy, allocator := 
 		)
 		strings.write_string(
 			&b,
+			"For security or vuln hunts, start with audit_owasp, audit_deps, audit_dockerfile, audit_compose, and audit_actions when those tools apply. Treat hits as leads and verify in context.\n",
+		)
+		if !prompt_lean_enabled() {
+			strings.write_string(
+				&b,
+				"Use load_skill bug-hunting for oracle, exploratory, and adversarial method detail.\n",
+			)
+		}
+		strings.write_string(
+			&b,
 			"Order findings by severity. Cite file:line when possible. Skip drive-by refactors and style nits.\n",
 		)
 		strings.write_string(
@@ -201,6 +215,10 @@ mode_prompt_section :: proc(mode: Agent_Mode, policy: Mode_Policy, allocator := 
 			&b,
 			"Do not call write/edit/shell tools.\n",
 		)
+		hunt_block := hunt_prompt_block(hunt_from_env(), context.temp_allocator)
+		if len(hunt_block) > 0 {
+			strings.write_string(&b, hunt_block)
+		}
 	case .Edit:
 		strings.write_string(
 			&b,
@@ -267,7 +285,21 @@ ASK_KEYWORDS :: []string{
 PLAN_KEYWORDS :: []string{"plan", "design", "approach", "architect", "strategy", "roadmap"}
 
 @(private)
-REVIEW_KEYWORDS :: []string{"review", "pr review", "look over", "code review", "audit"}
+REVIEW_KEYWORDS :: []string{
+	"review",
+	"pr review",
+	"look over",
+	"code review",
+	"audit",
+	"hunt",
+	"vuln",
+	"vulnerab",
+	"security bug",
+	"cve",
+	"pentest",
+	"adversarial",
+	"oracle",
+}
 
 @(private)
 EDIT_KEYWORDS :: []string{

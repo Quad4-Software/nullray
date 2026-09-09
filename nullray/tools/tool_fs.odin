@@ -114,6 +114,9 @@ tool_write_file :: proc(args_json: string, allocator := context.allocator) -> (r
 		return "", cerr
 	}
 	defer delete(content)
+	if len(content) > constants.MAX_TOOL_FILE_BYTES {
+		return "", fmt.aprintf("content exceeds %d bytes", constants.MAX_TOOL_FILE_BYTES, allocator = allocator)
+	}
 	allow_godfile, aerr := json_arg_bool_string(args_json, "allow_godfile", false, allocator)
 	if aerr != "" {
 		return "", aerr

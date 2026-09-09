@@ -47,10 +47,11 @@ parse_retry_after :: proc(value: string) -> int {
 
 @(private)
 host_header_value :: proc(parts: Url_Parts) -> string {
+	// parts.host from split_url may already include :port. Always build from hostname.
 	if (parts.use_tls && parts.port == 443) || (!parts.use_tls && parts.port == 80) {
-		return parts.host
+		return parts.hostname
 	}
-	return fmt.tprintf("%s:%d", parts.host, parts.port)
+	return fmt.tprintf("%s:%d", parts.hostname, parts.port)
 }
 
 build_request :: proc(
@@ -232,6 +233,7 @@ run_request :: proc(
 	body: string,
 	timeout_sec: int,
 	max_body: int,
+	allow_url: Url_Allow = nil,
 ) -> (status: int, resp_body: []u8, retry_after: int, err: string) {
 	cur_url := strings.clone(url, context.allocator)
 	defer delete(cur_url)
@@ -240,6 +242,9 @@ run_request :: proc(
 	hops := 0
 
 	for {
+		if allow_url != nil && !allow_url(cur_url) {
+			return 0, nil, 0, "url not allowed"
+		}
 		parts, perr := parse_url(cur_url, context.temp_allocator)
 		if perr != "" {
 			return 0, nil, 0, perr
@@ -276,6 +281,10 @@ run_request :: proc(
 				next, nerr := resolve_redirect_url(parts, loc_trim, context.allocator)
 				if nerr != "" {
 					return 0, nil, 0, nerr
+				}
+				if allow_url != nil && !allow_url(next) {
+					delete(next)
+					return 0, nil, 0, "redirect url not allowed"
 				}
 				delete(cur_url)
 				cur_url = next
@@ -315,6 +324,10 @@ run_request :: proc(
 			next, nerr := resolve_redirect_url(parts, loc, context.allocator)
 			if nerr != "" {
 				return 0, nil, 0, nerr
+			}
+			if allow_url != nil && !allow_url(next) {
+				delete(next)
+				return 0, nil, 0, "redirect url not allowed"
 			}
 			delete(cur_url)
 			cur_url = next

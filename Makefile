@@ -66,7 +66,7 @@ H2_SHIM_OBJ  := $(TLS_BUILD)/nullray_h2_shim.o
 .PHONY: all clean install uninstall run test selftest chat-smoke print-smoke coverage help completions man \
 	appimage appimage-sdk sdk-smoke flatpak docker-build debug tls-lib tls-size
 
-TEST_SUITES := ui agent tools skills session store sandbox mcp provider app config subagent elevate structure secure hooks vcs run patch http
+TEST_SUITES := ui agent tools skills session store sandbox memory mcp provider app config subagent elevate structure secure hooks vcs run patch http
 TEST_FLAGS  := $(COLLECTION) -define:ODIN_TEST_THREADS=1 -debug
 
 all: $(OUT)

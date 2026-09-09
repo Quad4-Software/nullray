@@ -38,6 +38,55 @@ Result :: struct {
 	message: string,
 }
 
+@(private)
+g_local_hooks_mtime: i64 = -1
+@(private)
+g_local_hooks_path: string
+@(private)
+g_local_hooks_trusted: bool
+
+/*
+Re-approve workspace .nullray/hooks.json after mid-session rewrite.
+*/
+hooks_trust_workspace :: proc() -> bool {
+	st := sandbox.state()
+	workspace := ""
+	if st != nil {
+		workspace = st.workspace
+	}
+	if len(workspace) == 0 {
+		workspace, _ = os.get_working_directory(context.temp_allocator)
+	}
+	local_path, _ := filepath.join({workspace, ".nullray", constants.HOOKS_FILE}, context.temp_allocator)
+	info, err := os.stat(local_path, context.temp_allocator)
+	if err != nil {
+		g_local_hooks_mtime = -1
+		g_local_hooks_trusted = true
+		return true
+	}
+	mt := time.to_unix_seconds(info.modification_time)
+	if len(g_local_hooks_path) > 0 {
+		delete(g_local_hooks_path)
+	}
+	g_local_hooks_path = strings.clone(local_path)
+	g_local_hooks_mtime = mt
+	g_local_hooks_trusted = true
+	return true
+}
+
+hooks_workspace_source :: proc(allocator := context.allocator) -> string {
+	st := sandbox.state()
+	workspace := ""
+	if st != nil {
+		workspace = st.workspace
+	}
+	if len(workspace) == 0 {
+		workspace, _ = os.get_working_directory(context.temp_allocator)
+	}
+	local_path, _ := filepath.join({workspace, ".nullray", constants.HOOKS_FILE}, allocator)
+	return local_path
+}
+
 run :: proc(event: Event, tool_name := "", payload := "", allocator := context.allocator) -> Result {
 	if disabled() {
 		return {}
@@ -53,6 +102,9 @@ run :: proc(event: Event, tool_name := "", payload := "", allocator := context.a
 		workspace, _ = os.get_working_directory(context.temp_allocator)
 	}
 	local_path, _ := filepath.join({workspace, ".nullray", constants.HOOKS_FILE}, context.temp_allocator)
+	if blocked, msg := local_hooks_trust_check(local_path, allocator); blocked {
+		return Result{blocked = true, message = msg}
+	}
 	paths := []string{global_path, local_path}
 	for path in paths {
 		res := run_file(path, event, tool_name, payload, allocator)
@@ -89,6 +141,40 @@ disabled :: proc() -> bool {
 		return lower == "0" || lower == "false" || lower == "off" || lower == "no"
 	}
 	return false
+}
+
+@(private)
+local_hooks_trust_check :: proc(path: string, allocator := context.allocator) -> (blocked: bool, message: string) {
+	info, err := os.stat(path, context.temp_allocator)
+	if err != nil {
+		return false, ""
+	}
+	mt := time.to_unix_seconds(info.modification_time)
+	if g_local_hooks_mtime < 0 {
+		g_local_hooks_mtime = mt
+		if len(g_local_hooks_path) > 0 {
+			delete(g_local_hooks_path)
+		}
+		g_local_hooks_path = strings.clone(path)
+		g_local_hooks_trusted = true
+		return false, ""
+	}
+	if mt == g_local_hooks_mtime && g_local_hooks_trusted {
+		return false, ""
+	}
+	if v, ok := os.lookup_env(constants.ENV_HOOKS_TRUST, context.temp_allocator); ok {
+		switch strings.to_lower(strings.trim_space(v), context.temp_allocator) {
+		case "1", "true", "yes", "on":
+			g_local_hooks_mtime = mt
+			g_local_hooks_trusted = true
+			os.unset_env(constants.ENV_HOOKS_TRUST)
+			return false, ""
+		}
+	}
+	return true, fmt.aprintf(
+		"workspace hooks.json changed this session (trust handoff). re-approve with /hooks trust or NULLRAY_HOOKS_TRUST=1",
+		allocator = allocator,
+	)
 }
 
 @(private)

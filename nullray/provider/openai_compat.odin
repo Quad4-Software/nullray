@@ -23,6 +23,9 @@ openai_chat :: proc(p: ^Provider, req: Chat_Request, allocator := context.alloca
 	if len(model) == 0 {
 		model = p.default_model
 	}
+	if p.id == "openrouter" {
+		openrouter_zdr_maybe_warn(p.id)
+	}
 
 	headers := make([dynamic]string, context.temp_allocator)
 	append_provider_headers(&headers, p)
@@ -86,6 +89,7 @@ build_openai_chat_body :: proc(
 		strings.write_string(&b, `],"stream":false`)
 	}
 	write_max_tokens_json(&b, p, req.max_tokens, model)
+	write_sampling_json(&b, p, model, req.temperature, req.top_p, req.temperature_set, req.top_p_set)
 	write_reasoning_json(&b, p, req.reasoning_effort)
 	if len(req.tools_json) > 0 {
 		strings.write_string(&b, `,"tools":`)
@@ -145,6 +149,10 @@ append_provider_headers :: proc(headers: ^[dynamic]string, p: ^Provider) {
 		append(headers, "HTTP-Referer: https://github.com/Quad4-Software/nullray")
 		append(headers, fmt.tprintf("X-Title: %s", constants.APP_NAME))
 	}
+	// Local hosts may reject clients without an allowed Origin (403).
+	if provider_is_local(p.id) {
+		append(headers, "Origin: http://127.0.0.1")
+	}
 	append_opencode_headers(headers, p)
 	if p.id == "anthropic" {
 		append(headers, "anthropic-version: 2023-06-01")
@@ -169,6 +177,42 @@ write_max_tokens_json :: proc(b: ^strings.Builder, p: ^Provider, max_tokens: int
 		return
 	}
 	fmt.sbprintf(b, `,"max_tokens":%d`, max_tokens)
+}
+
+write_sampling_json :: proc(
+	b: ^strings.Builder,
+	p: ^Provider,
+	model: string,
+	temperature: f64,
+	top_p: f64,
+	temperature_set: bool,
+	top_p_set: bool,
+) {
+	if !temperature_set && !top_p_set {
+		return
+	}
+	if !supports_sampling_params(p, model) {
+		return
+	}
+	if temperature_set {
+		fmt.sbprintf(b, `,"temperature":%.4g`, temperature)
+	}
+	if top_p_set {
+		fmt.sbprintf(b, `,"top_p":%.4g`, top_p)
+	}
+}
+
+// Official OpenAI reasoning models and o-series often reject temperature/top_p.
+supports_sampling_params :: proc(p: ^Provider, model: string) -> bool {
+	m := strings.to_lower(model, context.temp_allocator)
+	if strings.has_prefix(m, "o1") || strings.has_prefix(m, "o3") || strings.has_prefix(m, "o4") {
+		return false
+	}
+	if strings.contains(m, "gpt-5") && strings.contains(m, "reason") {
+		return false
+	}
+	_ = p
+	return true
 }
 
 uses_max_completion_tokens :: proc(p: ^Provider, model: string) -> bool {
@@ -222,6 +266,9 @@ write_reasoning_json :: proc(b: ^strings.Builder, p: ^Provider, effort: string) 
 		}
 	case "anthropic":
 		return
+	case "ollama", "lmstudio", "llamacpp", "openai-compat":
+		// Local OpenAI-compat servers reject unknown reasoning/thinking fields.
+		return
 	case:
 		strings.write_string(b, `,"reasoning_effort":`)
 		write_json_string(b, el)
@@ -252,6 +299,12 @@ provider_http_error :: proc(res: http.Response, p: ^Provider = nil, allocator :=
 	}
 	if res.status == 401 {
 		if msg := extract_provider_error_message(res.body); len(msg) > 0 {
+			if strings.contains(strings.to_lower(msg, context.temp_allocator), "user not found") {
+				return strings.clone(
+					"HTTP 401 unauthorized: User not found (OpenRouter key revoked or account missing; fix ~/.config/nullray/env)",
+					allocator,
+				)
+			}
 			return fmt.aprintf(
 				"HTTP 401 unauthorized: %s (check API key in ~/.config/nullray/env)",
 				msg,

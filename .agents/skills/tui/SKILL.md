@@ -46,11 +46,20 @@ Out of bounds put is a silent no-op. Control runes become space (sanitize_cell_r
 - Bracketed paste: Paste_Start / Paste_End. While pasting, Enter inserts newline.
 - Pushback is one byte. Do not expand lightly.
 - stdin_ready is platform-split. Decode is shared.
-- Input caret is byte-based. Mid-rune UTF-8 breaks draw_input_line.
+- Multi-byte UTF-8 leads decode into `.Rune` (incomplete wait 8ms, else U+FFFD).
+- Input caret is a UTF-8 rune boundary (byte offset). Helpers in ui/edit.odin.
+- Multiline input grows up to INPUT_MAX_ROWS (8). Horizontal wrap keeps caret on screen.
 
 Binds: keys.ini preset= then NULLRAY_KEYS / --keys. Presets default | neovim | emacs.
 
-Line-edit chords run before binds_resolve. Ctrl-C always quits (loop and binds). Busy Esc cancel is hardcoded in app_on_event. Binds.stop_agent is unused in resolve today.
+Line-edit chords run before binds_resolve. Ctrl-C always quits (loop and binds). Busy stop uses binds_resolve Stop_Agent (default Esc, remappable via stop=). Idle Esc clears selection, closes empty view, or clears input. Suggest Esc dismisses the popup only. Splash discards the first key (cannot cancel under splash).
+
+## View and status
+
+- NULLRAY_VIEW_AUTO=0 or `/view auto off` skips auto-open after writes. Auto-open does not steal view focus.
+- `/status` opens a scrollable overlay. Banner shows mode chip (ask|plan|review|edit).
+- Click artifact stubs or truncated code fences to open the view pane. Selection is copy-on-demand (`/copy`).
+- Improve results apply on the main tick (pending slot), not from the worker thread.
 
 ## Splash
 
@@ -78,4 +87,4 @@ clipboard_paste returns owned text. delete after insert.
 
 ## Tests
 
-odin test nullray/ui with ODIN_TEST_THREADS=1. buffer_test and markdown_test only. No live TTY tests. theme_set(INK), buffer_create, defer buffer_destroy.
+odin test nullray/ui with ODIN_TEST_THREADS=1. buffer_test, markdown_test, edit_utf8_test. App input_test covers rune edit, Esc stop, paste truncate, seeded fuzz. No live TTY tests. theme_set(INK), buffer_create, defer buffer_destroy.

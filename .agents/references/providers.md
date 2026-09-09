@@ -21,6 +21,7 @@ Ids are NULLRAY_PROVIDER values. Bases are OpenAI Chat Completions style unless 
 | openai-compat | OPENAI_API_KEY / NULLRAY_API_KEY. Base: OPENAI_BASE_URL or NULLRAY_BASE_URL | (required) |
 | ollama | OLLAMA_HOST | http://127.0.0.1:11434/v1 |
 | lmstudio | LM_API_TOKEN (default lm-studio), host LM_STUDIO_HOST | http://127.0.0.1:1234/v1 |
+| llamacpp | optional LLAMA_CPP_API_KEY, host LLAMA_CPP_HOST | http://127.0.0.1:8080/v1 |
 | openrouter | OPENROUTER_API_KEY | https://openrouter.ai/api/v1 |
 | opencode | OPENCODE_API_KEY | https://opencode.ai/zen/v1 |
 | opencode-go | OPENCODE_API_KEY | https://opencode.ai/zen/go/v1 |
@@ -37,6 +38,9 @@ OpenRouter notes:
 - NULLRAY_FALLBACK_MODELS=a,b adds OpenRouter `models` fallbacks.
 - NULLRAY_OPENROUTER_IGNORE=DeepInfra,Fireworks pre-ignores providers.
 - Friendlier 429 text points at BYOK integrations when the shared pool is saturated.
+- NULLRAY_OPENROUTER_ZDR=off|warn|require (default warn when the active provider is openrouter). require adds `provider.zdr: true` and, by default, `provider.data_collection: deny`. warn prints a one-time stderr note that ZDR is not enforced. off disables both injection and the note. ZDR fields are omitted when failover switches to a non-openrouter provider.
+- NULLRAY_OPENROUTER_DATA_COLLECTION=deny|allow overrides the default deny pairing in require mode (default deny when unset).
+- OpenRouter plugin/tool endpoints may not honor the same provider routing object as chat completions. Treat ZDR as a routing hint for the chat API, not a guarantee for every OpenRouter surface.
 
 Aliases in normalize_provider_id:
 
@@ -50,6 +54,13 @@ azure-openai -> azure
 qwen / alibaba -> dashscope
 nim / nvidia-nim -> nvidia
 co -> cohere
+llama.cpp / llama-cpp / llama -> llamacpp
+lm-studio -> lmstudio
 ```
+
+Local notes:
+
+- NULLRAY_LOCAL_PROBE=0|false|off|no skips HTTP live/down probes and auto-select.
+- With no NULLRAY_PROVIDER / -p, registry auto-selects the first live local among ollama, lmstudio, llamacpp.
 
 Source of truth: nullray/constants/constants.odin and nullray/provider/builtins.odin.

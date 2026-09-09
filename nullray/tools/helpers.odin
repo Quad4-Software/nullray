@@ -61,6 +61,57 @@ json_arg_string_optional :: proc(
 	return strings.clone(string(s), allocator), ""
 }
 
+/*
+Optional string list from a JSON array of strings or a comma-separated string.
+Caller owns the returned slice and each string.
+*/
+json_arg_strings_optional :: proc(
+	args_json: string,
+	key: string,
+	allocator := context.allocator,
+) -> (value: []string, err: string) {
+	doc, parse_err := json.parse_string(args_json, .JSON, allocator = context.temp_allocator)
+	if parse_err != nil {
+		return nil, fmt.aprintf("bad tool args JSON: %v", parse_err, allocator = allocator)
+	}
+	obj, obj_ok := doc.(json.Object)
+	if !obj_ok {
+		return nil, strings.clone("tool args must be a JSON object", allocator)
+	}
+	val, found := obj[key]
+	if !found {
+		return nil, ""
+	}
+	out := make([dynamic]string, allocator)
+	#partial switch v in val {
+	case json.Array:
+		for elem in v {
+			s, sok := elem.(json.String)
+			if !sok {
+				for x in out {
+					delete(x)
+				}
+				delete(out)
+				return nil, fmt.aprintf("field %s must be an array of strings", key, allocator = allocator)
+			}
+			append(&out, strings.clone(string(s), allocator))
+		}
+	case json.String:
+		parts := strings.split(string(v), ",", context.temp_allocator)
+		for p in parts {
+			t := strings.trim_space(p)
+			if len(t) == 0 {
+				continue
+			}
+			append(&out, strings.clone(t, allocator))
+		}
+	case:
+		delete(out)
+		return nil, fmt.aprintf("field %s must be a string array or comma-separated string", key, allocator = allocator)
+	}
+	return out[:], ""
+}
+
 json_arg_int_optional :: proc(
 	args_json: string,
 	key: string,
@@ -144,9 +195,8 @@ resolve_path :: proc(path: string, allocator := context.allocator) -> string {
 }
 
 workspace_root :: proc(allocator := context.allocator) -> string {
-	st := sandbox.state()
-	if st != nil && len(st.workspace) > 0 {
-		return strings.clone(st.workspace, allocator)
+	if ws := sandbox.workspace_current(); len(ws) > 0 {
+		return strings.clone(ws, allocator)
 	}
 	if v, ok := os.lookup_env(constants.ENV_WORKSPACE, context.temp_allocator); ok && len(v) > 0 {
 		return strings.clone(v, allocator)

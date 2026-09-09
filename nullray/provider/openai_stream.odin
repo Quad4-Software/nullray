@@ -47,6 +47,9 @@ openai_chat_stream :: proc(
 	if len(model) == 0 {
 		model = p.default_model
 	}
+	if p.id == "openrouter" {
+		openrouter_zdr_maybe_warn(p.id)
+	}
 
 	headers := make([dynamic]string, context.temp_allocator)
 	append_provider_headers(&headers, p)

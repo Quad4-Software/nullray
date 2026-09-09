@@ -8,6 +8,7 @@ package app
 import "core:fmt"
 import "core:os"
 import "core:strings"
+import "core:sync"
 import "core:thread"
 import "core:time"
 import "nullray:agent"
@@ -45,6 +46,12 @@ App :: struct {
 	help_btn_x:     int,
 	improve_undo:   string,
 	improving:      bool,
+	improve_gen:    u64,
+	improve_pending_mu: sync.Mutex,
+	improve_pending: bool,
+	improve_pending_gen: u64,
+	improve_pending_text: string,
+	improve_pending_err:  string,
 	pasting:        bool,
 	credits_busy:   bool,
 	splash_on:      bool,
@@ -77,6 +84,7 @@ App :: struct {
 	setup_model_sel:    int,
 	ollama_live:        bool,
 	lmstudio_live:      bool,
+	llamacpp_live:      bool,
 	toasts:             [dynamic]Toast,
 	sel_dragging:       bool,
 	sel_has:            bool,
@@ -97,6 +105,13 @@ App :: struct {
 	elevate_prompt:     string,
 	elevate_command:    string,
 	elevate_buf:        string,
+	input_scroll_col:   int,
+	view_auto:          bool,
+	show_status:        bool,
+	status_scroll:      int,
+	status_body:        string,
+	layout_cache:       Layout_Cache,
+	expand_hits:        [dynamic]Expand_Hit,
 }
 
 app_init :: proc(a: ^App, loop: ^ui.Loop) {
@@ -120,6 +135,7 @@ app_init :: proc(a: ^App, loop: ^ui.Loop) {
 	}
 	session.session_rebuild_system_prompt(&a.session)
 	_ = session.session_apply_saved_model(&a.session, &a.registry)
+	session.session_sticky_auto_provider(&a.session, &a.registry)
 	strings.builder_init(&a.input)
 	a.spinner = ui.spinner_init()
 	a.dirty = true
@@ -150,6 +166,7 @@ app_init :: proc(a: ^App, loop: ^ui.Loop) {
 	session.crash_lock_write(cfg_dir, a.session.name)
 	provider.set_session(a.session.name)
 	a.input_hist_idx = -1
+	a.view_auto = view_auto_from_env()
 	app_refresh_provider_status(a)
 	if plan_in := agent.plan_in_from_env(); len(plan_in) > 0 {
 		defer delete(plan_in)
@@ -177,12 +194,18 @@ app_destroy :: proc(a: ^App) {
 	strings.builder_destroy(&a.input)
 	delete(a.credits_label)
 	delete(a.improve_undo)
+	delete(a.improve_pending_text)
+	delete(a.improve_pending_err)
 	app_setup_clear(a)
 	app_view_destroy(a)
 	app_toasts_destroy(a)
 	app_sel_destroy(a)
 	app_history_destroy(a)
 	delete(a.input_draft)
+	delete(a.status_body)
+	app_expand_hits_clear(a)
+	delete(a.expand_hits)
+	app_layout_cache_clear(a)
 	app_elevate_clear(a)
 }
 
@@ -229,7 +252,7 @@ app_refresh_credits :: proc(a: ^App) {
 	a.credits_busy = true
 	args := new(Credits_Job)
 	args.app = a
-	args.api_key = strings.clone(p.api_key)
+	args.api_key = strings.clone(provider.openrouter_credits_key(p.api_key))
 	thread.run_with_data(args, credits_job)
 }
 
@@ -305,7 +328,7 @@ app_refresh_banner :: proc(a: ^App) {
 
 app_is_dirty :: proc(user: rawptr) -> bool {
 	a := cast(^App)user
-	return a.dirty || splash_active(a) || a.show_setup || a.elevate_active || len(a.toasts) > 0 || a.sel_dragging
+	return a.dirty || splash_active(a) || a.show_setup || a.elevate_active || a.show_status || len(a.toasts) > 0 || a.sel_dragging
 }
 
 
@@ -333,6 +356,9 @@ app_on_tick :: proc(user: rawptr) -> bool {
 	if session.session_tick_status_hold(&a.session) {
 		changed = true
 	}
+	if app_apply_improve_pending(a) {
+		changed = true
+	}
 	poll_changed := session.session_poll(&a.session)
 	changed = poll_changed || changed
 	if app_reveal_tick(a) {
@@ -342,17 +368,24 @@ app_on_tick :: proc(user: rawptr) -> bool {
 		app_reveal_reset(a)
 		app_refresh_credits(a)
 		changed = true
-		a.follow = true
-		a.scroll = 0
-		paths := collect_turn_write_paths(a.session.messages[:], context.allocator)
-		if len(paths) > 0 {
-			app_view_set_recent(a, paths)
-			last := paths[len(paths) - 1]
-			_ = app_view_open(a, last)
-			destroy_write_paths(paths)
-			changed = true
-		} else {
-			destroy_write_paths(paths)
+		if a.follow {
+			a.scroll = 0
+		}
+		if a.view_auto {
+			paths := collect_turn_write_paths(a.session.messages[:], context.allocator)
+			if len(paths) > 0 {
+				app_view_set_recent(a, paths)
+				last := paths[len(paths) - 1]
+				if app_view_open(a, last) {
+					a.view_focus = false
+					base := last
+					app_toast(a, fmt.tprintf("opened %s", base), .Info)
+				}
+				destroy_write_paths(paths)
+				changed = true
+			} else {
+				destroy_write_paths(paths)
+			}
 		}
 	}
 	// Redraw on new deltas, or on spinner/caret/reveal cadence while busy.

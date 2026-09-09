@@ -318,6 +318,9 @@ binds_resolve :: proc(b: Binds, kind: ui.Key) -> Action {
 	if kind == b.pause_agent {
 		return .Pause_Agent
 	}
+	if kind == b.stop_agent {
+		return .Stop_Agent
+	}
 	return .None
 }
 
@@ -332,7 +335,7 @@ binds_help_text :: proc(b: Binds, preset: Key_Preset, allocator := context.alloc
 		edit = "  (preset emacs) ctrl-a/e home/end  ctrl-b/f move  ctrl-k kill-eol  ctrl-w kill word  ctrl-d del  ctrl-u kill to start\n"
 	}
 	return fmt.aprintf(
-		"%s  %-14s quit\n  %-14s clear chat\n  %-14s next provider\n  %-14s prev provider\n  %-14s compact\n  %-14s toggle tools\n  %-14s clear input\n  %-14s help\n  %-14s scroll up\n  %-14s scroll down\n  %-14s page up\n  %-14s page down\n  %-14s follow bottom\n  %-14s scroll top\n  %-14s improve prompt\n  %-14s undo improve\n  %-14s pause agent\n  Esc            stop agent (when busy)\n  edit file     %s\n  preset via    --keys / NULLRAY_KEYS / keys.ini preset=",
+		"%s  %-14s quit\n  %-14s clear chat\n  %-14s next provider\n  %-14s prev provider\n  %-14s compact\n  %-14s toggle tools\n  %-14s clear input\n  %-14s help\n  %-14s scroll up\n  %-14s scroll down\n  %-14s page up\n  %-14s page down\n  %-14s follow bottom\n  %-14s scroll top\n  %-14s improve prompt\n  %-14s undo improve\n  %-14s pause agent\n  %-14s stop agent (when busy)\n  /copy          copy selection\n  edit file     %s\n  preset via    --keys / NULLRAY_KEYS / keys.ini preset=",
 		edit,
 		key_name(b.quit),
 		key_name(b.clear_chat),
@@ -351,6 +354,7 @@ binds_help_text :: proc(b: Binds, preset: Key_Preset, allocator := context.alloc
 		key_name(b.improve),
 		key_name(b.undo_improve),
 		key_name(b.pause_agent),
+		key_name(b.stop_agent),
 		keys_path(context.temp_allocator),
 		allocator = allocator,
 	)
@@ -383,6 +387,7 @@ scroll_top=home
 improve=f2
 undo_improve=ctrl-z
 pause=f3
+stop=esc
 `
 	return os.write_entire_file(path, transmute([]u8)body) == nil
 }

@@ -26,6 +26,7 @@ Tool :: struct {
 	description: string,
 	schema_json: string,
 	kind:        Tool_Kind,
+	gate:        int,
 	run:         Tool_Proc,
 }
 
@@ -64,6 +65,13 @@ registry_init :: proc(r: ^Registry) {
 		schema_json = `{"type":"object","properties":{"path":{"type":"string"}},"required":["path"]}`,
 		kind = .Read,
 		run = tool_list_dir,
+	})
+	registry_register(r, Tool{
+		name = "repo_map",
+		description = "Shallow relative tree of a workspace directory (depth and byte budget capped)",
+		schema_json = `{"type":"object","properties":{"path":{"type":"string"},"depth":{"type":"string","description":"0-3, default 2"},"focus":{"type":"string","description":"optional filename glob or substring"}},"required":[]}`,
+		kind = .Read,
+		run = tool_repo_map,
 	})
 	registry_register(r, Tool{
 		name = "edit_file",
@@ -137,10 +145,31 @@ registry_init :: proc(r: ^Registry) {
 	})
 	registry_register(r, Tool{
 		name = "memory_list",
-		description = "List project memory keys with an optional filter",
+		description = "List project memory keys with preview and updated timestamp",
 		schema_json = `{"type":"object","properties":{"filter":{"type":"string"}}}`,
 		kind = .Read,
 		run = tool_memory_list,
+	})
+	registry_register(r, Tool{
+		name = "memory_delete",
+		description = "Delete a project memory entry by key",
+		schema_json = `{"type":"object","properties":{"key":{"type":"string"}},"required":["key"]}`,
+		kind = .Write,
+		run = tool_memory_delete,
+	})
+	registry_register(r, Tool{
+		name = "memory_forget",
+		description = "Forget a project memory entry by key (alias of memory_delete)",
+		schema_json = `{"type":"object","properties":{"key":{"type":"string"}},"required":["key"]}`,
+		kind = .Write,
+		run = tool_memory_forget,
+	})
+	registry_register(r, Tool{
+		name = "memory_search",
+		description = "Search project memory by substring with simple ranking",
+		schema_json = `{"type":"object","properties":{"query":{"type":"string"},"limit":{"type":"string","description":"max hits (default 20)"}},"required":["query"]}`,
+		kind = .Read,
+		run = tool_memory_search,
 	})
 	registry_register(r, Tool{
 		name = "compact_context",
@@ -214,7 +243,7 @@ registry_init :: proc(r: ^Registry) {
 	})
 	registry_register(r, Tool{
 		name = "audit_owasp",
-		description = "Audit source files for basic OWASP credential risks",
+		description = "Audit source for secrets, injection, XSS sinks, and path traversal patterns",
 		schema_json = `{"type":"object","properties":{}}`,
 		kind = .Read,
 		run = tool_audit_owasp,

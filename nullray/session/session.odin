@@ -319,6 +319,39 @@ session_push_assistant :: proc(s: ^Session, text: string, reasoning := "") {
 	session_maybe_persist(s)
 }
 
+/*
+Trim the latest assistant content for the next provider turn. Full text can
+stay in a caller-owned copy (hunt explore output). Caps oracle-phase prompt growth.
+*/
+session_cap_last_assistant :: proc(s: ^Session, max_chars: int) {
+	if s == nil || max_chars <= 0 {
+		return
+	}
+	for i := len(s.messages) - 1; i >= 0; i -= 1 {
+		if s.messages[i].role != .Assistant {
+			continue
+		}
+		old := s.messages[i].content
+		if len(old) <= max_chars {
+			return
+		}
+		cut := max_chars
+		for j := max_chars; j > max_chars / 2; j -= 1 {
+			if old[j - 1] == '\n' {
+				cut = j
+				break
+			}
+		}
+		s.messages[i].content = strings.concatenate(
+			{old[:cut], "...[explore truncated for oracle phase]\n"},
+			context.allocator,
+		)
+		delete(old)
+		session_maybe_persist(s)
+		return
+	}
+}
+
 session_push_tool :: proc(s: ^Session, name, text: string) {
 	cap_messages(s)
 	append(&s.messages, provider.Message{
@@ -369,6 +402,24 @@ session_remember_model :: proc(s: ^Session, provider_id, model: string) {
 		s.model = strings.clone(model)
 	}
 	session_save_meta(s)
+}
+
+// Persist auto-selected live local provider when env did not name one.
+session_sticky_auto_provider :: proc(s: ^Session, reg: ^provider.Registry) {
+	if s == nil || reg == nil || !s.persist || len(s.provider_id) > 0 {
+		return
+	}
+	if provider.provider_env_set() {
+		return
+	}
+	p := provider.registry_active(reg)
+	if p == nil || !provider.provider_is_local(p.id) {
+		return
+	}
+	if provider.provider_readiness_label(p, true) != "live" {
+		return
+	}
+	session_remember_model(s, p.id, p.default_model)
 }
 
 session_sync_mode_env :: proc(s: ^Session) {

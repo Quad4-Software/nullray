@@ -11,7 +11,10 @@ import "core:strconv"
 import "core:strings"
 import "nullray:constants"
 import "nullray:provider"
+import "nullray:sandbox"
 import "nullray:store"
+
+REDACTED_EXCERPT :: "[redacted excerpt; use grep_artifact/read_artifact]"
 
 Harness_Metrics :: struct {
 	call_count:             int,
@@ -208,6 +211,51 @@ excerpt_ends :: proc(body: string, n: int, allocator := context.allocator) -> st
 }
 
 /*
+Replace control chars and newlines so envelope headers stay single-line.
+*/
+envelope_sanitize_field :: proc(s: string, allocator := context.temp_allocator) -> string {
+	if len(s) == 0 {
+		return ""
+	}
+	b: strings.Builder
+	strings.builder_init(&b, allocator)
+	for i in 0 ..< len(s) {
+		c := s[i]
+		if c == '\r' || c == '\n' || c == '\t' || c < 0x20 {
+			strings.write_byte(&b, ' ')
+			continue
+		}
+		strings.write_byte(&b, c)
+	}
+	return strings.to_string(b)
+}
+
+excerpt_for_envelope :: proc(body: string, n: int, allocator := context.allocator) -> string {
+	ex := excerpt_ends(body, n, context.temp_allocator)
+	if sandbox.value_looks_secret(ex) || excerpt_has_secret_token(ex) {
+		return strings.clone(REDACTED_EXCERPT, allocator)
+	}
+	tok := sandbox.redact_secret_tokens(ex, allocator)
+	if strings.contains(tok, sandbox.REDACTED_SECRET) {
+		delete(tok)
+		return strings.clone(REDACTED_EXCERPT, allocator)
+	}
+	return tok
+}
+
+@(private)
+excerpt_has_secret_token :: proc(ex: string) -> bool {
+	lower := strings.to_lower(ex, context.temp_allocator)
+	needles := []string{"sk-", "ghp_", "github_pat_", "xoxb-", "xoxp-", "-----begin private key-----"}
+	for n in needles {
+		if strings.contains(lower, n) {
+			return true
+		}
+	}
+	return false
+}
+
+/*
 Schema-normalized tool envelope for isomorphic root observations.
 */
 format_tool_envelope :: proc(
@@ -219,20 +267,23 @@ format_tool_envelope :: proc(
 	lines: int,
 	allocator := context.allocator,
 ) -> string {
+	st := envelope_sanitize_field(status)
+	path := envelope_sanitize_field(cmd_or_path)
+	aid := envelope_sanitize_field(artifact_id)
 	b: strings.Builder
 	strings.builder_init(&b, allocator)
-	fmt.sbprintf(&b, "status=%s", status)
-	if len(cmd_or_path) > 0 {
-		fmt.sbprintf(&b, " path=%s", cmd_or_path)
+	fmt.sbprintf(&b, "status=%s", st)
+	if len(path) > 0 {
+		fmt.sbprintf(&b, " path=%s", path)
 	}
-	if exit_code != 0 || status == "error" {
+	if exit_code != 0 || st == "error" {
 		fmt.sbprintf(&b, " exit=%d", exit_code)
 	}
 	if lines > 0 {
 		fmt.sbprintf(&b, " lines=%d", lines)
 	}
-	if len(artifact_id) > 0 {
-		fmt.sbprintf(&b, " artifact=%s", artifact_id)
+	if len(aid) > 0 {
+		fmt.sbprintf(&b, " artifact=%s", aid)
 	}
 	strings.write_string(&b, "\n--- excerpt ---\n")
 	strings.write_string(&b, excerpt)
@@ -264,12 +315,14 @@ offload_tool_result :: proc(
 	metrics: ^Harness_Metrics,
 	allocator := context.allocator,
 ) -> string {
+	_ = name
 	status := "ok"
 	exit_code := 0
 	if is_err {
 		status = "error"
 		exit_code = 1
 	}
+	detail := sandbox.redact_secrets(cmd_or_path, context.temp_allocator)
 	threshold := store.artifact_chars_threshold()
 	lines := count_lines(raw)
 	if lid_enabled() && threshold > 0 && len(raw) > threshold {
@@ -279,8 +332,8 @@ offload_tool_result :: proc(
 				metrics.artifacts_stored += 1
 				metrics.stubbed_bytes += len(raw)
 			}
-			excerpt := excerpt_ends(raw, constants.ARTIFACT_EXCERPT_CHARS, context.temp_allocator)
-			out := format_tool_envelope(status, cmd_or_path, exit_code, id, excerpt, lines, allocator)
+			excerpt := excerpt_for_envelope(raw, constants.ARTIFACT_EXCERPT_CHARS, context.temp_allocator)
+			out := format_tool_envelope(status, detail, exit_code, id, excerpt, lines, allocator)
 			delete(id)
 			return out
 		}
@@ -288,13 +341,15 @@ offload_tool_result :: proc(
 	if metrics != nil {
 		metrics.retained_tool_bytes += len(raw)
 	}
-	excerpt := raw
-	if len(excerpt) > constants.ARTIFACT_EXCERPT_CHARS * 4 {
-		excerpt = excerpt_ends(raw, constants.ARTIFACT_EXCERPT_CHARS * 2, context.temp_allocator)
-		out := format_tool_envelope(status, cmd_or_path, exit_code, "", excerpt, lines, allocator)
-		return out
+	if len(raw) > constants.ARTIFACT_EXCERPT_CHARS * 4 {
+		excerpt := excerpt_for_envelope(raw, constants.ARTIFACT_EXCERPT_CHARS * 2, context.temp_allocator)
+		return format_tool_envelope(status, detail, exit_code, "", excerpt, lines, allocator)
 	}
-	return format_tool_envelope(status, cmd_or_path, exit_code, "", excerpt, lines, allocator)
+	excerpt := raw
+	if sandbox.value_looks_secret(excerpt) {
+		excerpt = REDACTED_EXCERPT
+	}
+	return format_tool_envelope(status, detail, exit_code, "", excerpt, lines, allocator)
 }
 
 tool_clear_stub :: proc(m: provider.Message, allocator := context.allocator) -> string {
@@ -302,7 +357,10 @@ tool_clear_stub :: proc(m: provider.Message, allocator := context.allocator) -> 
 	if len(name) == 0 {
 		name = "tool"
 	}
-	if strings.contains(m.content, "artifact=") {
+	// Already offloaded or enveloped: do not re-store framed bodies.
+	if strings.contains(m.content, "artifact=") ||
+	   strings.contains(m.content, "--- excerpt ---") ||
+	   strings.has_prefix(m.content, "status=") {
 		return strings.clone(m.content, allocator)
 	}
 	body := m.content
@@ -313,12 +371,12 @@ tool_clear_stub :: proc(m: provider.Message, allocator := context.allocator) -> 
 			id = aid
 		}
 	}
-	excerpt := excerpt_ends(body, min(200, constants.ARTIFACT_EXCERPT_CHARS), context.temp_allocator)
+	excerpt := excerpt_for_envelope(body, min(200, constants.ARTIFACT_EXCERPT_CHARS), context.temp_allocator)
 	if len(id) > 0 {
 		out := fmt.aprintf(
 			"%s %s %d bytes artifact=%s]\n--- excerpt ---\n%s",
 			constants.TOOL_CLEAR_STUB_PREFIX,
-			name,
+			envelope_sanitize_field(name),
 			len(body),
 			id,
 			excerpt,
@@ -330,7 +388,7 @@ tool_clear_stub :: proc(m: provider.Message, allocator := context.allocator) -> 
 	return fmt.aprintf(
 		"%s %s %d bytes; re-call or read_artifact if needed]\n--- excerpt ---\n%s",
 		constants.TOOL_CLEAR_STUB_PREFIX,
-		name,
+		envelope_sanitize_field(name),
 		len(body),
 		excerpt,
 		allocator = allocator,
@@ -396,12 +454,12 @@ prepare_context :: proc(msgs: ^[dynamic]provider.Message, p: ^provider.Provider)
 		return stats
 	}
 
-	if keep > 2 {
-		stats.cleared += clear_old_tool_results(msgs, 2)
-		total = messages_content_chars_excluding_system(msgs[:])
-		if total <= trigger {
-			return stats
-		}
+	// Lean compact input: stub more aggressively so the summarizer does not
+	// ingest full hostile tool bodies.
+	stats.cleared += clear_old_tool_results(msgs, 2)
+	total = messages_content_chars_excluding_system(msgs[:])
+	if total <= trigger {
+		return stats
 	}
 
 	if p == nil || p.chat == nil || len(msgs) < 6 {

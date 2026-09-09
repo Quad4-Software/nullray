@@ -135,6 +135,8 @@ builtin_type_defaults :: proc(type_name: string) -> (mode: string, isolation: Is
 	switch strings.to_lower(type_name, context.temp_allocator) {
 	case "explore", "explore-agent":
 		return "ask", .Shared, "explore"
+	case "locate", "locate-agent":
+		return "ask", .Shared, "explore"
 	case "review", "review-agent":
 		return "review", .Shared, "review"
 	case "edit", "edit-agent":

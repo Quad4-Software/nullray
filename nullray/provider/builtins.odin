@@ -71,6 +71,39 @@ make_lmstudio :: proc(base_url := "", api_key := "", model := "") -> Provider {
 	}
 }
 
+make_llamacpp :: proc(base_url := "", api_key := "", model := "") -> Provider {
+	base := base_url
+	if len(base) == 0 {
+		if host, ok := os.lookup_env(constants.ENV_LLAMACPP_HOST, context.temp_allocator); ok {
+			base = normalize_openai_base(host)
+		} else {
+			base = constants.DEFAULT_LLAMACPP_BASE
+		}
+	} else {
+		base = normalize_openai_base(base)
+	}
+	key := api_key
+	if len(key) == 0 {
+		if v, ok := os.lookup_env(constants.ENV_LLAMACPP_KEY, context.temp_allocator); ok {
+			key = v
+		}
+	}
+	m := model
+	if len(m) == 0 {
+		m = constants.DEFAULT_MODEL_LLAMACPP
+	}
+	return Provider{
+		id = "llamacpp",
+		name = "llama.cpp",
+		base_url = strings.clone(base),
+		api_key = strings.clone(key),
+		default_model = strings.clone(m),
+		chat = openai_chat,
+		stream = openai_chat_stream,
+		list_models = llamacpp_list_models,
+	}
+}
+
 make_openrouter :: proc(base_url := "", api_key := "", model := "") -> Provider {
 	base := base_url
 	if len(base) == 0 {
@@ -78,11 +111,7 @@ make_openrouter :: proc(base_url := "", api_key := "", model := "") -> Provider 
 	}
 	key := api_key
 	if len(key) == 0 {
-		if v, ok := os.lookup_env(constants.ENV_OPENROUTER_KEY, context.temp_allocator); ok {
-			key = v
-		} else if v2, ok2 := os.lookup_env(constants.ENV_API_KEY, context.temp_allocator); ok2 {
-			key = v2
-		}
+		key = lookup_api_key_env(constants.ENV_OPENROUTER_KEY, constants.ENV_API_KEY)
 	}
 	m := model
 	if len(m) == 0 {
@@ -107,11 +136,7 @@ make_opencode_go :: proc(base_url := "", api_key := "", model := "") -> Provider
 	}
 	key := api_key
 	if len(key) == 0 {
-		if v, ok := os.lookup_env(constants.ENV_OPENCODE_KEY, context.temp_allocator); ok {
-			key = v
-		} else if v2, ok2 := os.lookup_env(constants.ENV_API_KEY, context.temp_allocator); ok2 {
-			key = v2
-		}
+		key = lookup_api_key_env(constants.ENV_OPENCODE_KEY, constants.ENV_API_KEY)
 	}
 	m := model
 	if len(m) == 0 {
@@ -136,11 +161,7 @@ make_opencode :: proc(base_url := "", api_key := "", model := "") -> Provider {
 	}
 	key := api_key
 	if len(key) == 0 {
-		if v, ok := os.lookup_env(constants.ENV_OPENCODE_KEY, context.temp_allocator); ok {
-			key = v
-		} else if v2, ok2 := os.lookup_env(constants.ENV_API_KEY, context.temp_allocator); ok2 {
-			key = v2
-		}
+		key = lookup_api_key_env(constants.ENV_OPENCODE_KEY, constants.ENV_API_KEY)
 	}
 	m := model
 	if len(m) == 0 {
@@ -171,11 +192,7 @@ make_openai :: proc(base_url := "", api_key := "", model := "") -> Provider {
 	}
 	key := api_key
 	if len(key) == 0 {
-		if v, ok := os.lookup_env(constants.ENV_OPENAI_KEY, context.temp_allocator); ok {
-			key = v
-		} else if v2, ok2 := os.lookup_env(constants.ENV_API_KEY, context.temp_allocator); ok2 {
-			key = v2
-		}
+		key = lookup_api_key_env(constants.ENV_OPENAI_KEY, constants.ENV_API_KEY)
 	}
 	m := model
 	if len(m) == 0 {
@@ -207,11 +224,7 @@ make_openai_compat :: proc(base_url := "", api_key := "", model := "") -> Provid
 	}
 	key := api_key
 	if len(key) == 0 {
-		if v, ok := os.lookup_env(constants.ENV_OPENAI_KEY, context.temp_allocator); ok {
-			key = v
-		} else if v2, ok2 := os.lookup_env(constants.ENV_API_KEY, context.temp_allocator); ok2 {
-			key = v2
-		}
+		key = lookup_api_key_env(constants.ENV_OPENAI_KEY, constants.ENV_API_KEY)
 	}
 	m := model
 	if len(m) == 0 {
@@ -249,18 +262,7 @@ make_compat_named :: proc(
 	}
 	key := api_key
 	if len(key) == 0 {
-		if v, ok := os.lookup_env(key_env, context.temp_allocator); ok {
-			key = v
-		} else if len(alt_key_env) > 0 {
-			if v2, ok2 := os.lookup_env(alt_key_env, context.temp_allocator); ok2 {
-				key = v2
-			}
-		}
-		if len(key) == 0 {
-			if v3, ok3 := os.lookup_env(constants.ENV_API_KEY, context.temp_allocator); ok3 {
-				key = v3
-			}
-		}
+		key = lookup_api_key_env(key_env, alt_key_env, constants.ENV_API_KEY)
 	}
 	m := model
 	if len(m) == 0 {
@@ -447,11 +449,7 @@ make_azure :: proc(base_url := "", api_key := "", model := "") -> Provider {
 	}
 	key := api_key
 	if len(key) == 0 {
-		if v, ok := os.lookup_env(constants.ENV_AZURE_KEY, context.temp_allocator); ok {
-			key = v
-		} else if v2, ok2 := os.lookup_env(constants.ENV_OPENAI_KEY, context.temp_allocator); ok2 {
-			key = v2
-		}
+		key = lookup_api_key_env(constants.ENV_AZURE_KEY, constants.ENV_OPENAI_KEY, constants.ENV_API_KEY)
 	}
 	m := model
 	if len(m) == 0 {

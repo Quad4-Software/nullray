@@ -6,6 +6,7 @@ Key and event decoding from raw terminal input.
 package ui
 
 import "core:os"
+import "core:unicode/utf8"
 
 Key :: enum {
 	None,
@@ -158,6 +159,9 @@ poll_event :: proc(timeout_ms: int = 50) -> (ev: Event, ok: bool) {
 
 	if b >= 0x20 && b < 0x7f {
 		return Event{kind = .Rune, ch = rune(b)}, true
+	}
+	if b >= 0x80 {
+		return decode_utf8_lead(b)
 	}
 	return {}, false
 }
@@ -341,6 +345,40 @@ read_csi_int :: proc() -> (n: int, ok: bool) {
 		}
 		n = n * 10 + int(b2 - '0')
 	}
+}
+
+@(private)
+decode_utf8_lead :: proc(lead: u8) -> (ev: Event, ok: bool) {
+	need := 0
+	if lead & 0xe0 == 0xc0 {
+		need = 2
+	} else if lead & 0xf0 == 0xe0 {
+		need = 3
+	} else if lead & 0xf8 == 0xf0 {
+		need = 4
+	} else {
+		return Event{kind = .Rune, ch = '\ufffd'}, true
+	}
+	buf: [4]u8
+	buf[0] = lead
+	for i in 1 ..< need {
+		if !stdin_ready(8) {
+			return Event{kind = .Rune, ch = '\ufffd'}, true
+		}
+		b, got := term_read_byte()
+		if !got || (b & 0xc0) != 0x80 {
+			if got {
+				push_byte(b)
+			}
+			return Event{kind = .Rune, ch = '\ufffd'}, true
+		}
+		buf[i] = b
+	}
+	r, size := utf8.decode_rune(buf[:need])
+	if size != need || r == utf8.RUNE_ERROR {
+		return Event{kind = .Rune, ch = '\ufffd'}, true
+	}
+	return Event{kind = .Rune, ch = r}, true
 }
 
 @(private)

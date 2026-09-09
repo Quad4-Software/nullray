@@ -3,6 +3,7 @@ package http
 
 import "core:fmt"
 import "core:net"
+import "core:os"
 import "core:strings"
 import "core:testing"
 import "core:thread"
@@ -149,4 +150,41 @@ test_http_redirect_local :: proc(t: ^testing.T) {
 test_join_url :: proc(t: ^testing.T) {
 	testing.expect_value(t, join_url("https://api.example.com", "/v1/x"), "https://api.example.com/v1/x")
 	testing.expect_value(t, join_url("https://api.example.com/", "v1/x"), "https://api.example.com/v1/x")
+}
+
+@(test)
+test_host_header_no_double_port :: proc(t: ^testing.T) {
+	parts, err := parse_url("http://127.0.0.1:11434/v1/chat/completions")
+	testing.expect_value(t, err, "")
+	testing.expect_value(t, host_header_value(parts), "127.0.0.1:11434")
+	parts2, err2 := parse_url("https://api.example.com/v1")
+	testing.expect_value(t, err2, "")
+	testing.expect_value(t, host_header_value(parts2), "api.example.com")
+}
+
+@(test)
+test_http_proxy_connect_local :: proc(t: ^testing.T) {
+	resp := "HTTP/1.1 200 Connection Established\r\n\r\n"
+	port, args, th := start_local_server(resp)
+	defer stop_local_server(args, th)
+	testing.expect(t, port > 0)
+
+	os.set_env("HTTP_PROXY", fmt.tprintf("http://127.0.0.1:%d", port))
+	defer os.unset_env("HTTP_PROXY")
+	os.unset_env("NO_PROXY")
+
+	parts := Url_Parts{
+		scheme = "http",
+		host = "example.com",
+		hostname = "example.com",
+		port = 80,
+		path = "/",
+		use_tls = false,
+	}
+	px := proxy_for_url(parts)
+	testing.expect(t, px.ok)
+	conn, err := conn_dial_proxy_connect(parts, px, 5)
+	testing.expect_value(t, err, "")
+	testing.expect(t, conn.sock != 0)
+	conn_close(&conn)
 }

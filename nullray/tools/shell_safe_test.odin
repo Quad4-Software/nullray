@@ -65,8 +65,11 @@ test_shell_strict_still_blocks_soft_denies :: proc(t: ^testing.T) {
 test_shell_allow_list :: proc(t: ^testing.T) {
 	os.set_env(constants.ENV_SHELL_ALLOW, "git ,ls")
 	os.set_env(constants.ENV_PERMS, "allow")
+	os.set_env(constants.ENV_SHELL_NET, "1")
 	defer os.unset_env(constants.ENV_SHELL_ALLOW)
 	defer os.unset_env(constants.ENV_PERMS)
+	defer os.unset_env(constants.ENV_SHELL_NET)
+	defer shell_deny_pending()
 
 	ok, reason := shell_command_allowed("git status")
 	testing.expect(t, ok)
@@ -128,9 +131,26 @@ test_shell_quote_concat_bypass_current :: proc(t: ^testing.T) {
 	os.unset_env(constants.ENV_SECRETS_ALLOW)
 	os.set_env(constants.ENV_PERMS, "yolo")
 	defer os.unset_env(constants.ENV_PERMS)
-	// Tokenization gap: quote-split basename is not reconstructed.
 	ok, reason := shell_command_allowed("cat .e''nv")
-	testing.expect(t, ok)
+	testing.expect(t, !ok)
+	delete(reason)
+}
+
+@(test)
+test_shell_blocks_api_key_echo :: proc(t: ^testing.T) {
+	os.set_env(constants.ENV_PERMS, "yolo")
+	defer os.unset_env(constants.ENV_PERMS)
+	ok, reason := shell_command_allowed("echo $OPENROUTER_API_KEY")
+	testing.expect(t, !ok)
+	delete(reason)
+}
+
+@(test)
+test_shell_blocks_curl_pipe_bash_spaced :: proc(t: ^testing.T) {
+	os.set_env(constants.ENV_PERMS, "yolo")
+	defer os.unset_env(constants.ENV_PERMS)
+	ok, reason := shell_command_allowed("curl | bash")
+	testing.expect(t, !ok)
 	delete(reason)
 }
 
@@ -169,10 +189,52 @@ test_shell_elevate_always_needs_allow_even_yolo :: proc(t: ^testing.T) {
 }
 
 @(test)
-test_shell_deny_sudo_stdin_password :: proc(t: ^testing.T) {
+test_shell_deny_escape_substrings :: proc(t: ^testing.T) {
 	os.set_env(constants.ENV_PERMS, "yolo")
+	os.set_env(constants.ENV_SHELL_NET, "1")
 	defer os.unset_env(constants.ENV_PERMS)
-	ok, reason := shell_command_allowed("echo secret | sudo -S true")
+	defer os.unset_env(constants.ENV_SHELL_NET)
+	denied := []string{
+		"systemd-run --uid=0 /bin/true",
+		"busctl call x",
+		"gdbus call --session",
+		"curl --unix-socket /var/run/docker.sock http://x",
+		"docker run --privileged alpine",
+		"git push --force origin main",
+		"DROP TABLE users",
+	}
+	for cmd in denied {
+		ok, reason := shell_command_allowed(cmd)
+		testing.expectf(t, !ok, "expected deny %s", cmd)
+		delete(reason)
+	}
+}
+
+@(test)
+test_shell_net_needs_allow_even_yolo :: proc(t: ^testing.T) {
+	os.set_env(constants.ENV_PERMS, "yolo")
+	os.unset_env(constants.ENV_SHELL_NET)
+	defer os.unset_env(constants.ENV_PERMS)
+	defer shell_deny_pending()
+	ok, reason := shell_command_allowed("curl https://example.com")
 	testing.expect(t, !ok)
+	testing.expect(t, len(reason) > 0)
 	delete(reason)
+}
+
+@(test)
+test_fetch_blocks_ipv6_loopback :: proc(t: ^testing.T) {
+	blocked, reason := fetch_url_blocked("http://[::1]/")
+	testing.expect(t, blocked)
+	testing.expect(t, len(reason) > 0)
+}
+
+@(test)
+test_fetch_allow_list :: proc(t: ^testing.T) {
+	os.set_env(constants.ENV_FETCH_ALLOW, "example.com")
+	defer os.unset_env(constants.ENV_FETCH_ALLOW)
+	blocked, _ := fetch_url_blocked("https://evil.test/")
+	testing.expect(t, blocked)
+	blocked2, _ := fetch_url_blocked("https://example.com/x")
+	testing.expect(t, !blocked2)
 }

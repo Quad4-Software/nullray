@@ -7,6 +7,7 @@ package main
 
 import "core:fmt"
 import "core:os"
+import "core:strings"
 import "core:time"
 import "nullray:config"
 import "nullray:http"
@@ -50,6 +51,12 @@ main :: proc() {
 		defer delete(label)
 		fmt.println("nullray_chat_smoke: credits", label)
 		if !bal.ok {
+			if strings.contains(strings.to_lower(label, context.temp_allocator), "401") ||
+			   strings.contains(strings.to_lower(bal.err, context.temp_allocator), "401") ||
+			   strings.contains(strings.to_lower(bal.err, context.temp_allocator), "user not found") {
+				fmt.eprintln("nullray_chat_smoke: skip (OpenRouter key rejected; check ~/.config/nullray/env)")
+				os.exit(0)
+			}
 			fmt.eprintln("nullray_chat_smoke: credit fetch failed")
 			os.exit(1)
 		}

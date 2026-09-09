@@ -73,6 +73,22 @@ test_make_lmstudio_defaults :: proc(t: ^testing.T) {
 }
 
 @(test)
+test_make_llamacpp_defaults :: proc(t: ^testing.T) {
+	p := make_llamacpp("http://127.0.0.1:8080", "", "local")
+	defer provider_destroy(&p)
+	testing.expect_value(t, p.id, "llamacpp")
+	testing.expect_value(t, p.name, "llama.cpp")
+	testing.expect_value(t, p.base_url, "http://127.0.0.1:8080/v1")
+	testing.expect_value(t, p.default_model, "local")
+	testing.expect(t, p.list_models != nil)
+	if _, ok := os.lookup_env(constants.ENV_LLAMACPP_HOST, context.temp_allocator); !ok {
+		p2 := make_llamacpp()
+		defer provider_destroy(&p2)
+		testing.expect_value(t, p2.base_url, constants.DEFAULT_LLAMACPP_BASE)
+	}
+}
+
+@(test)
 test_normalize_provider_id_aliases :: proc(t: ^testing.T) {
 	testing.expect_value(t, normalize_provider_id("OpenAI"), "openai")
 	testing.expect_value(t, normalize_provider_id("openai_compatible"), "openai-compat")
@@ -83,6 +99,52 @@ test_normalize_provider_id_aliases :: proc(t: ^testing.T) {
 	testing.expect_value(t, normalize_provider_id("nim"), "nvidia")
 	testing.expect_value(t, normalize_provider_id("nvidia-nim"), "nvidia")
 	testing.expect_value(t, normalize_provider_id("co"), "cohere")
+	testing.expect_value(t, normalize_provider_id("llama.cpp"), "llamacpp")
+	testing.expect_value(t, normalize_provider_id("llama-cpp"), "llamacpp")
+	testing.expect_value(t, normalize_provider_id("llama"), "llamacpp")
+	testing.expect_value(t, normalize_provider_id("lm-studio"), "lmstudio")
+}
+
+@(test)
+test_local_probe_enabled_from_env :: proc(t: ^testing.T) {
+	os.unset_env(constants.ENV_LOCAL_PROBE)
+	defer os.unset_env(constants.ENV_LOCAL_PROBE)
+	testing.expect(t, local_probe_enabled_from_env())
+	os.set_env(constants.ENV_LOCAL_PROBE, "0")
+	testing.expect(t, !local_probe_enabled_from_env())
+	os.set_env(constants.ENV_LOCAL_PROBE, "off")
+	testing.expect(t, !local_probe_enabled_from_env())
+}
+
+@(test)
+test_provider_env_set :: proc(t: ^testing.T) {
+	os.unset_env(constants.ENV_PROVIDER)
+	defer os.unset_env(constants.ENV_PROVIDER)
+	testing.expect(t, !provider_env_set())
+	os.set_env(constants.ENV_PROVIDER, "ollama")
+	testing.expect(t, provider_env_set())
+	os.set_env(constants.ENV_PROVIDER, "  ")
+	testing.expect(t, !provider_env_set())
+}
+
+@(test)
+test_registry_auto_select_skips_when_env_set :: proc(t: ^testing.T) {
+	os.set_env(constants.ENV_PROVIDER, "openrouter")
+	defer os.unset_env(constants.ENV_PROVIDER)
+	r: Registry
+	registry_init(&r)
+	defer registry_destroy(&r)
+	testing.expect(t, !registry_auto_select_local(&r))
+	p := registry_active(&r)
+	testing.expect(t, p != nil)
+	testing.expect_value(t, p.id, "openrouter")
+}
+
+@(test)
+test_probe_local_provider_respects_disable :: proc(t: ^testing.T) {
+	os.set_env(constants.ENV_LOCAL_PROBE, "0")
+	defer os.unset_env(constants.ENV_LOCAL_PROBE)
+	testing.expect(t, !probe_local_provider("ollama", 1))
 }
 
 @(test)

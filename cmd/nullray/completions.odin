@@ -40,9 +40,10 @@ _nullray() {
   COMPREPLY=()
   cur="${COMP_WORDS[COMP_CWORD]}"
   prev="${COMP_WORDS[COMP_CWORD-1]}"
-  opts="--help -h --version -V --ephemeral -e --self-test -t --audit --doctor --debug --print -P --ask -q --bare --fail-on-findings --provider -p --model -m --theme --mode --perms --sandbox --workspace -w --session --list-sessions --search-sessions --delete-session --export-session --import-session --as --list-skills --install-skill --uninstall-skill --skills --keys --message-file --out --plan-out --plan-in --output-format --print-strict --auto --usage --timeout --no-splash --no-subagents --splash --hide-sensitive --list-models --completions --man"
-  providers="ollama lmstudio openai openai-compat openrouter opencode opencode-go anthropic gemini groq deepseek mistral together fireworks xai azure cerebras cohere nvidia dashscope"
+  opts="--help -h --version -V --ephemeral -e --self-test -t --audit --doctor --debug --print -P --ask -q --bare --fail-on-findings --provider -p --model -m --theme --mode --hunt --perms --gate --sandbox --workspace -w --session --list-sessions --inspect-session --follow --search-sessions --delete-session --rename-session --force --export-session --import-session --as --list-skills --install-skill --uninstall-skill --skills --keys --message-file --out --plan-out --plan-in --output-format --print-strict --auto --usage --timeout --no-splash --no-subagents --splash --hide-sensitive --list-models --completions --man"
+  providers="ollama lmstudio llamacpp openai openai-compat openrouter opencode opencode-go anthropic gemini groq deepseek mistral together fireworks xai azure cerebras cohere nvidia dashscope"
   modes="ask plan review edit"
+  hunts="auto balanced explore oracle adversarial"
   perms="ask allow yolo"
   sandboxes="off soft warn strict on"
   keys="default neovim emacs"
@@ -50,13 +51,15 @@ _nullray() {
   case "$prev" in
     --provider|-p) COMPREPLY=( $(compgen -W "$providers" -- "$cur") ); return ;;
     --mode) COMPREPLY=( $(compgen -W "$modes" -- "$cur") ); return ;;
+    --hunt) COMPREPLY=( $(compgen -W "$hunts" -- "$cur") ); return ;;
     --perms) COMPREPLY=( $(compgen -W "$perms" -- "$cur") ); return ;;
+    --gate) COMPREPLY=( $(compgen -W "0 1 2 3 ask allow yolo" -- "$cur") ); return ;;
     --sandbox) COMPREPLY=( $(compgen -W "$sandboxes" -- "$cur") ); return ;;
     --keys) COMPREPLY=( $(compgen -W "$keys" -- "$cur") ); return ;;
     --output-format) COMPREPLY=( $(compgen -W "text json" -- "$cur") ); return ;;
     --completions) COMPREPLY=( $(compgen -W "bash zsh fish powershell elvish nushell" -- "$cur") ); return ;;
     --theme) COMPREPLY=( $(compgen -W "ink ember moss slate rose mono dusk" -- "$cur") ); return ;;
-    --workspace|-w|--session|--search-sessions|--delete-session|--export-session|--import-session|--as|--model|-m|--message-file|--out|--plan-out|--plan-in|--install-skill|--uninstall-skill|--skills) COMPREPLY=( $(compgen -f -- "$cur") ); return ;;
+    --workspace|-w|--session|--search-sessions|--delete-session|--rename-session|--export-session|--import-session|--as|--model|-m|--message-file|--out|--plan-out|--plan-in|--install-skill|--uninstall-skill|--skills) COMPREPLY=( $(compgen -f -- "$cur") ); return ;;
   esac
   if [[ "$cur" == -* ]]; then
     COMPREPLY=( $(compgen -W "$opts" -- "$cur") )
@@ -80,13 +83,15 @@ _nullray() {
     '--ask[simple Q and A]' '-q[simple Q and A]'
     '--bare[skip home MCP and non-workspace skills]'
     '--fail-on-findings[exit 1 when review findings present]'
-    '--provider[provider id]:provider:(ollama lmstudio openai openai-compat openrouter opencode opencode-go anthropic gemini groq deepseek mistral together fireworks xai azure cerebras cohere nvidia dashscope)'
-    '-p[provider id]:provider:(ollama lmstudio openai openai-compat openrouter opencode opencode-go anthropic gemini groq deepseek mistral together fireworks xai azure cerebras cohere nvidia dashscope)'
+    '--provider[provider id]:provider:(ollama lmstudio llamacpp openai openai-compat openrouter opencode opencode-go anthropic gemini groq deepseek mistral together fireworks xai azure cerebras cohere nvidia dashscope)'
+    '-p[provider id]:provider:(ollama lmstudio llamacpp openai openai-compat openrouter opencode opencode-go anthropic gemini groq deepseek mistral together fireworks xai azure cerebras cohere nvidia dashscope)'
     '--model[model id]:model:'
     '-m[model id]:model:'
     '--theme[ui theme]:theme:(ink ember moss slate rose mono dusk)'
     '--mode[agent mode]:mode:(ask plan review edit)'
+    '--hunt[vuln hunt profile]:profile:(auto balanced explore oracle adversarial)'
     '--perms[shell policy]:perms:(ask allow yolo)'
+    '--gate[tool gate]:gate:(0 1 2 3 ask allow yolo)'
     '--sandbox[sandbox mode]:sandbox:(off soft warn strict on)'
     '--workspace[workspace path]:dir:_files -/'
     '-w[workspace path]:dir:_files -/'
@@ -94,6 +99,8 @@ _nullray() {
     '--list-sessions[list saved sessions]'
     '--search-sessions[search sessions]:query:'
     '--delete-session[delete named session]:session:'
+    '--rename-session[rename named session]:session:'
+    '--force[overwrite on rename]'
     '--export-session[export session to --out dir]:session:'
     '--import-session[import session from path]:path:_files'
     '--as[import or install destination name]:name:'
@@ -135,7 +142,7 @@ complete -c nullray -l debug -d 'Verbose stderr lifecycle logs'
 complete -c nullray -s P -l print -d 'One-shot agent without TUI'
 complete -c nullray -l bare -d 'Skip home MCP and non-workspace skills'
 complete -c nullray -l fail-on-findings -d 'Exit 1 when review findings present'
-complete -c nullray -s p -l provider -d 'Provider id' -xa 'ollama lmstudio openai openai-compat openrouter opencode opencode-go anthropic gemini groq deepseek mistral together fireworks xai azure cerebras cohere nvidia dashscope'
+complete -c nullray -s p -l provider -d 'Provider id' -xa 'ollama lmstudio llamacpp openai openai-compat openrouter opencode opencode-go anthropic gemini groq deepseek mistral together fireworks xai azure cerebras cohere nvidia dashscope'
 complete -c nullray -s m -l model -d 'Model id' -r
 complete -c nullray -l theme -d 'UI theme' -xa 'ink ember moss slate rose mono dusk'
 complete -c nullray -l mode -d 'Agent mode' -xa 'ask plan review edit'
@@ -146,6 +153,8 @@ complete -c nullray -l session -d 'Session name' -r
 complete -c nullray -l list-sessions -d 'List saved sessions'
 complete -c nullray -l search-sessions -d 'Search sessions' -r
 complete -c nullray -l delete-session -d 'Delete named session' -r
+complete -c nullray -l rename-session -d 'Rename named session' -r
+complete -c nullray -l force -d 'Overwrite on rename'
 complete -c nullray -l export-session -d 'Export session to --out dir' -r
 complete -c nullray -l import-session -d 'Import session from path' -r -F
 complete -c nullray -l as -d 'Name for import-session or install-skill' -r
@@ -177,9 +186,9 @@ COMPLETIONS_POWERSHELL :: `Register-ArgumentCompleter -CommandName nullray -Scri
   $opts = @(
     '--help','-h','--version','-V','--ephemeral','-e','--self-test','-t',
     '--audit','--doctor','--debug','--print','-P','--bare','--fail-on-findings',
-    '--provider','-p','--model','-m','--theme','--mode','--perms','--sandbox',
+    '--provider','-p','--model','-m','--theme','--mode','--hunt','--perms','--gate','--sandbox',
     '--workspace','-w','--session','--list-sessions','--search-sessions',
-    '--delete-session','--export-session','--import-session','--as',
+    '--delete-session','--rename-session','--force','--export-session','--import-session','--as',
     '--list-skills','--install-skill','--uninstall-skill','--skills',
     '--keys','--message-file','--out','--plan-out','--plan-in',
     '--output-format','--print-strict','--auto','--usage','--timeout','--no-splash','--no-subagents','--splash','--hide-sensitive','--list-models','--completions','--man'
@@ -195,9 +204,9 @@ set edit:completion:arg-completer[nullray] = {|@args|
   var flags = [
     --help -h --version -V --ephemeral -e --self-test -t
     --audit --doctor --debug --print -P --bare --fail-on-findings
-    --provider -p --model -m --theme --mode --perms --sandbox
+    --provider -p --model -m --theme --mode --hunt --perms --gate --sandbox
     --workspace -w --session --list-sessions --search-sessions
-    --delete-session --export-session --import-session --as
+    --delete-session --rename-session --force --export-session --import-session --as
     --list-skills --install-skill --uninstall-skill --skills
     --keys --message-file --out --plan-out --plan-in
     --output-format --print-strict --auto --usage --timeout --no-splash --no-subagents --splash --hide-sensitive --list-models --completions --man
@@ -210,9 +219,9 @@ COMPLETIONS_NUSHELL :: `def "nu-complete nullray flags" [] {
   [
     --help -h --version -V --ephemeral -e --self-test -t
     --audit --doctor --debug --print -P --bare --fail-on-findings
-    --provider -p --model -m --theme --mode --perms --sandbox
+    --provider -p --model -m --theme --mode --perms --gate --sandbox
     --workspace -w --session --list-sessions --search-sessions
-    --delete-session --export-session --import-session --as
+    --delete-session --rename-session --force --export-session --import-session --as
     --list-skills --install-skill --uninstall-skill --skills
     --keys --message-file --out --plan-out --plan-in
     --output-format --print-strict --auto --usage --timeout --no-splash --no-subagents --splash --hide-sensitive --list-models --completions --man
@@ -304,7 +313,7 @@ Same as
 In review mode, exit 1 when the reply ends with FINDINGS: N and N > 0.
 .TP
 .BR \-p ", " \-\-provider " " \fIID\fR
-Select provider: ollama, lmstudio, openai, openai-compat, openrouter, opencode,
+Select provider: ollama, lmstudio, llamacpp, openai, openai-compat, openrouter, opencode,
 opencode-go, anthropic, gemini, groq, deepseek, mistral, together, fireworks, xai, azure.
 .TP
 .BR \-m ", " \-\-model " " \fINAME\fR

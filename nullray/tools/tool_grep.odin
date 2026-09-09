@@ -93,7 +93,7 @@ grep_walk :: proc(
 			return ""
 		}
 		text := string(data)
-		for line in strings.split_lines(text, context.temp_allocator) {
+		for line, li in strings.split_lines(text, context.temp_allocator) {
 			if match_count^ >= MAX_GREP_MATCHES {
 				return ""
 			}
@@ -113,8 +113,10 @@ grep_walk :: proc(
 					rel = trim
 				}
 			}
+			line_no := li + 1
 			strings.write_string(b, rel)
 			strings.write_string(b, ":")
+			fmt.sbprintf(b, "%d:", line_no)
 			strings.write_string(b, truncate_line(line, MAX_GREP_LINE_CHARS))
 			match_count^ += 1
 		}

@@ -40,7 +40,6 @@ logo/                   Brand assets (word, profile, social, icon)
 packaging/
   flatpak/              Flatpak manifest, desktop, metainfo
   appimage/             Slim and SDK AppRun, desktop, tools.manifest
-  aur/                  AUR nullray-bin PKGBUILD
   odin-pin              Pinned Odin commit for CI, Docker, SDK
 share/nullray/scaffolds/  Scaffold templates
 Dockerfile              Multi-stage rootless Debian trixie image

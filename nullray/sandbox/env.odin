@@ -30,6 +30,14 @@ ALLOWED_ENV_PREFIXES :: []string{
 	"OPENROUTER_",
 	"OPENCODE_",
 	"LM_API_",
+	"HTTP_PROXY",
+	"HTTPS_PROXY",
+	"ALL_PROXY",
+	"NO_PROXY",
+	"http_proxy",
+	"https_proxy",
+	"all_proxy",
+	"no_proxy",
 }
 
 DENIED_ENV_PREFIXES :: []string{

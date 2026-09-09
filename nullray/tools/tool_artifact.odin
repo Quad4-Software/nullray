@@ -10,6 +10,7 @@ import "core:os"
 import "core:strconv"
 import "core:strings"
 import "nullray:constants"
+import "nullray:sandbox"
 import "nullray:store"
 
 tool_read_artifact :: proc(args_json: string, allocator := context.allocator) -> (result: string, err: string) {
@@ -69,7 +70,10 @@ tool_read_artifact :: proc(args_json: string, allocator := context.allocator) ->
 			used += 1
 		}
 	}
-	return strings.to_string(b), ""
+	raw := strings.to_string(b)
+	out := sandbox.redact_secrets(raw, allocator)
+	delete(raw)
+	return out, ""
 }
 
 tool_grep_artifact :: proc(args_json: string, allocator := context.allocator) -> (result: string, err: string) {
@@ -83,7 +87,16 @@ tool_grep_artifact :: proc(args_json: string, allocator := context.allocator) ->
 		return "", perr
 	}
 	defer delete(pattern)
-	return store.artifact_grep(id, pattern, allocator)
+	text, gerr := store.artifact_grep(id, pattern, context.temp_allocator)
+	if len(gerr) > 0 {
+		return "", gerr
+	}
+	// Byte-cap long match dumps before they re-enter the model loop.
+	capped := text
+	if len(capped) > constants.ARTIFACT_READ_BYTES_MAX {
+		capped = fmt.tprintf("%s\n... truncated (byte cap)\n", capped[:constants.ARTIFACT_READ_BYTES_MAX])
+	}
+	return sandbox.redact_secrets(capped, allocator), ""
 }
 
 @(private)

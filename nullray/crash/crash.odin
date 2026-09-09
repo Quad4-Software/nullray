@@ -290,7 +290,8 @@ doctor :: proc() -> int {
 			fmt.println("seccomp: skipped on this architecture, current filter is amd64-only")
 		}
 	} else when ODIN_OS == .Windows {
-		fmt.println("sandbox backend: Windows Job Object spawn helper")
+		ok, msg := sandbox.windows_job_spawn_helper()
+		fmt.printf("sandbox backend: Windows Job Object (%s)\n", ok ? msg : "unavailable")
 		fmt.println("seccomp: unavailable on Windows")
 	} else {
 		fmt.println("sandbox backend: unavailable on this OS")
@@ -299,10 +300,40 @@ doctor :: proc() -> int {
 
 	print_env("provider", constants.ENV_PROVIDER)
 	print_env("model", constants.ENV_MODEL)
+	print_env("local_probe", constants.ENV_LOCAL_PROBE)
+	print_env("quirks", constants.ENV_QUIRKS)
+	print_env("openrouter_zdr", constants.ENV_OPENROUTER_ZDR)
+	fmt.println("session format: new sessions default to .msgpack (JSONL still loads, export writes JSONL)")
 	print_env("sandbox", constants.ENV_SANDBOX)
 	print_env("mode", constants.ENV_MODE)
+	print_env("hunt", constants.ENV_HUNT)
+	print_env("temperature", constants.ENV_TEMPERATURE)
+	print_env("top_p", constants.ENV_TOP_P)
 	print_env("perms", constants.ENV_PERMS)
+	print_env("gate", constants.ENV_GATE)
+	print_env("shell_net", constants.ENV_SHELL_NET)
+	print_env("fetch_allow", constants.ENV_FETCH_ALLOW)
+	print_env("hooks", constants.ENV_HOOKS)
+	print_env("workspace_trust", constants.ENV_WORKSPACE_TRUST)
 	print_env("workspace", constants.ENV_WORKSPACE)
+	{
+		ws, _ := os.get_working_directory(context.temp_allocator)
+		hooks_path, _ := filepath.join({ws, ".nullray", constants.HOOKS_FILE}, context.temp_allocator)
+		if _, herr := os.stat(hooks_path, context.temp_allocator); herr == nil {
+			fmt.printf("workspace hooks: %s\n", hooks_path)
+		} else {
+			fmt.println("workspace hooks: (none)")
+		}
+	}
+	if len(dcfg.extra_sock) > 0 {
+		for sock in dcfg.extra_sock {
+			if strings.contains(sock, "docker.sock") {
+				fmt.println("escape note: docker.sock grant often equals host Docker root")
+				break
+			}
+		}
+	}
+	fmt.println("escape checklist: gate, hooks trust, fetch allowlist, shell net, Landlock is not AF_UNIX/D-Bus")
 	print_env_present("OPENROUTER_API_KEY", constants.ENV_OPENROUTER_KEY)
 	print_env_present("OPENAI_API_KEY", constants.ENV_OPENAI_KEY)
 	print_env_present("ANTHROPIC_API_KEY", constants.ENV_ANTHROPIC_KEY)

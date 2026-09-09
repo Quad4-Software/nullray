@@ -144,7 +144,13 @@ merge_env_keys :: proc(kvs: []Env_KV, path := "", apply_process := true) -> (err
 	if !strings.has_suffix(body, "\n") {
 		body = fmt.tprintf("%s\n", body)
 	}
-	if werr := os.write_entire_file(p, transmute([]byte)body); werr != nil {
+	f, oerr := os.open(p, {.Write, .Create, .Trunc}, {.Read_User, .Write_User})
+	if oerr != nil {
+		return fmt.aprintf("write env failed: %v", oerr)
+	}
+	_, werr := os.write(f, transmute([]byte)body)
+	os.close(f)
+	if werr != nil {
 		return fmt.aprintf("write env failed: %v", werr)
 	}
 	if apply_process {
