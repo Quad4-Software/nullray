@@ -63,10 +63,10 @@ NGHTTP2_SRCS := $(notdir $(wildcard $(NGHTTP2_LIB)/*.c))
 NGHTTP2_OBJS := $(addprefix $(TLS_BUILD)/nghttp2_,$(NGHTTP2_SRCS:.c=.o))
 H2_SHIM_OBJ  := $(TLS_BUILD)/nullray_h2_shim.o
 
-.PHONY: all clean install uninstall run test selftest chat-smoke print-smoke coverage help completions man \
+.PHONY: all clean install uninstall run test selftest chat-smoke print-smoke rag-live coverage help completions man \
 	appimage appimage-sdk sdk-smoke flatpak docker-build debug tls-lib tls-size
 
-TEST_SUITES := ui agent tools skills session store sandbox memory mcp provider app config subagent elevate structure secure hooks vcs run patch http
+TEST_SUITES := ui agent tools skills session store sandbox memory rag mcp provider app config subagent elevate structure secure hooks vcs run patch http
 TEST_FLAGS  := $(COLLECTION) -define:ODIN_TEST_THREADS=1 -debug
 
 all: $(OUT)
@@ -160,6 +160,11 @@ chat-smoke: $(OUT)
 		echo 'chat-smoke: skip (no OpenRouter env and ollama not reachable)' ; \
 	fi
 
+# Live RAG + OpenRouter embed/chat (requires OPENROUTER_API_KEY).
+rag-live: $(OUT)
+	@chmod +x $(ROOT)/scripts/rag-live.sh
+	$(ROOT)/scripts/rag-live.sh
+
 completions: $(OUT)
 	@mkdir -p contrib/completions
 	./$(OUT) --completions bash > contrib/completions/nullray.bash
@@ -231,6 +236,7 @@ help:
 		'  test         unit tests + selftest + chat-smoke + print-smoke' \
 		'  selftest     headless smoke only' \
 		'  chat-smoke   one-turn provider smoke' \
+		'  rag-live     live OpenRouter embed + Mercury RAG recall' \
 		'  coverage     kcov HTML under coverage/ (needs kcov)' \
 		'  completions  fill contrib/completions/' \
 		'  man          write man/nullray.1' \

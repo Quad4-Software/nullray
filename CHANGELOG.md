@@ -10,6 +10,7 @@ Notable changes for nullray.
 - Multi-file scaffold packs (nullray-workspace, odin-cli) plus a greenfield skill.
 - Step-anchored plan apply after approve, with a steps sidecar next to the plan file.
 - Architect subagent type that returns a Done Contract for the parent.
+- Local-first embeddings and project RAG under .nullray/rag with hybrid memory_search and retrieved memory in the system prompt.
 
 ### Changed
 - /status shows plan step progress and the steps sidecar path.

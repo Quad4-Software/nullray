@@ -62,5 +62,8 @@ Local notes:
 
 - NULLRAY_LOCAL_PROBE=0|false|off|no skips HTTP live/down probes and auto-select.
 - With no NULLRAY_PROVIDER / -p, registry auto-selects the first live local among ollama, lmstudio, llamacpp.
+- Embeddings: POST {base}/embeddings (encoding_format float). Ollama falls back to native POST /api/embed on 404.
+- NULLRAY_EMBED_PROVIDER / NULLRAY_EMBED_MODEL override the chat provider for vectors. Defaults: ollama nomic-embed-text, openrouter openai/text-embedding-3-small, openai text-embedding-3-small. lmstudio and llamacpp require NULLRAY_EMBED_MODEL.
+- NULLRAY_RAG=auto|1|0 (default auto). Index under .nullray/rag/. NULLRAY_RAG_ARTIFACTS=0 skips artifact indexing.
 
 Source of truth: nullray/constants/constants.odin and nullray/provider/builtins.odin.

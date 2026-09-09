@@ -99,7 +99,9 @@ Modes: ask, plan, review, edit. Tool gate: `--gate` / `NULLRAY_GATE` / `/gate` 0
 
 ## Providers
 
-Built-ins in nullray/provider/builtins.odin wrap openai_chat / openai_list_models (Ollama has its own list). Register via registry.odin. Clone owned strings on create. provider_destroy / registry_destroy on teardown. Table: .agents/references/providers.md.
+Built-ins in nullray/provider/builtins.odin wrap openai_chat / openai_list_models / openai_embed (Ollama has its own list and a native /api/embed fallback). Register via registry.odin. Clone owned strings on create. provider_destroy / registry_destroy on teardown. Table: .agents/references/providers.md.
+
+RAG (NULLRAY_RAG=auto|1|0): vectors under .nullray/rag/. NULLRAY_EMBED_PROVIDER and NULLRAY_EMBED_MODEL select the embedder (defaults: Ollama nomic-embed-text, OpenRouter openai/text-embedding-3-small). memory_put indexes when RAG is on. Tools: rag_status, rag_query, rag_reindex. Artifact bodies may be indexed unless NULLRAY_RAG_ARTIFACTS=0.
 
 ## Sandbox
 
