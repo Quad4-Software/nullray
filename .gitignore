@@ -64,3 +64,5 @@ flatpak_app/
 
 # Local logo scratch (committed assets live in logo/)
 .logo-preview/
+
+.tmp/
