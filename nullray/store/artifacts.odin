@@ -24,11 +24,6 @@ g_artifact_seq: int
 artifact_dir :: proc(allocator := context.allocator) -> string {
 	ws := sandbox.workspace_current()
 	if len(ws) == 0 {
-		if st := sandbox.state(); st != nil {
-			ws = st.workspace
-		}
-	}
-	if len(ws) == 0 {
 		ws = "."
 	}
 	joined, err := filepath.join({ws, constants.ARTIFACTS_DIR}, allocator)
@@ -103,6 +98,34 @@ artifact_read :: proc(id: string, allocator := context.allocator) -> (text: stri
 		return "", fmt.aprintf("artifact not found: %s", id, allocator = allocator)
 	}
 	return string(data), ""
+}
+
+/*
+List artifact ids under .nullray/artifacts (basename without .txt). Caller owns the slice and ids.
+*/
+artifact_list_ids :: proc(allocator := context.allocator) -> [dynamic]string {
+	out := make([dynamic]string, allocator)
+	dir := artifact_dir(context.temp_allocator)
+	entries, err := os.read_directory_by_path(dir, -1, context.temp_allocator)
+	if err != nil {
+		return out
+	}
+	defer os.file_info_slice_delete(entries, context.temp_allocator)
+	for e in entries {
+		if e.type == .Directory {
+			continue
+		}
+		name := e.name
+		if !strings.has_suffix(name, ".txt") {
+			continue
+		}
+		id := name[:len(name) - 4]
+		if !artifact_id_ok(id) {
+			continue
+		}
+		append(&out, strings.clone(id, allocator))
+	}
+	return out
 }
 
 artifact_grep :: proc(id, pattern: string, allocator := context.allocator) -> (text: string, err: string) {

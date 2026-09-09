@@ -8,6 +8,7 @@ package agent
 import "core:fmt"
 import "nullray:constants"
 import "nullray:provider"
+import "nullray:store"
 import "nullray:tools"
 
 Turn_Verify_Outcome :: enum {
@@ -47,6 +48,8 @@ turn_verify_on_assistant_done :: proc(
 		verify_fails^ += 1
 		max_fails := verify_max_fails_from_env()
 		aid := verify_store_output(vout, allocator)
+		trace_path := store.trace_store_verify_fail(vcmd, vout, verify_fails^, context.temp_allocator)
+		_ = write_plan_rewind_checkpoint(0, "verify", "verify failed; fix findings then retry")
 		if verify_fails^ >= max_fails {
 			fail_msg := format_verify_nudge(
 				vcmd,
@@ -57,6 +60,11 @@ turn_verify_on_assistant_done :: proc(
 				allocator,
 				aid,
 			)
+			if len(trace_path) > 0 {
+				extra := fmt.aprintf("%s\ntrace: %s\nskill draft under same traces dir (review before install)\n", fail_msg, trace_path, allocator = allocator)
+				delete(fail_msg)
+				fail_msg = extra
+			}
 			delete(vout)
 			delete(aid)
 			emit(cfg, .Status, "verify failed (breaker)")
@@ -81,6 +89,11 @@ turn_verify_on_assistant_done :: proc(
 			allocator,
 			aid,
 		)
+		if len(trace_path) > 0 {
+			extra := fmt.aprintf("%s\ntrace: %s\n", nudge, trace_path, allocator = allocator)
+			delete(nudge)
+			nudge = extra
+		}
 		delete(vout)
 		delete(aid)
 		emit(cfg, .Status, fmt.tprintf("verify failed (%d/%d)", verify_fails^, max_fails))
@@ -137,6 +150,8 @@ turn_verify_on_step_budget :: proc(
 	}
 	verify_fails^ += 1
 	aid := verify_store_output(vout, allocator)
+	trace_path := store.trace_store_verify_fail(vcmd, vout, verify_fails^, context.temp_allocator)
+	_ = write_plan_rewind_checkpoint(0, "verify", "verify failed at step budget")
 	fail_msg := format_verify_nudge(
 		vcmd,
 		verify_fails^,
@@ -146,6 +161,11 @@ turn_verify_on_step_budget :: proc(
 		allocator,
 		aid,
 	)
+	if len(trace_path) > 0 {
+		extra := fmt.aprintf("%s\ntrace: %s\n", fail_msg, trace_path, allocator = allocator)
+		delete(fail_msg)
+		fail_msg = extra
+	}
 	delete(vout)
 	delete(aid)
 	emit(cfg, .Status, "verify failed (step budget)")

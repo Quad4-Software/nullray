@@ -84,6 +84,8 @@ session_advance_plan_step :: proc(s: ^Session, queue_note: bool) -> bool {
 	if s.plan_step_index >= len(s.plan_steps) {
 		return false
 	}
+	step_text := s.plan_steps[s.plan_step_index]
+	_ = agent.write_plan_rewind_checkpoint(s.plan_step_index, step_text, "step completed")
 	s.plan_step_index += 1
 	if len(s.last_plan_path) > 0 {
 		_ = agent.write_plan_steps_sidecar(s.last_plan_path, s.plan_step_index, s.plan_steps[:])

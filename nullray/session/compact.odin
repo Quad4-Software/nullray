@@ -68,6 +68,7 @@ session_compact_local :: proc(s: ^Session) -> bool {
 		return false
 	}
 	compact_set_status(s, "compacted", backup, backed)
+	session_write_handoff(s)
 	return true
 }
 
@@ -82,6 +83,7 @@ session_compact_with_provider :: proc(s: ^Session, p: ^provider.Provider) -> boo
 			return false
 		}
 		compact_set_status(s, "compacted", backup, backed)
+		session_write_handoff(s)
 		return true
 	}
 	keep := 4
@@ -99,6 +101,7 @@ session_compact_with_provider :: proc(s: ^Session, p: ^provider.Provider) -> boo
 		role = .User,
 		content = fmt.aprintf("Conversation summary (compacted):\n%s", summary),
 	})
+	session_write_handoff(s, summary)
 	delete(summary)
 	for m in kept {
 		append(&s.messages, m)

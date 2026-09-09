@@ -9,8 +9,10 @@ import "core:fmt"
 import "core:os"
 import "core:strings"
 import "core:testing"
+import "core:thread"
 import "core:time"
 import "nullray:constants"
+import "nullray:store"
 
 Test_Ws :: struct {
 	ws:   string,
@@ -144,20 +146,14 @@ test_zero_vector_rejection_via_override :: proc(t: ^testing.T) {
 	defer test_rag_ws_end(ctx)
 	set_embed_override(proc(model: string, inputs: []string, allocator := context.allocator) -> ([][]f32, string) {
 		_ = model
-		_ = inputs
-		out := make([][]f32, 1, allocator)
-		out[0] = make([]f32, 4, allocator)
+		out := make([][]f32, len(inputs), allocator)
+		for i in 0 ..< len(inputs) {
+			out[i] = make([]f32, 4, allocator)
+		}
 		return out, ""
 	})
-	// Index_Text will embed and save zeros - save_index doesn't reject zeros.
-	// Query path uses embed_batch which returns zeros. Cosine may be nan/0.
-	_ = Index_Text("memory:pref.z", "alpha content", "pref.z")
-	hits, _ := Query("alpha", 3, context.allocator)
-	defer destroy_hits(&hits)
-	// Min score filter should drop zero similarity.
-	for h in hits {
-		testing.expect(t, h.score >= f32(constants.RAG_MIN_SCORE) || h.score == 0)
-	}
+	err := Index_Text("memory:pref.z", "alpha content", "pref.z")
+	testing.expect(t, strings.contains(err, "zero"))
 }
 
 @(test)
@@ -180,4 +176,96 @@ test_cosine_identical :: proc(t: ^testing.T) {
 	testing.expect(t, cosine(a, b) > 0.99)
 	c := []f32{0, 1, 0}
 	testing.expect(t, cosine(a, c) < 0.01)
+}
+
+@(test)
+test_prompt_block_forced_surfaces_error :: proc(t: ^testing.T) {
+	ctx := test_rag_ws_begin(t)
+	defer test_rag_ws_end(ctx)
+	set_embed_override(fake_embed)
+	testing.expect_value(t, Index_Memory_Entry("pref.alpha", "alpha lives"), "")
+	set_embed_override(proc(model: string, inputs: []string, allocator := context.allocator) -> ([][]f32, string) {
+		_ = model
+		_ = inputs
+		return nil, strings.clone("embed down", allocator)
+	})
+	block := Prompt_Block("alpha", 500, context.allocator)
+	defer delete(block)
+	testing.expect(t, strings.contains(block, "rag retrieve failed"))
+}
+
+@(test)
+test_query_stale_after_meta_rewrite :: proc(t: ^testing.T) {
+	ctx := test_rag_ws_begin(t)
+	defer test_rag_ws_end(ctx)
+	testing.expect_value(t, Index_Memory_Entry("pref.alpha", "alpha payload"), "")
+	meta_p := meta_path(context.temp_allocator)
+	body := `{"version":1,"embed_provider":"test","embed_model":"other-model","dim":8,"created":1}` + "\n"
+	testing.expect(t, os.write_entire_file(meta_p, transmute([]u8)body) == nil)
+	hits, err := Query("alpha", 3, context.allocator)
+	defer destroy_hits(&hits)
+	defer delete(err)
+	testing.expect(t, strings.contains(err, "stale"))
+}
+
+@(test)
+test_artifact_survives_reindex :: proc(t: ^testing.T) {
+	ctx := test_rag_ws_begin(t)
+	defer test_rag_ws_end(ctx)
+	id, ok := store.artifact_store("gamma artifact body unique_token_xyz", context.allocator)
+	testing.expect(t, ok)
+	defer delete(id)
+	testing.expect_value(t, Index_Artifact(id, "gamma artifact body unique_token_xyz"), "")
+	testing.expect_value(t, Index_Memory_Entry("pref.alpha", "alpha memory"), "")
+	testing.expect_value(t, Reindex_Memory(), "")
+	hits, err := Query("gamma unique_token", 5, context.allocator)
+	defer destroy_hits(&hits)
+	testing.expect_value(t, err, "")
+	found := false
+	for h in hits {
+		if strings.contains(h.text, "unique_token_xyz") || strings.contains(h.source, "artifact:") {
+			found = true
+		}
+	}
+	testing.expect(t, found)
+}
+
+@(test)
+test_auto_silent_vs_forced_error :: proc(t: ^testing.T) {
+	ctx := test_rag_ws_begin(t)
+	defer test_rag_ws_end(ctx)
+	os.set_env(constants.ENV_RAG, "auto")
+	set_embed_override(nil)
+	testing.expect_value(t, Index_Memory_Entry("pref.alpha", "alpha"), "")
+	os.set_env(constants.ENV_RAG, "1")
+	err := Index_Memory_Entry("pref.beta", "beta")
+	testing.expect(t, len(err) > 0)
+	set_embed_override(fake_embed)
+}
+
+@(test)
+test_concurrent_ingest_no_crash :: proc(t: ^testing.T) {
+	ctx := test_rag_ws_begin(t)
+	defer test_rag_ws_end(ctx)
+	Worker :: struct {
+		i: int,
+	}
+	workers := make([]^thread.Thread, 8, context.temp_allocator)
+	args := make([]Worker, 8, context.temp_allocator)
+	for i in 0 ..< 8 {
+		args[i] = Worker{i = i}
+		workers[i] = thread.create_and_start_with_poly_data(&args[i], proc(w: ^Worker) {
+			key := fmt.tprintf("pref.c%d", w.i)
+			val := fmt.tprintf("alpha concurrent %d", w.i)
+			_ = Index_Memory_Entry(key, val)
+		})
+	}
+	for th in workers {
+		thread.join(th)
+		thread.destroy(th)
+	}
+	hits, err := Query("alpha", 5, context.allocator)
+	defer destroy_hits(&hits)
+	testing.expect_value(t, err, "")
+	testing.expect(t, len(hits) >= 1)
 }

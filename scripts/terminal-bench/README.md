@@ -6,6 +6,8 @@ Point a Terminal-Bench agent adapter at nullray print mode. Build nullray first.
 
 Never use the nullray source tree as `--workspace`. Install the harness and run tasks under `/tmp` so agent edits and Docker scratch stay out of the repo.
 
+Adapter source of truth: `scripts/terminal-bench/nullray_agent.py`. Copy it into the temp `adapter/` dir or set `PYTHONPATH` to `scripts/terminal-bench`. Scorecard template: `SCORECARD.md`.
+
 Example layout:
 
 ```text

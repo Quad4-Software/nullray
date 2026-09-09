@@ -141,7 +141,7 @@ registry_register_builtins :: proc(r: ^Registry) {
 	})
 	registry_register(r, Tool{
 		name = "rag_reindex",
-		description = "Rebuild the RAG index from project memory",
+		description = "Rebuild the RAG index from project memory and retained artifacts",
 		schema_json = `{"type":"object","properties":{}}`,
 		kind = .Write,
 		run = tool_rag_reindex,
@@ -152,6 +152,13 @@ registry_register_builtins :: proc(r: ^Registry) {
 		schema_json = `{"type":"object","properties":{"query":{"type":"string"},"limit":{"type":"string"}},"required":["query"]}`,
 		kind = .Read,
 		run = tool_rag_query,
+	})
+	registry_register(r, Tool{
+		name = "search_tools",
+		description = "Search tool names and descriptions, return schemas, and activate matches for lean prompts",
+		schema_json = `{"type":"object","properties":{"query":{"type":"string"}},"required":["query"]}`,
+		kind = .Read,
+		run = tool_search_tools,
 	})
 	registry_register(r, Tool{
 		name = "compact_context",

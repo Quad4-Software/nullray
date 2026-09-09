@@ -230,7 +230,14 @@ Prompt_Block :: proc(q: string, max_chars: int = constants.RAG_PROMPT_CHARS, all
 	}
 	hits, err := Query(q, constants.RAG_TOP_K, context.temp_allocator)
 	defer destroy_hits(&hits, context.temp_allocator)
-	if len(err) > 0 || len(hits) == 0 {
+	if len(err) > 0 {
+		defer delete(err, context.temp_allocator)
+		if rag_forced() {
+			return fmt.aprintf("(rag retrieve failed: %s)\n", err, allocator = allocator)
+		}
+		return ""
+	}
+	if len(hits) == 0 {
 		return ""
 	}
 	b: strings.Builder

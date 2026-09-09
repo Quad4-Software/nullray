@@ -99,7 +99,8 @@ build_system_prompt :: proc(
 			core := tools.lean_core_tool(t.name)
 			sub := sub_on && tools.lean_subagent_tool(t.name)
 			hunt := tools.lean_hunt_tools_enabled() && tools.lean_hunt_tool(t.name)
-			if !core && !sub && !hunt {
+			deferred := tools.deferred_active(t.name)
+			if !core && !sub && !hunt && !deferred {
 				continue
 			}
 			if !first {

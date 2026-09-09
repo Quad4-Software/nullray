@@ -11,10 +11,17 @@ Notable changes for nullray.
 - Step-anchored plan apply after approve, with a steps sidecar next to the plan file.
 - Architect subagent type that returns a Done Contract for the parent.
 - Local-first embeddings and project RAG under .nullray/rag with hybrid memory_search and retrieved memory in the system prompt.
+- search_tools finds deferred tool schemas and activates them for lean prompts.
+- Verify failures write traces and skill drafts under .nullray/traces for human review.
+- Plan step rewind notes under .nullray/plan-rewind (file undo stays on /undo).
+- Compaction writes .nullray/HANDOFF.md for the next context window.
+- Terminal-Bench adapter and scorecard under scripts/terminal-bench.
 
 ### Changed
 - /status shows plan step progress and the steps sidecar path.
 - Verify soft-skips make test when no Makefile exists instead of failing the gate.
+- rag_reindex rebuilds memory and retained artifacts.
+- RAG rejects zero vectors and surfaces forced-mode retrieve failures in the prompt.
 
 ## [0.3.1] - 2026-09-09
 

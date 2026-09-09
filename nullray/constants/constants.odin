@@ -238,6 +238,9 @@ WORKTREEINCLUDE_FILE :: ".nullray/worktreeinclude"
 DEFAULT_PRINT_TIMEOUT_SEC :: 600
 PLANS_DIR :: ".nullray/plans"
 ARTIFACTS_DIR :: ".nullray/artifacts"
+TRACES_DIR :: ".nullray/traces"
+HANDOFF_FILE :: ".nullray/HANDOFF.md"
+PLAN_REWIND_DIR :: ".nullray/plan-rewind"
 MAX_PLAN_FILE_BYTES :: 200_000
 ARTIFACT_CHARS_DEFAULT :: 3_000
 ARTIFACT_EXCERPT_CHARS :: 800

@@ -5,7 +5,9 @@ Per-thread workspace override for worktree subagents.
 
 package sandbox
 
+import "core:os"
 import "core:strings"
+import "nullray:constants"
 
 @(thread_local)
 tls_workspace_override: string
@@ -27,7 +29,9 @@ workspace_override_clear :: proc() {
 }
 
 /*
-Effective workspace: thread override, then sandbox state, then empty.
+Effective workspace: thread override, sandbox state, NULLRAY_WORKSPACE, else empty.
+Returned string is not owned when it comes from TLS or state. Env fallback is
+temp_allocator-backed for the duration of the caller's frame.
 */
 workspace_current :: proc() -> string {
 	if len(tls_workspace_override) > 0 {
@@ -35,6 +39,9 @@ workspace_current :: proc() -> string {
 	}
 	if st := state(); st != nil && len(st.workspace) > 0 {
 		return st.workspace
+	}
+	if v, ok := os.lookup_env(constants.ENV_WORKSPACE, context.temp_allocator); ok && len(v) > 0 {
+		return v
 	}
 	return ""
 }

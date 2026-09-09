@@ -25,6 +25,9 @@ Mistakes that burn time in this tree. Pair with memory and tui skills.
 | Label OpenRouter /credits as turn cost | credits are balance remaining, not generation cost |
 | Invent cost_usd from token counts | only parse provider cost fields, else cost_known=false |
 | Expect term_emergency_restore CSI in print | gated on g_em_active (raw mode) |
+| Index the live codebase into RAG vectors | use grep/locate/repo_map; vectors are for memory and LID artifacts only |
+| Auto-evolve nullray core from agent traces | reviewed human edits only; no Ouroboros-style self-patch |
+| Add ANN/FAISS for .nullray/rag | linear scan is enough under RAG_MAX_CHUNKS |
 
 ## Ownership
 

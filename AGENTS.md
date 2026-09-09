@@ -101,7 +101,7 @@ Modes: ask, plan, review, edit. Tool gate: `--gate` / `NULLRAY_GATE` / `/gate` 0
 
 Built-ins in nullray/provider/builtins.odin wrap openai_chat / openai_list_models / openai_embed (Ollama has its own list and a native /api/embed fallback). Register via registry.odin. Clone owned strings on create. provider_destroy / registry_destroy on teardown. Table: .agents/references/providers.md.
 
-RAG (NULLRAY_RAG=auto|1|0): vectors under .nullray/rag/. NULLRAY_EMBED_PROVIDER and NULLRAY_EMBED_MODEL select the embedder (defaults: Ollama nomic-embed-text, OpenRouter openai/text-embedding-3-small). memory_put indexes when RAG is on. Tools: rag_status, rag_query, rag_reindex. Artifact bodies may be indexed unless NULLRAY_RAG_ARTIFACTS=0.
+RAG (NULLRAY_RAG=auto|1|0): vectors under .nullray/rag/ for project memory and LID artifacts only (not the live tree). NULLRAY_EMBED_PROVIDER and NULLRAY_EMBED_MODEL select the embedder. Tools: rag_status, rag_query, rag_reindex (memory plus retained artifacts). Prefer local embeds when chat is local. search_tools activates deferred tool schemas for lean prompts. Verify fails write .nullray/traces drafts for human review. Compaction writes .nullray/HANDOFF.md.
 
 ## Sandbox
 

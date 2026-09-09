@@ -52,6 +52,7 @@ registry_destroy :: proc(r: ^Registry) {
 		return
 	}
 	snapshots_destroy()
+	deferred_clear()
 	delete(r.tools)
 	r^ = {}
 }

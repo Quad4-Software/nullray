@@ -51,7 +51,7 @@ lean_core_tool :: proc(name: string) -> bool {
 	switch name {
 	case "read_file", "write_file", "edit_file", "apply_edits", "list_dir", "repo_map",
 		"grep_files", "glob_files", "run_shell", "run_script",
-		"load_skill", "list_skills", "compact_context",
+		"load_skill", "list_skills", "compact_context", "search_tools",
 		"read_artifact", "grep_artifact",
 		"memory_get", "memory_put", "memory_list", "memory_delete", "memory_forget", "memory_search",
 		"rag_status", "rag_query", "rag_reindex",
@@ -318,7 +318,8 @@ openai_tools_json :: proc(
 				core := lean_core_tool(t.name)
 				sub := sub_on && lean_subagent_tool(t.name)
 				hunt := lean_hunt_tools_enabled() && lean_hunt_tool(t.name)
-				if !core && !sub && !hunt {
+				deferred := deferred_active(t.name)
+				if !core && !sub && !hunt && !deferred {
 					continue
 				}
 			}

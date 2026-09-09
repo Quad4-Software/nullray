@@ -7,10 +7,12 @@ package rag
 
 import "core:fmt"
 import "core:strings"
+import "core:sync"
 import "core:time"
 import "nullray:constants"
 import project_memory "nullray:memory"
 import "nullray:sandbox"
+import "nullray:store"
 
 source_memory :: proc(key: string, allocator := context.allocator) -> string {
 	return fmt.aprintf("memory:%s", key, allocator = allocator)
@@ -37,7 +39,25 @@ Index_Memory_Entry :: proc(key, value: string) -> string {
 	return Index_Text(src, value, trimmed_key)
 }
 
+Index_Artifact :: proc(id, body: string) -> string {
+	if !artifacts_enabled() {
+		return ""
+	}
+	if len(body) == 0 || len(body) > constants.RAG_ARTIFACT_MAX_CHARS {
+		return ""
+	}
+	redacted := sandbox.redact_secrets(body, context.temp_allocator)
+	src := fmt.tprintf("artifact:%s", id)
+	return Index_Text(src, redacted, id)
+}
+
 Index_Text :: proc(source_id, text, key: string) -> string {
+	sync.mutex_lock(&g_ingest_mu)
+	defer sync.mutex_unlock(&g_ingest_mu)
+	return index_text_locked(source_id, text, key)
+}
+
+index_text_locked :: proc(source_id, text, key: string) -> string {
 	if rag_disabled() {
 		return ""
 	}
@@ -153,6 +173,21 @@ Index_Text :: proc(source_id, text, key: string) -> string {
 			destroy_vector_rows(&new_vecs, context.allocator)
 			return eerr
 		}
+		ok_batch := true
+		for v in vecs {
+			if vector_all_zero(v) {
+				ok_batch = false
+				break
+			}
+		}
+		if !ok_batch {
+			for v in vecs {
+				delete(v, context.allocator)
+			}
+			delete(vecs, context.allocator)
+			destroy_vector_rows(&new_vecs, context.allocator)
+			return "rag zero vector refused"
+		}
 		for v in vecs {
 			append(&new_vecs, v)
 		}
@@ -249,6 +284,8 @@ Remove_Memory_Key :: proc(key: string) -> string {
 }
 
 Reindex_Memory :: proc() -> string {
+	sync.mutex_lock(&g_ingest_mu)
+	defer sync.mutex_unlock(&g_ingest_mu)
 	if rag_disabled() {
 		return "rag disabled"
 	}
@@ -259,21 +296,34 @@ Reindex_Memory :: proc() -> string {
 	entries := project_memory.load_entries(context.temp_allocator)
 	defer project_memory.destroy_entries(&entries, context.temp_allocator)
 	for e in entries {
-		if err := Index_Memory_Entry(e.key, e.value); len(err) > 0 {
+		if err := index_text_locked(source_memory(e.key, context.temp_allocator), e.value, e.key); len(err) > 0 {
+			return err
+		}
+	}
+	if !artifacts_enabled() {
+		return ""
+	}
+	ids := store.artifact_list_ids(context.temp_allocator)
+	defer {
+		for id in ids {
+			delete(id, context.temp_allocator)
+		}
+		delete(ids)
+	}
+	for id in ids {
+		body, rerr := store.artifact_read(id, context.temp_allocator)
+		if len(rerr) > 0 {
+			continue
+		}
+		defer delete(body, context.temp_allocator)
+		if len(body) == 0 || len(body) > constants.RAG_ARTIFACT_MAX_CHARS {
+			continue
+		}
+		redacted := sandbox.redact_secrets(body, context.temp_allocator)
+		src := fmt.tprintf("artifact:%s", id)
+		if err := index_text_locked(src, redacted, id); len(err) > 0 {
 			return err
 		}
 	}
 	return ""
-}
-
-Index_Artifact :: proc(id, body: string) -> string {
-	if !artifacts_enabled() {
-		return ""
-	}
-	if len(body) == 0 || len(body) > constants.RAG_ARTIFACT_MAX_CHARS {
-		return ""
-	}
-	redacted := sandbox.redact_secrets(body, context.temp_allocator)
-	src := fmt.tprintf("artifact:%s", id)
-	return Index_Text(src, redacted, id)
 }

@@ -11,7 +11,6 @@ import "core:os"
 import "core:strings"
 import "core:time"
 import "nullray:constants"
-import "nullray:provider"
 
 destroy_vector_rows :: proc(rows: ^[dynamic][]f32, allocator := context.allocator) {
 	if rows == nil {
@@ -106,16 +105,11 @@ header_mismatch :: proc(meta: Index_Meta) -> bool {
 	if meta.version != constants.RAG_INDEX_VERSION {
 		return true
 	}
-	want_model := ""
-	want_prov := ""
-	ep, owned, _ := provider.resolve_embed_provider(g_provider_reg, g_chat_provider, context.temp_allocator)
-	if ep != nil {
-		want_prov = ep.id
-		want_model = provider.resolve_embed_model(ep)
-		if owned {
-			provider.provider_destroy(ep)
-			free(ep)
-		}
+	want_prov, want_model, id_err := current_embed_identity(context.temp_allocator)
+	defer delete(want_prov, context.temp_allocator)
+	defer delete(want_model, context.temp_allocator)
+	if len(id_err) > 0 {
+		return false
 	}
 	if len(want_model) > 0 && meta.embed_model != want_model {
 		return true
@@ -301,6 +295,9 @@ save_index :: proc(meta: Index_Meta, chunks: []Chunk_Rec, vectors: [][]f32) -> s
 		row := vectors[i]
 		if len(row) != meta.dim {
 			return "rag vector dim mismatch on save"
+		}
+		if vector_all_zero(row) {
+			return "rag zero vector refused"
 		}
 		for x in row {
 			bits := transmute(u32)x

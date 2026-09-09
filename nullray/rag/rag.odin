@@ -9,9 +9,25 @@ import "core:fmt"
 import "core:os"
 import "core:path/filepath"
 import "core:strings"
+import "core:sync"
 import "nullray:constants"
 import "nullray:provider"
 import "nullray:sandbox"
+
+@(private)
+g_ingest_mu: sync.Mutex
+
+vector_all_zero :: proc(row: []f32) -> bool {
+	if len(row) == 0 {
+		return true
+	}
+	for x in row {
+		if x != 0 {
+			return false
+		}
+	}
+	return true
+}
 
 Hit :: struct {
 	source: string,
@@ -89,6 +105,9 @@ artifacts_enabled :: proc() -> bool {
 }
 
 workspace_root :: proc(allocator := context.allocator) -> string {
+	if cur := sandbox.workspace_current(); len(cur) > 0 {
+		return strings.clone(cur, allocator)
+	}
 	st := sandbox.state()
 	if st != nil && len(st.workspace) > 0 {
 		return strings.clone(st.workspace, allocator)
