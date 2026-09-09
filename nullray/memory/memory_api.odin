@@ -197,6 +197,9 @@ Put :: proc(key, value: string, allocator := context.allocator) -> (string, stri
 		delete(msg)
 		msg = combined
 	}
+	if g_on_put != nil {
+		g_on_put(trimmed, value)
+	}
 	return msg, ""
 }
 
@@ -228,6 +231,9 @@ delete_key :: proc(key: string, allocator := context.allocator) -> (string, stri
 	}
 	if sync_err := sync_index_files(kept[:]); sync_err != "" {
 		return "", strings.clone(sync_err, allocator)
+	}
+	if g_on_delete != nil {
+		g_on_delete(trimmed)
 	}
 	return strings.clone("ok", allocator), ""
 }

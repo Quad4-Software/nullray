@@ -18,7 +18,11 @@ Test_Ws :: struct {
 @(private)
 test_memory_ws_begin :: proc(t: ^testing.T) -> Test_Ws {
 	ctx: Test_Ws
-	ctx.ws = fmt.tprintf("/tmp/nullray-memory-test-%d", time.time_to_unix(time.now()))
+	base := "/tmp"
+	if td, ok := os.lookup_env("TMPDIR", context.temp_allocator); ok && len(td) > 0 {
+		base = td
+	}
+	ctx.ws = fmt.tprintf("%s/nullray-memory-test-%d", base, time.time_to_unix(time.now()))
 	_ = os.remove_all(ctx.ws)
 	testing.expect(t, os.make_directory_all(ctx.ws) == nil)
 	ctx.prev, ctx.had = os.lookup_env(constants.ENV_WORKSPACE, context.allocator)

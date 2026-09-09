@@ -28,6 +28,17 @@ Search_Hit :: struct {
 
 KEY_PREFIXES :: []string{"pref.", "build.", "arch.", "debt.", "user."}
 
+On_Put_Hook :: #type proc(key, value: string)
+On_Delete_Hook :: #type proc(key: string)
+
+g_on_put: On_Put_Hook
+g_on_delete: On_Delete_Hook
+
+set_rag_hooks :: proc(on_put: On_Put_Hook, on_delete: On_Delete_Hook) {
+	g_on_put = on_put
+	g_on_delete = on_delete
+}
+
 destroy_entries :: proc(entries: ^[dynamic]Entry, allocator := context.allocator) {
 	if entries == nil {
 		return
