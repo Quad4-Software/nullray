@@ -1,6 +1,6 @@
 # nullray
 
-Lightweight coding agent with a custom TUI built in Odin. First class support for local models.
+Lightweight terminal agent with a custom TUI built in Odin. First class support for local models.
 
 ![nullray](logo/nullray-social.png)
 
@@ -8,7 +8,7 @@ Local: Ollama, LM Studio, llama.cpp.
 
 Cloud: OpenCode, OpenAI, OpenAI-compatible, Anthropic, Gemini, Groq, DeepSeek, Mistral, Together, Fireworks, xAI, Azure OpenAI, OpenRouter.
 
-Platforms: Linux (amd64, arm64/aarch64), macOS (arm64), Windows (amd64). Android is not a target.
+Platforms: Linux (amd64, arm64/aarch64), macOS (arm64), Windows (amd64).
 
 ## Build
 
