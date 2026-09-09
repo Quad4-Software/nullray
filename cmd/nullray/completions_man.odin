@@ -1,0 +1,231 @@
+// SPDX-License-Identifier: 0BSD
+/*
+Bundled man page source for --man.
+*/
+
+package main
+
+import "core:fmt"
+
+print_man :: proc() {
+	fmt.print(MAN_PAGE)
+}
+MAN_PAGE :: `.TH NULLRAY 1 "2026" "nullray 0.1.1" "User Commands"
+.SH NAME
+nullray \- Odin coding agent with sandboxed tools
+.SH SYNOPSIS
+.B nullray
+[\fIOPTIONS\fR]
+.SH DESCRIPTION
+nullray is a terminal coding agent with a custom TUI, Landlock/seccomp sandbox,
+OpenAI-compatible providers, and a native tool loop.
+.SH OPTIONS
+.TP
+.BR \-h ", " \-\-help
+Show help and exit.
+.TP
+.BR \-V ", " \-\-version
+Show version, build date, and build time.
+.TP
+.BR \-e ", " \-\-ephemeral
+Do not load or save session transcripts.
+.TP
+.BR \-t ", " \-\-self\-test
+Run headless smoke checks and exit.
+.TP
+.B \-\-audit
+Run workspace security scanners and exit. Checks Actions pins, Dockerfiles,
+Compose files, common credential patterns, and dependency lock files.
+.TP
+.B \-\-doctor
+Print config paths, key env presence, TTY status, and the latest crash dump path.
+.TP
+.B \-\-debug
+Verbose stderr lifecycle logs. Also set with
+.B NULLRAY_DEBUG=1.
+.TP
+.BR \-P ", " \-\-print
+Run one agent turn without the TUI, print the reply, and exit.
+Defaults to ephemeral session and mode ask. Prompt from remaining args,
+.B \-\-message\-file, or stdin when not a TTY.
+.TP
+.BR \-q ", " \-\-ask
+Run one ephemeral read-only question without the TUI. This never enables
+write or shell tools.
+.TP
+.B \-\-bare
+Skip home MCP autoload and non-workspace skills (CI reproducibility).
+Explicit
+.B NULLRAY_SKILLS
+and
+.B \-\-skills
+roots still load.
+.TP
+.B \-\-list\-skills
+List loaded skills (id, description, source) and exit.
+.TP
+.B \-\-install\-skill \fIPATH\fR
+Copy a skill
+.I .md
+file or package directory (with
+.IR SKILL.md )
+into
+.IR ~/.config/nullray/skills/ .
+Optional
+.B \-\-as \fIID\fR
+sets the destination id.
+.TP
+.B \-\-uninstall\-skill \fIID\fR
+Remove a skill installed under the config skills directory.
+.TP
+.B \-\-skills \fIPATH\fR
+Add extra skill root directories (comma-separated, flag repeatable).
+Same as
+.BR NULLRAY_SKILLS .
+.TP
+.B \-\-fail\-on\-findings
+In review mode, exit 1 when the reply ends with FINDINGS: N and N > 0.
+.TP
+.BR \-p ", " \-\-provider " " \fIID\fR
+Select provider: ollama, lmstudio, llamacpp, openai, openai-compat, openrouter, opencode,
+opencode-go, anthropic, gemini, groq, deepseek, mistral, together, fireworks, xai, azure.
+.TP
+.BR \-m ", " \-\-model " " \fINAME\fR
+Override the default model for the active provider.
+.TP
+.B \-\-theme \fINAME\fR
+UI theme (ink, dusk, mono, ...).
+.TP
+.B \-\-mode \fIMODE\fR
+Agent mode: ask, plan, review, or edit.
+.TP
+.B \-\-perms \fIPOLICY\fR
+Shell permission policy: ask, allow, or yolo.
+Edit under --print requires allow or yolo.
+.TP
+.B \-\-sandbox \fIMODE\fR
+Sandbox mode: off, soft, warn, strict, or on.
+.TP
+.BR \-w ", " \-\-workspace " " \fIPATH\fR
+Workspace root for tools and sandbox.
+.TP
+.B \-\-session \fINAME\fR
+Resume or create a named session under ~/.config/nullray/sessions/.
+.TP
+.B \-\-list\-sessions
+List saved sessions and exit.
+.TP
+.B \-\-search\-sessions \fIQUERY\fR
+Search session names, metadata, and transcript text.
+.TP
+.B \-\-delete\-session \fINAME\fR
+Delete a named session from disk.
+.TP
+.B \-\-export\-session \fINAME\fR
+Copy a session transcript and meta into
+.B \-\-out
+DIR.
+.TP
+.B \-\-import\-session \fIPATH\fR
+Import a .jsonl (or a directory containing one) into the sessions store.
+.TP
+.B \-\-as \fINAME\fR
+Destination name for
+.B \-\-import\-session
+or
+.B \-\-install\-skill.
+.TP
+.B \-\-keys \fIPRESET\fR
+Keybind preset: default, neovim, or emacs.
+.TP
+.B \-\-message\-file \fIPATH\fR
+Read prompt text from a file (print mode).
+.TP
+.B \-\-out \fIPATH\fR
+Write the final assistant reply to a file, or the export directory for
+.B \-\-export\-session.
+.TP
+.B \-\-plan\-out \fIPATH\fR
+Write the plan-mode markdown artifact to this path.
+.TP
+.B \-\-plan\-in \fIPATH\fR
+Load a Done Contract plan for edit apply (print mode auto-approves,
+TUI seeds for /approve). Cannot combine with
+.BR \-\-plan\-out .
+.TP
+.B \-\-output\-format \fIFORMAT\fR
+Print mode output: text (default) or json.
+.TP
+.B \-\-print\-strict
+Exit 1 on incomplete plan, verify failure, max_steps, loop, timeout,
+living subagents, or tool-only writes with verify enabled.
+.TP
+.B \-\-auto
+Autonomous edit mode (sets NULLRAY_AUTO=1, bumps steps to 80 when unset).
+.TP
+.B \-\-timeout \fISEC\fR
+Print mode wall-clock timeout in seconds (default 600).
+.TP
+.B \-\-no\-splash
+Skip the startup splash animation.
+.TP
+.B \-\-splash
+Force the startup splash animation.
+.TP
+.B \-\-list\-models
+List models from the active provider and exit.
+.TP
+.B \-\-completions \fISHELL\fR
+Print completion script for bash, zsh, fish, powershell, elvish, or nushell.
+.TP
+.B \-\-man
+Print this man page source to stdout.
+.SH ENVIRONMENT
+Config file:
+.I ~/.config/nullray/env
+.PP
+Common variables: NULLRAY_PROVIDER, NULLRAY_MODEL, NULLRAY_THEME, NULLRAY_MODE, NULLRAY_PERMS,
+NULLRAY_SANDBOX, NULLRAY_WORKSPACE, NULLRAY_SESSION, NULLRAY_EPHEMERAL, NULLRAY_SPLASH,
+NULLRAY_KEYS, NULLRAY_STREAM, NULLRAY_HTTP_RETRIES, NULLRAY_FALLBACK_MODELS,
+NULLRAY_OPENROUTER_IGNORE, NULLRAY_BARE, NULLRAY_SKILLS, NULLRAY_PRINT_TIMEOUT, NULLRAY_OUT, NULLRAY_PLAN_OUT, NULLRAY_PLAN_IN,
+NULLRAY_COLOR, NULLRAY_ALT_SCREEN, NULLRAY_MOUSE, NULLRAY_DEBUG,
+OPENROUTER_API_KEY, OLLAMA_HOST, LM_STUDIO_HOST, LM_API_TOKEN.
+.SH FILES
+.TP
+.I ~/.config/nullray/env
+Key=value environment overrides.
+.TP
+.I ~/.config/nullray/skills/
+User-installed skills (flat .md or name/SKILL.md packages).
+.TP
+.I ~/.config/nullray/keys.ini
+Key bindings and optional preset= line.
+.TP
+.I ~/.config/nullray/sessions/
+Session transcripts and metadata.
+.TP
+.I ~/.config/nullray/mcp.json
+MCP server autoload config.
+.TP
+.I .nullray/plans/
+Default plan-mode markdown artifacts under the workspace.
+.SH EXAMPLES
+.nf
+nullray --provider ollama --model gemma3:4b
+nullray --print --mode ask "What does session_init do?"
+nullray --print --mode review --fail-on-findings "Review the staged diff"
+git diff | nullray --print --mode review --bare "Review this PR diff"
+nullray --list-models
+nullray --list-sessions
+nullray --list-skills
+nullray --install-skill ./pack/my-skill --as demo
+nullray --skills ~/extra-skills --print "hello"
+nullray --export-session mywork --out ./backup
+nullray --import-session ./backup/mywork.jsonl --as restored
+nullray --completions zsh > ~/.zsh/completions/_nullray
+.fi
+.SH SEE ALSO
+Documentation in the project README.
+.SH AUTHOR
+Quad4 Software
+`

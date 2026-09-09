@@ -23,7 +23,7 @@ Soft and warn select the same mode. The default is warn. Configure it with `NULL
 
 ## Platform backends
 
-Linux applies Landlock path rules and an amd64 seccomp deny list. Landlock grants the workspace, config directory, runtime directory, and selected system paths. It also sets `NO_NEW_PRIVS`.
+Linux applies Landlock path rules and an amd64 seccomp deny list. Landlock grants the workspace, config directory, runtime directory, and selected system paths. With NULLRAY_DOCS on (default), it also grants narrow read-only host docs caches (tealdeer, rustup, cargo bin, non-system GOROOT). It also sets `NO_NEW_PRIVS`.
 
 Windows has a Job Object spawn-helper stub. AppContainer confinement is not implemented. Strict mode fails while the helper is unavailable.
 
@@ -37,4 +37,4 @@ Run `nullray --doctor` to print configured mode, applied state, Landlock ABI, se
 
 The source man page is `man/nullray.1`. Installed packages place it under the prefix at `share/man/man1/nullray.1`. `nullray --man` prints the bundled source.
 
-The `read_man` and `apropos` agent tools query host manuals on Linux. They do not bypass sandbox path or mode policy.
+The `read_man` and `apropos` agent tools query host manuals on Linux. They do not bypass sandbox path or mode policy. Offline docs tools (`read_tldr`, `lang_doc`) use the docs RO grants above. Set `NULLRAY_DOCS=0` to disable auto grants, or add absolute paths with `NULLRAY_SANDBOX_EXTRA_RO`. Never grant all of `$HOME`.

@@ -131,6 +131,7 @@ config_from_env :: proc(allocator := context.allocator) -> Config {
 	if v, ok := os.lookup_env(constants.ENV_SANDBOX_EXTRA_RW, context.temp_allocator); ok && len(v) > 0 {
 		parse_extra_paths(v, &cfg.extra_rw, allocator)
 	}
+	docs_append_ro_paths(&cfg.extra_ro, allocator)
 	ops_apply_to_config(&cfg, allocator)
 	return cfg
 }

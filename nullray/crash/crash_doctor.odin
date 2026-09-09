@@ -1,0 +1,160 @@
+// SPDX-License-Identifier: 0BSD
+/*
+Doctor diagnostics and env printing for crash support.
+*/
+
+package crash
+
+import "core:fmt"
+import "core:os"
+import "core:path/filepath"
+import "core:strings"
+import "nullray:constants"
+import "nullray:sandbox"
+import "nullray:store"
+
+doctor :: proc() -> int {
+	install()
+	print_version_line()
+	cfg := sandbox.resolve_config_dir(context.temp_allocator)
+	fmt.printf("config: %s\n", cfg)
+	fmt.printf("crashes: %s\n", g.dir)
+	fmt.printf("debug: %v (NULLRAY_DEBUG or --debug)\n", g.debug)
+	fmt.printf("os: %v arch: %v\n", ODIN_OS, ODIN_ARCH)
+	sstate := sandbox.state()
+	dcfg := sandbox.config_from_env()
+	defer sandbox.config_destroy(&dcfg)
+	fmt.printf("sandbox config: mode=%v net=%v fs=%v\n", dcfg.mode, dcfg.net, dcfg.fs)
+	fmt.printf("sandbox extras: %s\n", sandbox.ops_summary_line(dcfg, context.temp_allocator))
+	if len(dcfg.extra_rw) > 0 {
+		fmt.printf("extra_rw: %s\n", strings.join(dcfg.extra_rw[:], ",", context.temp_allocator))
+	}
+	if len(dcfg.extra_ro) > 0 {
+		fmt.printf("extra_ro: %s\n", strings.join(dcfg.extra_ro[:], ",", context.temp_allocator))
+	}
+	if len(dcfg.extra_sock) > 0 {
+		fmt.printf("extra_sock: %s\n", strings.join(dcfg.extra_sock[:], ",", context.temp_allocator))
+	}
+	print_env("ops", constants.ENV_OPS)
+	print_env("secrets_allow", constants.ENV_SECRETS_ALLOW)
+	if sstate != nil && sstate.applied {
+		fmt.printf(
+			"sandbox state: applied=%v landlock_abi=%d net=%v seccomp=%v\n",
+			sstate.applied,
+			sstate.abi,
+			sstate.net,
+			sstate.seccomp,
+		)
+	} else {
+		fmt.println("sandbox state: not applied in doctor process")
+	}
+	when ODIN_OS == .Linux {
+		if abi, ok := sandbox.landlock_abi_version(); ok {
+			fmt.printf("landlock kernel abi: %d\n", abi)
+		} else {
+			fmt.println("landlock kernel abi: unavailable")
+		}
+		when ODIN_ARCH == .amd64 {
+			fmt.println("seccomp: amd64 deny-list supported")
+		} else {
+			fmt.println("seccomp: skipped on this architecture, current filter is amd64-only")
+		}
+	} else when ODIN_OS == .Windows {
+		ok, msg := sandbox.windows_job_spawn_helper()
+		fmt.printf("sandbox backend: Windows Job Object (%s)\n", ok ? msg : "unavailable")
+		fmt.println("seccomp: unavailable on Windows")
+	} else {
+		fmt.println("sandbox backend: unavailable on this OS")
+		fmt.println("seccomp: unavailable on this OS")
+	}
+
+	print_env("provider", constants.ENV_PROVIDER)
+	print_env("model", constants.ENV_MODEL)
+	print_env("local_probe", constants.ENV_LOCAL_PROBE)
+	print_env("quirks", constants.ENV_QUIRKS)
+	print_env("openrouter_zdr", constants.ENV_OPENROUTER_ZDR)
+	fmt.println("session format: new sessions default to .msgpack (JSONL still loads, export writes JSONL)")
+	print_env("sandbox", constants.ENV_SANDBOX)
+	print_env("docs", constants.ENV_DOCS)
+	print_env("mode", constants.ENV_MODE)
+	print_env("hunt", constants.ENV_HUNT)
+	print_env("temperature", constants.ENV_TEMPERATURE)
+	print_env("top_p", constants.ENV_TOP_P)
+	print_env("perms", constants.ENV_PERMS)
+	print_env("gate", constants.ENV_GATE)
+	print_env("shell_net", constants.ENV_SHELL_NET)
+	print_env("fetch_allow", constants.ENV_FETCH_ALLOW)
+	print_env("hooks", constants.ENV_HOOKS)
+	print_env("workspace_trust", constants.ENV_WORKSPACE_TRUST)
+	print_env("workspace", constants.ENV_WORKSPACE)
+	{
+		ws, _ := os.get_working_directory(context.temp_allocator)
+		hooks_path, _ := filepath.join({ws, ".nullray", constants.HOOKS_FILE}, context.temp_allocator)
+		if _, herr := os.stat(hooks_path, context.temp_allocator); herr == nil {
+			fmt.printf("workspace hooks: %s\n", hooks_path)
+		} else {
+			fmt.println("workspace hooks: (none)")
+		}
+	}
+	if len(dcfg.extra_sock) > 0 {
+		for sock in dcfg.extra_sock {
+			if strings.contains(sock, "docker.sock") {
+				fmt.println("escape note: docker.sock grant often equals host Docker root")
+				break
+			}
+		}
+	}
+	fmt.println("escape checklist: gate, hooks trust, fetch allowlist, shell net, Landlock is not AF_UNIX/D-Bus")
+	print_env_present("OPENROUTER_API_KEY", constants.ENV_OPENROUTER_KEY)
+	print_env_present("OPENAI_API_KEY", constants.ENV_OPENAI_KEY)
+	print_env_present("ANTHROPIC_API_KEY", constants.ENV_ANTHROPIC_KEY)
+
+	tty := stdin_is_tty()
+	fmt.printf("stdin tty: %v\n", tty)
+	fmt.printf("TERM: %s\n", env_or("TERM", "(unset)"))
+
+	latest := latest_report_path(context.temp_allocator)
+	if len(latest) > 0 {
+		fmt.printf("latest crash: %s\n", latest)
+	} else {
+		fmt.println("latest crash: (none)")
+	}
+	n := store.artifact_gc()
+	fmt.printf("artifact gc: removed %d file(s)\n", n)
+	fmt.println("tips:")
+	fmt.println("  make debug            build with symbols for richer backtraces")
+	fmt.println("  NULLRAY_DEBUG=1       verbose stderr lifecycle logs")
+	fmt.println("  NULLRAY_SANDBOX=off   isolate sandbox from the fault")
+	fmt.println("  nullray --self-test   headless smoke without a TTY")
+	fmt.println("  nullray -q QUESTION   simple read-only one-shot answer")
+	fmt.println("  man nullray           installed page under share/man/man1")
+	fmt.println("  nullray --man         print the bundled man page source")
+	return 0
+}
+
+@(private)
+print_version_line :: proc() {
+	fmt.printf("%s %s (built %s %s)\n", constants.APP_NAME, constants.VERSION, constants.BUILD_DATE, constants.BUILD_TIME)
+}
+
+@(private)
+print_env :: proc(label, key: string) {
+	fmt.printf("%s: %s\n", label, env_or(key, "(unset)"))
+}
+
+@(private)
+print_env_present :: proc(label, key: string) {
+	if _, ok := os.lookup_env(key, context.temp_allocator); ok {
+		fmt.printf("%s: set\n", label)
+	} else {
+		fmt.printf("%s: unset\n", label)
+	}
+}
+
+@(private)
+env_or :: proc(key, fallback: string) -> string {
+	if v, ok := os.lookup_env(key, context.temp_allocator); ok && len(v) > 0 {
+		return v
+	}
+	return fallback
+}

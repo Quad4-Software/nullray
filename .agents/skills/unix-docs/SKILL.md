@@ -21,4 +21,4 @@ Prefer sections 1 for user commands, 2 for system calls, 3 for library calls, 5 
 
 Quote the exact option or behavior needed and name the manual section. Check platform-specific manuals because GNU, BSD, BusyBox, and POSIX behavior can differ.
 
-Man and info require Linux tooling. tldr needs a local cache (`tldr --update`). If manuals are unavailable, state that limitation and use `read_help` only when shell use is permitted for other work.
+Man and info require Linux tooling. tldr needs a local cache (`tldr --update`). Soft sandbox grants tealdeer and rustup caches read-only by default (`NULLRAY_DOCS=1`). Set `NULLRAY_DOCS=0` only if you want those closed. If manuals are unavailable, state that limitation and use `read_help` only when shell use is permitted for other work.

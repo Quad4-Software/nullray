@@ -9,6 +9,7 @@
 | Secret path blocking and output redaction | Application policy | Application policy | Application policy |
 | Ops profiles (`NULLRAY_OPS`) | desktop / docker / kube / full widen allowlists | Ignored for OS confinement | Ignored for OS confinement |
 | Extra path env | `NULLRAY_SANDBOX_EXTRA_RO` / `EXTRA_RW` absolute paths | Same env parsing | Same env parsing |
+| Host docs RO (`NULLRAY_DOCS`, default on) | Auto RO for tealdeer cache, rustup home, cargo bin, non-system GOROOT when present | Paths recorded, no Landlock | Paths recorded, no Landlock |
 | Docker sock unix resolve | Landlock ABI 9+ `RESOLVE_UNIX` on sock path only | Not available | Not available |
 | Warn mode | Continues if an OS control fails | Continues without Job Object isolation | Continues without OS isolation |
 | Strict mode | Fails if a requested control fails | Fails while the Job Object helper is unavailable | Fails because no backend exists |

@@ -99,6 +99,10 @@ run_capture_cmd :: proc(command: string, allocator := context.allocator) -> (res
 }
 
 run_capture_argv :: proc(argv: []string, allocator := context.allocator) -> (result: string, err: string) {
+	return run_capture_argv_env(argv, nil, allocator)
+}
+
+run_capture_argv_env :: proc(argv: []string, env: []string, allocator := context.allocator) -> (result: string, err: string) {
 	if len(argv) == 0 {
 		return "", strings.clone("empty command", allocator)
 	}
@@ -119,6 +123,7 @@ run_capture_argv :: proc(argv: []string, allocator := context.allocator) -> (res
 		defer os.close(stderr_w)
 		desc := os.Process_Desc{
 			command = argv,
+			env = env,
 			stdout = stdout_w,
 			stderr = stderr_w,
 		}
@@ -131,6 +136,8 @@ run_capture_argv :: proc(argv: []string, allocator := context.allocator) -> (res
 
 	stdout_b: [dynamic]byte
 	stdout_b.allocator = context.temp_allocator
+	stderr_b: [dynamic]byte
+	stderr_b.allocator = context.temp_allocator
 	buf: [1024]u8
 	timeout := time.Millisecond * time.Duration(constants.SHELL_TIMEOUT_MS)
 	start := time.now()
@@ -158,7 +165,9 @@ run_capture_argv :: proc(argv: []string, allocator := context.allocator) -> (res
 			has_data, _ := os.pipe_has_data(stderr_r)
 			if has_data {
 				n, rerr := os.read(stderr_r, buf[:])
-				_ = n
+				if n > 0 {
+					append(&stderr_b, ..buf[:n])
+				}
 				if rerr == io.Error.EOF || rerr == os.General_Error.Broken_Pipe {
 					stderr_done = true
 				}
@@ -177,7 +186,9 @@ run_capture_argv :: proc(argv: []string, allocator := context.allocator) -> (res
 			}
 			for !stderr_done {
 				n, rerr := os.read(stderr_r, buf[:])
-				_ = n
+				if n > 0 {
+					append(&stderr_b, ..buf[:n])
+				}
 				if n == 0 || rerr == io.Error.EOF || rerr == os.General_Error.Broken_Pipe {
 					stderr_done = true
 				}
@@ -191,6 +202,13 @@ run_capture_argv :: proc(argv: []string, allocator := context.allocator) -> (res
 		state, _ = os.process_wait(process)
 	}
 	if state.exit_code != 0 && len(stdout_b) == 0 {
+		serr := strings.trim_space(string(stderr_b[:]))
+		if len(serr) > 0 {
+			if len(serr) > 240 {
+				serr = serr[:240]
+			}
+			return "", fmt.aprintf("command failed (exit %d): %s", state.exit_code, serr, allocator = allocator)
+		}
 		return "", fmt.aprintf("command failed (exit %d)", state.exit_code, allocator = allocator)
 	}
 	return strings.clone(string(stdout_b[:]), allocator), ""

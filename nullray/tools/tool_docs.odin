@@ -10,6 +10,7 @@ import "core:os"
 import "core:path/filepath"
 import "core:strings"
 import "nullray:constants"
+import "nullray:sandbox"
 
 tool_read_tldr :: proc(args_json: string, allocator := context.allocator) -> (result: string, err: string) {
 	page, perr := json_arg_string(args_json, "page", allocator)
@@ -48,13 +49,15 @@ tool_read_tldr :: proc(args_json: string, allocator := context.allocator) -> (re
 		append(&argv, "--platform", plat)
 	}
 	append(&argv, pname)
-	out, oerr := run_capture_argv(argv[:], allocator)
+	out, oerr := docs_run(argv[:], allocator)
 	if oerr != "" {
-		return "", oerr
+		hinted := docs_hint_err(oerr, allocator)
+		delete(oerr)
+		return "", hinted
 	}
 	if len(strings.trim_space(out)) == 0 {
 		delete(out)
-		return "", strings.clone("tldr returned empty (try tldr --update)", allocator)
+		return "", docs_hint_err("tldr returned empty (try tldr --update)", allocator)
 	}
 	return docs_truncate(out, max_chars, allocator), ""
 }
@@ -80,7 +83,7 @@ tool_read_info :: proc(args_json: string, allocator := context.allocator) -> (re
 	if !ok {
 		return "", strings.clone("info not installed (GNU texinfo)", allocator)
 	}
-	out, oerr := run_capture_argv([]string{exe, "-o", "-", topic}, allocator)
+	out, oerr := docs_run([]string{exe, "-o", "-", topic}, allocator)
 	if oerr != "" {
 		return "", oerr
 	}
@@ -112,10 +115,10 @@ tool_read_help :: proc(args_json: string, allocator := context.allocator) -> (re
 	if !ok {
 		return "", fmt.aprintf("command not found on PATH: %s", cmd, allocator = allocator)
 	}
-	out, oerr := run_capture_argv([]string{exe, "--help"}, allocator)
+	out, oerr := docs_run([]string{exe, "--help"}, allocator)
 	if oerr != "" {
 		delete(out)
-		out2, oerr2 := run_capture_argv([]string{exe, "-h"}, allocator)
+		out2, oerr2 := docs_run([]string{exe, "-h"}, allocator)
 		if oerr2 != "" {
 			delete(out2)
 			return "", oerr
@@ -160,7 +163,9 @@ tool_lang_doc :: proc(args_json: string, allocator := context.allocator) -> (res
 		if !ok {
 			return "", strings.clone("go not installed", allocator)
 		}
-		out, oerr = run_capture_argv([]string{exe, "doc", q}, allocator)
+		env := sandbox.docs_go_child_env(allocator)
+		defer sandbox.docs_env_destroy(env)
+		out, oerr = run_capture_argv_env([]string{exe, "doc", q}, env, allocator)
 	case "python", "py", "python3":
 		exe, ok := find_on_path("python3", context.temp_allocator)
 		if !ok {
@@ -169,26 +174,35 @@ tool_lang_doc :: proc(args_json: string, allocator := context.allocator) -> (res
 		if !ok {
 			return "", strings.clone("python3 not installed", allocator)
 		}
-		out, oerr = run_capture_argv([]string{exe, "-m", "pydoc", q}, allocator)
+		out, oerr = docs_run([]string{exe, "-m", "pydoc", q}, allocator)
 	case "ruby", "rb":
 		exe, ok := find_on_path("ri", context.temp_allocator)
 		if !ok {
 			return "", strings.clone("ri not installed", allocator)
 		}
-		out, oerr = run_capture_argv([]string{exe, "-T", q}, allocator)
+		out, oerr = docs_run([]string{exe, "-T", q}, allocator)
 	case "rust":
 		out, oerr = lang_doc_rust(q, allocator)
 	case:
 		return "", strings.clone("lang must be go, python, ruby, or rust", allocator)
 	}
 	if oerr != "" {
-		return "", oerr
+		hinted := docs_hint_err(oerr, allocator)
+		delete(oerr)
+		return "", hinted
 	}
 	if len(strings.trim_space(out)) == 0 {
 		delete(out)
-		return "", fmt.aprintf("no docs for %s %s", l, q, allocator = allocator)
+		return "", docs_hint_err(fmt.tprintf("no docs for %s %s", l, q), allocator)
 	}
 	return docs_truncate(out, max_chars, allocator), ""
+}
+
+@(private)
+docs_run :: proc(argv: []string, allocator := context.allocator) -> (string, string) {
+	env := sandbox.docs_scrubbed_env(allocator)
+	defer sandbox.docs_env_destroy(env)
+	return run_capture_argv_env(argv, env, allocator)
 }
 
 @(private)
@@ -197,7 +211,7 @@ lang_doc_rust :: proc(query: string, allocator := context.allocator) -> (string,
 	if !ok {
 		return "", strings.clone("rustup not installed", allocator)
 	}
-	path_out, perr := run_capture_argv([]string{exe, "doc", "--path", query}, allocator)
+	path_out, perr := docs_run([]string{exe, "doc", "--path", query}, allocator)
 	if perr != "" {
 		return "", perr
 	}
@@ -229,6 +243,23 @@ lang_doc_rust :: proc(query: string, allocator := context.allocator) -> (string,
 		return plain, ""
 	}
 	return text, ""
+}
+
+@(private)
+docs_hint_err :: proc(msg: string, allocator := context.allocator) -> string {
+	lower := strings.to_lower(msg, context.temp_allocator)
+	if strings.contains(lower, "permission") ||
+	   strings.contains(lower, "denied") ||
+	   strings.contains(lower, "no such file") ||
+	   strings.contains(lower, "empty") ||
+	   strings.contains(lower, "failed") {
+		return fmt.aprintf(
+			"%s (host docs caches need NULLRAY_DOCS=1 default, or NULLRAY_SANDBOX_EXTRA_RO)",
+			msg,
+			allocator = allocator,
+		)
+	}
+	return strings.clone(msg, allocator)
 }
 
 @(private)
@@ -293,6 +324,9 @@ docs_safe_info_node :: proc(s: string) -> bool {
 @(private)
 docs_safe_lang_query :: proc(s: string) -> bool {
 	if len(s) == 0 || len(s) > 128 {
+		return false
+	}
+	if strings.contains(s, "..") || strings.has_prefix(s, "/") {
 		return false
 	}
 	for i in 0 ..< len(s) {

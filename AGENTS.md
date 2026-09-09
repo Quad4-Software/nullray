@@ -101,7 +101,7 @@ Linux Landlock and seccomp in nullray/sandbox/. Non-Linux: sandbox_stub.odin (#+
 
 Elevated commands (sudo/doas/pkexec) use nullray/elevate with a pre-sandbox privilege broker. Landlock sets NO_NEW_PRIVS, so in-process sudo cannot gain privileges. Passwords stay on the TUI askpass path and never enter tool results or provider messages. NULLRAY_ELEVATE=ask|deny|ticket. Headless: ticket or NULLRAY_ASKPASS.
 
-Ops profiles: NULLRAY_OPS=desktop|docker|kube|full (CSV). Prefer over NULLRAY_SANDBOX=off. EXTRA_RO/RW for absolute paths. VCS network: NULLRAY_VCS_NETWORK=1.
+Ops profiles: NULLRAY_OPS=desktop|docker|kube|full (CSV). Prefer over NULLRAY_SANDBOX=off. EXTRA_RO/RW for absolute paths. NULLRAY_DOCS (default on) adds narrow RO grants for tldr/rustup host caches. VCS network: NULLRAY_VCS_NETWORK=1.
 
 ## Terminal
 

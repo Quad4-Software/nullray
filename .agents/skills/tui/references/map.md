@@ -18,7 +18,9 @@ Dense file map for nullray/ui, nullray/app, nullray/config.
 | keys_windows.odin | #+build windows stdin_ready |
 | loop.odin | Loop, run, request_full_redraw |
 | widgets.odin | box, status bar, input line, wrapped text |
-| markdown.odin | md_parse, word_wrap_lines, draw_md_text_wrapped |
+| markdown.odin | md_parse, block classifiers |
+| markdown_wrap.odin | word_wrap_lines |
+| markdown_draw.odin | draw_md_text_wrapped, inline ticks |
 | highlight.odin | highlight_line |
 | theme.odin / color.odin / anim.odin / clipboard.odin | look and paste |
 
@@ -27,19 +29,37 @@ Dense file map for nullray/ui, nullray/app, nullray/config.
 | File | Owns |
 |------|------|
 | app.odin | App, init/destroy, dirty, on_tick |
-| setup.odin | TUI setup wizard overlay |
-| draw.odin | app_draw, blocks, help/status overlay |
-| input.odin | app_on_event, line edit, scroll, submit |
+| app_credits.odin | OpenRouter credits, hide-sensitive |
+| setup.odin | setup wizard state and open/close |
+| setup_flow.odin | setup models, reasoning, save |
+| setup_draw.odin | setup overlay draw |
+| setup_input.odin | setup keyboard input |
+| view.odin | view pane open, layout, write paths |
+| view_draw.odin | app_draw_view_pane |
+| draw_blocks.odin | Transcript_Block, md append, heights |
+| draw_transcript.odin | collect and paint transcript blocks |
+| draw.odin | app_draw, help/status/suggest overlays |
+| input.odin | app_on_event, submit orchestration |
+| input_overlay.odin | help/status overlay event branches |
+| input_dispatch.odin | view/suggest/bind/default event branches |
+| input_edit.odin | line edit and scroll helpers |
+| input_improve.odin | improve prompt job |
 | input_draw.odin | multiline input box, expand hit testing |
 | layout_cache.odin | transcript height cache, view_auto env |
 | splash.odin | splash timer + draw |
-| slash.odin / commands.odin | slash catalog + handle |
+| slash.odin | app_handle_slash dispatch |
+| slash_session.odin | session slash handlers |
+| slash_agent.odin | agent/model slash handlers |
+| slash_ops.odin | status/ops/verify slash handlers |
+| slash_ui.odin | help/theme/view slash handlers |
+| commands.odin | slash catalog |
 
 ## config/
 
 | File | Owns |
 |------|------|
-| binds.odin | Binds, Key_Preset, load_binds, binds_resolve |
+| binds.odin | Binds, Key_Preset, load_binds |
+| binds_resolve.odin | binds_resolve, help text, key names |
 | config.odin | ~/.config/nullray/env |
 
 ## Constants (UI-related)
