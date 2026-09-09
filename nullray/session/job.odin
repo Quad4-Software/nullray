@@ -129,6 +129,7 @@ session_start_chat :: proc(s: ^Session, p: ^provider.Provider) {
 	session_clear_control(s)
 	s.busy = true
 
+	session_rebuild_system_prompt(s)
 	session_remember_model(s, p.id, p.default_model)
 
 	sys_count := 0

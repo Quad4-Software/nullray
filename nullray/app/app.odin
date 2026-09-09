@@ -14,6 +14,7 @@ import "nullray:config"
 import "nullray:constants"
 import "nullray:mcp"
 import "nullray:provider"
+import "nullray:rag"
 import "nullray:sandbox"
 import "nullray:session"
 import "nullray:store"
@@ -121,6 +122,8 @@ app_init :: proc(a: ^App, loop: ^ui.Loop) {
 	provider.registry_init(&a.registry)
 	session.session_init(&a.session)
 	a.session.tools_registry = &a.tools_reg
+	rag.install_memory_hooks()
+	rag.bind_providers(&a.registry, provider.registry_active(&a.registry))
 	subagent.runtime_init(&a.subagents, a.session.name, &a.tools_reg)
 	subagent.runtime_set_session(&a.subagents, a.session.session_path, a.session.persist)
 	subagent.runtime_set(&a.subagents)
@@ -134,6 +137,7 @@ app_init :: proc(a: ^App, loop: ^ui.Loop) {
 	session.session_rebuild_system_prompt(&a.session)
 	_ = session.session_apply_saved_model(&a.session, &a.registry)
 	session.session_sticky_auto_provider(&a.session, &a.registry)
+	rag.bind_providers(&a.registry, provider.registry_active(&a.registry))
 	strings.builder_init(&a.input)
 	a.spinner = ui.spinner_init()
 	a.dirty = true

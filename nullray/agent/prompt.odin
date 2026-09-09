@@ -10,6 +10,7 @@ import "core:path/filepath"
 import "core:strings"
 import "nullray:constants"
 import project_memory "nullray:memory"
+import "nullray:rag"
 import "nullray:sandbox"
 import "nullray:skills"
 import "nullray:tools"
@@ -33,7 +34,12 @@ Goals:
 - Never dump large code blocks into chat when file tools are available unless the user asked to see code in chat.
 - Never invent, guess, echo, or pass passwords in shell args. Elevated commands (sudo/doas/pkexec) go through nullray auth UI only. Do not use sudo -S or pipe secrets. After elevation lockout or cancel, stop and tell the human.`
 
-build_system_prompt :: proc(extra_skills: string = "", tools_reg: ^tools.Registry = nil, allocator := context.allocator) -> string {
+build_system_prompt :: proc(
+	extra_skills: string = "",
+	tools_reg: ^tools.Registry = nil,
+	retrieve_query: string = "",
+	allocator := context.allocator,
+) -> string {
 	lean := prompt_lean_enabled()
 	b: strings.Builder
 	strings.builder_init(&b, allocator)
@@ -177,6 +183,19 @@ build_system_prompt :: proc(extra_skills: string = "", tools_reg: ^tools.Registr
 	mem_cap := constants.MAX_MEMORY_PROMPT_CHARS
 	if lean {
 		mem_cap = mem_cap / 2
+	}
+	rag_cap := constants.RAG_PROMPT_CHARS
+	if lean {
+		rag_cap = rag_cap / 2
+	}
+	retrieved := ""
+	if len(strings.trim_space(retrieve_query)) > 0 {
+		retrieved = rag.Prompt_Block(retrieve_query, rag_cap, context.temp_allocator)
+	}
+	if len(retrieved) > 0 {
+		mem_cap = mem_cap / 2
+		strings.write_string(&b, "\n\n## Retrieved memory\n\n")
+		strings.write_string(&b, retrieved)
 	}
 	memory_digest := project_memory.Digest(mem_cap, context.temp_allocator)
 	if len(memory_digest) > 0 {

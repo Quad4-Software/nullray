@@ -13,6 +13,7 @@ import "nullray:agent"
 import "nullray:constants"
 import "nullray:mcp"
 import "nullray:provider"
+import "nullray:rag"
 import "nullray:session"
 import "nullray:subagent"
 import "nullray:tools"
@@ -128,11 +129,15 @@ run_print :: proc(cfg: Config) -> Result {
 	provider.registry_init(&reg)
 	defer provider.registry_destroy(&reg)
 
+	rag.install_memory_hooks()
+	rag.bind_providers(&reg, provider.registry_active(&reg))
+
 	s: session.Session
 	session.session_init(&s)
 	defer session.session_destroy(&s)
 	_ = session.session_apply_saved_model(&s, &reg)
 	session.session_sticky_auto_provider(&s, &reg)
+	rag.bind_providers(&reg, provider.registry_active(&reg))
 	provider.set_session(s.name)
 	s.tools_registry = &tools_reg
 	s.tools_enabled = session.tools_enabled_from_env()

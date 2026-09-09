@@ -127,10 +127,31 @@ registry_register_builtins :: proc(r: ^Registry) {
 	})
 	registry_register(r, Tool{
 		name = "memory_search",
-		description = "Search project memory by substring with simple ranking",
+		description = "Search project memory (hybrid lexical and semantic when RAG is on)",
 		schema_json = `{"type":"object","properties":{"query":{"type":"string"},"limit":{"type":"string","description":"max hits (default 20)"}},"required":["query"]}`,
 		kind = .Read,
 		run = tool_memory_search,
+	})
+	registry_register(r, Tool{
+		name = "rag_status",
+		description = "Show RAG index status (chunks, embed model, stale flag)",
+		schema_json = `{"type":"object","properties":{}}`,
+		kind = .Read,
+		run = tool_rag_status,
+	})
+	registry_register(r, Tool{
+		name = "rag_reindex",
+		description = "Rebuild the RAG index from project memory",
+		schema_json = `{"type":"object","properties":{}}`,
+		kind = .Write,
+		run = tool_rag_reindex,
+	})
+	registry_register(r, Tool{
+		name = "rag_query",
+		description = "Semantic RAG query over indexed memory and artifacts",
+		schema_json = `{"type":"object","properties":{"query":{"type":"string"},"limit":{"type":"string"}},"required":["query"]}`,
+		kind = .Read,
+		run = tool_rag_query,
 	})
 	registry_register(r, Tool{
 		name = "compact_context",

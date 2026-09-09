@@ -10,6 +10,7 @@ import "core:os"
 import "core:path/filepath"
 import "core:strings"
 import "nullray:constants"
+import "nullray:rag"
 import "nullray:sandbox"
 import "nullray:store"
 
@@ -105,6 +106,11 @@ doctor :: proc() -> int {
 		}
 	}
 	fmt.println("escape checklist: gate, hooks trust, fetch allowlist, shell net, Landlock is not AF_UNIX/D-Bus")
+	print_env("rag", constants.ENV_RAG)
+	print_env("embed_provider", constants.ENV_EMBED_PROVIDER)
+	print_env("embed_model", constants.ENV_EMBED_MODEL)
+	print_env("rag_artifacts", constants.ENV_RAG_ARTIFACTS)
+	fmt.printf("%s\n", rag.Status(context.temp_allocator))
 	print_env_present("OPENROUTER_API_KEY", constants.ENV_OPENROUTER_KEY)
 	print_env_present("OPENAI_API_KEY", constants.ENV_OPENAI_KEY)
 	print_env_present("ANTHROPIC_API_KEY", constants.ENV_ANTHROPIC_KEY)

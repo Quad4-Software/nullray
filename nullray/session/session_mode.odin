@@ -43,11 +43,27 @@ session_sync_mode_env :: proc(s: ^Session) {
 	os.set_env(constants.ENV_MODE_POLICY, agent.policy_string(s.mode_policy))
 }
 
-session_rebuild_system_prompt :: proc(s: ^Session) {
+session_rebuild_system_prompt :: proc(s: ^Session, retrieve_query: string = "") {
 	delete(s.system_prompt)
 	skills_prompt := agent.load_skills_prompt()
-	s.system_prompt = agent.build_system_prompt(skills_prompt, s.tools_registry)
+	q := retrieve_query
+	if len(q) == 0 {
+		q = session_last_user_text(s)
+	}
+	s.system_prompt = agent.build_system_prompt(skills_prompt, s.tools_registry, q)
 	delete(skills_prompt)
+}
+
+session_last_user_text :: proc(s: ^Session) -> string {
+	if s == nil {
+		return ""
+	}
+	for i := len(s.messages) - 1; i >= 0; i -= 1 {
+		if s.messages[i].role == .User {
+			return s.messages[i].content
+		}
+	}
+	return ""
 }
 
 session_set_mode :: proc(s: ^Session, mode: agent.Agent_Mode) {

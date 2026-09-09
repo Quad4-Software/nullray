@@ -54,6 +54,7 @@ lean_core_tool :: proc(name: string) -> bool {
 		"load_skill", "list_skills", "compact_context",
 		"read_artifact", "grep_artifact",
 		"memory_get", "memory_put", "memory_list", "memory_delete", "memory_forget", "memory_search",
+		"rag_status", "rag_query", "rag_reindex",
 		"read_man", "apropos", "read_tldr", "read_info", "read_help", "lang_doc", "fetch_url",
 		"list_scaffolds", "scaffold", "audit_structure":
 		return true

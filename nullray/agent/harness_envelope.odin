@@ -9,6 +9,7 @@ import "core:fmt"
 import "core:strings"
 import "nullray:constants"
 import "nullray:provider"
+import "nullray:rag"
 import "nullray:sandbox"
 import "nullray:store"
 
@@ -172,6 +173,7 @@ offload_tool_result :: proc(
 				metrics.artifacts_stored += 1
 				metrics.stubbed_bytes += len(raw)
 			}
+			_ = rag.Index_Artifact(id, raw)
 			excerpt := excerpt_for_envelope(raw, constants.ARTIFACT_EXCERPT_CHARS, context.temp_allocator)
 			out := format_tool_envelope(status, detail, exit_code, id, excerpt, lines, allocator)
 			delete(id)

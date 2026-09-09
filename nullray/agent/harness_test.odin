@@ -217,7 +217,7 @@ test_lean_prompt_tool_names_match_core :: proc(t: ^testing.T) {
 	os.set_env("NULLRAY_SUBAGENTS", "0")
 	defer os.unset_env("NULLRAY_SUBAGENTS")
 
-	prompt := build_system_prompt("", &reg, context.allocator)
+	prompt := build_system_prompt("", &reg, "", context.allocator)
 	defer delete(prompt)
 	tools_i := strings.index(prompt, "## Tools\n\n")
 	testing.expect(t, tools_i >= 0)

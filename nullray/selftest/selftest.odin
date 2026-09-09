@@ -11,6 +11,7 @@ import "core:strings"
 import "nullray:constants"
 import "nullray:http"
 import "nullray:mcp"
+import "nullray:rag"
 import "nullray:sandbox"
 import "nullray:store"
 import "nullray:tools"
@@ -103,6 +104,58 @@ run :: proc() -> int {
 		fails += 1
 	}
 	delete(redacted)
+
+	{
+		prev_ws, had_ws := os.lookup_env(constants.ENV_WORKSPACE, context.allocator)
+		ws_base := "/tmp"
+		if td, ok := os.lookup_env("TMPDIR", context.temp_allocator); ok && len(td) > 0 {
+			ws_base = td
+		}
+		ws := fmt.tprintf("%s/nullray-selftest-rag-%d", ws_base, os.get_pid())
+		_ = os.remove_all(ws)
+		_ = os.make_directory_all(ws)
+		os.set_env(constants.ENV_WORKSPACE, ws)
+		os.set_env(constants.ENV_RAG, "1")
+		defer {
+			if had_ws {
+				os.set_env(constants.ENV_WORKSPACE, prev_ws)
+				delete(prev_ws)
+			} else {
+				os.unset_env(constants.ENV_WORKSPACE)
+			}
+			os.unset_env(constants.ENV_RAG)
+			_ = os.remove_all(ws)
+		}
+		rag.set_embed_override(proc(model: string, inputs: []string, allocator := context.allocator) -> ([][]f32, string) {
+			_ = model
+			out := make([][]f32, len(inputs), allocator)
+			for s, i in inputs {
+				v := make([]f32, 8, allocator)
+				v[0] = f32(len(s) % 7)
+				v[1] = 1
+				if strings.contains(s, "alpha") {
+					v[2] = 1
+				}
+				if strings.contains(s, "beta") {
+					v[3] = 1
+				}
+				out[i] = v
+			}
+			return out, ""
+		})
+		defer rag.set_embed_override(nil)
+		if ierr := rag.Index_Text("memory:pref.test", "alpha token facts", "pref.test"); len(ierr) > 0 {
+			fmt.eprintf("selftest: rag index failed: %s\n", ierr)
+			fails += 1
+		} else {
+			hits, qerr := rag.Query("alpha", 3, context.temp_allocator)
+			defer rag.destroy_hits(&hits, context.temp_allocator)
+			if len(qerr) > 0 || len(hits) == 0 {
+				fmt.eprintf("selftest: rag query failed: %s\n", qerr)
+				fails += 1
+			}
+		}
+	}
 
 	if fails == 0 {
 		fmt.println("nullray: self-test ok")
