@@ -298,22 +298,6 @@ slash_cmd_hide :: proc(a: ^App, args: string) {
 	}
 }
 
-slash_cmd_review :: proc(a: ^App, args: string) {
-	rest := strings.trim_space(args)
-	if rest == "on" {
-		os.set_env(constants.ENV_REVIEW, "on")
-		session.session_set_status(&a.session, "review on")
-		return
-	}
-	if rest == "off" {
-		os.set_env(constants.ENV_REVIEW, "off")
-		session.session_set_status(&a.session, "review off")
-		return
-	}
-	on := agent.review_enabled_from_env()
-	session.session_set_status(&a.session, fmt.tprintf("review %s (NULLRAY_REVIEW_MODEL optional)", on ? "on" : "off"))
-}
-
 slash_cmd_allow :: proc(a: ^App, args: string) {
 	_ = args
 	cmd, ok := tools.shell_allow_once()

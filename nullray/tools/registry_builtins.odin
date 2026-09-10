@@ -289,7 +289,7 @@ registry_register_builtins :: proc(r: ^Registry) {
 	registry_register(r, Tool{
 		name = "vcs_diff",
 		description = "Show local Git or Fossil changes",
-		schema_json = `{"type":"object","properties":{"revision":{"type":"string"}}}`,
+		schema_json = `{"type":"object","properties":{"revision":{"type":"string"},"scope":{"type":"string","description":"working|staged|unstaged|base"},"base":{"type":"string","description":"base revision when scope=base"},"paths":{"type":"string","description":"comma-separated path filters"}}}`,
 		kind = .Read,
 		run = tool_vcs_diff,
 	})

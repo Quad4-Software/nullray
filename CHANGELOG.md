@@ -5,6 +5,8 @@ Notable changes for nullray.
 ## [Unreleased]
 
 ### Added
+- Local review bot via --review and /review local. Reviews Git or Fossil diffs with working, staged, unstaged, and base scopes. No forge required. Use --include-untracked for new files.
+- Review findings accept critical, major, minor, trivial, and info severities for bot-style reports.
 - Plan mode shows a short Done Contract example and nudges incomplete plans to rewrite required sections.
 - list_scaffolds tool and lean print visibility for scaffolds and structure audit.
 - Multi-file scaffold packs (nullray-workspace, odin-cli) plus a greenfield skill.
@@ -24,6 +26,8 @@ Notable changes for nullray.
 - RAG rejects zero vectors and surfaces forced-mode retrieve failures in the prompt.
 
 ### Fixed
+- OpenRouter --list-models no longer fails on large model catalogs.
+- Print-mode --message-file and plan or out paths outside the private tmp root work under soft sandbox.
 - Verify Makefile detection and RAG/traces/handoff paths honor NULLRAY_WORKSPACE and thread workspace overrides.
 - Large LID artifact embeds no longer stall the turn (8KB index cap).
 - RAG query no longer double-allocates embed error strings.

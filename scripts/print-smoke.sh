@@ -36,6 +36,8 @@ expect_exit 2 "$BIN" --print --mode edit --perms ask "x"
 help_out="$("$BIN" --help)"
 echo "$help_out" | grep -q -- '--print'
 echo "$help_out" | grep -q 'ask | plan | review | edit'
+echo "$help_out" | grep -q -- '--review'
+echo "$help_out" | grep -q -- '--review-scope'
 
 # Modes and flags parse without a TTY.
 expect_exit 2 "$BIN" --print --bare --mode review --fail-on-findings

@@ -79,7 +79,15 @@ nullray -q "What does session_init do?"
 
 # One-shot print
 nullray --print --mode ask "What does session_init do?"
+
+# Local review bot (Git or Fossil, no GitHub required)
+nullray --review
+nullray --review --staged
+nullray --review --base main --paths nullray/agent,cmd/nullray
+nullray --review --include-untracked --fail-on-findings --output-format json
 ```
+
+In the TUI, `/review local` (or `/review local staged`, `/review local base main`) runs the same local diff review. `/review on` still enables the end-of-turn review pass after edits.
 
 ## Ops and OS customize
 

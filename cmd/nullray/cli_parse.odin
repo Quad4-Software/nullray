@@ -24,6 +24,35 @@ parse_cli :: proc(args: []string) -> Cli {
 			cli.self_test = true
 		case "--audit":
 			cli.audit = true
+		case "--review":
+			cli.review_bot = true
+		case "--staged":
+			cli.review_staged = true
+		case "--unstaged":
+			cli.review_unstaged = true
+		case "--include-untracked":
+			cli.review_untracked = true
+		case "--base":
+			v, ok := take_value(args, &i)
+			if !ok {
+				cli.err = "--base needs a revision or branch"
+				return cli
+			}
+			cli.review_base = v
+		case "--review-scope":
+			v, ok := take_value(args, &i)
+			if !ok {
+				cli.err = "--review-scope needs working|staged|unstaged|base"
+				return cli
+			}
+			cli.review_scope = v
+		case "--paths":
+			v, ok := take_value(args, &i)
+			if !ok {
+				cli.err = "--paths needs a comma-separated list"
+				return cli
+			}
+			cli.review_paths = v
 		case "--doctor":
 			cli.show_doctor = true
 		case "--debug":

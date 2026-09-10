@@ -11,6 +11,13 @@ complete -c nullray -s V -l version -d 'Show version'
 complete -c nullray -s e -l ephemeral -d 'Do not load or save transcripts'
 complete -c nullray -s t -l self-test -d 'Headless smoke'
 complete -c nullray -l audit -d 'Run workspace security scanners'
+complete -c nullray -l review -d 'Local VCS review bot'
+complete -c nullray -l review-scope -d 'Review scope' -xa 'working staged unstaged base'
+complete -c nullray -l base -d 'Base revision for review' -r
+complete -c nullray -l staged -d 'Review staged changes only'
+complete -c nullray -l unstaged -d 'Review unstaged changes only'
+complete -c nullray -l include-untracked -d 'Include untracked files in review'
+complete -c nullray -l paths -d 'Comma-separated review path filters' -r
 complete -c nullray -l doctor -d 'Print env and crash dump paths'
 complete -c nullray -l debug -d 'Verbose stderr lifecycle logs'
 complete -c nullray -s P -l print -d 'One-shot agent without TUI'

@@ -360,11 +360,13 @@ parse_block_findings :: proc(review_text: string) -> (blocks: int, total: int) {
 		if strings.has_prefix(lower, "findings:") {
 			continue
 		}
-		if strings.has_prefix(lower, "block|") {
+		sev, _, _, _, ok := parse_finding_line(trimmed)
+		if !ok {
+			continue
+		}
+		total += 1
+		if finding_is_blocking(sev) {
 			blocks += 1
-			total += 1
-		} else if strings.has_prefix(lower, "warn|") || strings.has_prefix(lower, "note|") {
-			total += 1
 		}
 	}
 	n, found := parse_findings_trailer(review_text)
@@ -372,4 +374,12 @@ parse_block_findings :: proc(review_text: string) -> (blocks: int, total: int) {
 		total = n
 	}
 	return blocks, total
+}
+
+finding_is_blocking :: proc(sev: string) -> bool {
+	switch strings.to_lower(strings.trim_space(sev), context.temp_allocator) {
+	case "block", "critical", "high", "major":
+		return true
+	}
+	return false
 }

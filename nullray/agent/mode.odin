@@ -28,13 +28,17 @@ Mode_Policy :: enum {
 	Model,
 }
 
-REVIEW_PROMPT :: `You are a separate code reviewer. Review the DIFF only for correctness, risks, regressions, security, and test gaps.
-Reply with structured findings. Each finding on its own line:
-SEVERITY|path|reason
-SEVERITY is block, warn, or note.
-Treat scanner-like pattern matches as leads. Prefer issues with a clear attacker path or broken invariant.
+REVIEW_PROMPT :: `You are a senior code review bot. Review the DIFF only (local VCS, forge-agnostic).
+Look for correctness bugs, security issues, regressions, broken invariants, missing tests, and risky API misuse.
+Ignore style nits unless they hide a real bug.
+
+Start with a short SUMMARY: paragraph (what changed and overall risk).
+Then one finding per line:
+SEVERITY|path:line|reason (suggested fix)
+SEVERITY is critical, major, minor, trivial, or info (block/warn/note also accepted).
+Prefer path:line when the hunk shows a line. Skip duplicate or speculative noise.
 End with FINDINGS: N or FINDINGS: none.
-Do not rewrite the code. Be brief.`
+Do not rewrite whole files. Be brief and actionable.`
 
 RUBRIC_PROMPT :: `Score the DIFF for readable structured code on these dimensions (0-100 each):
 structure, naming, comments_prose, ownership_idioms, test_honesty.

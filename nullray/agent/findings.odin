@@ -73,7 +73,7 @@ parse_finding_line :: proc(line: string) -> (sev, path, reason: string, line_no:
 	}
 	sev = strings.trim_space(strings.to_lower(parts[0], context.temp_allocator))
 	switch sev {
-	case "block", "high", "warn", "note", "critical", "medium", "low":
+	case "block", "high", "warn", "note", "critical", "major", "medium", "minor", "low", "trivial", "info":
 	case:
 		return "", "", "", 0, false
 	}

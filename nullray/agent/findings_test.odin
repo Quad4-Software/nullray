@@ -30,3 +30,16 @@ test_parse_findings_list_oracle_section_only :: proc(t: ^testing.T) {
 	testing.expect_value(t, len(items), 1)
 	testing.expect_value(t, items[0].path, "src/a.py")
 }
+
+@(test)
+test_parse_findings_coderabbit_severities :: proc(t: ^testing.T) {
+	text := "critical|a.c:1|overflow\nmajor|b.go:2|race\nminor|c.ts|nit\n\nFINDINGS: 3\n"
+	items := parse_findings_list(text)
+	defer findings_destroy(items)
+	testing.expect_value(t, len(items), 3)
+	blocks, total := parse_block_findings(text)
+	testing.expect_value(t, total, 3)
+	testing.expect_value(t, blocks, 2)
+	testing.expect(t, finding_is_blocking("critical"))
+	testing.expect(t, !finding_is_blocking("info"))
+}

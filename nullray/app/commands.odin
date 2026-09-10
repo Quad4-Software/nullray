@@ -74,7 +74,7 @@ SLASH_COMMANDS := []Slash_Command{
 	{"auto", "/auto on|off", "autonomous agent (edit + yolo)", slash_cmd_auto},
 	{"secrets", "/secrets path", "allow reading a secret path", slash_cmd_secrets},
 	{"hide", "/hide on|off", "hide account balances and credit labels", slash_cmd_hide},
-	{"review", "/review on|off", "end-of-turn review pass", slash_cmd_review},
+	{"review", "/review on|off|local [scope]", "end-of-turn review or local VCS review bot", slash_cmd_review},
 	{"verify", "/verify on|off|CMD", "post-edit verify gate", slash_cmd_verify},
 	{"allow", "/allow", "approve pending shell command once", slash_cmd_allow},
 	{"deny", "/deny", "drop pending shell command", slash_cmd_deny},

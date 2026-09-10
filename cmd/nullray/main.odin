@@ -41,6 +41,13 @@ Cli :: struct {
 	auto:             bool,
 	bare:             bool,
 	fail_on_findings: bool,
+	review_bot:       bool,
+	review_staged:    bool,
+	review_unstaged:  bool,
+	review_untracked: bool,
+	review_base:      string,
+	review_scope:     string,
+	review_paths:     string,
 	completions:      string,
 	provider:         string,
 	model:            string,
@@ -117,6 +124,9 @@ main :: proc() {
 	}
 	if cli.audit {
 		os.exit(run_audit())
+	}
+	if cli.review_bot {
+		os.exit(run_review_bot(&cli))
 	}
 
 	if cli.list_sessions {

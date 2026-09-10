@@ -24,13 +24,73 @@ tool_vcs_status :: proc(args_json: string, allocator := context.allocator) -> (s
 }
 
 tool_vcs_diff :: proc(args_json: string, allocator := context.allocator) -> (string, string) {
-	revision, err := json_arg_string_optional(args_json, "revision", "", allocator)
-	if err != "" {
-		return "", err
+	scope_s, serr := json_arg_string_optional(args_json, "scope", "", allocator)
+	if serr != "" {
+		return "", serr
+	}
+	defer delete(scope_s)
+	base, berr := json_arg_string_optional(args_json, "base", "", allocator)
+	if berr != "" {
+		return "", berr
+	}
+	defer delete(base)
+	revision, rerr := json_arg_string_optional(args_json, "revision", "", allocator)
+	if rerr != "" {
+		return "", rerr
 	}
 	defer delete(revision)
+	paths_s, perr := json_arg_string_optional(args_json, "paths", "", allocator)
+	if perr != "" {
+		return "", perr
+	}
+	defer delete(paths_s)
+
 	repo := vcs_repo(allocator)
 	defer vcs.repo_destroy(&repo)
+
+	if len(scope_s) > 0 || len(base) > 0 || len(paths_s) > 0 {
+		scope := vcs.Diff_Scope.Working
+		if len(scope_s) > 0 {
+			s, ok := vcs.scope_from_string(scope_s)
+			if !ok {
+				return "", strings.clone("scope must be working|staged|unstaged|base", allocator)
+			}
+			scope = s
+		}
+		base_rev := base
+		if len(base_rev) == 0 {
+			base_rev = revision
+		}
+		if scope == .Base && len(strings.trim_space(base_rev)) == 0 {
+			return "", strings.clone("base scope needs base or revision", allocator)
+		}
+		if len(base_rev) > 0 && scope == .Working && len(scope_s) == 0 {
+			scope = .Base
+		}
+		path_list := make([dynamic]string, context.temp_allocator)
+		if len(paths_s) > 0 {
+			for p in strings.split(paths_s, ",", context.temp_allocator) {
+				t := strings.trim_space(p)
+				if len(t) > 0 {
+					append(&path_list, t)
+				}
+			}
+		}
+		diff, label, err := vcs.collect_review_diff(
+			repo,
+			vcs.Diff_Opts{scope = scope, base = base_rev, paths = path_list[:]},
+			allocator,
+		)
+		if err != "" {
+			delete(label)
+			return diff, err
+		}
+		out := fmt.aprintf("vcs=%s scope=%s\n%s", vcs.kind_name(repo.kind), label, diff, allocator = allocator)
+		delete(diff)
+		delete(label)
+		return out, ""
+	}
+
 	return vcs.diff(repo, revision, allocator)
 }
 

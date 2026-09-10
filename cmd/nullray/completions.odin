@@ -40,7 +40,7 @@ _nullray() {
   COMPREPLY=()
   cur="${COMP_WORDS[COMP_CWORD]}"
   prev="${COMP_WORDS[COMP_CWORD-1]}"
-  opts="--help -h --version -V --ephemeral -e --self-test -t --audit --doctor --debug --print -P --ask -q --bare --fail-on-findings --provider -p --model -m --theme --mode --hunt --perms --gate --sandbox --workspace -w --session --list-sessions --inspect-session --follow --search-sessions --delete-session --rename-session --force --export-session --import-session --as --list-skills --install-skill --uninstall-skill --skills --keys --message-file --out --plan-out --plan-in --output-format --print-strict --auto --usage --timeout --no-splash --no-subagents --splash --hide-sensitive --list-models --completions --man"
+  opts="--help -h --version -V --ephemeral -e --self-test -t --audit --review --review-scope --base --staged --unstaged --include-untracked --paths --doctor --debug --print -P --ask -q --bare --fail-on-findings --provider -p --model -m --theme --mode --hunt --perms --gate --sandbox --workspace -w --session --list-sessions --inspect-session --follow --search-sessions --delete-session --rename-session --force --export-session --import-session --as --list-skills --install-skill --uninstall-skill --skills --keys --message-file --out --plan-out --plan-in --output-format --print-strict --auto --usage --timeout --no-splash --no-subagents --splash --hide-sensitive --list-models --completions --man"
   providers="ollama lmstudio llamacpp openai openai-compat openrouter opencode opencode-go anthropic gemini groq deepseek mistral together fireworks xai azure cerebras cohere nvidia dashscope"
   modes="ask plan review edit"
   hunts="auto balanced explore oracle adversarial"
@@ -55,11 +55,12 @@ _nullray() {
     --perms) COMPREPLY=( $(compgen -W "$perms" -- "$cur") ); return ;;
     --gate) COMPREPLY=( $(compgen -W "0 1 2 3 ask allow yolo" -- "$cur") ); return ;;
     --sandbox) COMPREPLY=( $(compgen -W "$sandboxes" -- "$cur") ); return ;;
+    --review-scope) COMPREPLY=( $(compgen -W "working staged unstaged base" -- "$cur") ); return ;;
     --keys) COMPREPLY=( $(compgen -W "$keys" -- "$cur") ); return ;;
     --output-format) COMPREPLY=( $(compgen -W "text json" -- "$cur") ); return ;;
     --completions) COMPREPLY=( $(compgen -W "bash zsh fish powershell elvish nushell" -- "$cur") ); return ;;
     --theme) COMPREPLY=( $(compgen -W "ink ember moss slate rose mono dusk" -- "$cur") ); return ;;
-    --workspace|-w|--session|--search-sessions|--delete-session|--rename-session|--export-session|--import-session|--as|--model|-m|--message-file|--out|--plan-out|--plan-in|--install-skill|--uninstall-skill|--skills) COMPREPLY=( $(compgen -f -- "$cur") ); return ;;
+    --workspace|-w|--session|--search-sessions|--delete-session|--rename-session|--export-session|--import-session|--as|--model|-m|--message-file|--out|--plan-out|--plan-in|--install-skill|--uninstall-skill|--skills|--base|--paths) COMPREPLY=( $(compgen -f -- "$cur") ); return ;;
   esac
   if [[ "$cur" == -* ]]; then
     COMPREPLY=( $(compgen -W "$opts" -- "$cur") )
@@ -77,6 +78,13 @@ _nullray() {
     '--ephemeral[do not load or save transcripts]' '-e[do not load or save transcripts]'
     '--self-test[headless smoke]' '-t[headless smoke]'
     '--audit[run workspace security scanners]'
+    '--review[local VCS review bot]'
+    '--review-scope[review scope]:scope:(working staged unstaged base)'
+    '--base[base revision for review]:ref:'
+    '--staged[review staged changes only]'
+    '--unstaged[review unstaged changes only]'
+    '--include-untracked[include untracked files in review]'
+    '--paths[comma-separated review path filters]:paths:'
     '--doctor[print env and crash dump paths]'
     '--debug[verbose stderr lifecycle logs]'
     '--print[one-shot agent no TUI]' '-P[one-shot agent no TUI]'
