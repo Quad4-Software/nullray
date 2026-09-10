@@ -28,6 +28,9 @@ Mistakes that burn time in this tree. Pair with memory and tui skills.
 | Index the live codebase into RAG vectors | use grep/locate/repo_map; vectors are for memory and LID artifacts only |
 | Auto-evolve nullray core from agent traces | reviewed human edits only; no Ouroboros-style self-patch |
 | Add ANN/FAISS for .nullray/rag | linear scan is enough under RAG_MAX_CHUNKS |
+| Set NULLRAY_VERIFY=false expecting /bin/false | false/off/0 disable verify; use an explicit shell command instead |
+| Treat shell output without exit_code= as success | verify fails closed when the trailer is missing |
+| Index full multi-MB LID artifacts into RAG | only the first RAG_ARTIFACT_INDEX_CHARS are embedded |
 
 ## Ownership
 

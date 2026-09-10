@@ -24,6 +24,7 @@ turn_verify_on_assistant_done :: proc(
 	cfg: Config,
 	reg: ^tools.Registry,
 	tools_on: bool,
+	had_writes: bool,
 	usage_sum: provider.Usage,
 	verify_fails: ^int,
 	harness: Harness_Metrics,
@@ -31,7 +32,7 @@ turn_verify_on_assistant_done :: proc(
 ) -> (outcome: Turn_Verify_Outcome, result: Run_Result) {
 	if !(tools_on &&
 		cfg.mode == .Edit &&
-		(result_prefix_had_writes(msgs[:]) || turn_had_writes(msgs[:]))) {
+		(had_writes || result_prefix_had_writes(msgs[:]) || turn_had_writes(msgs[:]))) {
 		return .Skipped, {}
 	}
 	vcmd, voff := resolve_verify_command(cfg.plan_verify, context.temp_allocator)

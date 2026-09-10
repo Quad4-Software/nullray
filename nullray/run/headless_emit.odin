@@ -39,6 +39,15 @@ print_strict_fail :: proc(s: ^session.Session, res: Result, living: int, tool_on
 	if s.verify_fail_count > 0 || res.stopped == "verify_failed" {
 		return true, "print-strict: verify failed"
 	}
+	if s.agent_mode == .Edit && res.stopped == "done" {
+		had_writes := agent.turn_had_writes(s.messages[:])
+		if had_writes {
+			_, voff := agent.resolve_verify_command(s.plan_verify, context.temp_allocator)
+			if !voff && !s.verify_ran {
+				return true, "print-strict: verify did not run after writes"
+			}
+		}
+	}
 	switch res.stopped {
 	case "loop", "timeout":
 		return true, fmt.tprintf("print-strict: stopped with %s", res.stopped)

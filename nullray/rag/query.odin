@@ -85,7 +85,12 @@ Query :: proc(q: string, top_k: int = constants.RAG_TOP_K, allocator := context.
 	defer delete(pref, context.temp_allocator)
 	vecs, eerr := embed_batch(model, []string{pref}, context.allocator)
 	if len(eerr) > 0 {
-		return hits, strings.clone(eerr, allocator)
+		if allocator == context.allocator {
+			return hits, eerr
+		}
+		out := strings.clone(eerr, allocator)
+		delete(eerr, context.allocator)
+		return hits, out
 	}
 	defer {
 		for v in vecs {

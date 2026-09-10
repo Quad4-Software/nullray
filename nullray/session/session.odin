@@ -67,6 +67,7 @@ Session :: struct {
 	plan_step_index:     int,
 	plan_steps_path:     string,
 	verify_fail_count:   int,
+	verify_ran:          bool,
 	last_input_chars:    int,
 	verify_obligations:  [dynamic]string,
 	live_tool:           string,

@@ -47,6 +47,10 @@ Index_Artifact :: proc(id, body: string) -> string {
 		return ""
 	}
 	redacted := sandbox.redact_secrets(body, context.temp_allocator)
+	// Cap indexed text so LID offload does not block the turn on huge embed batches.
+	if len(redacted) > constants.RAG_ARTIFACT_INDEX_CHARS {
+		redacted = redacted[:constants.RAG_ARTIFACT_INDEX_CHARS]
+	}
 	src := fmt.tprintf("artifact:%s", id)
 	return Index_Text(src, redacted, id)
 }
@@ -320,6 +324,9 @@ Reindex_Memory :: proc() -> string {
 			continue
 		}
 		redacted := sandbox.redact_secrets(body, context.temp_allocator)
+		if len(redacted) > constants.RAG_ARTIFACT_INDEX_CHARS {
+			redacted = redacted[:constants.RAG_ARTIFACT_INDEX_CHARS]
+		}
 		src := fmt.tprintf("artifact:%s", id)
 		if err := index_text_locked(src, redacted, id); len(err) > 0 {
 			return err

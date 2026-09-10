@@ -82,6 +82,7 @@ chat_job :: proc(data: rawptr) {
 	}
 	result := agent.run_turn(req, cfg)
 	args.session.verify_fail_count = result.verify_fail_count
+	args.session.verify_ran = result.verify_ran
 	result.harness.clear_events += args.prep_stats.cleared
 	if args.prep_stats.compacted {
 		result.harness.compact_events += 1

@@ -23,6 +23,13 @@ Notable changes for nullray.
 - rag_reindex rebuilds memory and retained artifacts.
 - RAG rejects zero vectors and surfaces forced-mode retrieve failures in the prompt.
 
+### Fixed
+- Verify Makefile detection and RAG/traces/handoff paths honor NULLRAY_WORKSPACE and thread workspace overrides.
+- Large LID artifact embeds no longer stall the turn (8KB index cap).
+- RAG query no longer double-allocates embed error strings.
+- Shell verify no longer treats missing exit_code as success.
+- Print-strict fails when verify was enabled after writes but never ran.
+
 ## [0.3.1] - 2026-09-09
 
 ### Added

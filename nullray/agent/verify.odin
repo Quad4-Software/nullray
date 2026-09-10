@@ -108,9 +108,11 @@ verify_command_missing_makefile :: proc(cmd: string) -> bool {
 	if t != "make test" && !strings.has_prefix(t, "make test ") {
 		return false
 	}
-	ws := ""
-	if st := sandbox.state(); st != nil {
-		ws = st.workspace
+	ws := sandbox.workspace_current()
+	if len(ws) == 0 {
+		if st := sandbox.state(); st != nil {
+			ws = st.workspace
+		}
 	}
 	if len(ws) == 0 {
 		if cwd, err := os.get_working_directory(context.temp_allocator); err == nil {
@@ -146,8 +148,11 @@ shell_output_ok :: proc(output: string) -> bool {
 			n, ok := strconv.parse_int(rest[:end])
 			return ok && n == 0
 		}
+		// Non-numeric exit_code= value is a failed verify/shell probe.
+		return false
 	}
-	return true
+	// Fail closed: missing trailer means the process status was not captured.
+	return false
 }
 
 /*
@@ -283,15 +288,27 @@ verify_store_output :: proc(output: string, allocator := context.allocator) -> s
 
 turn_had_writes :: proc(messages: []provider.Message) -> bool {
 	for m in messages {
-		if m.role != .Assistant {
-			continue
-		}
-		for tc in m.tool_calls {
-			switch tc.name {
-			case "write_file", "edit_file", "apply_edits", "scaffold":
+		switch m.role {
+		case .Assistant:
+			for tc in m.tool_calls {
+				if tool_name_is_workspace_write(tc.name) {
+					return true
+				}
+			}
+		case .Tool:
+			if tool_name_is_workspace_write(m.name) {
 				return true
 			}
+		case .User, .System:
 		}
+	}
+	return false
+}
+
+tool_name_is_workspace_write :: proc(name: string) -> bool {
+	switch name {
+	case "write_file", "edit_file", "apply_edits", "scaffold":
+		return true
 	}
 	return false
 }

@@ -129,6 +129,7 @@ Run_Result :: struct {
 	stopped:           string,
 	usage:             provider.Usage,
 	verify_fail_count: int,
+	verify_ran:        bool,
 	harness:           Harness_Metrics,
 }
 

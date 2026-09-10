@@ -249,4 +249,7 @@ test_parse_block_findings :: proc(t: ^testing.T) {
 test_shell_output_ok :: proc(t: ^testing.T) {
 	testing.expect(t, shell_output_ok("exit_code=0\nok"))
 	testing.expect(t, !shell_output_ok("exit_code=1\nfail"))
+	testing.expect(t, !shell_output_ok("no trailer here"))
+	testing.expect(t, !shell_output_ok("exit_code=\n"))
+	testing.expect(t, !shell_output_ok("exit_code=abc\n"))
 }

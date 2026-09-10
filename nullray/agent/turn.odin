@@ -69,6 +69,7 @@ run_turn :: proc(req: Run_Request, cfg: Config, allocator := context.allocator) 
 	asst_streak := 0
 	verify_fails := cfg.verify_fail_count
 	had_writes := false
+	verify_ran := false
 
 	cfg_local := cfg
 	spec_pool: tools.Speculate_Pool
@@ -225,6 +226,7 @@ run_turn :: proc(req: Run_Request, cfg: Config, allocator := context.allocator) 
 				cfg,
 				reg,
 				tools_on,
+				had_writes,
 				usage_sum,
 				&verify_fails,
 				harness,
@@ -232,10 +234,14 @@ run_turn :: proc(req: Run_Request, cfg: Config, allocator := context.allocator) 
 			)
 			switch v_out {
 			case .Continue:
+				verify_ran = true
 				continue
 			case .Failed_Stop:
+				v_res.verify_ran = true
 				return v_res
-			case .Skipped, .Ok:
+			case .Ok:
+				verify_ran = true
+			case .Skipped:
 			}
 
 			harness_log_metrics(harness)
@@ -246,6 +252,7 @@ run_turn :: proc(req: Run_Request, cfg: Config, allocator := context.allocator) 
 				stopped = owned_stop("done", allocator),
 				usage = usage_sum,
 				verify_fail_count = verify_fails,
+				verify_ran = verify_ran,
 				harness = harness,
 			}
 		}
@@ -316,6 +323,7 @@ run_turn :: proc(req: Run_Request, cfg: Config, allocator := context.allocator) 
 		harness,
 		allocator,
 	); did {
+		v_res.verify_ran = true
 		return v_res
 	}
 
@@ -328,6 +336,7 @@ run_turn :: proc(req: Run_Request, cfg: Config, allocator := context.allocator) 
 		stopped = owned_stop("max_steps", allocator),
 		usage = usage_sum,
 		verify_fail_count = verify_fails,
+		verify_ran = verify_ran,
 		harness = harness,
 	}
 }

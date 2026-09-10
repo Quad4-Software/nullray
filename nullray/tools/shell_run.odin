@@ -227,6 +227,10 @@ run_process_capture :: proc(
 	}
 	if state.exited {
 		strings.write_string(&out, fmt.aprintf("exit_code=%d\n", state.exit_code, allocator = allocator))
+	} else {
+		// Always emit a trailer so verify and callers fail closed on missing status.
+		strings.write_string(&out, "exit_code=1\n")
+		strings.write_string(&out, "process status unavailable\n")
 	}
 	if len(stdout_b) > 0 {
 		strings.write_string(&out, string(stdout_b[:]))
