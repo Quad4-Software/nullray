@@ -45,6 +45,10 @@ static void nullray_h2_set_err(Nullray_H2_Ctx *c, const char *msg)
     if (c == NULL) {
         return;
     }
+    /* Keep the first error (e.g. response body too large over frame parse). */
+    if (c->err[0] != '\0') {
+        return;
+    }
     if (msg == NULL) {
         msg = "HTTP/2 error";
     }
@@ -147,16 +151,22 @@ static int nullray_h2_on_data(
     if (c->on_data != NULL) {
         c->on_data(data, len, c->on_data_user);
     }
-    if (c->body_out != NULL && c->body_len < c->body_cap) {
-        size_t n = len;
-        if (c->body_len + n > c->body_cap) {
-            n = c->body_cap - c->body_len;
-        }
-        memcpy(c->body_out + c->body_len, data, n);
-        c->body_len += n;
-        if (len > n) {
+    if (c->body_out != NULL && len > 0) {
+        if (c->body_len >= c->body_cap) {
             nullray_h2_set_err(c, "response body too large");
             return NGHTTP2_ERR_CALLBACK_FAILURE;
+        }
+        {
+            size_t n = len;
+            if (c->body_len + n > c->body_cap) {
+                n = c->body_cap - c->body_len;
+            }
+            memcpy(c->body_out + c->body_len, data, n);
+            c->body_len += n;
+            if (len > n) {
+                nullray_h2_set_err(c, "response body too large");
+                return NGHTTP2_ERR_CALLBACK_FAILURE;
+            }
         }
     }
     if (c->err_body != NULL && c->err_len < c->err_cap) {

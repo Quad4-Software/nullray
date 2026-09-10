@@ -24,6 +24,8 @@ Mistakes that burn time in this tree. Pair with memory and tui skills.
 | Strict sandbox on non-Linux | fails with sandbox requires linux |
 | Label OpenRouter /credits as turn cost | credits are balance remaining, not generation cost |
 | Invent cost_usd from token counts | only parse provider cost fields, else cost_known=false |
+| Expect --message-file under bare /tmp without grant | landlock tmp is /tmp/nullray-$UID; CLI now EXTRA_RO parents for message/plan/out paths |
+| Cap list-models at DEFAULT_FETCH_MAX_BYTES | OpenRouter /models can exceed 512KiB; list uses DEFAULT_MODELS_MAX_BYTES |
 | Expect term_emergency_restore CSI in print | gated on g_em_active (raw mode) |
 | Index the live codebase into RAG vectors | use grep/locate/repo_map; vectors are for memory and LID artifacts only |
 | Auto-evolve nullray core from agent traces | reviewed human edits only; no Ouroboros-style self-patch |

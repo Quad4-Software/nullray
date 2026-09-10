@@ -3,6 +3,8 @@ package main
 
 import "core:fmt"
 import "core:os"
+import "core:path/filepath"
+import "core:strings"
 import "nullray:constants"
 
 apply_cli_env :: proc(cli: ^Cli) {
@@ -131,6 +133,89 @@ apply_cli_env :: proc(cli: ^Cli) {
 	if cli.debug {
 		os.set_env(constants.ENV_DEBUG, "1")
 	}
+	grant_cli_sandbox_paths(cli)
+}
+
+/*
+Landlock only allows the workspace plus a private tmp root. Print-mode CLI
+paths outside that set (--message-file, --plan-in, --out, --plan-out) need
+explicit EXTRA_RO / EXTRA_RW or the open fails with Permission_Denied.
+*/
+grant_cli_sandbox_paths :: proc(cli: ^Cli) {
+	ro := make([dynamic]string, context.temp_allocator)
+	rw := make([dynamic]string, context.temp_allocator)
+	// Parent dirs: landlock RO grants are directory-oriented.
+	append_abs_parent(&ro, cli.message_file)
+	append_abs_parent(&ro, cli.plan_in)
+	append_abs_parent(&rw, cli.out_path)
+	append_abs_parent(&rw, cli.plan_out)
+	if len(ro) == 0 && len(rw) == 0 {
+		return
+	}
+	if len(ro) > 0 {
+		merge_path_env(constants.ENV_SANDBOX_EXTRA_RO, ro[:])
+	}
+	if len(rw) > 0 {
+		merge_path_env(constants.ENV_SANDBOX_EXTRA_RW, rw[:])
+	}
+}
+
+append_abs_parent :: proc(dst: ^[dynamic]string, path: string) {
+	if len(path) == 0 {
+		return
+	}
+	abs := abs_cli_path(path)
+	if len(abs) == 0 {
+		return
+	}
+	parent := filepath.dir(abs)
+	if len(parent) == 0 {
+		parent = abs
+	}
+	append(dst, parent)
+}
+
+abs_cli_path :: proc(path: string) -> string {
+	if filepath.is_abs(path) {
+		return path
+	}
+	cwd, err := os.get_working_directory(context.temp_allocator)
+	if err != nil {
+		return path
+	}
+	joined, jerr := filepath.join({cwd, path}, context.temp_allocator)
+	if jerr != nil {
+		return path
+	}
+	return joined
+}
+
+merge_path_env :: proc(key: string, add: []string) {
+	if len(add) == 0 {
+		return
+	}
+	parts := make([dynamic]string, context.temp_allocator)
+	if v, ok := os.lookup_env(key, context.temp_allocator); ok && len(v) > 0 {
+		for p in strings.split(v, ",", context.temp_allocator) {
+			t := strings.trim_space(p)
+			if len(t) > 0 {
+				append(&parts, t)
+			}
+		}
+	}
+	for a in add {
+		dup := false
+		for p in parts {
+			if p == a {
+				dup = true
+				break
+			}
+		}
+		if !dup {
+			append(&parts, a)
+		}
+	}
+	os.set_env(key, strings.join(parts[:], ",", context.temp_allocator))
 }
 
 env_or :: proc(key, fallback: string) -> string {

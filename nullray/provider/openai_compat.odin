@@ -126,7 +126,13 @@ openai_list_models_timeout :: proc(
 	headers := make([dynamic]string, context.temp_allocator)
 	append_provider_headers(&headers, p)
 	url := http.join_url(p.base_url, "/models")
-	res := http.get(url, headers[:], timeout_sec, context.temp_allocator)
+	res := http.get_max(
+		url,
+		headers[:],
+		timeout_sec,
+		constants.DEFAULT_MODELS_MAX_BYTES,
+		context.temp_allocator,
+	)
 	if !res.ok {
 		return nil, strings.clone(res.err, allocator)
 	}
