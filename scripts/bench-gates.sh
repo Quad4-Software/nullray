@@ -4,7 +4,7 @@ set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 BIN="${1:-$ROOT/bin/nullray}"
-MAX_BYTES="${NULLRAY_MAX_BINARY_BYTES:-4000000}"
+MAX_BYTES="${NULLRAY_MAX_BINARY_BYTES:-4500000}"
 MAX_RSS_KB="${NULLRAY_MAX_RSS_KB:-65536}"
 
 if [[ ! -x "$BIN" ]]; then

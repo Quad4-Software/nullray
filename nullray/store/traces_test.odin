@@ -14,7 +14,7 @@ import "nullray:constants"
 
 @(test)
 test_trace_store_writes_skill_draft :: proc(t: ^testing.T) {
-	ws := fmt.tprintf("/run/media/user1/projects/pie/.tmp/nullray-trace-test-%d", time.time_to_unix(time.now()))
+	ws := fmt.tprintf("/tmp/nullray-trace-test-%d", time.time_to_unix(time.now()))
 	_ = os.remove_all(ws)
 	testing.expect(t, os.make_directory_all(ws) == nil)
 	defer os.remove_all(ws)
