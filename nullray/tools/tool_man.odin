@@ -11,6 +11,7 @@ import "core:os"
 import "core:strings"
 import "core:time"
 import "nullray:constants"
+import "nullray:http"
 
 tool_read_man :: proc(args_json: string, allocator := context.allocator) -> (result: string, err: string) {
 	when ODIN_OS != .Linux {
@@ -37,14 +38,20 @@ tool_read_man :: proc(args_json: string, allocator := context.allocator) -> (res
 		if len(pname) == 0 || strings.contains(pname, "/") || strings.contains(pname, "..") {
 			return "", strings.clone("invalid man page name", allocator)
 		}
-		cmd: string
+		exe, ok := find_on_path("man", context.temp_allocator)
+		if !ok {
+			return "", strings.clone("man not found on PATH", allocator)
+		}
+		argv: [dynamic]string
+		argv.allocator = context.temp_allocator
+		append(&argv, exe, "-P", "cat")
 		sec := strings.trim_space(section)
 		if len(sec) > 0 {
-			cmd = fmt.aprintf("man -P cat %s %s", sec, pname, allocator = context.temp_allocator)
-		} else {
-			cmd = fmt.aprintf("man -P cat %s", pname, allocator = context.temp_allocator)
+			append(&argv, sec)
 		}
-		out, oerr := run_capture_cmd(cmd, allocator)
+		append(&argv, pname)
+		env := docs_man_env(context.temp_allocator)
+		out, oerr := run_capture_argv_env(argv[:], env, allocator)
 		if oerr != "" {
 			return "", oerr
 		}
@@ -102,6 +109,21 @@ run_capture_argv :: proc(argv: []string, allocator := context.allocator) -> (res
 	return run_capture_argv_env(argv, nil, allocator)
 }
 
+@(private)
+docs_man_env :: proc(allocator := context.allocator) -> []string {
+	out := make([dynamic]string, allocator)
+	append(&out, "MANPAGER=cat", "PAGER=cat", "MANROFFSEQ=", "MANWIDTH=100", "LC_ALL=C")
+	if path, ok := os.lookup_env("PATH", context.temp_allocator); ok && len(path) > 0 {
+		append(&out, fmt.aprintf("PATH=%s", path, allocator = allocator))
+	} else {
+		append(&out, "PATH=/usr/bin:/bin")
+	}
+	if mpath, ok := os.lookup_env("MANPATH", context.temp_allocator); ok && len(mpath) > 0 {
+		append(&out, fmt.aprintf("MANPATH=%s", mpath, allocator = allocator))
+	}
+	return out[:]
+}
+
 run_capture_argv_env :: proc(argv: []string, env: []string, allocator := context.allocator) -> (result: string, err: string) {
 	if len(argv) == 0 {
 		return "", strings.clone("empty command", allocator)
@@ -133,20 +155,33 @@ run_capture_argv_env :: proc(argv: []string, env: []string, allocator := context
 			return "", fmt.aprintf("exec failed: %v", start_err, allocator = allocator)
 		}
 	}
+	shell_claim_process_group(process)
+	shell_register_active(process)
+	defer shell_clear_active(process)
 
 	stdout_b: [dynamic]byte
 	stdout_b.allocator = context.temp_allocator
 	stderr_b: [dynamic]byte
 	stderr_b.allocator = context.temp_allocator
 	buf: [1024]u8
-	timeout := time.Millisecond * time.Duration(constants.SHELL_TIMEOUT_MS)
+	timeout := time.Millisecond * time.Duration(constants.DOCS_TIMEOUT_MS)
+	max_out := constants.DOCS_MAX_CAPTURE_BYTES
 	start := time.now()
 	stdout_done := false
 	stderr_done := false
+	timed_out := false
+	cancelled := false
+	truncated := false
 
 	for !stdout_done || !stderr_done {
+		if http.cancel_requested() {
+			cancelled = true
+			shell_kill_process_tree(process)
+			break
+		}
 		if time.since(start) >= timeout {
-			_ = os.process_kill(process)
+			timed_out = true
+			shell_kill_process_tree(process)
 			break
 		}
 		if !stdout_done {
@@ -154,7 +189,17 @@ run_capture_argv_env :: proc(argv: []string, env: []string, allocator := context
 			if has_data {
 				n, rerr := os.read(stdout_r, buf[:])
 				if n > 0 {
-					append(&stdout_b, ..buf[:n])
+					if len(stdout_b) < max_out {
+						remain := max_out - len(stdout_b)
+						take := n
+						if take > remain {
+							take = remain
+							truncated = true
+						}
+						append(&stdout_b, ..buf[:take])
+					} else {
+						truncated = true
+					}
 				}
 				if rerr == io.Error.EOF || rerr == os.General_Error.Broken_Pipe {
 					stdout_done = true
@@ -166,7 +211,14 @@ run_capture_argv_env :: proc(argv: []string, env: []string, allocator := context
 			if has_data {
 				n, rerr := os.read(stderr_r, buf[:])
 				if n > 0 {
-					append(&stderr_b, ..buf[:n])
+					if len(stderr_b) < max_out {
+						remain := max_out - len(stderr_b)
+						take := n
+						if take > remain {
+							take = remain
+						}
+						append(&stderr_b, ..buf[:take])
+					}
 				}
 				if rerr == io.Error.EOF || rerr == os.General_Error.Broken_Pipe {
 					stderr_done = true
@@ -178,7 +230,17 @@ run_capture_argv_env :: proc(argv: []string, env: []string, allocator := context
 			for !stdout_done {
 				n, rerr := os.read(stdout_r, buf[:])
 				if n > 0 {
-					append(&stdout_b, ..buf[:n])
+					if len(stdout_b) < max_out {
+						remain := max_out - len(stdout_b)
+						take := n
+						if take > remain {
+							take = remain
+							truncated = true
+						}
+						append(&stdout_b, ..buf[:take])
+					} else {
+						truncated = true
+					}
 				}
 				if n == 0 || rerr == io.Error.EOF || rerr == os.General_Error.Broken_Pipe {
 					stdout_done = true
@@ -187,7 +249,14 @@ run_capture_argv_env :: proc(argv: []string, env: []string, allocator := context
 			for !stderr_done {
 				n, rerr := os.read(stderr_r, buf[:])
 				if n > 0 {
-					append(&stderr_b, ..buf[:n])
+					if len(stderr_b) < max_out {
+						remain := max_out - len(stderr_b)
+						take := n
+						if take > remain {
+							take = remain
+						}
+						append(&stderr_b, ..buf[:take])
+					}
 				}
 				if n == 0 || rerr == io.Error.EOF || rerr == os.General_Error.Broken_Pipe {
 					stderr_done = true
@@ -195,11 +264,18 @@ run_capture_argv_env :: proc(argv: []string, env: []string, allocator := context
 			}
 			break
 		}
+		time.sleep(5 * time.Millisecond)
 	}
 	state, _ := os.process_wait(process)
 	if !state.exited {
-		_ = os.process_kill(process)
+		shell_kill_process_tree(process)
 		state, _ = os.process_wait(process)
+	}
+	if cancelled {
+		return "", strings.clone("cancelled", allocator)
+	}
+	if timed_out {
+		return "", fmt.aprintf("docs command timed out after %dms", constants.DOCS_TIMEOUT_MS, allocator = allocator)
 	}
 	if state.exit_code != 0 && len(stdout_b) == 0 {
 		serr := strings.trim_space(string(stderr_b[:]))
@@ -211,7 +287,14 @@ run_capture_argv_env :: proc(argv: []string, env: []string, allocator := context
 		}
 		return "", fmt.aprintf("command failed (exit %d)", state.exit_code, allocator = allocator)
 	}
-	return strings.clone(string(stdout_b[:]), allocator), ""
+	out := strings.clone(string(stdout_b[:]), allocator)
+	if truncated {
+		note := fmt.tprintf("\n\n[truncated at %d capture bytes]", max_out)
+		combined := strings.concatenate({out, note}, allocator)
+		delete(out)
+		return combined, ""
+	}
+	return out, ""
 }
 
 strip_man_overstrike :: proc(s: string, allocator := context.allocator) -> string {

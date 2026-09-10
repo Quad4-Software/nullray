@@ -309,8 +309,9 @@ run_print :: proc(cfg: Config) -> Result {
 	}
 
 	if s.agent_mode == .Review && (cfg.fail_on_findings || agent.fail_on_findings_from_env()) {
-		n, found := agent.parse_findings_trailer(res.text)
-		if found && n > 0 {
+		blocks, _ := agent.parse_block_findings(res.text)
+		_, found := agent.parse_findings_trailer(res.text)
+		if blocks > 0 {
 			res.exit_code = 1
 		} else if !found {
 			fmt.eprintln("nullray: warning: review reply missing FINDINGS trailer")
@@ -339,6 +340,7 @@ wait_session_chat :: proc(
 		}
 		if time.tick_since(deadline) > timeout {
 			session.session_request_cancel(s)
+			// Brief wait for cancel to unblock HTTP/docs. Destroy abandons leftover workers.
 			for _ in 0 ..< 40 {
 				_ = session.session_poll(s)
 				if !s.busy {

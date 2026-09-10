@@ -136,6 +136,10 @@ conn_dial :: proc(parts: Url_Parts, timeout_sec: int) -> (conn: Conn, err: strin
 }
 
 conn_close :: proc(conn: ^Conn) {
+	if conn == nil {
+		return
+	}
+	conn_clear_active(conn)
 	if conn.closed {
 		return
 	}
@@ -181,6 +185,7 @@ conn_read :: proc(conn: ^Conn, buf: []u8) -> (n: int, err: string) {
 			return 0, ""
 		}
 		if ret == TLS_WANT_READ || ret == TLS_WANT_WRITE {
+			time.sleep(time.Millisecond)
 			continue
 		}
 		return 0, "TLS read failed"
@@ -220,6 +225,7 @@ conn_write :: proc(conn: ^Conn, data: []u8) -> (written: int, err: string) {
 			continue
 		}
 		if ret == TLS_WANT_READ || ret == TLS_WANT_WRITE {
+			time.sleep(time.Millisecond)
 			continue
 		}
 		return written, "TLS write failed"

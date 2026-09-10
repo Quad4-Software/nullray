@@ -253,6 +253,7 @@ run_request :: proc(
 		if derr != "" {
 			return 0, nil, 0, derr
 		}
+		conn_register_active(&conn)
 
 		if conn.use_tls && conn.alpn == .H2 {
 			status, body_slice, retry_after, location, herr := run_h2_request(

@@ -69,6 +69,8 @@ run_turn :: proc(req: Run_Request, cfg: Config, allocator := context.allocator) 
 	asst_streak := 0
 	verify_fails := cfg.verify_fail_count
 	had_writes := false
+	had_tools := false
+	finalize_nudged := false
 	verify_ran := false
 
 	cfg_local := cfg
@@ -104,7 +106,11 @@ run_turn :: proc(req: Run_Request, cfg: Config, allocator := context.allocator) 
 		}
 		prompt_chars := messages_content_chars(msgs[:])
 		harness_record_call(&harness, prompt_chars)
-		res := single_chat(req.prov, msgs[:], model, tools_json, cfg_local, &harness, allocator)
+		step_tools := tools_json
+		if finalize_nudged {
+			step_tools = ""
+		}
+		res := single_chat(req.prov, msgs[:], model, step_tools, cfg_local, &harness, allocator)
 		if !res.ok {
 			provider.destroy_messages(msgs[:])
 			delete(msgs)
@@ -221,6 +227,13 @@ run_turn :: proc(req: Run_Request, cfg: Config, allocator := context.allocator) 
 				provider.destroy_tool_calls(res.tool_calls)
 			}
 
+			if turn_needs_finalize(last_content, had_tools, finalize_nudged) {
+				finalize_nudged = true
+				turn_append_finalize_nudge(&msgs, allocator)
+				emit(cfg, .Status, "harness: finalize after tools")
+				continue
+			}
+
 			v_out, v_res := turn_verify_on_assistant_done(
 				&msgs,
 				cfg,
@@ -270,6 +283,7 @@ run_turn :: proc(req: Run_Request, cfg: Config, allocator := context.allocator) 
 		if step_writes {
 			had_writes = true
 		}
+		had_tools = true
 
 		delete(res.model)
 		delete(res.err)
@@ -308,6 +322,33 @@ run_turn :: proc(req: Run_Request, cfg: Config, allocator := context.allocator) 
 			emit(cfg, .Status, "paused")
 			harness_log_metrics(harness)
 			return Run_Result{ok = true, messages = msgs, content = last_content, stopped = owned_stop("paused", allocator), usage = usage_sum, harness = harness}
+		}
+	}
+
+	if turn_needs_finalize(last_content, had_tools, finalize_nudged) {
+		if turn_finalize_after_max_steps(
+			&msgs,
+			req,
+			model,
+			cfg_local,
+			&harness,
+			&usage_sum,
+			&saw_cost,
+			&cost_all_known,
+			&last_content,
+			allocator,
+		) {
+			harness_log_metrics(harness)
+			return Run_Result{
+				ok = true,
+				messages = msgs,
+				content = last_content,
+				stopped = owned_stop("done", allocator),
+				usage = usage_sum,
+				verify_fail_count = verify_fails,
+				verify_ran = verify_ran,
+				harness = harness,
+			}
 		}
 	}
 

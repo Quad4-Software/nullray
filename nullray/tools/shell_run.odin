@@ -12,6 +12,7 @@ import "core:strconv"
 import "core:strings"
 import "core:time"
 import "nullray:constants"
+import "nullray:http"
 
 shell_timeout_ms_default :: proc() -> int {
 	if raw, ok := os.lookup_env(constants.ENV_SHELL_TIMEOUT_MS, context.temp_allocator); ok {
@@ -114,6 +115,11 @@ run_process_capture :: proc(
 	stderr_trunc := false
 
 	for !stdout_done || !stderr_done {
+		if http.cancel_requested() {
+			timed_out = true
+			shell_kill_process_tree(process)
+			break
+		}
 		if time.since(start) >= timeout {
 			timed_out = true
 			shell_kill_process_tree(process)

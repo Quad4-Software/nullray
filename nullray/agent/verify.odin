@@ -353,11 +353,18 @@ collect_turn_diff :: proc(messages: []provider.Message, allocator := context.all
 }
 
 parse_block_findings :: proc(review_text: string) -> (blocks: int, total: int) {
-	lines := strings.split_lines(review_text, context.temp_allocator)
+	scan := review_text
+	if idx := strings.last_index(review_text, "--- hunt oracle ---"); idx >= 0 {
+		scan = review_text[idx:]
+	}
+	lines := strings.split_lines(scan, context.temp_allocator)
 	for line in lines {
 		trimmed := strings.trim_space(line)
 		lower := strings.to_lower(trimmed, context.temp_allocator)
 		if strings.has_prefix(lower, "findings:") {
+			continue
+		}
+		if strings.has_prefix(lower, "--- hunt") {
 			continue
 		}
 		sev, _, _, _, ok := parse_finding_line(trimmed)

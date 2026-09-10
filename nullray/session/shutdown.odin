@@ -19,10 +19,25 @@ session_take_job_thread :: proc(s: ^Session) -> ^thread.Thread {
 	return th
 }
 
-session_join_job :: proc(s: ^Session) -> bool {
+session_join_job :: proc(s: ^Session, wait_ms := -1) -> bool {
 	th := session_take_job_thread(s)
 	if th == nil {
 		return false
+	}
+	if wait_ms < 0 {
+		thread.join(th)
+		thread.destroy(th)
+		return true
+	}
+	deadline := time.tick_now()
+	limit := time.Millisecond * time.Duration(wait_ms)
+	for !thread.is_done(th) {
+		if time.tick_since(deadline) > limit {
+			// Abandon hung worker. thread.terminate is unsafe with the Odin allocator.
+			// Print-mode process exit reclaims the OS thread. Caller clears busy.
+			return true
+		}
+		time.sleep(10 * time.Millisecond)
 	}
 	thread.join(th)
 	thread.destroy(th)
@@ -38,7 +53,7 @@ session_shutdown :: proc(s: ^Session, wait_ms := constants.SHUTDOWN_JOIN_MS) {
 		return
 	}
 	session_request_cancel(s)
-	had_job := session_join_job(s)
+	had_job := session_join_job(s, wait_ms)
 
 	if had_job {
 		deadline := time.tick_now()

@@ -33,9 +33,9 @@ Look for correctness bugs, security issues, regressions, broken invariants, miss
 Ignore style nits unless they hide a real bug.
 
 Start with a short SUMMARY: paragraph (what changed and overall risk).
-Then one finding per line:
-SEVERITY|path:line|reason (suggested fix)
-SEVERITY is critical, major, minor, trivial, or info (block/warn/note also accepted).
+Then one finding per line in this exact shape:
+critical|path:line|reason (suggested fix)
+Use severity critical, major, minor, trivial, or info only (block/warn/note also accepted). Never write the word SEVERITY as the first field.
 Prefer path:line when the hunk shows a line. Skip duplicate or speculative noise.
 End with FINDINGS: N or FINDINGS: none.
 Do not rewrite whole files. Be brief and actionable.`

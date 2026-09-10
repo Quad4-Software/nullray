@@ -26,6 +26,10 @@ Notable changes for nullray.
 - RAG rejects zero vectors and surfaces forced-mode retrieve failures in the prompt.
 
 ### Fixed
+- Print --timeout exits soon after the deadline instead of hanging on a stuck chat worker.
+- Man and docs tool children time out and cancel cleanly instead of hanging past --timeout.
+- Turns that finish tools with no assistant text get one finalize nudge for a real answer.
+- --fail-on-findings exits on blocking severity lines, not a FINDINGS trailer count alone.
 - OpenRouter --list-models no longer fails on large model catalogs.
 - Print-mode --message-file and plan or out paths outside the private tmp root work under soft sandbox.
 - Verify Makefile detection and RAG/traces/handoff paths honor NULLRAY_WORKSPACE and thread workspace overrides.

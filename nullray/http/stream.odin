@@ -49,6 +49,7 @@ run_stream_request :: proc(
 	if derr != "" {
 		return 0, nil, 0, derr
 	}
+	conn_register_active(&conn)
 	defer conn_close(&conn)
 
 	if conn.use_tls && conn.alpn == .H2 {

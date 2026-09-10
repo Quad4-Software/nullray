@@ -1,6 +1,6 @@
 # nullray
 
-Lightweight terminal agent with a custom TUI built in Odin. First class support for local models.
+Lightweight terminal agent with a custom TUI built in Odin.
 
 ![nullray](logo/nullray-social.png)
 
@@ -9,6 +9,18 @@ Local: Ollama, LM Studio, llama.cpp.
 Cloud: OpenCode, OpenAI, OpenAI-compatible, Anthropic, Gemini, Groq, DeepSeek, Mistral, Together, Fireworks, xAI, Azure OpenAI, OpenRouter.
 
 Platforms: Linux (amd64, arm64/aarch64), macOS (arm64), Windows (amd64).
+
+Check out [Humanity's Last Command](https://github.com/markqvist/lc) for a more minimal and unique terminal AI harness.
+
+## Features
+
+- Supports Git and Fossil
+- Local models are first class
+- Does not eat your RAM
+- Can do coding, bug hunting and sysadmin tasks.
+- Native OS sandboxing and privacy scrubbing (intended for cloud models)
+
+Can read man pages, command --help, and language docs.
 
 ## Build
 
