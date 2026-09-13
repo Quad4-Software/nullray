@@ -63,6 +63,29 @@ test_destroy_messages_no_double_free :: proc(t: ^testing.T) {
 }
 
 @(test)
+test_destroy_tool_calls_dyn_no_double_free :: proc(t: ^testing.T) {
+	calls := make([dynamic]Tool_Call)
+	append(&calls, Tool_Call{
+		id = strings.clone("1"),
+		name = strings.clone("run_shell"),
+		arguments = strings.clone(`{"command":"true"}`),
+	})
+	// Stream error/retry path: free fields then the dynamic array once.
+	destroy_tool_calls(calls[:])
+	delete(calls)
+	testing.expect(t, true)
+
+	owned := make([]Tool_Call, 1)
+	owned[0] = Tool_Call{
+		id = strings.clone("2"),
+		name = strings.clone("read_file"),
+		arguments = strings.clone(`{"path":"x"}`),
+	}
+	destroy_tool_calls_owned(owned)
+	testing.expect(t, true)
+}
+
+@(test)
 test_parse_reasoning_content_field :: proc(t: ^testing.T) {
 	body := `{"choices":[{"message":{"role":"assistant","content":"hi","reasoning_content":"think"},"finish_reason":"stop"}]}`
 	res := parse_openai_chat_response(body)

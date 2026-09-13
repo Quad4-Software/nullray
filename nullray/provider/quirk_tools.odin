@@ -283,7 +283,7 @@ quirk_apply_tool_json_in_content :: proc(res: ^Chat_Response, allocator := conte
 @(private)
 quirk_reasoning_useful_text :: proc(reasoning: string, allocator := context.allocator) -> string {
 	calls, cleaned := quirk_parse_qwen_tool_blocks(reasoning, "stall", allocator)
-	defer destroy_tool_calls(calls)
+	defer destroy_tool_calls_owned(calls)
 	defer delete(cleaned)
 	text := strings.trim_space(cleaned)
 	if len(text) == 0 {

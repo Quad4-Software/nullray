@@ -21,12 +21,18 @@ test_drop_start_index :: proc(t: ^testing.T) {
 	append(&msgs, provider.Message{role = .User, content = strings.clone("one")})
 	append(&msgs, provider.Message{role = .Assistant, content = strings.clone("a1")})
 	append(&msgs, provider.Message{role = .User, content = strings.clone("two")})
+	tcs := make([]provider.Tool_Call, 1)
+	tcs[0] = provider.Tool_Call{
+		id = strings.clone("1"),
+		name = strings.clone("read_file"),
+		arguments = strings.clone("{}"),
+	}
 	append(
 		&msgs,
 		provider.Message{
 			role = .Assistant,
 			content = strings.clone(""),
-			tool_calls = []provider.Tool_Call{{id = strings.clone("1"), name = strings.clone("read_file"), arguments = strings.clone("{}")}},
+			tool_calls = tcs,
 		},
 	)
 	append(&msgs, provider.Message{role = .Tool, name = strings.clone("read_file"), content = strings.clone("out")})

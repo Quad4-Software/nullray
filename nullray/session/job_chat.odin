@@ -111,8 +111,10 @@ chat_job :: proc(data: rawptr) {
 		if len(result.messages) > 0 {
 			provider.destroy_messages(result.messages[:])
 			delete(result.messages)
+			// content is aliased into messages when present
+		} else {
+			delete(result.content)
 		}
-		delete(result.content)
 		delete(result.stopped)
 		return
 	}

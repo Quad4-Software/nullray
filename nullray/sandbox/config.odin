@@ -132,6 +132,7 @@ config_from_env :: proc(allocator := context.allocator) -> Config {
 		parse_extra_paths(v, &cfg.extra_rw, allocator)
 	}
 	docs_append_ro_paths(&cfg.extra_ro, allocator)
+	toolchain_append_rw_paths(&cfg.extra_rw, allocator)
 	ops_apply_to_config(&cfg, allocator)
 	return cfg
 }

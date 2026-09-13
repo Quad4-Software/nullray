@@ -75,7 +75,7 @@ improve_prompt :: proc(
 	delete(res.reasoning)
 	delete(res.model)
 	delete(res.finish_reason)
-	provider.destroy_tool_calls(res.tool_calls)
+	provider.destroy_tool_calls_owned(res.tool_calls)
 	if len(out) == 0 {
 		return "", strings.clone("empty improve response", allocator)
 	}
@@ -106,6 +106,10 @@ apply_auto_mode :: proc() {
 	if _, ok := os.lookup_env(constants.ENV_AGENT_STEPS, context.temp_allocator); !ok {
 		os.set_env(constants.ENV_AGENT_STEPS, "80")
 	}
+	// Auto print/TUI builds should prove the work unless the user opted out.
+	if _, ok := os.lookup_env(constants.ENV_VERIFY, context.temp_allocator); !ok {
+		os.set_env(constants.ENV_VERIFY, "1")
+	}
 }
 
 autonomy_prompt_section :: proc(allocator := context.allocator) -> string {
@@ -113,7 +117,7 @@ autonomy_prompt_section :: proc(allocator := context.allocator) -> string {
 		return ""
 	}
 	return strings.clone(
-		"## Autonomous mode\n\nYou are running autonomously. Keep going until the task is done or blocked. Prefer tools over asking. After each meaningful change, briefly note progress. If paused, wait for resume context and continue without restarting from scratch.\n",
+		"## Autonomous mode\n\nYou are running autonomously. Keep going until the task is done or blocked. Prefer tools over asking. After each meaningful change, briefly note progress. After code edits, run the project tests or build (go test, make test, npm test, cargo test) and fix failures before claiming done. Keep language toolchains caches outside the workspace (absolute GOMODCACHE/GOCACHE/GOPATH under $HOME). Never invent a ./go or in-repo module cache as GOPATH. If paused, wait for resume context and continue without restarting from scratch.\n",
 		allocator,
 	)
 }

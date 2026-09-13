@@ -239,6 +239,14 @@ mode_prompt_section :: proc(mode: Agent_Mode, policy: Mode_Policy, allocator := 
 			&b,
 			"Keep chat replies short: what you changed and why. Prefer tools over transcript code blocks.\n",
 		)
+		strings.write_string(
+			&b,
+			"After meaningful edits, run tests or a build before declaring success. Prefer project Verify commands, then go test ./..., make test, npm test, or cargo test when those markers exist.\n",
+		)
+		strings.write_string(
+			&b,
+			"Do not place language module caches inside the workspace. Use absolute GOMODCACHE/GOCACHE under home. Fix compile errors instead of abandoning a half-broken tree.\n",
+		)
 	}
 	if policy == .Auto || policy == .Model {
 		strings.write_string(&b, "\nWhen a different mode fits better, emit a single line on its own:\n")

@@ -65,6 +65,6 @@ turn_finalize_after_max_steps :: proc(
 	delete(fres.model)
 	delete(fres.err)
 	delete(fres.finish_reason)
-	provider.destroy_tool_calls(fres.tool_calls)
+	provider.destroy_tool_calls_owned(fres.tool_calls)
 	return len(strings.trim_space(last_content^)) > 0
 }

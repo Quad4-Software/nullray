@@ -2,6 +2,7 @@
 /*
 Post-edit verify stop gate with truncated output and circuit breaker.
 Off by default. Opt in with NULLRAY_VERIFY=1|/verify on|CMD.
+--auto sets NULLRAY_VERIFY=1 when unset. Defaults detect go test / cargo test / npm test / pytest when no Makefile.
 */
 
 package agent
@@ -84,7 +85,7 @@ resolve_verify_command :: proc(
 						return strings.clone(cmds[0], allocator), false
 					}
 				}
-				return strings.clone("verify skipped: no Makefile", allocator), false
+				return detect_default_verify_command(allocator), false
 			}
 			return first, false
 		}
@@ -96,18 +97,10 @@ resolve_verify_command :: proc(
 			return strings.clone(cmds[0], allocator), false
 		}
 	}
-	default_cmd := "make test"
-	if verify_command_missing_makefile(default_cmd) {
-		return strings.clone("verify skipped: no Makefile", allocator), false
-	}
-	return strings.clone(default_cmd, allocator), false
+	return detect_default_verify_command(allocator), false
 }
 
-verify_command_missing_makefile :: proc(cmd: string) -> bool {
-	t := strings.trim_space(cmd)
-	if t != "make test" && !strings.has_prefix(t, "make test ") {
-		return false
-	}
+verify_workspace_root :: proc(allocator := context.allocator) -> string {
 	ws := sandbox.workspace_current()
 	if len(ws) == 0 {
 		if st := sandbox.state(); st != nil {
@@ -119,6 +112,46 @@ verify_command_missing_makefile :: proc(cmd: string) -> bool {
 			ws = cwd
 		}
 	}
+	if len(ws) == 0 {
+		return ""
+	}
+	return strings.clone(ws, allocator)
+}
+
+/*
+Pick a verify command from workspace markers when Makefile/AGENTS are absent.
+*/
+detect_default_verify_command :: proc(allocator := context.allocator) -> string {
+	ws := verify_workspace_root(context.temp_allocator)
+	if len(ws) == 0 {
+		return strings.clone("verify skipped: no workspace", allocator)
+	}
+	makefile := fmt.tprintf("%s/Makefile", ws)
+	if os.exists(makefile) {
+		return strings.clone("make test", allocator)
+	}
+	if os.exists(fmt.tprintf("%s/go.mod", ws)) {
+		return strings.clone("go test ./...", allocator)
+	}
+	if os.exists(fmt.tprintf("%s/Cargo.toml", ws)) {
+		return strings.clone("cargo test", allocator)
+	}
+	if os.exists(fmt.tprintf("%s/package.json", ws)) {
+		return strings.clone("npm test", allocator)
+	}
+	if os.exists(fmt.tprintf("%s/pyproject.toml", ws)) ||
+	   os.exists(fmt.tprintf("%s/pytest.ini", ws)) {
+		return strings.clone("pytest", allocator)
+	}
+	return strings.clone("verify skipped: no known test command", allocator)
+}
+
+verify_command_missing_makefile :: proc(cmd: string) -> bool {
+	t := strings.trim_space(cmd)
+	if t != "make test" && !strings.has_prefix(t, "make test ") {
+		return false
+	}
+	ws := verify_workspace_root(context.temp_allocator)
 	if len(ws) == 0 {
 		return false
 	}

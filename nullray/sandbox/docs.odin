@@ -146,12 +146,10 @@ docs_env_key_secret :: proc(key: string) -> bool {
 	return false
 }
 
-@(private)
 fmt_env_pair :: proc(key, value: string, allocator := context.allocator) -> string {
 	return strings.concatenate({key, "=", value}, allocator)
 }
 
-@(private)
 docs_join_dir :: proc(root, rel: string) -> (path: string, ok: bool) {
 	if len(root) == 0 {
 		return "", false
@@ -163,7 +161,6 @@ docs_join_dir :: proc(root, rel: string) -> (path: string, ok: bool) {
 	return joined, true
 }
 
-@(private)
 xdg_dir :: proc(env_key, home, rel: string, allocator := context.allocator) -> string {
 	if v, ok := os.lookup_env(env_key, context.temp_allocator); ok && len(strings.trim_space(v)) > 0 {
 		return strings.clone(strings.trim_space(v), allocator)

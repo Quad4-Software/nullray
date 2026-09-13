@@ -114,6 +114,8 @@ emit_usage :: proc(res: Result, json_already: bool) {
 		cost = fmt.tprintf("%.6f", res.session_usage.cost_usd)
 	} else if res.session_usage.total_tokens > 0 {
 		cost = "unknown (provider omitted)"
+	} else if res.input_chars > 0 || res.peak_input_chars > 0 {
+		cost = "unknown (incomplete turn)"
 	}
 	fmt.eprintf(
 		"nullray: usage turn=%d/%d/%d session=%d/%d/%d reasoning=%d chars=%d/%d cost=%s subagent_tok=%d\n",

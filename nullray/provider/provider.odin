@@ -164,6 +164,10 @@ destroy_tool_calls :: proc(calls: []Tool_Call) {
 		delete(c.name)
 		delete(c.arguments)
 	}
+}
+
+destroy_tool_calls_owned :: proc(calls: []Tool_Call) {
+	destroy_tool_calls(calls)
 	delete(calls)
 }
 
@@ -190,7 +194,7 @@ destroy_message :: proc(m: Message) {
 	delete(m.reasoning)
 	delete(m.tool_call_id)
 	delete(m.name)
-	destroy_tool_calls(m.tool_calls)
+	destroy_tool_calls_owned(m.tool_calls)
 }
 
 destroy_messages :: proc(msgs: []Message) {
@@ -210,6 +214,6 @@ destroy_chat_response :: proc(res: ^Chat_Response) {
 	delete(res.model)
 	delete(res.err)
 	delete(res.finish_reason)
-	destroy_tool_calls(res.tool_calls)
+	destroy_tool_calls_owned(res.tool_calls)
 	res^ = {}
 }

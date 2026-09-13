@@ -92,7 +92,7 @@ run_diff_review :: proc(
 	delete(res.reasoning)
 	delete(res.model)
 	delete(res.finish_reason)
-	provider.destroy_tool_calls(res.tool_calls)
+	provider.destroy_tool_calls_owned(res.tool_calls)
 	if len(out) == 0 {
 		return "", strings.clone("empty model response", allocator)
 	}
@@ -155,7 +155,7 @@ run_rubric :: proc(
 	delete(res.reasoning)
 	delete(res.model)
 	delete(res.finish_reason)
-	provider.destroy_tool_calls(res.tool_calls)
+	provider.destroy_tool_calls_owned(res.tool_calls)
 	if len(out) == 0 {
 		return "", ""
 	}

@@ -60,5 +60,7 @@ tool_run_shell :: proc(args_json: string, allocator := context.allocator) -> (re
 	} else {
 		argv = {"/bin/sh", "-c", command}
 	}
-	return run_process_capture(argv[:], workspace, timeout_ms, allocator)
+	env := sandbox.toolchain_shell_env(allocator)
+	defer sandbox.toolchain_shell_env_destroy(env)
+	return run_process_capture(argv[:], workspace, timeout_ms, allocator, env)
 }

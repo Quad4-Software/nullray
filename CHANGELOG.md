@@ -21,11 +21,13 @@ Notable changes for nullray.
 
 ### Changed
 - /status shows plan step progress and the steps sidecar path.
-- Verify soft-skips make test when no Makefile exists instead of failing the gate.
+- Auto mode turns on post-edit verify when unset. Verify picks go test, cargo test, npm test, or pytest when there is no Makefile.
+- Sandbox grants language toolchain caches under home by default and keeps Go module caches out of the workspace.
 - rag_reindex rebuilds memory and retained artifacts.
 - RAG rejects zero vectors and surfaces forced-mode retrieve failures in the prompt.
 
 ### Fixed
+- Crash during tool-heavy chat turns when freeing streamed tool call lists.
 - Print --timeout exits soon after the deadline instead of hanging on a stuck chat worker.
 - Man and docs tool children time out and cancel cleanly instead of hanging past --timeout.
 - Turns that finish tools with no assistant text get one finalize nudge for a real answer.

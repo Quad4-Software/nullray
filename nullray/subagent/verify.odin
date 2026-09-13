@@ -73,7 +73,7 @@ verify_all :: proc(
 	delete(res.reasoning)
 	delete(res.model)
 	delete(res.finish_reason)
-	provider.destroy_tool_calls(res.tool_calls)
+	provider.destroy_tool_calls_owned(res.tool_calls)
 
 	report.text = strings.clone(text, allocator)
 	parse_verify_text(&report, text, allocator)
@@ -226,6 +226,6 @@ verify_second_opinion :: proc(
 	delete(res.reasoning)
 	delete(res.model)
 	delete(res.finish_reason)
-	provider.destroy_tool_calls(res.tool_calls)
+	provider.destroy_tool_calls_owned(res.tool_calls)
 	return out, ""
 }

@@ -152,9 +152,9 @@ run_turn :: proc(req: Run_Request, cfg: Config, allocator := context.allocator) 
 				delete(res.err)
 				delete(res.finish_reason)
 				if text_calls {
-					provider.destroy_tool_calls(calls)
+					provider.destroy_tool_calls_owned(calls)
 				} else {
-					provider.destroy_tool_calls(res.tool_calls)
+					provider.destroy_tool_calls_owned(res.tool_calls)
 				}
 				emit(cfg, .Status, "anti-loop: repeated reply")
 				append(&msgs, provider.Message{role = .Assistant, content = res.content, reasoning = res.reasoning})
@@ -177,9 +177,9 @@ run_turn :: proc(req: Run_Request, cfg: Config, allocator := context.allocator) 
 					delete(res.err)
 					delete(res.finish_reason)
 					if text_calls {
-						provider.destroy_tool_calls(calls)
+						provider.destroy_tool_calls_owned(calls)
 					} else {
-						provider.destroy_tool_calls(res.tool_calls)
+						provider.destroy_tool_calls_owned(res.tool_calls)
 					}
 					msg := strings.clone(
 						"Stopped: repeated the same tool calls after a loop warning. Adjust the approach or /continue with new instructions.",
@@ -222,9 +222,9 @@ run_turn :: proc(req: Run_Request, cfg: Config, allocator := context.allocator) 
 			delete(res.err)
 			delete(res.finish_reason)
 			if text_calls {
-				provider.destroy_tool_calls(calls)
+				provider.destroy_tool_calls_owned(calls)
 			} else {
-				provider.destroy_tool_calls(res.tool_calls)
+				provider.destroy_tool_calls_owned(res.tool_calls)
 			}
 
 			if turn_needs_finalize(last_content, had_tools, finalize_nudged) {
@@ -289,9 +289,9 @@ run_turn :: proc(req: Run_Request, cfg: Config, allocator := context.allocator) 
 		delete(res.err)
 		delete(res.finish_reason)
 		if text_calls {
-			provider.destroy_tool_calls(calls)
+			provider.destroy_tool_calls_owned(calls)
 		} else {
-			provider.destroy_tool_calls(res.tool_calls)
+			provider.destroy_tool_calls_owned(res.tool_calls)
 		}
 
 		if elevate_stop {

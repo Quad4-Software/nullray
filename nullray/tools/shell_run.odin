@@ -67,6 +67,7 @@ run_process_capture :: proc(
 	workspace: string,
 	timeout_ms: int,
 	allocator := context.allocator,
+	env: []string = nil,
 ) -> (result: string, err: string) {
 	stdout_r, stdout_w, pipe_err := os.pipe()
 	if pipe_err != nil {
@@ -86,6 +87,7 @@ run_process_capture :: proc(
 		desc := os.Process_Desc{
 			working_dir = workspace,
 			command = command,
+			env = env,
 			stdout = stdout_w,
 			stderr = stderr_w,
 		}
