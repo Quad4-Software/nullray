@@ -18,6 +18,7 @@ PREFIX ?= /usr/local
 BINDIR := $(PREFIX)/bin
 MANDIR := $(PREFIX)/share/man/man1
 COMPDIR := $(PREFIX)/share/nullray/completions
+SKILLDIR := $(PREFIX)/share/nullray/skills
 BASHCOMPDIR := $(PREFIX)/share/bash-completion/completions
 ZSHCOMPDIR := $(PREFIX)/share/zsh/site-functions
 FISHCOMPDIR := $(PREFIX)/share/fish/vendor_completions.d
@@ -196,11 +197,14 @@ install: $(OUT) man completions
 	install -m 644 contrib/completions/nullray.zsh $(DESTDIR)$(ZSHCOMPDIR)/_nullray
 	install -d $(DESTDIR)$(FISHCOMPDIR)
 	install -m 644 contrib/completions/nullray.fish $(DESTDIR)$(FISHCOMPDIR)/nullray.fish
+	install -d $(DESTDIR)$(SKILLDIR)
+	cp -a $(ROOT)/.agents/skills/. $(DESTDIR)$(SKILLDIR)/
 
 uninstall:
 	rm -f $(DESTDIR)$(BINDIR)/nullray
 	rm -f $(DESTDIR)$(MANDIR)/nullray.1
 	rm -rf $(DESTDIR)$(COMPDIR)
+	rm -rf $(DESTDIR)$(SKILLDIR)
 	rm -f $(DESTDIR)$(BASHCOMPDIR)/nullray
 	rm -f $(DESTDIR)$(ZSHCOMPDIR)/_nullray
 	rm -f $(DESTDIR)$(FISHCOMPDIR)/nullray.fish

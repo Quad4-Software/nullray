@@ -25,3 +25,5 @@ A tools-list pin detects interface changes. It does not prove that tool output i
 Use GitHub's device authorization flow only through a registered OAuth app. Show the verification URL and user code, poll at the server-provided interval, and stop on expiry or denial. Store the resulting token in the platform credential store or an external credential helper. Do not write it to session transcripts, MCP output, source files, or command arguments.
 
 If secure credential storage is unavailable, require the user to supply a token through the process environment for that run.
+
+URLs: [references/urls.md](references/urls.md).

@@ -18,3 +18,5 @@ Use when the user asks to bootstrap, start a greenfield project, scaffold a new 
 5. In edit mode, call scaffold with the pack name, then implement Steps one at a time.
 
 For GitHub Actions pins, read share/nullray/scaffolds/versions.json and replace placeholders after copying gha-ci.yml. Scaffold does not substitute SHAs.
+
+URLs: [references/urls.md](references/urls.md).

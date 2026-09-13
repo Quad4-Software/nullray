@@ -82,3 +82,5 @@ Plain language. No backticks, no Markdown, no TODO noise.
 5. No hedging-verb padding or role-in-shaping formulas
 6. No uncited numbers or floating authority claims
 7. Sentence lengths vary. No stacked formal transitions
+
+URLs: [references/urls.md](references/urls.md).

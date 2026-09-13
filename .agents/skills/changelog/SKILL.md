@@ -64,3 +64,5 @@ Right:
 2. Can you say it in one short line without backticks?
 3. Did you drop allocator, test, and harness junk?
 4. Does Unreleased still match CHANGELOG.md tone?
+
+URLs: [references/urls.md](references/urls.md).

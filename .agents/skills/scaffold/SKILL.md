@@ -25,3 +25,5 @@ Start from `gha-ci.yml`. Replace every `__..._SHA__` token with the matching 40-
 Keep harden-runner as the first step in every job. Keep default permissions read-only. Do not add `pull_request_target`.
 
 After copying a template, adapt names and build steps to the project. Run the relevant parser, linter, and tests. A scaffold is a starting point, not a security review.
+
+URLs: [references/urls.md](references/urls.md).

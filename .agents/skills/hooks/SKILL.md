@@ -51,3 +51,5 @@ Reject URLs whose host ends with a blocked suffix:
 ```
 
 Adjust the `blocked` tuple to match policy. Keep hook commands short and fast. Default timeout is five seconds (`NULLRAY_HOOK_TIMEOUT_MS`).
+
+URLs: [references/urls.md](references/urls.md).

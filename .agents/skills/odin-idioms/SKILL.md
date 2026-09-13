@@ -48,3 +48,5 @@ Temp: short paths, lowercasing, JSON scratch. Permanent: session, provider, tool
 #partial switch when not every case is handled on purpose. Document surprising omissions.
 
 Errors are usually (value, err: string) or a field err: string. Clone error text with the caller allocator when it must outlive temp. Empty string means success when that is the local convention (check the call site).
+
+URLs: [references/urls.md](references/urls.md).

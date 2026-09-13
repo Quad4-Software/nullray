@@ -88,3 +88,5 @@ clipboard_paste returns owned text. delete after insert.
 ## Tests
 
 odin test nullray/ui with ODIN_TEST_THREADS=1. buffer_test, markdown_test, edit_utf8_test. App input_test covers rune edit, Esc stop, paste truncate, seeded fuzz. No live TTY tests. theme_set(INK), buffer_create, defer buffer_destroy.
+
+URLs: [references/urls.md](references/urls.md).

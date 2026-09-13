@@ -29,3 +29,5 @@ Use `audit_dockerfile` and `audit_compose` before manual review.
 - Keep secrets outside committed Compose files.
 
 A rootless container still shares the host kernel. Image pins improve repeatability but do not prove the image is safe.
+
+URLs: [references/urls.md](references/urls.md).

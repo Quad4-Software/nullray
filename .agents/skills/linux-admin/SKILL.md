@@ -34,3 +34,5 @@ System units under `/etc/systemd/system` need elevation. After editing, run `sys
 Built-in deny patterns still block destructive commands (`rm -rf /`, `mkfs`, `dd if=`, mass chmod on `/`, and similar). Extra patterns can go in `NULLRAY_SHELL_DENY`.
 
 Do not bypass the denylist. Do not pipe remote scripts into a shell.
+
+URLs: [references/urls.md](references/urls.md).

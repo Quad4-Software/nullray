@@ -11,3 +11,5 @@ Tools: repo_map, glob_files, grep_files, read_file, list_dir only.
 Budget: few steps. Prefer precision over recall.
 Final reply must be a CITES block (or CITES: none). Do not edit files.
 Do not use knowledge_put or spawn task.
+
+URLs: [references/urls.md](references/urls.md).

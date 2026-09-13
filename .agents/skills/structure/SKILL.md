@@ -16,3 +16,7 @@ Do not grow a file past max_file_lines. Existing oversized files may be reduced 
 Write tools already block growth past the limit. `make test` runs `structure.test_repo_odin_has_no_godfiles`, which fails CI if any tracked Odin source is still a godfile.
 
 Set `NULLRAY_STRUCTURE=0` only for a deliberate workspace-wide bypass.
+
+General split and extensibility guidance: [modular-design](../modular-design/SKILL.md).
+
+URLs: [references/urls.md](references/urls.md).

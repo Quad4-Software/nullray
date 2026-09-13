@@ -26,7 +26,13 @@ Rules:
 - Shared maps live under .agents/references/ and are pointed from AGENTS.md
 - Do not put vendor-only agent config in .agents/ (no product-specific rule dirs here)
 
-nullray loads flat *.md and nested name/SKILL.md from workspace .agents/skills, .agents, config skills (~/.config/nullray/skills), and ~/.agents. Extra roots: NULLRAY_SKILLS or --skills (comma-separated). Install into config: --install-skill PATH [--as ID]. Remove: --uninstall-skill ID. List: --list-skills or /skills.
+nullray loads flat *.md and nested name/SKILL.md from workspace `.agents/skills`,
+`.agents`, config skills (`~/.config/nullray/skills`), `~/.agents`, and packaged
+`share/nullray/skills` beside the binary (`make install`, AppImage). Extra roots:
+`NULLRAY_SKILLS` or `--skills` (comma-separated). Install into config:
+`--install-skill PATH [--as ID]`. Remove: `--uninstall-skill ID`. List:
+`--list-skills` or `/skills`. Cap: 96 skills. Progressive disclosure: catalog in
+the system prompt, full body via `list_skills` / `load_skill` (or auto-match).
 
 ## Layout
 
@@ -89,13 +95,53 @@ Modes: ask, plan, review, edit. Tool gate: `--gate` / `NULLRAY_GATE` / `/gate` 0
 | prose | docs, comments, AGENTS, commit text (detail in skill references/tells.md) |
 | changelog | CHANGELOG.md and release notes (user-facing, no internals) |
 | tui | nullray/ui, app, binds, draw/input (map in skill references/map.md) |
-| odin-idioms | any .odin under nullray/ or cmd/ |
+| odin | Odin language basics (allocators, packages, tests) |
+| odin-idioms | nullray .odin package layout, build tags, ownership |
 | memory | owned strings, dynamics, teardown |
 | ci-pinned-actions | .github/workflows |
 | scaffold | secure templates, list_scaffolds, packs under share/nullray/scaffolds |
 | greenfield | empty-repo bootstrap, Done Contract before edit |
 | owasp | security review, secrets, injection, authz |
 | bug-hunting | vuln/crash hunting: audit_*, oracles, exploratory, adversarial, NULLRAY_HUNT |
+| typescript | TypeScript 6/7 adoption, native tsc sidecar, eslint/svelte-check breaks |
+| svelte-runes | Svelte 5 runes, shared .svelte.ts state, migration from legacy reactivity |
+| go | Go 1.27 generics, filepath safety, toolchain |
+| python | Python 3.14 free-threading, t-strings, annotations |
+| rust | Rust path safety, TOCTOU, cap-std |
+| software-architecture | modular monolith, slices, hexagonal ports, ADR boundary choices |
+| modular-design | no godfiles, package splits, extension registries |
+| structure | nullray Odin line limits and godfile CI (pairs with modular-design) |
+| code-quality-tools | formatters, linters, SAST/SCA gates (Biome, Oxlint, Semgrep, CodeQL) |
+| landlock-seccomp | Landlock ABI and seccomp-bpf policy design (pairs with sandbox) |
+| sandbox | nullray sandbox modes, ops profiles, doctor claims |
+| software-testing | pyramid, PBT, mutation, contracts, characterization, fuzz, oracles |
+| supply-chain | SLSA/cosign limits, CI cache/OIDC abuse, Mini Shai-Hulud lessons |
+| attack-surface | TOCTOU, DoS/OOM, RCE classes, path traversal |
+| agent-footguns | common agent mistakes, verify honesty, safe git/shell |
+| linux-tools | rg/fd/jq/curl/ss/systemctl recipes (pairs with unix-docs) |
+| vite | Vite 8–8.3 Rolldown, bundled-dev, forwardConsole, migration |
+| tailwind | Tailwind CSS v4 Oxide, @theme, CSS-first config |
+| vue | Vue 3 + 3.6 RC Vapor Mode / alien-signals |
+| htmx | HTMX 2 vs 4 Fetch core, :inherited, morph, upgrade |
+| reticulum | RNS mesh concepts, LXMF, operator footguns |
+| rngit | rns:// Git, .rsm/.rsg signed releases |
+| mesh-vpn | NetBird, Tailscale, Pangolin remote access |
+| opnsense | firewall, WireGuard, CARP HA, Suricata posture |
+| flatpak | manifests, finish-args, portals, Flathub packaging |
+| wails | Wails v3 services, bindings gen, Taskfile builds |
+| electron | Electron 44+ ASAR fuses, openExternal, IPC hardening |
+| runed | Svelte 5 Runed utilities (pairs with svelte-runes) |
+| maintainable-code | small diffs, pure cores, explicit errors, reviewable PRs |
+| error-handling | explicit returns, wrap once, fail closed, no secret leaks |
+| skill-budget | catalog vs load_skill, caps, token posture for skills |
+| unix-docs | man/tldr/info/help before guessing Unix flags |
+| hooks | PreToolUse hooks.json block/gate tools |
+| git-workflow | vcs_* tools, network and force-push gates |
+| docker-ops | NULLRAY_OPS=docker, compose via shell with socket |
+| docker-secure | Dockerfile/Compose pin, non-root, mounts, secrets |
+| kube-ops | NULLRAY_OPS=kube with explicit kubeconfig allow |
+| linux-admin | packages, systemd, /etc with elevate + sandbox |
+| mcp-secure | MCP trust, tool-list pins, credentials, device auth |
 
 ## Providers
 

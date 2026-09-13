@@ -56,3 +56,5 @@ Severity, path:line, attacker control, impact, short repro. End with FINDINGS: N
 ## Limits
 
 Scanners miss logic bugs. Sampling helps exploration. Oracles decide. A clean --audit is not a security proof.
+
+URLs: [references/urls.md](references/urls.md).

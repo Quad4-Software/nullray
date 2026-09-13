@@ -39,3 +39,5 @@ Destroy nested owned strings once. Pattern: test_destroy_messages_no_double_free
 Tracking allocator so leaks fail. Defer destroy of every buffer, provider, and dynamic you create. Keep ODIN_TEST_THREADS=1 when tests share globals.
 
 Also see the project footguns map listed in AGENTS.md.
+
+URLs: [references/urls.md](references/urls.md).

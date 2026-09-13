@@ -29,7 +29,7 @@ Windows has a Job Object spawn-helper stub. AppContainer confinement is not impl
 
 macOS has no OS sandbox backend. Warn mode continues without confinement. Strict mode fails.
 
-Read the full matrix in [../../references/sandbox.md](../../references/sandbox.md) and the claim limits in [../../references/caveats.md](../../references/caveats.md).
+Read the full matrix in [../../references/sandbox.md](../../references/sandbox.md) and the claim limits in [../../references/caveats.md](../../references/caveats.md). Kernel API detail for Landlock ABI and seccomp-bpf: [landlock-seccomp](../landlock-seccomp/SKILL.md).
 
 ## Diagnosis
 
@@ -38,3 +38,5 @@ Run `nullray --doctor` to print configured mode, applied state, Landlock ABI, se
 The source man page is `man/nullray.1`. Installed packages place it under the prefix at `share/man/man1/nullray.1`. `nullray --man` prints the bundled source.
 
 The `read_man` and `apropos` agent tools query host manuals on Linux. They do not bypass sandbox path or mode policy. Offline docs tools (`read_tldr`, `lang_doc`) use the docs RO grants above. Set `NULLRAY_DOCS=0` to disable auto grants, or add absolute paths with `NULLRAY_SANDBOX_EXTRA_RO`. Never grant all of `$HOME`.
+
+URLs: [references/urls.md](references/urls.md).

@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: 0BSD
 /*
-Skill markdown files loaded from config, workspace, and ~/.agents.
-Progressive disclosure: catalog (name+description) in the system prefix,
-full bodies via load_skill into the transcript.
+Skill markdown files loaded from config, workspace, packaged share/nullray/skills,
+and ~/.agents. Progressive disclosure: catalog (name+description) in the system
+prefix, full bodies via load_skill into the transcript.
 */
 
 package skills
@@ -23,7 +23,7 @@ Skill :: struct {
 	path:        string,
 }
 
-MAX_SKILLS :: 48
+MAX_SKILLS :: 96
 MAX_SKILL_BYTES :: 24_000
 MAX_ACTIVE_SKILLS :: 3
 MAX_DESCRIPTION_CHARS :: 1024
@@ -279,11 +279,20 @@ skill_roots :: proc(allocator := context.temp_allocator) -> []string {
 		add(&roots, &seen, {st.workspace, "skills"})
 		add(&roots, &seen, {st.workspace, ".agents", "skills"})
 		add(&roots, &seen, {st.workspace, ".agents"})
+		add(&roots, &seen, {st.workspace, "share", "nullray", "skills"})
 	}
 	if cwd, err := os.get_working_directory(context.temp_allocator); err == nil {
 		add(&roots, &seen, {cwd, "skills"})
 		add(&roots, &seen, {cwd, ".agents", "skills"})
 		add(&roots, &seen, {cwd, ".agents"})
+		add(&roots, &seen, {cwd, "share", "nullray", "skills"})
+	}
+
+	// Packaged skills beside the binary (make install / AppImage / Flatpak).
+	if exe, eerr := os.get_executable_path(context.temp_allocator); eerr == nil {
+		exe_dir := filepath.dir(exe)
+		add_path(&roots, &seen, fmt.tprintf("%s/../share/nullray/skills", exe_dir))
+		add_path(&roots, &seen, fmt.tprintf("%s/share/nullray/skills", exe_dir))
 	}
 
 	if !bare {

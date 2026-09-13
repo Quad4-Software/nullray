@@ -9,3 +9,5 @@ description: >
 
 Read-only tools. Publish findings with knowledge_put. Update agents_progress. Do not edit files.
 When the parent needs path:start-end citations only, spawn task with subagent_type=locate instead.
+
+URLs: [references/urls.md](references/urls.md).

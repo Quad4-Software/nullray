@@ -27,3 +27,5 @@ Confirm the current context and namespace before mutating resources. A wrong con
 Never dump secrets, tokens, or kubeconfig contents into chat, commits, or tool results. Redact credential-shaped values. Do not `kubectl get secret -o yaml` unless the user explicitly needs it and accepts the exposure risk.
 
 Shell and fetch tools can still reach the API if credentials are present. Treat cluster-admin kubeconfig as full host compromise.
+
+URLs: [references/urls.md](references/urls.md).

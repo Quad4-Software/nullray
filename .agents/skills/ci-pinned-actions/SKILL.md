@@ -46,3 +46,5 @@ docker.yml publishes multi-arch images to GHCR (digest-pinned Dockerfile). Tag r
 3. No floating tags
 4. Header pin list updated when versions change
 5. No pull_request_target
+
+URLs: [references/urls.md](references/urls.md).

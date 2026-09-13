@@ -23,3 +23,5 @@ audit_owasp flags secrets and tokens, shell/eval sinks, SQL string concat, XSS s
 8. Add negative tests for denied access and malformed input.
 
 Report scanner scope when citing audit_* results. Inspect context before severity.
+
+URLs: [references/urls.md](references/urls.md).

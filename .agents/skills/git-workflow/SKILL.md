@@ -36,3 +36,5 @@ Force-push to `main` or `master` needs `NULLRAY_VCS_FORCE=1` in addition to netw
 Use `vcs_pr_*` tools for GitHub PR work. They wrap `gh` with the same network gate. Do not run raw `gh pr create` through shell when the VCS PR tools cover the task.
 
 Local commit hooks can still run on `vcs_commit` via `PreCommit` in hooks.json.
+
+URLs: [references/urls.md](references/urls.md).

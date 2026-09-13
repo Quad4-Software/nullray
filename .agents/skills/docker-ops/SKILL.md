@@ -32,3 +32,5 @@ Add the exact prefix to `NULLRAY_SHELL_ALLOW` when `NULLRAY_PERMS=allow`.
 ## Caveats
 
 A rootless container still shares the host kernel. Socket access is not a sandbox boundary. Clean audit output is not a security proof.
+
+URLs: [references/urls.md](references/urls.md).

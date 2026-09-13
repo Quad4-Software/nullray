@@ -7,3 +7,5 @@ description: >
 # Edit subagent
 
 Write and shell allowed in edit mode. Use worktree isolation when parallel. Acquire leases. Never git stash. Publish knowledge and progress.
+
+URLs: [references/urls.md](references/urls.md).
