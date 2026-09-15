@@ -4,6 +4,8 @@ Notable changes for nullray.
 
 ## [Unreleased]
 
+## [0.4.0] - 2026-09-14
+
 ### Added
 - Local review bot via --review and /review local. Reviews Git or Fossil diffs with working, staged, unstaged, and base scopes. No forge required. Use --include-untracked for new files.
 - Review findings accept critical, major, minor, trivial, and info severities for bot-style reports.
