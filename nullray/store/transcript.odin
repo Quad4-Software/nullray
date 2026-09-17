@@ -193,7 +193,7 @@ load_transcript_jsonl :: proc(path: string, allocator := context.allocator) -> (
 
 session_body_contains :: proc(path: string, query_lower: string) -> bool {
 	if session_path_is_msgpack(path) {
-		msgs, ok := load_transcript_msgpack(path, context.temp_allocator)
+		msgs, ok := load_transcript_msgpack(path)
 		if !ok {
 			return false
 		}
@@ -278,7 +278,7 @@ session_group_snippet :: proc(path: string, max_chars: int, allocator := context
 
 session_preview :: proc(path: string, allocator := context.allocator) -> string {
 	if session_path_is_msgpack(path) {
-		msgs, ok := load_transcript_msgpack(path, context.temp_allocator)
+		msgs, ok := load_transcript_msgpack(path)
 		if !ok || len(msgs) == 0 {
 			return strings.clone("(empty)", allocator)
 		}

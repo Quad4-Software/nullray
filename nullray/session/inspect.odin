@@ -27,7 +27,7 @@ resolve_inspect_path :: proc(name: string, allocator := context.allocator) -> st
 
 transcript_line_count :: proc(path: string) -> int {
 	if store.session_path_is_msgpack(path) {
-		msgs, ok := store.load_transcript(path, context.temp_allocator)
+		msgs, ok := store.load_transcript(path)
 		if !ok {
 			return 0
 		}

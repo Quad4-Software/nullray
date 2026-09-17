@@ -177,6 +177,30 @@ test_transcript_msgpack_roundtrip :: proc(t: ^testing.T) {
 }
 
 @(test)
+test_session_preview_msgpack :: proc(t: ^testing.T) {
+	path := "/tmp/nullray-store-preview-test.msgpack"
+	_ = os.remove(path)
+	defer os.remove(path)
+
+	msgs := make([dynamic]provider.Message)
+	defer {
+		for m in msgs {
+			provider.destroy_message(m)
+		}
+		delete(msgs)
+	}
+	append(&msgs, provider.Message{role = .User, content = strings.clone("preview-me")})
+	append(&msgs, provider.Message{role = .Assistant, content = strings.clone("done")})
+	testing.expect(t, save_transcript(path, msgs[:]))
+
+	preview := session_preview(path)
+	defer delete(preview)
+	testing.expect(t, strings.contains(preview, "done"))
+	testing.expect(t, session_body_contains(path, "preview-me"))
+	testing.expect(t, !session_body_contains(path, "missing-text"))
+}
+
+@(test)
 test_session_rename_files :: proc(t: ^testing.T) {
 	from := "nullray_rename_from"
 	to := "nullray_rename_to"
