@@ -12,3 +12,6 @@ Prose and documentation style references.
 | Keep a Changelog | https://keepachangelog.com/ |
 | Agent Skills | https://agentskills.io/ |
 | CommonMark | https://commonmark.org/ |
+| Wikipedia Signs of AI writing | https://en.wikipedia.org/wiki/Wikipedia:Signs_of_AI_writing |
+| Opace measured tells (Aug 2026) | https://opace.agency/tools/ai/content-verification-integrity/research/the-tells-we-tested/ |
+| ai-writing-markers dataset | https://github.com/humzakt/ai-writing-markers |

@@ -27,20 +27,25 @@ Detail and word lists: [references/tells.md](references/tells.md).
 
 ## 2026 priority tells
 
-Em dash alone is a weak forensic signal now. Structure and emptiness dominate. Kill these first:
+Em dash alone is a weak forensic signal now. Measured on 21 models (Aug 2026): paragraph evenness is the strongest tell at 16x, sentence-length CV under 0.3 is 3.6x. Structure and emptiness dominate. Kill these first:
 
 | Tell | Fix |
 |------|-----|
+| even-length paragraphs and sections | vary block lengths |
 | hedging verbs (ensures, ensuring, highlights, supports, reflects) | say what the thing does |
 | X plays a crucial/critical role in shaping Y | name the concrete effect |
+| copula dodges (serves as, functions as, boasts, features) | is / has / includes |
 | intensifiers with no number (significantly, effectively, increasingly) | cut or attach a measured claim |
 | colon runway (The result: / The key insight:) | state the fact |
 | synonym triples (fast, reliable, and secure) | one real item, or vary count |
 | not X, it is Y (and similar reversals) | one direct claim |
 | transition stacking (Furthermore, Moreover, Additionally) | also / and / start the sentence |
+| chat register in docs (whether you are, here is the thing, let me know) | cut |
 | Studies show / Experts agree with no name | cite or own the opinion |
 | fabricated precision (47% with no source) | source, estimate label, or delete |
 | uniform 15 to 20 word sentences | mix short and long |
+
+Aged out on 2026 models, do not flag: delve, moreover, additionally, when it comes to, a plethora of, in the realm of.
 
 ## Backticks (docs only)
 
