@@ -126,6 +126,13 @@ provider_env_set :: proc() -> bool {
 	return false
 }
 
+model_env_set :: proc() -> bool {
+	if m, ok := os.lookup_env(constants.ENV_MODEL, context.temp_allocator); ok {
+		return len(strings.trim_space(m)) > 0
+	}
+	return false
+}
+
 registry_auto_select_local :: proc(r: ^Registry) -> bool {
 	if !local_probe_enabled_from_env() || provider_env_set() {
 		return false

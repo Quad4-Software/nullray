@@ -185,16 +185,27 @@ session_apply_saved_model :: proc(s: ^Session, reg: ^provider.Registry) -> bool 
 		return false
 	}
 	changed := false
-	if len(s.provider_id) > 0 {
+	// Explicit env/flag config beats the session's remembered provider and model.
+	if len(s.provider_id) > 0 && !provider.provider_env_set() {
 		if provider.registry_set_active(reg, s.provider_id) {
 			changed = true
 		}
 	}
 	p := provider.registry_active(reg)
-	if p != nil && len(s.model) > 0 {
-		delete(p.default_model)
-		p.default_model = strings.clone(s.model)
-		changed = true
+	if p != nil {
+		// Env model may have landed on a different provider before the saved
+		// provider switch above. Re-apply it to the active provider.
+		if m, ok := os.lookup_env(constants.ENV_MODEL, context.temp_allocator); ok && len(strings.trim_space(m)) > 0 {
+			if p.default_model != m {
+				delete(p.default_model)
+				p.default_model = strings.clone(m)
+				changed = true
+			}
+		} else if len(s.model) > 0 {
+			delete(p.default_model)
+			p.default_model = strings.clone(s.model)
+			changed = true
+		}
 	}
 	return changed
 }
