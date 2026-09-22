@@ -120,6 +120,28 @@ test_redact_proxy_userinfo :: proc(t: ^testing.T) {
 }
 
 @(test)
+test_redact_secret_tokens_large_input :: proc(t: ^testing.T) {
+	had_r, prev_r := test_env_set(constants.ENV_PRIVACY_REDACT, "1")
+	defer test_env_restore(constants.ENV_PRIVACY_REDACT, had_r, prev_r)
+	// Regression: the per-byte scan must not lowercase the remaining suffix
+	// at every position. On large artifact bodies that was quadratic temp
+	// arena growth (multi-GB, OOM) for a single call.
+	b: strings.Builder
+	strings.builder_init(&b)
+	defer strings.builder_destroy(&b)
+	for _ in 0 ..< 128 * 1024 {
+		strings.write_byte(&b, 'a')
+	}
+	strings.write_string(&b, " mid sk-tokensecretvalue api_key=hunter2 end ")
+	src := strings.to_string(b)
+	out := redact_secret_tokens(src)
+	defer delete(out)
+	testing.expect(t, !strings.contains(out, "sk-tokensecretvalue"))
+	testing.expect(t, !strings.contains(out, "hunter2"))
+	testing.expect(t, strings.contains(out, REDACTED_SECRET))
+}
+
+@(test)
 test_privacy_redact_enabled_gate :: proc(t: ^testing.T) {
 	had, prev := test_env_unset(constants.ENV_PRIVACY_REDACT)
 	defer test_env_restore(constants.ENV_PRIVACY_REDACT, had, prev)

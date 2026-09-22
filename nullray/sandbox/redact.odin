@@ -89,9 +89,8 @@ redact_secret_tokens :: proc(text: string, allocator := context.allocator) -> st
 	for i < len(text) {
 		// Marker assignments: api_key=..., Authorization: Bearer ...
 		matched := false
-		lower_rest := strings.to_lower(text[i:], context.temp_allocator)
 		for marker in SECRET_VALUE_MARKERS {
-			if strings.has_prefix(lower_rest, marker) {
+			if has_prefix_fold(text[i:], marker) {
 				strings.write_string(&b, text[i:i + len(marker)])
 				i += len(marker)
 				for i < len(text) && (text[i] == ' ' || text[i] == '\t' || text[i] == '"' || text[i] == '\'') {
@@ -132,6 +131,14 @@ redact_secret_tokens :: proc(text: string, allocator := context.allocator) -> st
 }
 
 @(private)
+has_prefix_fold :: proc(s, prefix: string) -> bool {
+	if len(s) < len(prefix) {
+		return false
+	}
+	return strings.equal_fold(s[:len(prefix)], prefix)
+}
+
+@(private)
 is_secret_value_end :: proc(c: u8) -> bool {
 	return c == ' ' || c == '\t' || c == '\n' || c == '\r' || c == '"' || c == '\'' || c == ',' || c == ';' || c == '&'
 }
@@ -139,10 +146,9 @@ is_secret_value_end :: proc(c: u8) -> bool {
 @(private)
 secret_token_at :: proc(text: string, i: int) -> bool {
 	rest := text[i:]
-	lower := strings.to_lower(rest, context.temp_allocator)
 	prefixes := []string{"sk-", "ghp_", "github_pat_", "xoxb-", "xoxp-", "gho_", "ghu_", "ghs_"}
 	for p in prefixes {
-		if strings.has_prefix(lower, p) {
+		if has_prefix_fold(rest, p) {
 			if i > 0 {
 				prev := text[i - 1]
 				if unicode.is_alpha(rune(prev)) || unicode.is_digit(rune(prev)) || prev == '_' {
@@ -172,8 +178,7 @@ secret_token_end :: proc(text: string, start: int) -> int {
 @(private)
 proxy_userinfo_at :: proc(text: string, i: int) -> bool {
 	rest := text[i:]
-	lower := strings.to_lower(rest, context.temp_allocator)
-	if !(strings.has_prefix(lower, "http://") || strings.has_prefix(lower, "https://")) {
+	if !(has_prefix_fold(rest, "http://") || has_prefix_fold(rest, "https://")) {
 		return false
 	}
 	scheme_end := strings.index(rest, "://")
