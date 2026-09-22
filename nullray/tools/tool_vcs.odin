@@ -3,6 +3,7 @@ package tools
 
 import "core:fmt"
 import "core:strings"
+import "nullray:constants"
 import "nullray:vcs"
 
 vcs_repo :: proc(allocator := context.allocator) -> vcs.Repo {
@@ -230,4 +231,52 @@ tool_vcs_pr_view :: proc(args_json: string, allocator := context.allocator) -> (
 	repo := vcs_repo(allocator)
 	defer vcs.repo_destroy(&repo)
 	return vcs.pr_view(repo, allocator)
+}
+
+tool_vcs_pr_checks :: proc(args_json: string, allocator := context.allocator) -> (string, string) {
+	_ = args_json
+	repo := vcs_repo(allocator)
+	defer vcs.repo_destroy(&repo)
+	return vcs.pr_checks(repo, allocator)
+}
+
+tool_vcs_pr_watch :: proc(args_json: string, allocator := context.allocator) -> (string, string) {
+	pr, perr := json_arg_string_optional(args_json, "pr", "", allocator)
+	if perr != "" {
+		return "", perr
+	}
+	defer delete(pr)
+	wait_for, werr := json_arg_string_optional(args_json, "wait_for", "any", allocator)
+	if werr != "" {
+		return "", werr
+	}
+	defer delete(wait_for)
+	switch wait_for {
+	case "any", "checks", "comments":
+	case:
+		return "", strings.clone("wait_for must be any, checks, or comments", allocator)
+	}
+	timeout_sec, terr := json_arg_int_optional(args_json, "timeout_sec", 600, allocator)
+	if terr != "" {
+		return "", terr
+	}
+	if timeout_sec < 15 {
+		timeout_sec = 15
+	}
+	if timeout_sec > constants.PR_WATCH_MAX_SEC {
+		timeout_sec = constants.PR_WATCH_MAX_SEC
+	}
+	interval_sec, ierr := json_arg_int_optional(args_json, "interval_sec", 30, allocator)
+	if ierr != "" {
+		return "", ierr
+	}
+	if interval_sec < constants.PR_WATCH_INTERVAL_MIN_SEC {
+		interval_sec = constants.PR_WATCH_INTERVAL_MIN_SEC
+	}
+	if interval_sec > 120 {
+		interval_sec = 120
+	}
+	repo := vcs_repo(allocator)
+	defer vcs.repo_destroy(&repo)
+	return vcs.pr_watch(repo, pr, timeout_sec, interval_sec, wait_for, allocator)
 }

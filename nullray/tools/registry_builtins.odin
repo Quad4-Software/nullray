@@ -364,6 +364,20 @@ registry_register_builtins :: proc(r: ^Registry) {
 		run = tool_vcs_pr_view,
 	})
 	registry_register(r, Tool{
+		name = "vcs_pr_checks",
+		description = "List GitHub PR check runs via gh (needs NULLRAY_VCS_NETWORK=1)",
+		schema_json = `{"type":"object","properties":{}}`,
+		kind = .Read,
+		run = tool_vcs_pr_checks,
+	})
+	registry_register(r, Tool{
+		name = "vcs_pr_watch",
+		description = "Wait inside the tool until PR checks reach a terminal state or new review/issue comments appear. Returns a status= report. Use after opening or pushing to a PR instead of shell sleep loops (needs NULLRAY_VCS_NETWORK=1)",
+		schema_json = `{"type":"object","properties":{"pr":{"type":"string","description":"PR number, URL, or branch; default current branch"},"wait_for":{"type":"string","description":"any, checks, or comments"},"timeout_sec":{"type":"string","description":"max seconds to wait, up to 1800"},"interval_sec":{"type":"string","description":"poll interval, 10-120"}}}`,
+		kind = .Read,
+		run = tool_vcs_pr_watch,
+	})
+	registry_register(r, Tool{
 		name = "fetch_url",
 		description = "Fetch a public http(s) URL as text (HTML to plain when useful, size-capped, no browser)",
 		schema_json = `{"type":"object","properties":{"url":{"type":"string"},"format":{"type":"string","description":"auto, text, or raw"},"max_chars":{"type":"string"}},"required":["url"]}`,

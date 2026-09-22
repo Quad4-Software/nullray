@@ -88,7 +88,7 @@ speculate_allowlisted :: proc(name: string) -> bool {
 		"memory_get", "memory_list", "memory_search",
 		"rag_status", "rag_query",
 		"read_artifact", "grep_artifact",
-		"vcs_status", "vcs_diff", "vcs_log", "vcs_pr_view",
+		"vcs_status", "vcs_diff", "vcs_log", "vcs_pr_view", "vcs_pr_checks",
 		"audit_structure", "audit_actions", "audit_dockerfile",
 		"audit_compose", "audit_owasp", "audit_deps":
 		return true

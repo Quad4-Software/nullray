@@ -57,7 +57,9 @@ lean_core_tool :: proc(name: string) -> bool {
 		"rag_status", "rag_query", "rag_reindex",
 		"read_man", "apropos", "read_tldr", "read_info", "read_help", "lang_doc", "fetch_url",
 		"list_scaffolds", "scaffold", "audit_structure",
-		"vcs_status", "vcs_diff", "vcs_log":
+		"vcs_status", "vcs_diff", "vcs_log", "vcs_commit", "vcs_branch", "vcs_merge",
+		"vcs_rebase", "vcs_push", "vcs_pull", "vcs_fetch",
+		"vcs_pr_create", "vcs_pr_view", "vcs_pr_checks", "vcs_pr_watch":
 		return true
 	}
 	return false

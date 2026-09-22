@@ -117,7 +117,7 @@ autonomy_prompt_section :: proc(allocator := context.allocator) -> string {
 		return ""
 	}
 	return strings.clone(
-		"## Autonomous mode\n\nYou are running autonomously. Keep going until the task is done or blocked. Prefer tools over asking. After each meaningful change, briefly note progress. After code edits, run the project tests or build (go test, make test, npm test, cargo test) and fix failures before claiming done. Keep language toolchains caches outside the workspace (absolute GOMODCACHE/GOCACHE/GOPATH under $HOME). Never invent a ./go or in-repo module cache as GOPATH. If paused, wait for resume context and continue without restarting from scratch.\n",
+		"## Autonomous mode\n\nYou are running autonomously. Keep going until the task is done or blocked. Prefer tools over asking. After each meaningful change, briefly note progress. After code edits, run the project tests or build (go test, make test, npm test, cargo test) and fix failures before claiming done. Keep language toolchains caches outside the workspace (absolute GOMODCACHE/GOCACHE/GOPATH under $HOME). Never invent a ./go or in-repo module cache as GOPATH. If paused, wait for resume context and continue without restarting from scratch. When the task ends in a pull request, the work is not done at PR creation: use vcs_pr_checks and vcs_pr_watch to wait for checks to finish, investigate failures with gh run view --log-failed, fix and push again, and answer new review or issue comments (reply via gh pr comment or gh api). vcs_pr_watch blocks inside the tool, so prefer it over shell sleep loops. Report the final check state with the PR URL.\n",
 		allocator,
 	)
 }
