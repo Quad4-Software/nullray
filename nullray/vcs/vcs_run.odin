@@ -11,6 +11,67 @@ import "core:os"
 import "core:strings"
 import "core:time"
 
+/*
+A git config file that exists on disk but cannot be opened is fatal to every
+git invocation, and the sandbox keeps $HOME out. When the user-level config is
+unreachable, fall back to the repo's own config so commands still run; a
+missing file is fine because git treats it as absent.
+*/
+@(private)
+git_env :: proc(repo: Repo) -> []string {
+	home, _ := os.lookup_env("HOME", context.temp_allocator)
+	xdg, xok := os.lookup_env("XDG_CONFIG_HOME", context.temp_allocator)
+	candidates: [dynamic]string
+	if len(home) > 0 {
+		append(&candidates, strings.concatenate({home, "/.gitconfig"}, context.temp_allocator))
+		if xok && len(xdg) > 0 {
+			append(&candidates, strings.concatenate({xdg, "/git/config"}, context.temp_allocator))
+		} else {
+			append(&candidates, strings.concatenate({home, "/.config/git/config"}, context.temp_allocator))
+		}
+	}
+	blocked := false
+	for p in candidates {
+		h, oerr := os.open(p)
+		if oerr == nil {
+			os.close(h)
+			continue
+		}
+		missing := false
+		#partial switch e in oerr {
+		case os.General_Error:
+			missing = e == .Not_Exist
+		}
+		if !missing {
+			blocked = true
+			break
+		}
+	}
+	if !blocked {
+		return nil
+	}
+	base, berr := os.environ(context.temp_allocator)
+	out := make([dynamic]string, context.temp_allocator)
+	if berr == nil {
+		for e in base {
+			if strings.has_prefix(e, "GIT_CONFIG_GLOBAL=") ||
+			   strings.has_prefix(e, "GIT_CONFIG_NOSYSTEM=") {
+				continue
+			}
+			append(&out, strings.clone(e, context.temp_allocator))
+		}
+	}
+	append(
+		&out,
+		strings.concatenate(
+			{"GIT_CONFIG_GLOBAL=", repo.root, "/.git/config"},
+			context.temp_allocator,
+		),
+	)
+	append(&out, "GIT_CONFIG_NOSYSTEM=1")
+	return out[:]
+}
+
 @(private)
 run :: proc(repo: Repo, argv: []string, allocator := context.allocator) -> (out: string, err: string) {
 	stdout_r, stdout_w, pipe_err := os.pipe()
@@ -31,6 +92,7 @@ run :: proc(repo: Repo, argv: []string, allocator := context.allocator) -> (out:
 		desc := os.Process_Desc{
 			working_dir = repo.root,
 			command = argv,
+			env = git_env(repo),
 			stdout = stdout_w,
 			stderr = stderr_w,
 		}
