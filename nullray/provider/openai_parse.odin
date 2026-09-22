@@ -147,13 +147,13 @@ parse_openai_chat_response :: proc(body: string, allocator := context.allocator)
 	return out
 }
 
-extract_reasoning_details :: proc(v: json.Value) -> string {
+extract_reasoning_details :: proc(v: json.Value, allocator := context.temp_allocator) -> string {
 	arr, ok := v.(json.Array)
 	if !ok {
 		return ""
 	}
 	b: strings.Builder
-	strings.builder_init(&b, context.temp_allocator)
+	strings.builder_init(&b, allocator)
 	for item, i in arr {
 		obj, ook := item.(json.Object)
 		if !ook {

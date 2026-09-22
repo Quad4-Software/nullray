@@ -5,6 +5,7 @@ OpenAI-compatible chat completions with native tool_calls.
 
 package provider
 
+import "base:runtime"
 import "core:strings"
 import "nullray:constants"
 import "nullray:http"
@@ -31,6 +32,11 @@ openai_chat :: proc(p: ^Provider, req: Chat_Request, allocator := context.alloca
 	ignore := make([dynamic]string, context.temp_allocator)
 	retries := http_retry_limit()
 	last: http.Response
+
+	// Per-call temp epoch: request bodies allocate on the shared temp arena,
+	// which headless mode never frees. Reclaim on return.
+	temp_epoch := runtime.default_temp_allocator_temp_begin()
+	defer runtime.default_temp_allocator_temp_end(temp_epoch)
 
 	for attempt in 0 ..= retries {
 		if http.cancel_requested() {

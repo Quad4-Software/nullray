@@ -92,7 +92,7 @@ http_retry_limit :: proc() -> int {
 }
 
 http_status_retryable :: proc(status: int) -> bool {
-	return status == 429 || status == 502 || status == 503 || status == 504 || status == 529
+	return status == 429 || status == 500 || status == 502 || status == 503 || status == 504 || status == 529
 }
 
 retry_wait :: proc(attempt: int, retry_after_sec: int) {
