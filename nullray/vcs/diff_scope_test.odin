@@ -18,6 +18,7 @@ test_collect_review_diff_include_untracked :: proc(t: ^testing.T) {
 	testing.expectf(t, err == "", "git init: %s %s", err, out)
 	_, _ = run(repo, {"git", "config", "user.email", "t@t"}, context.temp_allocator)
 	_, _ = run(repo, {"git", "config", "user.name", "t"}, context.temp_allocator)
+	_, _ = run(repo, {"git", "config", "commit.gpgsign", "false"}, context.temp_allocator)
 
 	tracked, _ := filepath.join({root, "a.txt"}, context.temp_allocator)
 	testing.expect(t, os.write_entire_file(tracked, transmute([]u8)string("one\n")) == nil)
