@@ -7,6 +7,33 @@ Notable changes for nullray.
 ### Added
 - Session tabs like opencode: a strip under the title bar shows every open session. /new and /resume open new tabs, /tab list|new|open name|next|prev|close|N manages them, ctrl-x is a prefix (n new, w close, arrows switch), f4 and shift-tab cycle, and tabs are clickable including a + button. The strip scrolls with ‹ › overflow markers to keep the active tab visible (cap 16). Background tabs keep running and flag when done. The busy indicator now shows elapsed seconds and the live tool. Tab layout persists across restarts via open_tabs.
 - Image, audio, and video attachments. In the TUI, /attach on a media file queues it for the next message; /attach lists the queue and /attach clear empties it. Print mode adds repeatable --image, --audio, --video, and --media flags. Older turns keep a text marker and stop resending the payload after NULLRAY_MEDIA_TURNS (default 2). NULLRAY_MEDIA=0 disables, NULLRAY_MEDIA_MAX caps file size (default 15MB).
+- /models now lists the live catalog of the active provider, marks the current model, and tags OpenCode Zen entries that need the messages, responses, gemini, or systemone surface. Entries gain context-window and price details when the models.dev catalog cache is warm. /models policy keeps the old approved-model view.
+- Per-model surface routing now follows the models.dev catalog (cached under the config dir, 24h refresh), which also fixes opencode-go: qwen3.x stays on chat except qwen3.8-flash, and minimax-m3/m2.7 use messages. NULLRAY_MODELSDEV=0 disables the cache.
+- OpenCode Zen claude and qwen models work through the Anthropic Messages surface, streamed and non-streamed, with tool calls and thinking budgets.
+- The anthropic provider now talks to the real Messages endpoint instead of a chat/completions path that never existed.
+- NULLRAY_PROVIDER accepts zen as an alias for opencode.
+- Desktop notifications when a background tab finishes or a print run ends. NULLRAY_NOTIFY=auto|desktop|osc|bell|off picks the backend: a native helper (notify-send, osascript, or a PowerShell toast), the OSC 9 terminal escape (tmux-aware), or a plain bell.
+- Scoped memory recall. Keys like recall.path.<glob>, recall.cmd.<substr>, and recall.tool.<name> inject the matching lesson into the tool result at the moment it matters. NULLRAY_RECALL=0 disables.
+- Opt-in semantic index over the live tree. NULLRAY_RAG_CODE=1 enables it, rag_reindex scope=code indexes, and rag_query scope=code restricts hits. Files are capped and secret-screened, and stale files are flagged in results.
+- Cache usage reporting. Provider-reported cache hits land in usage.jsonl and /usage as cache_read so prefix-cache health is visible.
+
+### Fixed
+- Esc in one tab no longer aborts other tabs. HTTP streams and shell commands are owned by the session that started them, so cancel now hits only that session; its subagent children still stop with it.
+- Elevated commands actually went through the privilege broker only when its response arrived within a few microseconds of the request file landing. The wait now lasts up to 30s, so askpass elevation works as designed instead of silently falling back to in-process exec.
+- Orphan elevate brokers no longer pile up after an unclean exit; the broker exits when its parent disappears.
+- OpenRouter /credits label is now lock-protected; the background fetch could race the draw path.
+- RAG no longer tries to embed through OpenCode Zen, which has no embeddings endpoint.
+- OpenCode models on unsupported surfaces (gpt, grok, muse, gemini, jev) fail fast with a pointer to compatible picks instead of a cryptic protocol error.
+- MCP stdio servers that batch several JSON-RPC frames in one write no longer lose messages after the first newline, which used to stall tool calls until timeout.
+- A hook whose command never reads stdin can no longer wedge the agent turn past the hook timeout. Hook stdin is fed from a helper thread.
+- File edits, writes, multi-edits, and undo/checkpoint restores now write atomically (temp file plus rename) and keep the original permission bits, so a crash mid-edit cannot truncate a workspace file.
+- A synchronous subagent turn no longer erases the parent worker's cancel binding or session bind, so Esc still stops the rest of the parent turn after an in-thread child returns.
+- PreToolUse hooks no longer stall for the full timeout on commands that read stdin. The hook input JSON was also malformed by an unescaped brace in the format string, so hooks received corrupt payloads. Both fixed, and hooks now correctly block tools, including run_shell write attempts.
+- A chat worker abandoned on teardown timeout can no longer write into a freed Session. The session is kept alive instead.
+- Mid-turn context write-back (compaction and cleared tool results) no longer mutates the session message list from the worker thread. It is now marshalled to the UI thread, ordered before the turn commit, so drawing a busy tab cannot race history rewrites.
+- Verify-on runs with no detectable test command no longer pass silently. The turn nudges once for a reproduction test or a concrete check before the agent can claim done.
+- Denying a pending shell command now also drops any unconsumed one-shot allow token, and the Compact keybind refuses to run while a turn is in flight.
+- Hook trust state, deferred search_tools names, shell approval state, and sandbox state now live on the heap allocator and are mutex-guarded where workers share them.
 
 ## [0.4.0] - 2026-09-14
 

@@ -1,0 +1,1 @@
+{"id":"h8-subagent","feature":"task subagent","prompt":"Use a task subagent to count the words in each .txt file and write counts.txt with one 'file: N' line per file sorted by filename.","verify":"grep -qE 'a.txt: *[0-9]+' counts.txt && grep -qE 'b.txt: *[0-9]+' counts.txt"}

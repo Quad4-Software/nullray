@@ -64,6 +64,8 @@ class NullrayAgent(BaseAgent):
             "NULLRAY_STREAM=0",
             "NULLRAY_ELEVATE=deny",
             "NULLRAY_SUBAGENTS=0",
+            # Persist usage so the harness reports real tokens-per-task.
+            "NULLRAY_USAGE_PERSIST=1",
         ]
         for key in (
             "OPENROUTER_API_KEY",
@@ -102,11 +104,51 @@ class NullrayAgent(BaseAgent):
         )
         session.send_keys([cmd, "Enter"], block=True, min_timeout_sec=float(self._timeout))
 
+        # Pull the usage sidecar back out and report real token counts.
+        input_tokens, output_tokens = self._collect_usage(container, logging_dir)
+
         if logging_dir is not None:
             logging_dir.mkdir(parents=True, exist_ok=True)
             (logging_dir / "nullray_agent.txt").write_text(
-                f"bin={host_bin}\ntimeout={self._timeout}\ncontainer={container}\n",
+                f"bin={host_bin}\ntimeout={self._timeout}\ncontainer={container}\n"
+                f"input_tokens={input_tokens}\noutput_tokens={output_tokens}\n",
                 encoding="utf-8",
             )
 
-        return AgentResult(total_input_tokens=0, total_output_tokens=0)
+        return AgentResult(
+            total_input_tokens=input_tokens, total_output_tokens=output_tokens
+        )
+
+    @staticmethod
+    def _collect_usage(container: str, logging_dir: Path | None) -> tuple[int, int]:
+        """Sum prompt/completion tokens from /app/.nullray/usage/*.jsonl."""
+        import json
+
+        dest_root = (
+            Path(logging_dir) if logging_dir is not None else Path(tempfile.mkdtemp())
+        )
+        dest = dest_root / "usage"
+        try:
+            subprocess.run(
+                ["docker", "cp", f"{container}:/app/.nullray/usage", str(dest)],
+                check=False,
+                capture_output=True,
+                text=True,
+            )
+        except Exception:
+            return 0, 0
+        total_in = 0
+        total_out = 0
+        for line in dest.glob("*.jsonl"):
+            try:
+                rows = line.read_text(encoding="utf-8").splitlines()
+            except OSError:
+                continue
+            for row in rows:
+                try:
+                    rec = json.loads(row)
+                except ValueError:
+                    continue
+                total_in += int(rec.get("prompt_tokens") or 0)
+                total_out += int(rec.get("completion_tokens") or 0)
+        return total_in, total_out

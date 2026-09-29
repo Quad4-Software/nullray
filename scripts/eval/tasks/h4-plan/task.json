@@ -1,0 +1,1 @@
+{"id": "h4-plan", "feature": "plan mode contract", "mode": "plan", "prompt": "Plan how to add a CLI flag --version to a small Python CLI in cli.py (single file, argparse). Output the plan file.", "verify": "f=$(ls *.md .nullray/plans/*.md 2>/dev/null | head -1); test -n \"$f\" && grep -qiE \"step\" \"$f\" && grep -qi verify \"$f\" && grep -qiE \"budget|success\" \"$f\""}

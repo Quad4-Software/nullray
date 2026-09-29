@@ -1,0 +1,1 @@
+{"id":"h6-vcs","feature":"vcs commit","prompt":"Initialize a git repository here, create hello.txt with 'hi', and make one git commit with message init.","verify":"git log --oneline 2>/dev/null | grep -q . && git show HEAD:hello.txt | grep -q hi"}

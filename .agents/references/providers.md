@@ -28,8 +28,21 @@ Ids are NULLRAY_PROVIDER values. Bases are OpenAI Chat Completions style unless 
 
 OpenCode notes:
 
+- Zen is multi-protocol with no v2: all model traffic stays under /zen/v1 even on OpenCode v2 installs (the v2 breaking changes are the app server API and config format, not the gateway).
+- Routing source of truth is the models.dev catalog (same schema the OpenCode v2 /api/model endpoint serves): each model's provider.npm picks the surface, anthropic -> messages, openai -> responses, google -> gemini, openai-compatible/none -> chat. jev-* is always the bespoke systemone endpoint. Provider-aware prefix tables are the offline fallback. Zen and Go differ: on Go, qwen3.x is chat except qwen3.8-flash, and minimax-m3/m2.7 ride messages.
+- Catalog cache: api.json (about 5MB) lands at <config>/models.dev.json with a 24h TTL, refreshed by opencode /models and setup model listing; chat dispatch reads the cache only and never blocks on the fetch. NULLRAY_MODELSDEV=0 disables it. The same cache enriches /models output (context limit, per-Mtok cost) for any provider models.dev knows.
+- The /messages surface takes x-api-key auth (not Bearer); chat/completions and models take Bearer. Both carry x-opencode-session.
 - Chat, stream, and models requests send `x-opencode-session` with the live session name (process fallback when unset). Required for Go routing and cache affinity.
+- gpt-*, grok-*, muse-* (Responses API), gemini-* (Google surface), and jev-* (systemone) get a clear unsupported-surface error. A custom NULLRAY_BASE_URL skips model routing so proxies can normalize; a protocol rejection there gets a hint error.
+- No /embeddings on Zen: both opencode providers report embed=nil so RAG falls back to a local or OpenRouter embedder.
+- NULLRAY_PROVIDER=zen aliases to opencode.
 - HTTP User-Agent is `nullray/<VERSION>`.
+
+Anthropic notes:
+
+- The anthropic provider posts to /v1/messages (x-api-key, anthropic-version) instead of chat/completions, which api.anthropic.com never served.
+- /reasoning effort maps to a thinking budget_tokens floor; temperature/top_p are dropped while thinking is on.
+- /models still uses the OpenAI-shape GET /v1/models.
 
 OpenRouter notes:
 
@@ -65,6 +78,7 @@ Local notes:
 - Embeddings: POST {base}/embeddings (encoding_format float). Ollama falls back to native POST /api/embed on 404.
 - NULLRAY_EMBED_PROVIDER / NULLRAY_EMBED_MODEL override the chat provider for vectors. Defaults: ollama nomic-embed-text, openrouter openai/text-embedding-3-small, openai text-embedding-3-small. lmstudio and llamacpp require NULLRAY_EMBED_MODEL.
 - NULLRAY_RAG=auto|1|0 (default auto). Index under .nullray/rag/. NULLRAY_RAG_ARTIFACTS=0 skips artifact indexing. rag_reindex rebuilds memory and retained artifacts.
+- NULLRAY_RAG_CODE=1 opts into a live-tree lane: rag_reindex scope=code indexes source/text files under the workspace (denylist dirs, 800 file and 4MB total caps, 200KB per file, secret-screened). rag_query scope=code restricts hits. Hits flag files changed since indexing.
 - Embed privacy: cloud embed providers receive indexed text even when chat is local. Prefer a local embed model (nomic) when ZDR or offline matter. Do not index the live codebase; use grep/locate for source.
 
 Media attachments:
@@ -74,3 +88,9 @@ Media attachments:
 - Verified on OpenCode Zen chat/completions: qwen3.x and minimax-m3 accept image_url; qwen3.x-plus accepts video_url. Zen free-tier and most claude/gpt/gemini ids reject /chat/completions entirely (ModelProtocolUnsupported), so media tests need qwen/minimax-class models.
 
 Source of truth: nullray/constants/constants.odin and nullray/provider/builtins.odin.
+
+Cache discipline (Anthropic/OpenRouter prefix caching):
+
+- Provider Usage carries cache_read_tokens and cache_write_tokens (usage.jsonl cache_read/cache_write, /usage cache_read percent).
+- The request prefix must stay byte-stable to hit cache. System prompt is built once per session, no timestamps. Tool order is registry insertion order, deterministic.
+- search_tools deferred activation un-filters tools at their registry positions mid-session, which breaks the tools prefix from the first newly included tool onward. Keep activations rare and early.

@@ -72,3 +72,14 @@ Also set `BUILDX_BUILDER=default`. Share a flock file (for example `/tmp/nullray
 Use lowercase `--run-id` values (Docker Compose project names reject uppercase).
 
 Provider credentials come from the process environment or `~/.config/nullray/env`. Treat exit code 2 as a provider or runtime failure.
+
+## Token accounting
+
+The adapter sets NULLRAY_USAGE_PERSIST=1 inside the container and copies
+/app/.nullray/usage back into the task logging dir, so AgentResult carries real
+prompt/completion tokens per task. Summarize a run (resolved count plus tokens
+per solved task) with:
+
+```sh
+python3 scripts/terminal-bench/bench_report.py /tmp/nullray-tbench/runs/<run-id>
+```

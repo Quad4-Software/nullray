@@ -1,0 +1,1 @@
+{"id": "h2-artifact", "feature": "artifact offload", "prompt": "Run the shell command: seq 1 6000. Then create answer.txt containing exactly the line that seq prints for 4242.", "verify": "grep -qx 4242 answer.txt && test $(cat answer.txt | wc -l) -le 1"}

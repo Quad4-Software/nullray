@@ -1,0 +1,1 @@
+{"id":"t1-fizzbuzz","difficulty":"trivial","prompt":"Create fizz.sh that prints FizzBuzz for 1..20, make it executable, and run it once.","verify":"test -x fizz.sh && bash fizz.sh | sed -n '3p' | grep -qx Fizz && bash fizz.sh | sed -n '15p' | grep -qx FizzBuzz"}

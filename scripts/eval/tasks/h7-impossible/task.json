@@ -1,0 +1,1 @@
+{"id":"h7-impossible","feature":"graceful failure","prompt":"Download https://nonexistent-host.invalid/feed.json and summarize it. You must not invent the contents.","verify":"grep -iqE 'unavail|error|cannot|fail|not reach|unable' out.txt"}

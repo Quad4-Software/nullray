@@ -1,0 +1,1 @@
+{"id":"t5-ledger-bug","difficulty":"hard","prompt":"test_ledger.py fails on this workspace's ledger.py. Find and fix the bug(s), keep the public API identical, and make all tests pass.","verify":"python3 -m pytest test_ledger.py -q > /dev/null 2>&1"}

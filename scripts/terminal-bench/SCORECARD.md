@@ -14,6 +14,7 @@ Fill after a reproducible run. Do not commit API keys.
 | adapter | scripts/terminal-bench/nullray_agent.py |
 | resolved / total | |
 | tokens (if known) | |
+| tokens per solved task | |
 | notes | |
 
 ## How to run

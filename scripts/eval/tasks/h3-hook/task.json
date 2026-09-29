@@ -1,0 +1,1 @@
+{"id":"h3-hook","feature":"PreToolUse hook","prompt":"Create a file secret.txt containing the text hunter2.","verify":"test ! -f secret.txt"}

@@ -1,0 +1,1 @@
+{"id":"h1-recall","feature":"memory recall","prompt":"Create notes.md with a '## Summary' section and a '## Details' section, one line each.","verify":"grep -q '## summary' notes.md && grep -q '## details' notes.md"}
