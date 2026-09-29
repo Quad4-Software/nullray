@@ -120,7 +120,7 @@ Media: image, audio, and video attachments on user messages (OpenAI content part
 | attack-surface | TOCTOU, DoS/OOM, RCE classes, path traversal |
 | agent-footguns | common agent mistakes, verify honesty, safe git/shell |
 | linux-tools | rg/fd/jq/curl/ss/systemctl recipes (pairs with unix-docs) |
-| vite | Vite 8–8.3 Rolldown, bundled-dev, forwardConsole, migration |
+| vite | Vite 8 to 8.3 Rolldown, bundled-dev, forwardConsole, migration |
 | tailwind | Tailwind CSS v4 Oxide, @theme, CSS-first config |
 | vue | Vue 3 + 3.6 RC Vapor Mode / alien-signals |
 | htmx | HTMX 2 vs 4 Fetch core, :inherited, morph, upgrade |
