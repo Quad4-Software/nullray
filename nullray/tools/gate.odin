@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: 0BSD
+// SPDX-License-Identifier: LicenseRef-QSL-1.0-0BSD
 /*
 lc-style gate levels 0..3 for tool capability.
 0 read-only, 1 file writes, 2 shell, 3 destructive (always-deny still hard-blocks).

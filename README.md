@@ -166,4 +166,4 @@ flatpak run xyz.nullray.code
 
 ## License
 
-0BSD [LICENSE](LICENSE)
+QSL-1.0-0BSD ([LICENSE](LICENSE)) — source-available, free for almost all uses except competing commercial offerings, and each version converts to 0BSD two years after release.

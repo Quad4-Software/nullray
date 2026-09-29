@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: 0BSD
+// SPDX-License-Identifier: LicenseRef-QSL-1.0-0BSD
 /*
 Index memory entries and free-form text into the RAG store.
 */

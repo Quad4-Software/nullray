@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: 0BSD
+// SPDX-License-Identifier: LicenseRef-QSL-1.0-0BSD
 /*
 Seal streamed tool_calls indices when the next index appears or the stream ends.
 Never seal because partial JSON happens to parse.

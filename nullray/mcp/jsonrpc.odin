@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: 0BSD
+// SPDX-License-Identifier: LicenseRef-QSL-1.0-0BSD
 /*
 JSON-RPC 2.0 line helpers for MCP stdio transport.
 */

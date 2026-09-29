@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: 0BSD
+// SPDX-License-Identifier: LicenseRef-QSL-1.0-0BSD
 /*
 SSE line handling for OpenAI chat streaming: JSON chunk parse, error capture,
 delta emission, and tool_calls accumulation.

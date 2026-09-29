@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: 0BSD
+// SPDX-License-Identifier: LicenseRef-QSL-1.0-0BSD
 /*
 OpenRouter account credits and API-key limit helpers.
 Docs: GET /api/v1/credits (account), GET /api/v1/key (per-key limit).

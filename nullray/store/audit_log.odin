@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: 0BSD
+// SPDX-License-Identifier: LicenseRef-QSL-1.0-0BSD
 /*
 Optional local audit JSONL when NULLRAY_AUDIT_LOG=1. No phone-home.
 */

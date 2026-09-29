@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: 0BSD
+// SPDX-License-Identifier: LicenseRef-QSL-1.0-0BSD
 /*
 Media attachments: extension detection, base64 file loading, and
 provider/model capability heuristics for image, audio, and video parts.

@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: 0BSD
+// SPDX-License-Identifier: LicenseRef-QSL-1.0-0BSD
 /*
 Elevated command auth: classify, circuit breaker, askpass, broker.
 Passwords never enter tool results or provider messages.

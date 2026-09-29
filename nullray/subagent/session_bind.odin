@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: 0BSD
+// SPDX-License-Identifier: LicenseRef-QSL-1.0-0BSD
 /*
 Per-thread session binding: which session a worker's tool calls belong to.
 The shared Runtime binding follows the frontmost tab, so spawns on a

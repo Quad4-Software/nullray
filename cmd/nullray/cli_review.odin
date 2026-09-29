@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: 0BSD
+// SPDX-License-Identifier: LicenseRef-QSL-1.0-0BSD
 /*
 Local VCS-agnostic review bot (CodeRabbit-style scopes, no forge).
 */

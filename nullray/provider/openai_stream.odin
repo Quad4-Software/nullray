@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: 0BSD
+// SPDX-License-Identifier: LicenseRef-QSL-1.0-0BSD
 /*
 OpenAI SSE chat streaming: content, reasoning, and tool_calls deltas.
 */

@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: 0BSD
+// SPDX-License-Identifier: LicenseRef-QSL-1.0-0BSD
 /*
 read_artifact and grep_artifact tools for LID peek into offloaded tool payloads.
 */

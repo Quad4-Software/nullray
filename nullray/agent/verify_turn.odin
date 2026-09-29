@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: 0BSD
+// SPDX-License-Identifier: LicenseRef-QSL-1.0-0BSD
 /*
 Turn inspection helpers for the verify gate: did the turn write files, did it
 call tools, a budgeted diff summary, and blocking-finding counts from review

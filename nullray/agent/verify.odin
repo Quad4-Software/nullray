@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: 0BSD
+// SPDX-License-Identifier: LicenseRef-QSL-1.0-0BSD
 /*
 Post-edit verify stop gate with truncated output and circuit breaker.
 Off by default. Opt in with NULLRAY_VERIFY=1|/verify on|CMD.

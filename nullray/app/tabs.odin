@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: 0BSD
+// SPDX-License-Identifier: LicenseRef-QSL-1.0-0BSD
 /*
 Session tabs: multiple live sessions behind a top strip. Each tab owns a
 heap Session so its chat worker keeps running while another tab is active.

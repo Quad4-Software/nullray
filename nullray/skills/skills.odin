@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: 0BSD
+// SPDX-License-Identifier: LicenseRef-QSL-1.0-0BSD
 /*
 Skill markdown files loaded from config, workspace, packaged share/nullray/skills,
 and ~/.agents. Progressive disclosure: catalog (name+description) in the system

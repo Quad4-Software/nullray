@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: 0BSD
+// SPDX-License-Identifier: LicenseRef-QSL-1.0-0BSD
 /*
 read_man and apropos tools. Linux uses man(1). Other OS returns a clear error.
 */

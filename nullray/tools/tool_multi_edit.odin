@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: 0BSD
+// SPDX-License-Identifier: LicenseRef-QSL-1.0-0BSD
 /*
 apply_edits tool: batch search-replace edits and file creates with validate-then-apply.
 */

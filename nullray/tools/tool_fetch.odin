@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: 0BSD
+// SPDX-License-Identifier: LicenseRef-QSL-1.0-0BSD
 /*
 Read-only HTTP(S) fetch with SSRF basics, size caps, and HTML readability.
 */

@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: 0BSD
+// SPDX-License-Identifier: LicenseRef-QSL-1.0-0BSD
 /*
 run_shell tool: execute /bin/sh -c in workspace when sandbox permits.
 */

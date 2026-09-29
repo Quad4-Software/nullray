@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: 0BSD
+// SPDX-License-Identifier: LicenseRef-QSL-1.0-0BSD
 #+build !windows
 /*
 Askpass helper script for sudo -A / DOAS_ASKPASS.

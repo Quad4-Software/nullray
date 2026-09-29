@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: 0BSD
+// SPDX-License-Identifier: LicenseRef-QSL-1.0-0BSD
 /*
 Load and merge KEY=value pairs in ~/.config/nullray/env.
 load_env_file does not overwrite keys already set in the process.

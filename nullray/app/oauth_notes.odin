@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: 0BSD
+// SPDX-License-Identifier: LicenseRef-QSL-1.0-0BSD
 package app
 
 SETUP_BYOK_NOTE :: "Subscription SSO for Anthropic, OpenAI, and Cursor is BYOK only."

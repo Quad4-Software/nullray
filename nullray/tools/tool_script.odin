@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: 0BSD
+// SPDX-License-Identifier: LicenseRef-QSL-1.0-0BSD
 /*
 run_script tool: write code to a temp script file and execute with optional bwrap sandbox.
 */

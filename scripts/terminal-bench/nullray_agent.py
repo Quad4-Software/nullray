@@ -1,4 +1,4 @@
-# SPDX-License-Identifier: 0BSD
+# SPDX-License-Identifier: LicenseRef-QSL-1.0-0BSD
 """Terminal-Bench adapter for nullray print mode.
 
 Copy this file into the temp adapter dir (see README.md) or set PYTHONPATH to

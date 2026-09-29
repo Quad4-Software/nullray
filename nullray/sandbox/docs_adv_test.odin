@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: 0BSD
+// SPDX-License-Identifier: LicenseRef-QSL-1.0-0BSD
 /*
 Adversarial oracles for NULLRAY_DOCS path grants and docs tool inputs.
 */

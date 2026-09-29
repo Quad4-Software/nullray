@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: 0BSD
+// SPDX-License-Identifier: LicenseRef-QSL-1.0-0BSD
 /*
 Read-only speculative tool pool: submit, join by hash, discard on miss/cancel.
 */

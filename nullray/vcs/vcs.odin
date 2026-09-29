@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: 0BSD
+// SPDX-License-Identifier: LicenseRef-QSL-1.0-0BSD
 /*
 Local Git and Fossil operations. Network ops need NULLRAY_VCS_NETWORK=1.
 */

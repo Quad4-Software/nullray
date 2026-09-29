@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: 0BSD
+// SPDX-License-Identifier: LicenseRef-QSL-1.0-0BSD
 /*
 HTTP(S)_PROXY / ALL_PROXY / NO_PROXY dial support.
 */

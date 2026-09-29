@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: 0BSD
+// SPDX-License-Identifier: LicenseRef-QSL-1.0-0BSD
 /*
 TUI-only setup overlay. Prefer /setup. Auto-opens when setup_needed.
 Never used from --print or --self-test.
