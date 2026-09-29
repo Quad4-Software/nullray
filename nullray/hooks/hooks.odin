@@ -5,12 +5,15 @@ User hook loading and bounded subprocess execution.
 
 package hooks
 
+import "base:runtime"
 import "core:encoding/json"
 import "core:fmt"
 import "core:os"
 import "core:path/filepath"
 import "core:strconv"
 import "core:strings"
+import "core:sync"
+import "core:thread"
 import "core:time"
 import "nullray:constants"
 import "nullray:sandbox"
@@ -39,6 +42,8 @@ Result :: struct {
 }
 
 @(private)
+g_hooks_mu: sync.Mutex
+@(private)
 g_local_hooks_mtime: i64 = -1
 @(private)
 g_local_hooks_path: string
@@ -59,6 +64,8 @@ hooks_trust_workspace :: proc() -> bool {
 	}
 	local_path, _ := filepath.join({workspace, ".nullray", constants.HOOKS_FILE}, context.temp_allocator)
 	info, err := os.stat(local_path, context.temp_allocator)
+	sync.mutex_lock(&g_hooks_mu)
+	defer sync.mutex_unlock(&g_hooks_mu)
 	if err != nil {
 		g_local_hooks_mtime = -1
 		g_local_hooks_trusted = true
@@ -66,9 +73,9 @@ hooks_trust_workspace :: proc() -> bool {
 	}
 	mt := time.to_unix_seconds(info.modification_time)
 	if len(g_local_hooks_path) > 0 {
-		delete(g_local_hooks_path)
+		delete(g_local_hooks_path, runtime.heap_allocator())
 	}
-	g_local_hooks_path = strings.clone(local_path)
+	g_local_hooks_path = strings.clone(local_path, runtime.heap_allocator())
 	g_local_hooks_mtime = mt
 	g_local_hooks_trusted = true
 	return true
@@ -150,12 +157,15 @@ local_hooks_trust_check :: proc(path: string, allocator := context.allocator) ->
 		return false, ""
 	}
 	mt := time.to_unix_seconds(info.modification_time)
+	// Hook trust state is shared across chat and subagent workers; guard it.
+	sync.mutex_lock(&g_hooks_mu)
+	defer sync.mutex_unlock(&g_hooks_mu)
 	if g_local_hooks_mtime < 0 {
 		g_local_hooks_mtime = mt
 		if len(g_local_hooks_path) > 0 {
-			delete(g_local_hooks_path)
+			delete(g_local_hooks_path, runtime.heap_allocator())
 		}
-		g_local_hooks_path = strings.clone(path)
+		g_local_hooks_path = strings.clone(path, runtime.heap_allocator())
 		g_local_hooks_trusted = true
 		return false, ""
 	}
@@ -207,7 +217,7 @@ run_file :: proc(path: string, event: Event, tool_name, payload: string, allocat
 		return Result{message = fmt.aprintf("hook config parse failed for %s: %v", path, jerr, allocator = allocator)}
 	}
 	input := fmt.aprintf(
-		`{"event":%q,"tool":%q,"payload":%q}`,
+		`{{"event":%q,"tool":%q,"payload":%q}}`,
 		event_name(event),
 		tool_name,
 		payload,
@@ -242,6 +252,22 @@ timeout_ms :: proc() -> int {
 }
 
 @(private)
+Hook_Writer :: struct {
+	w:     ^os.File,
+	input: string,
+}
+
+// Feeds hook stdin from a thread so a child that never reads stdin cannot
+// deadlock the caller past its timeout. Killing the child breaks the pipe.
+@(private)
+hook_writer_proc :: proc(data: rawptr) {
+	w := cast(^Hook_Writer)data
+	_, _ = os.write(w.w, transmute([]u8)w.input)
+	// Close the write end so commands reading stdin to EOF finish.
+	_ = os.close(w.w)
+}
+
+@(private)
 run_command :: proc(command, input: string) -> (exit_code: int, timed_out: bool, err: string) {
 	stdin_r, stdin_w, perr := os.pipe()
 	if perr != nil {
@@ -249,8 +275,9 @@ run_command :: proc(command, input: string) -> (exit_code: int, timed_out: bool,
 	}
 	defer os.close(stdin_r)
 	process: os.Process
+	writer: Hook_Writer
+	wth: ^thread.Thread
 	{
-		defer os.close(stdin_w)
 		argv: [3]string
 		when ODIN_OS == .Windows {
 			argv = {"cmd.exe", "/C", command}
@@ -264,20 +291,37 @@ run_command :: proc(command, input: string) -> (exit_code: int, timed_out: bool,
 		start_err: os.Error
 		process, start_err = os.process_start(desc)
 		if start_err != nil {
+			os.close(stdin_w)
 			return 0, false, fmt.tprintf("hook exec failed: %v", start_err)
 		}
-		_, _ = os.write(stdin_w, transmute([]u8)input)
+		writer = Hook_Writer{w = stdin_w, input = input}
+		wth = thread.create_and_start_with_data(&writer, hook_writer_proc)
+		if wth == nil {
+			os.close(stdin_w)
+		}
 	}
+	// Join the writer before closing the parent write end, and only after the
+	// child exits or is killed (a dead child makes any blocked write fail).
+	exit_code = 0
 	start := time.now()
 	for {
 		state, wait_err := os.process_wait(process, 0)
 		if wait_err == nil && state.exited {
-			return state.exit_code, false, ""
+			exit_code = state.exit_code
+			break
 		}
 		if time.since(start) >= time.Millisecond * time.Duration(timeout_ms()) {
 			_ = os.process_kill(process)
 			state, _ = os.process_wait(process)
-			return state.exit_code, true, ""
+			exit_code = state.exit_code
+			timed_out = true
+			break
 		}
+		time.sleep(2 * time.Millisecond)
 	}
+	if wth != nil {
+		thread.join(wth)
+		thread.destroy(wth)
+	}
+	return exit_code, timed_out, ""
 }
