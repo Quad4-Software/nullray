@@ -152,10 +152,9 @@ make_opencode_go :: proc(base_url := "", api_key := "", model := "") -> Provider
 		base_url = strings.clone(base),
 		api_key = strings.clone(key),
 		default_model = strings.clone(m),
-		chat = openai_chat,
-		stream = openai_chat_stream,
-		list_models = openai_list_models,
-		embed = openai_embed,
+		chat = opencode_chat,
+		stream = opencode_chat_stream,
+		list_models = opencode_list_models,
 	}
 }
 
@@ -178,10 +177,9 @@ make_opencode :: proc(base_url := "", api_key := "", model := "") -> Provider {
 		base_url = strings.clone(base),
 		api_key = strings.clone(key),
 		default_model = strings.clone(m),
-		chat = openai_chat,
-		stream = openai_chat_stream,
-		list_models = openai_list_models,
-		embed = openai_embed,
+		chat = opencode_chat,
+		stream = opencode_chat_stream,
+		list_models = opencode_list_models,
 	}
 }
 

@@ -91,7 +91,7 @@ make_provider_by_id :: proc(id: string) -> (Provider, bool) {
 		return make_openai_compat(), true
 	case "openrouter":
 		return make_openrouter(), true
-	case "opencode":
+	case "opencode", "zen":
 		return make_opencode(), true
 	case "opencode-go":
 		return make_opencode_go(), true

@@ -7,6 +7,7 @@ NULLRAY_API_KEY when the vendor-specific key was only present pre-scrub.
 
 package provider
 
+import "base:runtime"
 import "core:os"
 import "core:strings"
 import "core:sync"
@@ -24,11 +25,11 @@ cache_api_keys_from_env :: proc() {
 	sync.mutex_lock(&g_key_cache_mu)
 	defer sync.mutex_unlock(&g_key_cache_mu)
 	if g_key_cache == nil {
-		g_key_cache = make(map[string]string)
+		g_key_cache = make(map[string]string, 0, runtime.heap_allocator())
 	} else {
 		for k, v in g_key_cache {
-			delete(k)
-			delete(v)
+			delete(k, runtime.heap_allocator())
+			delete(v, runtime.heap_allocator())
 		}
 		clear(&g_key_cache)
 	}
@@ -57,7 +58,7 @@ cache_api_keys_from_env :: proc() {
 	}
 	for e in envs {
 		if v, ok := os.lookup_env(e, context.temp_allocator); ok && len(strings.trim_space(v)) > 0 {
-			g_key_cache[strings.clone(e)] = strings.clone(strings.trim_space(v))
+			g_key_cache[strings.clone(e, runtime.heap_allocator())] = strings.clone(strings.trim_space(v), runtime.heap_allocator())
 		}
 	}
 }

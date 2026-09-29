@@ -5,6 +5,7 @@ Model output quirks applied once on final Chat_Response before speculate handoff
 
 package provider
 
+import "base:runtime"
 import "core:fmt"
 import "core:os"
 import "core:strings"
@@ -62,7 +63,7 @@ quirk_load_config :: proc() {
 		return
 	}
 	quirk_cfg_loaded = true
-	quirk_cfg.enabled = make(map[string]bool)
+	quirk_cfg.enabled = make(map[string]bool, 0, runtime.heap_allocator())
 	v, ok := os.lookup_env(constants.ENV_QUIRKS, context.temp_allocator)
 	if !ok || len(strings.trim_space(v)) == 0 {
 		quirk_cfg.mode = .Default

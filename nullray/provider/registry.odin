@@ -99,6 +99,8 @@ normalize_provider_id :: proc(id: string, allocator := context.temp_allocator) -
 		return "openai"
 	case "claude":
 		return "anthropic"
+	case "zen", "opencode-zen":
+		return "opencode"
 	case "google", "google-gemini":
 		return "gemini"
 	case "azure-openai", "azure_openai":

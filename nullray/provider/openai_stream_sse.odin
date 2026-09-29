@@ -20,6 +20,7 @@ stream_accum_reset :: proc(accum: ^Stream_Accum) {
 	destroy_tool_calls(accum.tool_calls[:])
 	delete(accum.tool_calls)
 	delete(accum.tool_sealed)
+	delete(accum.block_tool)
 	delete(accum.err)
 	delete(accum.finish)
 	delete(accum.model)

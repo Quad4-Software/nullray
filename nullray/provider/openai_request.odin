@@ -15,6 +15,8 @@ append_provider_headers :: proc(headers: ^[dynamic]string, p: ^Provider, session
 	if len(p.api_key) > 0 {
 		if p.id == "azure" {
 			append(headers, fmt.tprintf("api-key: %s", p.api_key))
+		} else if p.id == "anthropic" {
+			append(headers, fmt.tprintf("x-api-key: %s", p.api_key))
 		} else {
 			append(headers, fmt.tprintf("Authorization: Bearer %s", p.api_key))
 		}

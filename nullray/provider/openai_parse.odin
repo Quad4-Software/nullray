@@ -206,6 +206,18 @@ parse_usage_value :: proc(v: json.Value) -> Usage {
 			u.reasoning_tokens = json_int_field(details, "reasoning_tokens")
 		}
 	}
+	if details_v, dok := obj["prompt_tokens_details"]; dok {
+		if details, ok2 := details_v.(json.Object); ok2 {
+			u.cache_read_tokens = json_int_field(details, "cached_tokens")
+			u.cache_write_tokens = json_int_field(details, "cache_creation_tokens")
+		}
+	}
+	if u.cache_read_tokens == 0 {
+		u.cache_read_tokens = json_int_field(obj, "cache_read_input_tokens")
+	}
+	if u.cache_write_tokens == 0 {
+		u.cache_write_tokens = json_int_field(obj, "cache_creation_input_tokens")
+	}
 	if cost, cok := json_float_field_ok(obj, "cost"); cok {
 		u.cost_usd = cost
 		u.cost_known = true

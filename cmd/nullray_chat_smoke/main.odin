@@ -64,7 +64,7 @@ main :: proc() {
 
 	s: session.Session
 	session.session_init(&s)
-	defer session.session_destroy(&s)
+	defer _ = session.session_destroy(&s)
 	s.tools_registry = &tools_reg
 	s.tools_enabled = false
 	s.persist = false

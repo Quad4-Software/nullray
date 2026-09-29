@@ -9,6 +9,7 @@ import "core:testing"
 test_parse_usage_openai_shape :: proc(t: ^testing.T) {
 	doc, err := json.parse_string(`{"prompt_tokens":10,"completion_tokens":4,"total_tokens":14}`, .JSON)
 	testing.expect(t, err == .None)
+	defer json.destroy_value(doc)
 	u := parse_usage_value(doc)
 	testing.expect_value(t, u.prompt_tokens, 10)
 	testing.expect_value(t, u.completion_tokens, 4)
@@ -19,6 +20,7 @@ test_parse_usage_openai_shape :: proc(t: ^testing.T) {
 test_parse_usage_empty_object :: proc(t: ^testing.T) {
 	doc, err := json.parse_string(`{}`, .JSON)
 	testing.expect(t, err == .None)
+	defer json.destroy_value(doc)
 	u := parse_usage_value(doc)
 	testing.expect_value(t, u.prompt_tokens, 0)
 	testing.expect_value(t, u.completion_tokens, 0)
@@ -36,6 +38,7 @@ test_parse_openai_chat_bad_json :: proc(t: ^testing.T) {
 test_parse_usage_alt_names :: proc(t: ^testing.T) {
 	doc, err := json.parse_string(`{"input_tokens":8,"output_tokens":2}`, .JSON)
 	testing.expect(t, err == .None)
+	defer json.destroy_value(doc)
 	u := parse_usage_value(doc)
 	testing.expect_value(t, u.prompt_tokens, 8)
 	testing.expect_value(t, u.completion_tokens, 2)
@@ -46,6 +49,7 @@ test_parse_usage_alt_names :: proc(t: ^testing.T) {
 test_parse_usage_with_cost :: proc(t: ^testing.T) {
 	doc, err := json.parse_string(`{"prompt_tokens":10,"completion_tokens":4,"total_tokens":14,"cost":0.0012}`, .JSON)
 	testing.expect(t, err == .None)
+	defer json.destroy_value(doc)
 	u := parse_usage_value(doc)
 	testing.expect_value(t, u.prompt_tokens, 10)
 	testing.expect(t, u.cost_known)

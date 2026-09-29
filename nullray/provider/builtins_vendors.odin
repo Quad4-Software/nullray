@@ -43,17 +43,33 @@ make_compat_named :: proc(
 	}
 }
 
+// Anthropic speaks Messages, not chat/completions. /v1/models shares the
+// OpenAI list shape so the generic parser works.
 make_anthropic :: proc(base_url := "", api_key := "", model := "") -> Provider {
-	return make_compat_named(
-		"anthropic",
-		"Anthropic",
-		constants.DEFAULT_ANTHROPIC_BASE,
-		constants.DEFAULT_MODEL_ANTHROPIC,
-		constants.ENV_ANTHROPIC_KEY,
-		base_url,
-		api_key,
-		model,
-	)
+	base := base_url
+	if len(base) == 0 {
+		base = constants.DEFAULT_ANTHROPIC_BASE
+	} else {
+		base = normalize_openai_base(base)
+	}
+	key := api_key
+	if len(key) == 0 {
+		key = lookup_api_key_env(constants.ENV_ANTHROPIC_KEY, constants.ENV_API_KEY)
+	}
+	m := model
+	if len(m) == 0 {
+		m = constants.DEFAULT_MODEL_ANTHROPIC
+	}
+	return Provider{
+		id = "anthropic",
+		name = "Anthropic",
+		base_url = strings.clone(base),
+		api_key = strings.clone(key),
+		default_model = strings.clone(m),
+		chat = anthropic_chat,
+		stream = anthropic_chat_stream,
+		list_models = openai_list_models,
+	}
 }
 
 make_gemini :: proc(base_url := "", api_key := "", model := "") -> Provider {

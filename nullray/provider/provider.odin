@@ -73,12 +73,16 @@ Chat_Response :: struct {
 }
 
 Usage :: struct {
-	prompt_tokens:     int,
-	completion_tokens: int,
-	total_tokens:      int,
-	reasoning_tokens:  int,
-	cost_usd:          f64,
-	cost_known:        bool,
+	prompt_tokens:      int,
+	completion_tokens:  int,
+	total_tokens:       int,
+	reasoning_tokens:   int,
+	// Cache hits and writes, where the provider reports them (Anthropic,
+	// OpenRouter). prompt_tokens still counts them so cost stays right.
+	cache_read_tokens:  int,
+	cache_write_tokens: int,
+	cost_usd:           f64,
+	cost_known:         bool,
 }
 
 Model_Info :: struct {
@@ -89,6 +93,12 @@ Model_Info :: struct {
 	reasoning_default_on: bool,
 	reasoning_mandatory:  bool,
 	has_reasoning_meta:   bool,
+	// Catalog enrichment (models.dev). Zero means unknown.
+	context_limit:        int,
+	output_limit:         int,
+	cost_in:              f64,
+	cost_out:             f64,
+	has_cost:             bool,
 }
 
 Delta_Kind :: enum {
