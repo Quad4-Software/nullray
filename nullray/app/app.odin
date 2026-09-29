@@ -31,6 +31,9 @@ App :: struct {
 	tabs:           [dynamic]Tab,
 	active_tab:     int,
 	tab_x_prefix:   bool,
+	tab_hits:       [dynamic]Tab_Hit,
+	tab_plus_x:     int,
+	tab_scroll:     int,
 	subagents:      subagent.Runtime,
 	input:          strings.Builder,
 	cursor:         int,
@@ -205,6 +208,7 @@ app_destroy :: proc(a: ^App) {
 		free(t.sess)
 	}
 	delete(a.tabs)
+	delete(a.tab_hits)
 	a.session = nil
 	mcp.registry_destroy(&a.mcp_reg)
 	tools.registry_destroy(&a.tools_reg)

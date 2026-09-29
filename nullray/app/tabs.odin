@@ -28,6 +28,13 @@ Tab :: struct {
 	busy_before:  bool,
 }
 
+// Click region for a tab label, filled during draw.
+Tab_Hit :: struct {
+	i:  int,
+	x0: int,
+	x1: int,
+}
+
 app_session_alloc :: proc(a: ^App) -> ^session.Session {
 	s := new(session.Session)
 	session.session_init(s)
@@ -186,23 +193,12 @@ app_poll_tabs :: proc(a: ^App) -> bool {
 	return changed
 }
 
-// Columns mirror app_draw_tabs: one indicator + label + trailing space + separator.
-app_tab_at_x :: proc(a: ^App, mx: int) -> int {
-	x := 1
-	for tab, i in a.tabs {
-		label := tab.sess.name
-		if len(label) == 0 {
-			label = "default"
+// Hit-test the strip using the boxes recorded by the last draw.
+app_tab_hit :: proc(a: ^App, mx: int) -> int {
+	for h in a.tab_hits {
+		if mx >= h.x0 && mx < h.x1 {
+			return h.i
 		}
-		cols := ui.string_cols(label)
-		if cols > TAB_LABEL_MAX {
-			cols = TAB_LABEL_MAX
-		}
-		w := cols + 3
-		if mx >= x && mx < x + w {
-			return i
-		}
-		x += w
 	}
 	return -1
 }
@@ -321,33 +317,89 @@ app_tabs_restore :: proc(a: ^App) {
 	a.active_tab = active
 }
 
-// Horizontal strip at row y: busy tabs spin, finished-away tabs flag done.
+@(private)
+tab_label :: proc(name: string) -> string {
+	if len(name) == 0 {
+		return "default"
+	}
+	if ui.string_cols(name) > TAB_LABEL_MAX {
+		return fmt.tprintf("%.*s…", TAB_LABEL_MAX - 1, name)
+	}
+	return name
+}
+
+// Display width of one strip cell: indicator + label + space + separator.
+@(private)
+tab_cell_w :: proc(name: string) -> int {
+	return min(ui.string_cols(name), TAB_LABEL_MAX) + 3
+}
+
+// Horizontal strip at row y: busy tabs spin, finished-away tabs flag done,
+// a trailing + opens a new tab, and ‹/› mark scroll overflow. The window
+// scrolls to keep the active tab visible.
 app_draw_tabs :: proc(buf: ^ui.Buffer, a: ^App, y: int) {
 	t := ui.theme()
-	x := 0
-	if x >= buf.width {
+	clear(&a.tab_hits)
+	a.tab_plus_x = -1
+	n := len(a.tabs)
+	if n == 0 {
 		return
 	}
-	ui.buffer_text(buf, x, y, " ", t.muted, t.status_bg)
-	x += 1
-	for tab, i in a.tabs {
-		if x >= buf.width - 4 {
-			ui.buffer_text(buf, x, y, "…", t.muted, t.status_bg)
-			x += 2
+	if a.tab_scroll > a.active_tab {
+		a.tab_scroll = a.active_tab
+	}
+	if a.tab_scroll >= n {
+		a.tab_scroll = n - 1
+	}
+	scroll := max(a.tab_scroll, 0)
+
+	PLUS_W :: 4 // " +" plus separator room
+	EDGE_W :: 2 // "‹ " or " ›"
+	avail := max(buf.width - 1 - PLUS_W, 4)
+
+	// Advance the window until the active tab is visible.
+	for scroll < a.active_tab {
+		lmark := scroll > 0 ? EDGE_W : 0
+		x := lmark
+		i := scroll
+		for i < n {
+			rmark := i < n - 1 ? EDGE_W : 0
+			w := tab_cell_w(a.tabs[i].sess.name)
+			if x + w + rmark > avail {
+				break
+			}
+			x += w
+			i += 1
+		}
+		if a.active_tab < i {
 			break
 		}
-		label := tab.sess.name
-		if len(label) == 0 {
-			label = "default"
-		}
-		if ui.string_cols(label) > TAB_LABEL_MAX {
-			label = fmt.tprintf("%.*s…", TAB_LABEL_MAX - 1, label)
-		}
+		scroll += 1
+	}
+	a.tab_scroll = scroll
+
+	x := 0
+	ui.buffer_text(buf, x, y, " ", t.muted, t.status_bg)
+	x += 1
+	if scroll > 0 {
+		ui.buffer_text(buf, x, y, "‹", t.muted, t.status_bg)
+		x += EDGE_W
+	}
+	for i := scroll; i < n; i += 1 {
+		tab := a.tabs[i]
+		label := tab_label(tab.sess.name)
 		indicator := " "
 		if tab.sess.busy {
 			indicator = ui.spinner_frame(&a.spinner)
 		} else if tab.done_pending {
 			indicator = "●"
+		}
+		w := ui.string_cols(label) + 3
+		rmark := i < n - 1 ? EDGE_W : 0
+		if x + w + rmark > buf.width - PLUS_W {
+			ui.buffer_text(buf, x, y, "›", t.muted, t.status_bg)
+			x += EDGE_W
+			break
 		}
 		fg := t.muted
 		bg := t.status_bg
@@ -359,11 +411,19 @@ app_draw_tabs :: proc(buf: ^ui.Buffer, a: ^App, y: int) {
 			fg = t.accent
 		}
 		text := fmt.tprintf("%s%s ", indicator, label)
+		append(&a.tab_hits, Tab_Hit{i = i, x0 = x, x1 = x + w})
 		ui.buffer_text(buf, x, y, text, fg, bg, style)
 		x += ui.string_cols(text)
 		ui.buffer_text(buf, x, y, "│", t.border, t.status_bg)
 		x += 1
 	}
+	plus_fg := t.accent
+	if n >= TAB_MAX {
+		plus_fg = t.muted
+	}
+	a.tab_plus_x = x
+	ui.buffer_text(buf, x, y, " +", plus_fg, t.status_bg, {.Bold})
+	x += 2
 	for x < buf.width {
 		ui.buffer_put(buf, x, y, ' ', t.fg, t.status_bg, {})
 		x += 1

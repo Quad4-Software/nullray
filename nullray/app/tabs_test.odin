@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: 0BSD
 package app
 
+import "core:fmt"
 import "core:testing"
 import "nullray:session"
 import "nullray:ui"
@@ -40,10 +41,46 @@ test_tab_at_x_hit_map :: proc(t: ^testing.T) {
 	s2.name = "beta"
 	append(&a.tabs, Tab{sess = s2})
 
-	testing.expect_value(t, app_tab_at_x(&a, 1), 0)
-	testing.expect_value(t, app_tab_at_x(&a, 4), 0)
-	testing.expect_value(t, app_tab_at_x(&a, 9), 1)
-	testing.expect_value(t, app_tab_at_x(&a, 60), -1)
+	ui.theme_set(ui.INK)
+	buf := ui.buffer_create(80, 24)
+	defer ui.buffer_destroy(&buf)
+	app_draw_tabs(&buf, &a, 1)
+
+	testing.expect_value(t, app_tab_hit(&a, 1), 0)
+	testing.expect_value(t, app_tab_hit(&a, 4), 0)
+	testing.expect_value(t, app_tab_hit(&a, 9), 1)
+	testing.expect_value(t, app_tab_hit(&a, 60), -1)
+	testing.expect(t, a.tab_plus_x > 0)
+}
+
+@(test)
+test_tab_strip_overflow_keeps_active_visible :: proc(t: ^testing.T) {
+	a, loop := test_app_minimal()
+	_ = loop
+	defer test_app_destroy_minimal(&a)
+	a.session.name = "firsttab"
+	for i in 0 ..< 9 {
+		s := new(session.Session)
+		s.name = fmt.tprintf("session-%d", i)
+		append(&a.tabs, Tab{sess = s})
+	}
+	a.active_tab = 9
+
+	ui.theme_set(ui.INK)
+	buf := ui.buffer_create(40, 24)
+	defer ui.buffer_destroy(&buf)
+	app_draw_tabs(&buf, &a, 1)
+
+	// Active tab must be reachable: its hit box exists and scroll advanced.
+	testing.expect(t, a.tab_scroll > 0)
+	found := false
+	for h in a.tab_hits {
+		if h.i == 9 {
+			found = true
+		}
+	}
+	testing.expect(t, found)
+	testing.expect(t, a.tab_plus_x > 0)
 }
 
 @(test)
