@@ -40,6 +40,18 @@
     user-select: all;
     cursor: pointer;
   }
+  .src {
+    color: #3a3a44;
+    font-family: monospace;
+    font-size: .8rem;
+    text-decoration: none;
+    letter-spacing: .15em;
+  }
+  .src:hover, .src:focus-visible {
+    color: #8b949e;
+    text-decoration: underline;
+    outline: none;
+  }
   .foot {
     position: fixed;
     left: 0;
@@ -77,6 +89,7 @@
   <canvas id="c" role="img" aria-label="nullray"></canvas>
   <canvas id="s" role="img" aria-label="Simple, Lightweight, Fast"></canvas>
   <p class="cmd" title="click to copy">&gt; curl -fsSL https://nullray.xyz/install | sh</p>
+  <a class="src" href="https://github.com/Quad4-Software/nullray" rel="noopener">source</a>
 </div>
 <div class="foot">
   <canvas id="f" role="img" aria-label="Terminal Coding Agent"></canvas>
