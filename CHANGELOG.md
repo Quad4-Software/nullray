@@ -4,6 +4,8 @@ Notable changes for nullray.
 
 ## [Unreleased]
 
+## [0.5.0] - 2026-09-29
+
 ### Added
 - Session tabs like opencode: a strip under the title bar shows every open session. /new and /resume open new tabs, /tab list|new|open name|next|prev|close|N manages them, ctrl-x is a prefix (n new, w close, arrows switch), f4 and shift-tab cycle, and tabs are clickable including a + button. The strip scrolls with ‹ › overflow markers to keep the active tab visible (cap 16). Background tabs keep running and flag when done. The busy indicator now shows elapsed seconds and the live tool. Tab layout persists across restarts via open_tabs.
 - Image, audio, and video attachments. In the TUI, /attach on a media file queues it for the next message; /attach lists the queue and /attach clear empties it. Print mode adds repeatable --image, --audio, --video, and --media flags. Older turns keep a text marker and stop resending the payload after NULLRAY_MEDIA_TURNS (default 2). NULLRAY_MEDIA=0 disables, NULLRAY_MEDIA_MAX caps file size (default 15MB).
