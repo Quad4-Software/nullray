@@ -6,6 +6,7 @@ Edit-mode verify gates at assistant-done and step-budget exits.
 package agent
 
 import "core:fmt"
+import "core:strings"
 import "nullray:constants"
 import "nullray:provider"
 import "nullray:store"
@@ -27,6 +28,7 @@ turn_verify_on_assistant_done :: proc(
 	had_writes: bool,
 	usage_sum: provider.Usage,
 	verify_fails: ^int,
+	test_nudged: ^bool,
 	harness: Harness_Metrics,
 	allocator := context.allocator,
 ) -> (outcome: Turn_Verify_Outcome, result: Run_Result) {
@@ -36,8 +38,27 @@ turn_verify_on_assistant_done :: proc(
 		return .Skipped, {}
 	}
 	vcmd, voff := resolve_verify_command(cfg.plan_verify, context.temp_allocator)
-	if voff || len(vcmd) == 0 {
+	if voff {
 		return .Skipped, {}
+	}
+	if len(vcmd) == 0 ||
+	   strings.has_prefix(strings.trim_space(vcmd), "verify skipped:") {
+		// Verifier's law: a task with no mechanical check stays unverifiable.
+		// Nudge once for a reproduction test or a concrete check command
+		// instead of silently skipping verification.
+		if test_nudged == nil || test_nudged^ {
+			return .Skipped, {}
+		}
+		test_nudged^ = true
+		emit(cfg, .Status, "verify: no verifier detected, asking for a check")
+		nudge := fmt.aprintf(
+			"nullray verify: no test command was detected (no plan Verify, AGENTS Verify, Makefile test target, or project test runner). "+
+			"Before declaring done, write a minimal test or check that fails without your change and passes with it, then run it and report the result. "+
+			"If no check is possible, state why in one line.",
+			allocator = allocator,
+		)
+		append(msgs, provider.Message{role = .User, content = nudge})
+		return .Continue, {}
 	}
 	vargs := fmt.aprintf(`{{"command":%q}}`, vcmd, allocator = context.temp_allocator)
 	emit(cfg, .Status, fmt.tprintf("verify: %s", vcmd))

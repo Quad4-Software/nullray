@@ -54,7 +54,7 @@ SLASH_COMMANDS := []Slash_Command{
 	{"temp", "/temp [0-2|off]", "sampling temperature override", slash_cmd_temp},
 	{"top_p", "/top_p [0-1|off]", "sampling top_p override", slash_cmd_top_p},
 	{"model", "/model [NAME|lock|unlock]", "show or set model; lock freezes agent switches", slash_cmd_model},
-	{"models", "/models", "list approved models and roles", slash_cmd_models},
+	{"models", "/models [policy]", "list provider models (policy: /models policy)", slash_cmd_models},
 	{"agents", "/agents [off|on|list|knowledge|apply ...]", "subagent roster and controls", slash_cmd_agents},
 	{"approve", "/approve", "approve plan contract and switch to edit", slash_cmd_approve},
 	{"status", "/status", "show mode, plan, verify, tokens, context chars", slash_cmd_status},

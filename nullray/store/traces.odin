@@ -31,6 +31,35 @@ ensure_traces_dir :: proc() -> bool {
 	return true
 }
 
+// Classify a failing verify run into a coarse TRAIL-style bucket so evals
+// and skill drafts can count failure classes instead of vibes.
+trace_classify :: proc(output: string) -> string {
+	l := strings.to_lower(output, context.temp_allocator)
+	if strings.contains(l, "command not found") ||
+	   strings.contains(l, "no such file or directory") ||
+	   strings.contains(l, "permission denied") ||
+	   strings.contains(l, "not installed") {
+		return "execution.environment"
+	}
+	if strings.contains(l, "timed out") || strings.contains(l, "timeout") ||
+	   strings.contains(l, "deadline exceeded") {
+		return "execution.timeout"
+	}
+	if strings.contains(l, "segfault") || strings.contains(l, "panic") ||
+	   strings.contains(l, "assertion failed") || strings.contains(l, "sigsegv") {
+		return "execution.crash"
+	}
+	if strings.contains(l, "syntax error") || strings.contains(l, "compile") ||
+	   strings.contains(l, "undeclared name") || strings.contains(l, "type mismatch") {
+		return "execution.build"
+	}
+	if strings.contains(l, "assert") || strings.contains(l, "expected") ||
+	   strings.contains(l, "failed") || strings.contains(l, " fail") {
+		return "verify.test_failure"
+	}
+	return "verify.failure"
+}
+
 /*
 Write a redacted verify-fail trace and an optional skill draft for human review.
 Returns owned path to the trace file.
@@ -51,9 +80,10 @@ trace_store_verify_fail :: proc(
 		redacted = redacted[:8000]
 	}
 	body := fmt.tprintf(
-		"# verify fail\n\ncommand: %s\nfail: %d\n\n## output\n\n%s\n",
+		"# verify fail\n\ncommand: %s\nfail: %d\ncategory: %s\n\n## output\n\n%s\n",
 		cmd,
 		fail_n,
+		trace_classify(output),
 		redacted,
 	)
 	_ = os.write_entire_file(trace_path, transmute([]u8)body)

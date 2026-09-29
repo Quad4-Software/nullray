@@ -68,6 +68,7 @@ run_turn :: proc(req: Run_Request, cfg: Config, allocator := context.allocator) 
 	prev_asst := ""
 	asst_streak := 0
 	verify_fails := cfg.verify_fail_count
+	verify_test_nudged := false
 	had_writes := false
 	had_tools := false
 	finalize_nudged := false
@@ -242,6 +243,7 @@ run_turn :: proc(req: Run_Request, cfg: Config, allocator := context.allocator) 
 				had_writes,
 				usage_sum,
 				&verify_fails,
+				&verify_test_nudged,
 				harness,
 				allocator,
 			)

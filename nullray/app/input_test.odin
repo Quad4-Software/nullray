@@ -28,12 +28,15 @@ test_app_minimal :: proc() -> (a: App, loop: ui.Loop) {
 
 @(private)
 test_app_destroy_minimal :: proc(a: ^App) {
+	// Tests assign literal strings to Session fields, so a real
+	// session_destroy would bad-free them; free the struct only.
 	for t in a.tabs {
 		if t.sess != a.session {
 			free(t.sess)
 		}
 	}
 	delete(a.tabs)
+	delete(a.tab_hits)
 	free(a.session)
 	strings.builder_destroy(&a.input)
 	app_toasts_destroy(a)

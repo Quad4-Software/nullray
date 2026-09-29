@@ -42,7 +42,16 @@ app_improve_prompt :: proc(a: ^App) {
 	job.prov.base_url = strings.clone(p.base_url)
 	job.prov.api_key = strings.clone(p.api_key)
 	job.prov.default_model = strings.clone(p.default_model)
-	thread.run_with_data(job, improve_job)
+	th := thread.create_and_start_with_data(job, improve_job)
+	if th == nil {
+		delete(job.draft)
+		provider.provider_destroy(&job.prov)
+		free(job)
+		a.improving = false
+		session.session_set_status(a.session, "improve failed to start")
+		return
+	}
+	a.improve_worker = th
 }
 
 Improve_Job :: struct {

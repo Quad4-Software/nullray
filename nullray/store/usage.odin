@@ -25,6 +25,8 @@ Turn_Metrics :: struct {
 	completion_tokens:  int,
 	total_tokens:       int,
 	reasoning_tokens:   int,
+	cache_read_tokens:  int,
+	cache_write_tokens: int,
 	input_chars:        int,
 	cost_usd:           f64,
 	cost_known:         bool,
@@ -46,6 +48,7 @@ Session_Metrics :: struct {
 	completion_tokens:     int,
 	total_tokens:          int,
 	reasoning_tokens:      int,
+	cache_read_tokens:     int,
 	cost_usd:              f64,
 	cost_known:            bool,
 	peak_input_chars:      int,
@@ -123,7 +126,7 @@ append_turn_metrics :: proc(session_jsonl_path: string, turn: Turn_Metrics) -> b
 		ts = time.time_to_unix(time.now())
 	}
 	line := fmt.tprintf(
-		`{{"ts":%d,"turn":%d,"model":%q,"agent_id":%q,"prompt_tokens":%d,"completion_tokens":%d,"total_tokens":%d,"reasoning_tokens":%d,"input_chars":%d,"cost_usd":%.6f,"cost_known":%v,"stopped":%q,"harness_calls":%d,"harness_peak_chars":%d,"harness_stubbed":%d,"harness_artifacts":%d,"harness_clear":%d,"harness_compact":%d,"harness_midturn":%d,"harness_writeback":%d,"harness_tools_json":%d}}`+"\n",
+		`{{"ts":%d,"turn":%d,"model":%q,"agent_id":%q,"prompt_tokens":%d,"completion_tokens":%d,"total_tokens":%d,"reasoning_tokens":%d,"cache_read":%d,"cache_write":%d,"input_chars":%d,"cost_usd":%.6f,"cost_known":%v,"stopped":%q,"harness_calls":%d,"harness_peak_chars":%d,"harness_stubbed":%d,"harness_artifacts":%d,"harness_clear":%d,"harness_compact":%d,"harness_midturn":%d,"harness_writeback":%d,"harness_tools_json":%d}}`+"\n",
 		ts,
 		turn.turn,
 		turn.model,
@@ -132,6 +135,8 @@ append_turn_metrics :: proc(session_jsonl_path: string, turn: Turn_Metrics) -> b
 		turn.completion_tokens,
 		turn.total_tokens,
 		turn.reasoning_tokens,
+		turn.cache_read_tokens,
+		turn.cache_write_tokens,
 		turn.input_chars,
 		turn.cost_usd,
 		turn.cost_known,
@@ -186,6 +191,8 @@ load_session_metrics :: proc(session_jsonl_path: string, allocator := context.al
 		ct := json_int_field(obj, "completion_tokens")
 		tt := json_int_field(obj, "total_tokens")
 		rt := json_int_field(obj, "reasoning_tokens")
+		cr := json_int_field(obj, "cache_read")
+		cw := json_int_field(obj, "cache_write")
 		if tt == 0 {
 			tt = pt + ct
 		}
@@ -204,6 +211,7 @@ load_session_metrics :: proc(session_jsonl_path: string, allocator := context.al
 		m.completion_tokens += ct
 		m.total_tokens += tt
 		m.reasoning_tokens += rt
+		m.cache_read_tokens += cr + cw
 		if ic > m.peak_input_chars {
 			m.peak_input_chars = ic
 		}

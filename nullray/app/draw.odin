@@ -66,8 +66,9 @@ app_draw :: proc(buf: ^ui.Buffer, user: rawptr) {
 		if !a.session.persist {
 			right = fmt.tprintf("%s · ephemeral", right)
 		}
-		if !a.hide_sensitive && len(a.credits_label) > 0 {
-			right = fmt.tprintf("%s · %s", right, a.credits_label)
+		if cl := app_credits_label(a); !a.hide_sensitive && len(cl) > 0 {
+			right = fmt.tprintf("%s · %s", right, cl)
+			delete(cl)
 		}
 		info_x := max(count_end + 1, mid_x)
 		ui.buffer_text_clip(buf, info_x, 0, a.help_btn_x - 1, right, t.muted, t.status_bg)

@@ -162,12 +162,6 @@ slash_cmd_model :: proc(a: ^App, args: string) {
 	session.session_set_status(a.session, fmt.tprintf("model %s", resolved))
 }
 
-slash_cmd_models :: proc(a: ^App, args: string) {
-	_ = args
-	text := subagent.policy_list_text(context.temp_allocator)
-	session.session_set_status(a.session, text)
-}
-
 slash_cmd_agents :: proc(a: ^App, args: string) {
 	rest := strings.trim_space(args)
 	parts := strings.fields(rest, context.temp_allocator)

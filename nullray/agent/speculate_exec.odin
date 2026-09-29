@@ -5,7 +5,10 @@ Speculative tool handoff helpers for run_turn.
 
 package agent
 
+import "core:strings"
+
 import "nullray:hooks"
+import "nullray:memory"
 import "nullray:provider"
 import "nullray:tools"
 
@@ -62,6 +65,12 @@ tool_exec_maybe_speculate :: proc(
 				harness.speculate_hit += 1
 				harness.speculate_saved_ms += int(take.duration_ms)
 			}
+			if recall := memory.recall_for_tool(c.name, c.arguments, allocator); len(recall) > 0 {
+				merged := strings.concatenate({take.result, "\n", recall}, allocator)
+				delete(take.result, allocator)
+				delete(recall, allocator)
+				take.result = merged
+			}
 			return take.result, take.err, !take.blocked_pre
 		}
 		if harness != nil && tools.speculate_hash_miss(pool, kid, c.name, c.arguments) {
@@ -80,6 +89,14 @@ tool_exec_maybe_speculate :: proc(
 	}
 	delete(pre.message)
 	tool_result, tool_err = tools.run(reg, c.name, c.arguments, mode_s, allocator, effective_allow)
+	// Scoped memory lands right after the action that triggered it. The
+	// lesson rides the tool result into context for the rest of the turn.
+	if recall := memory.recall_for_tool(c.name, c.arguments, allocator); len(recall) > 0 {
+		merged := strings.concatenate({tool_result, "\n", recall}, allocator)
+		delete(tool_result, allocator)
+		delete(recall, allocator)
+		tool_result = merged
+	}
 	return tool_result, tool_err, true
 }
 

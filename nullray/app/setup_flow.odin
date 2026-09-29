@@ -56,6 +56,8 @@ setup_load_models :: proc(a: ^App) {
 		models, err = provider.lmstudio_list_models_timeout(&p, 8)
 	case "llamacpp":
 		models, err = provider.llamacpp_list_models_timeout(&p, 8)
+	case "opencode", "opencode-go":
+		models, err = provider.opencode_list_models(&p)
 	case:
 		models, err = provider.openai_list_models_timeout(&p, 15)
 	}

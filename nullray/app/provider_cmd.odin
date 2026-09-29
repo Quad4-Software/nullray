@@ -42,8 +42,11 @@ app_activate_provider :: proc(a: ^App) {
 	msg := fmt.tprintf("provider %s · %s", p.name, p.default_model)
 	if !ready {
 		msg = fmt.tprintf("%s · %s · /setup", msg, provider.provider_readiness_label(p))
-	} else if !a.hide_sensitive && len(a.credits_label) > 0 {
-		msg = fmt.tprintf("%s · %s", msg, a.credits_label)
+	} else if !a.hide_sensitive {
+		if cl := app_credits_label(a); len(cl) > 0 {
+			msg = fmt.tprintf("%s · %s", msg, cl)
+			delete(cl)
+		}
 	}
 	session.session_set_status(a.session, msg)
 	app_mark_dirty(a)

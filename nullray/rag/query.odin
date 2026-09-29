@@ -6,6 +6,9 @@ Cosine query and hybrid lexical merge.
 package rag
 
 import "core:fmt"
+import "core:os"
+import "core:path/filepath"
+import "core:time"
 import "core:math"
 import "core:slice"
 import "core:strings"
@@ -43,6 +46,16 @@ cosine :: proc(a, b: []f32) -> f32 {
 }
 
 Query :: proc(q: string, top_k: int = constants.RAG_TOP_K, allocator := context.allocator) -> (
+	hits: [dynamic]Hit,
+	err: string,
+) {
+	return query_scoped(q, top_k, "", allocator)
+}
+
+// Scoped query limits hits to chunks whose source starts with source_prefix
+// ("code:" for the live tree lane). Code hits carry a stale marker when the
+// file on disk changed after indexing.
+query_scoped :: proc(q: string, top_k: int, source_prefix: string, allocator := context.allocator) -> (
 	hits: [dynamic]Hit,
 	err: string,
 ) {
@@ -107,6 +120,9 @@ Query :: proc(q: string, top_k: int = constants.RAG_TOP_K, allocator := context.
 		if i >= len(vectors) {
 			break
 		}
+		if len(source_prefix) > 0 && !strings.has_prefix(chunks[i].source, source_prefix) {
+			continue
+		}
 		s := cosine(qvec, vectors[i])
 		if s < f32(constants.RAG_MIN_SCORE) {
 			continue
@@ -125,17 +141,38 @@ Query :: proc(q: string, top_k: int = constants.RAG_TOP_K, allocator := context.
 	}
 	for i in 0 ..< k {
 		c := chunks[scored[i].idx]
+		text := c.text
+		if len(source_prefix) > 0 && strings.has_prefix(c.source, CODE_SOURCE_PREFIX) {
+			if code_chunk_stale(c) {
+				text = fmt.tprintf("%s\n(file changed since index)", c.text)
+			}
+		}
 		append(
 			&hits,
 			Hit{
 				source = strings.clone(c.source, allocator),
 				key = strings.clone(c.key, allocator),
-				text = strings.clone(c.text, allocator),
+				text = strings.clone(text, allocator),
 				score = scored[i].score,
 			},
 		)
 	}
 	return hits, ""
+}
+
+// True when the file behind a code chunk changed (or vanished) since index.
+@(private)
+code_chunk_stale :: proc(c: Chunk_Rec) -> bool {
+	root := workspace_root(context.temp_allocator)
+	abs, jerr := filepath.join({root, c.key}, context.temp_allocator)
+	if jerr != nil {
+		return true
+	}
+	info, serr := os.stat(abs, context.temp_allocator)
+	if serr != nil {
+		return true
+	}
+	return time.to_unix_seconds(info.modification_time) != c.updated
 }
 
 Lexical_Hit :: struct {

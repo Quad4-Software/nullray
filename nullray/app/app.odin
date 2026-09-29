@@ -8,6 +8,7 @@ package app
 import "core:fmt"
 import "core:strings"
 import "core:sync"
+import "core:thread"
 import "core:time"
 import "nullray:agent"
 import "nullray:config"
@@ -27,6 +28,7 @@ App :: struct {
 	registry:       provider.Registry,
 	tools_reg:      tools.Registry,
 	mcp_reg:        mcp.Registry,
+	models_sess:    ^session.Session,
 	session:        ^session.Session,
 	tabs:           [dynamic]Tab,
 	active_tab:     int,
@@ -52,13 +54,22 @@ App :: struct {
 	improve_undo:   string,
 	improving:      bool,
 	improve_gen:    u64,
+	improve_worker: ^thread.Thread,
 	improve_pending_mu: sync.Mutex,
 	improve_pending: bool,
 	improve_pending_gen: u64,
 	improve_pending_text: string,
 	improve_pending_err:  string,
+	models_busy:        bool,
+	models_worker:      ^thread.Thread,
+	models_pending_mu:  sync.Mutex,
+	models_pending:     bool,
+	models_text:        string,
+	models_err:         string,
 	pasting:        bool,
 	credits_busy:   bool,
+	credits_mu:     sync.Mutex,
+	credits_worker: ^thread.Thread,
 	splash_on:      bool,
 	splash_start:   time.Tick,
 	banner_sess:    int,
@@ -204,8 +215,9 @@ app_destroy :: proc(a: ^App) {
 	subagent.runtime_destroy(&a.subagents)
 	provider.registry_destroy(&a.registry)
 	for t in a.tabs {
-		session.session_destroy(t.sess)
-		free(t.sess)
+		if session.session_destroy(t.sess) {
+			free(t.sess)
+		}
 	}
 	delete(a.tabs)
 	delete(a.tab_hits)
@@ -213,10 +225,23 @@ app_destroy :: proc(a: ^App) {
 	mcp.registry_destroy(&a.mcp_reg)
 	tools.registry_destroy(&a.tools_reg)
 	strings.builder_destroy(&a.input)
-	delete(a.credits_label)
 	delete(a.improve_undo)
-	delete(a.improve_pending_text)
-	delete(a.improve_pending_err)
+	// Give in-flight background workers a beat to finish before freeing the
+	// fields they write. A worker still running keeps the memory (leak on
+	// exit) instead of dangling into a freed App.
+	improve_done := app_join_worker(&a.improve_worker, 800)
+	if improve_done {
+		delete(a.improve_pending_text)
+		delete(a.improve_pending_err)
+	}
+	models_done := app_join_worker(&a.models_worker, 800)
+	if models_done {
+		delete(a.models_text)
+		delete(a.models_err)
+	}
+	if app_join_worker(&a.credits_worker, 800) {
+		delete(a.credits_label)
+	}
 	app_setup_clear(a)
 	app_view_destroy(a)
 	app_toasts_destroy(a)
@@ -250,8 +275,11 @@ app_refresh_provider_status :: proc(a: ^App) {
 	)
 	if p.id == "openrouter" && len(p.api_key) == 0 {
 		status = "error: OPENROUTER_API_KEY missing in ~/.config/nullray/env"
-	} else if !a.hide_sensitive && len(a.credits_label) > 0 {
-		status = fmt.tprintf("%s · %s", status, a.credits_label)
+	} else if !a.hide_sensitive {
+		if cl := app_credits_label(a); len(cl) > 0 {
+			status = fmt.tprintf("%s · %s", status, cl)
+			delete(cl)
+		}
 	}
 	session.session_set_status(a.session, status)
 }
@@ -302,6 +330,9 @@ app_on_tick :: proc(user: rawptr) -> bool {
 		changed = true
 	}
 	if app_apply_improve_pending(a) {
+		changed = true
+	}
+	if app_apply_models_pending(a) {
 		changed = true
 	}
 	poll_changed := app_poll_tabs(a)

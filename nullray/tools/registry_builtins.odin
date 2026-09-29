@@ -99,7 +99,7 @@ registry_register_builtins :: proc(r: ^Registry) {
 	})
 	registry_register(r, Tool{
 		name = "memory_put",
-		description = "Store a durable project memory value",
+		description = "Store a durable project memory value. Scoped recall keys surface at the moment a tool runs: recall.path.<glob> matches file paths (** crosses directories), recall.cmd.<substr> matches shell commands, recall.tool.<name> matches a tool call",
 		schema_json = `{"type":"object","properties":{"key":{"type":"string"},"value":{"type":"string"}},"required":["key","value"]}`,
 		kind = .Write,
 		run = tool_memory_put,
@@ -141,15 +141,15 @@ registry_register_builtins :: proc(r: ^Registry) {
 	})
 	registry_register(r, Tool{
 		name = "rag_reindex",
-		description = "Rebuild the RAG index from project memory and retained artifacts",
-		schema_json = `{"type":"object","properties":{}}`,
+		description = "Rebuild the RAG index. scope=memory (default) covers project memory and retained artifacts; scope=code indexes the live tree when NULLRAY_RAG_CODE=1; scope=all does both",
+		schema_json = `{"type":"object","properties":{"scope":{"type":"string","description":"memory|code|all"}}}`,
 		kind = .Write,
 		run = tool_rag_reindex,
 	})
 	registry_register(r, Tool{
 		name = "rag_query",
-		description = "Semantic RAG query over indexed memory and artifacts",
-		schema_json = `{"type":"object","properties":{"query":{"type":"string"},"limit":{"type":"string"}},"required":["query"]}`,
+		description = "Semantic RAG query over indexed memory, artifacts, and code. scope=code limits hits to the live tree lane when indexed",
+		schema_json = `{"type":"object","properties":{"query":{"type":"string"},"limit":{"type":"string"},"scope":{"type":"string","description":"all|memory|code"}},"required":["query"]}`,
 		kind = .Read,
 		run = tool_rag_query,
 	})

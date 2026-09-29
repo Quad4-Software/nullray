@@ -54,6 +54,11 @@ app_handle_bind_action :: proc(a: ^App, ev: ui.Event, suggesting: bool) -> (quit
 		app_activate_provider(a)
 		return false, true
 	case .Compact:
+		if a.session.busy {
+			session.session_set_status(a.session, "busy · compact after the turn ends")
+			app_mark_dirty(a)
+			return false, true
+		}
 		p := provider.registry_active(&a.registry)
 		if session.session_compact_with_provider(a.session, p) {
 			app_mark_dirty(a)

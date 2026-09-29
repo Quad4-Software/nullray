@@ -10,6 +10,7 @@ import "nullray:constants"
 import "nullray:crash"
 import "nullray:elevate"
 import "nullray:http"
+import "nullray:notify"
 import "nullray:provider"
 import "nullray:run"
 import "nullray:sandbox"
@@ -276,6 +277,13 @@ run_print_mode :: proc(cli: ^Cli) -> int {
 	}
 	res := run.run_print(rcfg)
 	defer run.result_destroy(&res)
+	// A finished print run is the attention bottleneck fix from the
+	// parallel-agents literature: tell the user, then emit.
+	body := "print run finished"
+	if res.exit_code != 0 {
+		body = "print run failed"
+	}
+	notify.notify_send("nullray", body)
 	run.emit_result(rcfg, res)
 	return res.exit_code
 }

@@ -135,7 +135,7 @@ run_print :: proc(cfg: Config) -> Result {
 
 	s: session.Session
 	session.session_init(&s)
-	defer session.session_destroy(&s)
+	defer _ = session.session_destroy(&s)
 	_ = session.session_apply_saved_model(&s, &reg)
 	session.session_sticky_auto_provider(&s, &reg)
 	rag.bind_providers(&reg, provider.registry_active(&reg))
