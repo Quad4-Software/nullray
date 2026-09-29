@@ -4,6 +4,11 @@ Notable changes for nullray.
 
 ## [Unreleased]
 
+## [0.5.1] - 2026-09-29
+
+### Fixed
+- AppImage tool pin refreshed for the rotated upstream type2 runtime so the release jobs can fetch it again.
+
 ## [0.5.0] - 2026-09-29
 
 ### Added
