@@ -163,3 +163,18 @@ test_runtime_child_token_rollup :: proc(t: ^testing.T) {
 	testing.expect_value(t, runtime_take_child_tokens(&rt), 150)
 	testing.expect_value(t, runtime_take_child_tokens(&rt), 0)
 }
+
+@(test)
+test_session_bind_tls_roundtrip :: proc(t: ^testing.T) {
+	_, _, ok_before := session_bind()
+	testing.expect(t, !ok_before)
+	session_bind_set("/tmp/sess-a.jsonl", true)
+	defer session_bind_clear()
+	path, persist, ok := session_bind()
+	testing.expect(t, ok)
+	testing.expect(t, path == "/tmp/sess-a.jsonl")
+	testing.expect(t, persist)
+	session_bind_clear()
+	_, _, ok_after := session_bind()
+	testing.expect(t, !ok_after)
+}

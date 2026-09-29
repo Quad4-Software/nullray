@@ -58,6 +58,12 @@ chat_job :: proc(data: rawptr) {
 		free(args)
 	}
 
+	// Tool calls on this worker belong to args.session even when another
+	// tab is frontmost; pins subagent usage attribution.
+	subagent.session_bind_set(args.session.session_path, args.session.persist)
+	defer subagent.session_bind_clear()
+	provider.set_session(args.session.name)
+
 	cfg := agent.default_config()
 	cfg.enable_tools = args.tools_enabled
 	cfg.reasoning_effort = args.reasoning_effort
@@ -69,6 +75,7 @@ chat_job :: proc(data: rawptr) {
 	}
 	cfg.on_event = agent_event_cb
 	cfg.user = args.session
+	cfg.session_id = args.session.name
 	cfg.stop_check = session_stop_check
 	cfg.prepare_context = session_prepare_cb
 	agent.hunt_log_sampling(cfg.hunt)

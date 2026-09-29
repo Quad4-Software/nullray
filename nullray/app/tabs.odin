@@ -51,6 +51,9 @@ app_tab_bind_active :: proc(a: ^App) {
 	a.tabs[a.active_tab].done_pending = false
 	provider.set_session(a.session.name)
 	subagent.runtime_set_session(&a.subagents, a.session.session_path, a.session.persist)
+	// Queued attachments belong to the composer; do not smuggle them into
+	// another session's next prompt.
+	app_media_clear(a)
 	a.scroll = 0
 	a.follow = true
 	app_mark_dirty(a)
@@ -79,8 +82,9 @@ app_tab_new :: proc(a: ^App, name: string) {
 		return
 	}
 	s := app_session_alloc(a)
-	trimmed := strings.trim_space(name)
-	if len(trimmed) > 0 && !session.session_new(s, trimmed) {
+	// Every tab needs its own session path: session_init always binds the
+	// shared default path, which would interleave transcripts between tabs.
+	if !session.session_new(s, strings.trim_space(name)) {
 		session.session_destroy(s)
 		free(s)
 		return
@@ -128,6 +132,16 @@ app_tab_close :: proc(a: ^App, i: int) {
 	t := a.tabs[i]
 	if t.sess.busy {
 		session.session_request_cancel(t.sess)
+		session.session_shutdown(t.sess)
+		if t.sess.busy {
+			// Worker did not join before the wait cap. Freeing the session
+			// while it writes would corrupt memory, so keep the tab.
+			session.session_set_status(
+				a.session,
+				"session still stopping · run /tab close again",
+			)
+			return
+		}
 	}
 	session.session_shutdown(t.sess)
 	session.session_destroy(t.sess)
@@ -212,7 +226,7 @@ app_tab_prefix_key :: proc(a: ^App, ev: ui.Event) {
 		case 'l':
 			app_tab_cycle(a, 1)
 		case 'o':
-			slash_cmd_tab(a, "")
+			slash_cmd_sessions(a, "")
 		case '1' ..= '9':
 			app_tab_goto(a, int(ev.ch - '1'))
 		case:

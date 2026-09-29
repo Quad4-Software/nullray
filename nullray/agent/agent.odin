@@ -44,6 +44,7 @@ Config :: struct {
 	speculate_parallel:  int,
 	speculate_pool:      ^tools.Speculate_Pool,
 	tool_allow:          []string,
+	session_id:          string,
 }
 
 Event_Kind :: enum {

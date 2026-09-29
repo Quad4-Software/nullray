@@ -42,6 +42,9 @@ app_draw :: proc(buf: ^ui.Buffer, user: rawptr) {
 	mid_x := max(string_cols_safe(title) + 2, 1)
 	mode_chip := agent.mode_string(a.session.agent_mode)
 	counts := fmt.tprintf("%s · %d sess · %d live", mode_chip, a.banner_sess, a.banner_live)
+	if len(a.tabs) > 1 {
+		counts = fmt.tprintf("%s · %d tabs", counts, len(a.tabs))
+	}
 	count_end := mid_x + ui.string_cols(counts) + 2
 	ui.buffer_text_clip(buf, mid_x, 0, min(count_end, a.help_btn_x - 1), counts, t.accent, t.status_bg)
 

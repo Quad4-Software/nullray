@@ -58,6 +58,7 @@ Chat_Request :: struct {
 	top_p_set:        bool,
 	on_tool_seal:     Tool_Seal_Proc,
 	seal_user:        rawptr,
+	session_id:       string,
 }
 
 Chat_Response :: struct {

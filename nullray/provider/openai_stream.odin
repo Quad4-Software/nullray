@@ -51,7 +51,7 @@ openai_chat_stream :: proc(
 	}
 
 	headers := make([dynamic]string, context.temp_allocator)
-	append_provider_headers(&headers, p)
+	append_provider_headers(&headers, p, req.session_id)
 	url := http.join_url(p.base_url, "/chat/completions")
 
 	ignore := make([dynamic]string, context.temp_allocator)

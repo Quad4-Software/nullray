@@ -130,9 +130,24 @@ runtime_set_session :: proc(rt: ^Runtime, session_path: string, persist: bool) {
 	if rt == nil {
 		return
 	}
+	sync.mutex_lock(&rt.mu)
+	defer sync.mutex_unlock(&rt.mu)
 	delete(rt.session_path)
 	rt.session_path = strings.clone(session_path)
 	rt.session_persist = persist
+}
+
+// Copy of the bound session path for readers on worker threads.
+runtime_session_path :: proc(rt: ^Runtime) -> (path: string, persist: bool, ok: bool) {
+	if rt == nil {
+		return "", false, false
+	}
+	sync.mutex_lock(&rt.mu)
+	defer sync.mutex_unlock(&rt.mu)
+	if len(rt.session_path) == 0 {
+		return "", rt.session_persist, false
+	}
+	return strings.clone(rt.session_path), rt.session_persist, true
 }
 
 runtime_add_child_tokens :: proc(rt: ^Runtime, total: int) {

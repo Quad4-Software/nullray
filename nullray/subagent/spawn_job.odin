@@ -47,6 +47,7 @@ cleanup_child_job :: proc(job: ^Child_Job) {
 		delete(h)
 	}
 	delete(job.spec.path_hints)
+	delete(job.sess_path)
 }
 
 child_job_proc :: proc(data: rawptr) {
@@ -61,6 +62,11 @@ child_job_proc :: proc(data: rawptr) {
 
 	runtime_set_current_agent(job.rt, job.handle_id)
 	defer runtime_set_current_agent(job.rt, job.parent_id)
+
+	// Grandchild spawns inherit this session binding (nested task calls
+	// run on this thread).
+	session_bind_set(job.sess_path, job.sess_persist)
+	defer session_bind_clear()
 
 	if len(job.workspace) > 0 {
 		sandbox.workspace_override_set(job.workspace)
@@ -95,10 +101,10 @@ child_job_proc :: proc(data: rawptr) {
 	roster_finish(&job.rt.roster, job.handle_id, summary, escalate, failed)
 	lease_release_agent(&job.rt.leases, job.handle_id)
 
-	if store.usage_persist_enabled(job.rt.session_persist) && len(job.rt.session_path) > 0 {
-		path := job.rt.session_path
-		if !job.rt.session_persist {
-			path = store.ephemeral_usage_path(filepath.stem(job.rt.session_path), context.temp_allocator)
+	if len(job.sess_path) > 0 && store.usage_persist_enabled(job.sess_persist) {
+		path := job.sess_path
+		if !job.sess_persist {
+			path = store.ephemeral_usage_path(filepath.stem(job.sess_path), context.temp_allocator)
 		}
 		tt := result.usage.total_tokens
 		if tt == 0 {

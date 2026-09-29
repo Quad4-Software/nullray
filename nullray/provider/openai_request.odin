@@ -10,7 +10,7 @@ import "core:os"
 import "core:strings"
 import "nullray:constants"
 
-append_provider_headers :: proc(headers: ^[dynamic]string, p: ^Provider) {
+append_provider_headers :: proc(headers: ^[dynamic]string, p: ^Provider, session_id := "") {
 	append(headers, "Content-Type: application/json")
 	if len(p.api_key) > 0 {
 		if p.id == "azure" {
@@ -27,7 +27,7 @@ append_provider_headers :: proc(headers: ^[dynamic]string, p: ^Provider) {
 	if provider_is_local(p.id) {
 		append(headers, "Origin: http://127.0.0.1")
 	}
-	append_opencode_headers(headers, p)
+	append_opencode_headers(headers, p, session_id)
 	if p.id == "anthropic" {
 		append(headers, "anthropic-version: 2023-06-01")
 	}

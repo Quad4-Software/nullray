@@ -16,13 +16,15 @@ import "nullray:sandbox"
 import "nullray:store"
 
 Child_Job :: struct {
-	rt:         ^Runtime,
-	spec:       Spawn_Spec,
-	handle_id:  string,
-	parent_id:  string,
-	prov:       provider.Provider,
-	messages:   [dynamic]provider.Message,
-	workspace:  string,
+	rt:           ^Runtime,
+	spec:         Spawn_Spec,
+	handle_id:    string,
+	parent_id:    string,
+	prov:         provider.Provider,
+	messages:     [dynamic]provider.Message,
+	workspace:    string,
+	sess_path:    string,
+	sess_persist: bool,
 }
 
 spawn_child :: proc(
@@ -174,6 +176,15 @@ spawn_child :: proc(
 	job.handle_id = strings.clone(id)
 	job.parent_id = strings.clone(parent_id)
 	job.workspace = strings.clone(ws)
+	// Pin usage attribution to the session that owns this worker, not the
+	// frontmost tab: the bind travels with the job to its finish path.
+	if bp, bpersist, bok := session_bind(); bok {
+		job.sess_path = strings.clone(bp)
+		job.sess_persist = bpersist
+	} else if rp, rpersist, rok := runtime_session_path(rt); rok {
+		job.sess_path = rp
+		job.sess_persist = rpersist
+	}
 	job.messages = make([dynamic]provider.Message)
 	// Messages take ownership of preamble and user_prompt.
 	append(&job.messages, provider.Message{role = .System, content = preamble, cacheable = true})

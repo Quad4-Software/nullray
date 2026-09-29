@@ -156,6 +156,18 @@ session_new :: proc(s: ^Session, name: string) -> bool {
 		safe = strings.clone(cand)
 	}
 	session_maybe_persist(s)
+	new_path := store.named_session_path(safe)
+	if s.persist {
+		if ok, holder := store.session_try_lock(new_path); !ok {
+			delete(new_path)
+			delete(safe)
+			session_set_status(s, fmt.tprintf("session locked by %s", holder))
+			return false
+		}
+	}
+	if len(s.session_path) > 0 {
+		store.session_unlock(s.session_path)
+	}
 	for m in s.messages {
 		provider.destroy_message(m)
 	}
@@ -163,7 +175,7 @@ session_new :: proc(s: ^Session, name: string) -> bool {
 	delete(s.session_path)
 	delete(s.name)
 	s.name = safe
-	s.session_path = store.named_session_path(s.name)
+	s.session_path = new_path
 	session_clear_streaming(s)
 	if s.persist {
 		session_maybe_persist(s)

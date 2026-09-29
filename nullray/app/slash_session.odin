@@ -169,9 +169,11 @@ slash_cmd_delete :: proc(a: ^App, args: string) {
 		return
 	}
 	safe := store.sanitize_name(name)
-	if safe == a.session.name {
-		session.session_set_status(a.session, "switch or /new before deleting the open session")
-		return
+	for t in a.tabs {
+		if t.sess.name == safe {
+			session.session_set_status(a.session, "session is open in a tab · close it first")
+			return
+		}
 	}
 	ok, err := store.delete_session(safe)
 	if !ok {

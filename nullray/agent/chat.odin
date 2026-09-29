@@ -50,6 +50,7 @@ run_one_chat :: proc(
 		top_p = cfg.top_p,
 		temperature_set = cfg.temperature_set,
 		top_p_set = cfg.top_p_set,
+		session_id = cfg.session_id,
 	}
 	if cfg.stream {
 		if p.stream == nil {
