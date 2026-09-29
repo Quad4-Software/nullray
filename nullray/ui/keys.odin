@@ -48,6 +48,10 @@ Key :: enum {
 	Ctrl_V,
 	Ctrl_Y,
 	Ctrl_J,
+	Ctrl_X,
+	Ctrl_O,
+	Ctrl_G,
+	Ctrl_S,
 	Paste_Start,
 	Paste_End,
 	Mouse_Wheel_Up,
@@ -147,6 +151,14 @@ poll_event :: proc(timeout_ms: int = 50) -> (ev: Event, ok: bool) {
 		return Event{kind = .Ctrl_V}, true
 	case 0x19:
 		return Event{kind = .Ctrl_Y}, true
+	case 0x18:
+		return Event{kind = .Ctrl_X}, true
+	case 0x0f:
+		return Event{kind = .Ctrl_O}, true
+	case 0x07:
+		return Event{kind = .Ctrl_G}, true
+	case 0x13:
+		return Event{kind = .Ctrl_S}, true
 	case 0x7f, 0x08:
 		return Event{kind = .Backspace}, true
 	case '\r':

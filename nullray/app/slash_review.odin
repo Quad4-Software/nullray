@@ -15,12 +15,12 @@ slash_cmd_review :: proc(a: ^App, args: string) {
 	rest := strings.trim_space(args)
 	if rest == "on" {
 		os.set_env(constants.ENV_REVIEW, "on")
-		session.session_set_status(&a.session, "review on")
+		session.session_set_status(a.session, "review on")
 		return
 	}
 	if rest == "off" {
 		os.set_env(constants.ENV_REVIEW, "off")
-		session.session_set_status(&a.session, "review off")
+		session.session_set_status(a.session, "review off")
 		return
 	}
 	lower := strings.to_lower(rest, context.temp_allocator)
@@ -34,7 +34,7 @@ slash_cmd_review :: proc(a: ^App, args: string) {
 	}
 	on := agent.review_enabled_from_env()
 	session.session_set_status(
-		&a.session,
+		a.session,
 		fmt.tprintf("review %s (NULLRAY_REVIEW_MODEL optional, /review local [scope])", on ? "on" : "off"),
 	)
 }
@@ -44,7 +44,7 @@ slash_review_local :: proc(a: ^App, args: string) {
 	if len(root) == 0 {
 		cwd, err := os.get_working_directory(context.temp_allocator)
 		if err != nil {
-			session.session_set_status(&a.session, "review local: no workspace")
+			session.session_set_status(a.session, "review local: no workspace")
 			return
 		}
 		root = cwd
@@ -65,51 +65,51 @@ slash_review_local :: proc(a: ^App, args: string) {
 		}
 	}
 	if scope == .Base && len(strings.trim_space(base)) == 0 {
-		session.session_set_status(&a.session, "usage: /review local [working|staged|unstaged|base REF]")
+		session.session_set_status(a.session, "usage: /review local [working|staged|unstaged|base REF]")
 		return
 	}
 
 	repo := vcs.detect(root)
 	defer vcs.repo_destroy(&repo)
 	if repo.kind == .None {
-		session.session_set_status(&a.session, "review local: no Git or Fossil repo")
+		session.session_set_status(a.session, "review local: no Git or Fossil repo")
 		return
 	}
 	diff, label, err := vcs.collect_review_diff(repo, vcs.Diff_Opts{scope = scope, base = base})
 	defer delete(diff)
 	defer delete(label)
 	if len(err) > 0 {
-		session.session_set_status(&a.session, fmt.tprintf("review local: %s", err))
+		session.session_set_status(a.session, fmt.tprintf("review local: %s", err))
 		delete(err)
 		return
 	}
 	if len(strings.trim_space(diff)) == 0 {
-		session.session_set_status(&a.session, fmt.tprintf("review local: no changes (%s)", label))
+		session.session_set_status(a.session, fmt.tprintf("review local: no changes (%s)", label))
 		return
 	}
 
 	p := provider.registry_active(&a.registry)
 	if p == nil || p.chat == nil {
-		session.session_set_status(&a.session, "review local: no provider")
+		session.session_set_status(a.session, "review local: no provider")
 		return
 	}
 	payload := agent.review_bot_user_payload(vcs.kind_name(repo.kind), label, diff)
 	defer delete(payload)
 	text, rerr := agent.run_diff_review(p, payload, true)
 	if len(rerr) > 0 {
-		session.session_set_status(&a.session, fmt.tprintf("review local: %s", rerr))
+		session.session_set_status(a.session, fmt.tprintf("review local: %s", rerr))
 		delete(rerr)
 		return
 	}
 	if len(text) == 0 {
-		session.session_set_status(&a.session, "review local: empty reply")
+		session.session_set_status(a.session, "review local: empty reply")
 		return
 	}
 	blocks, total := agent.parse_block_findings(text)
-	session.session_push_assistant(&a.session, text)
+	session.session_push_assistant(a.session, text)
 	delete(text)
 	session.session_set_status(
-		&a.session,
+		a.session,
 		fmt.tprintf("review local %s: findings=%d blocking=%d", label, total, blocks),
 	)
 }

@@ -20,19 +20,19 @@ app_improve_prompt :: proc(a: ^App) {
 	}
 	draft := strings.trim_space(strings.to_string(a.input))
 	if len(draft) == 0 {
-		session.session_set_status(&a.session, "type a prompt first, then F2 /improve")
+		session.session_set_status(a.session, "type a prompt first, then F2 /improve")
 		app_mark_dirty(a)
 		return
 	}
 	p := provider.registry_active(&a.registry)
 	if p == nil {
-		session.session_set_status(&a.session, "no provider")
+		session.session_set_status(a.session, "no provider")
 		return
 	}
 	a.improving = true
 	a.improve_gen += 1
 	gen := a.improve_gen
-	session.session_set_status(&a.session, "improving prompt...")
+	session.session_set_status(a.session, "improving prompt...")
 	app_mark_dirty(a)
 	job := new(Improve_Job)
 	job.app = a
@@ -101,7 +101,7 @@ app_apply_improve_pending :: proc(a: ^App) -> bool {
 		return true
 	}
 	if len(err) > 0 {
-		session.session_set_status(&a.session, fmt.tprintf("improve failed: %s", err))
+		session.session_set_status(a.session, fmt.tprintf("improve failed: %s", err))
 		delete(err)
 		delete(text)
 		app_mark_dirty(a)
@@ -114,7 +114,7 @@ app_apply_improve_pending :: proc(a: ^App) -> bool {
 	strings.write_string(&a.input, text)
 	a.cursor = len(text)
 	delete(text)
-	session.session_set_status(&a.session, "prompt improved (ctrl-z undo, enter to send)")
+	session.session_set_status(a.session, "prompt improved (ctrl-z undo, enter to send)")
 	app_mark_dirty(a)
 	return true
 }
@@ -122,7 +122,7 @@ app_apply_improve_pending :: proc(a: ^App) -> bool {
 @(private)
 app_undo_improve :: proc(a: ^App) {
 	if len(a.improve_undo) == 0 {
-		session.session_set_status(&a.session, "nothing to undo")
+		session.session_set_status(a.session, "nothing to undo")
 		app_mark_dirty(a)
 		return
 	}
@@ -131,6 +131,6 @@ app_undo_improve :: proc(a: ^App) {
 	a.cursor = len(a.improve_undo)
 	delete(a.improve_undo)
 	a.improve_undo = ""
-	session.session_set_status(&a.session, "undid prompt improve")
+	session.session_set_status(a.session, "undid prompt improve")
 	app_mark_dirty(a)
 }

@@ -26,7 +26,7 @@ app_handle_slash :: proc(a: ^App, text: string) -> bool {
 	}
 	cmd, ok := slash_find(name)
 	if !ok || cmd.run == nil {
-		session.session_set_status(&a.session, fmt.tprintf("unknown command: /%s · type ?", name))
+		session.session_set_status(a.session, fmt.tprintf("unknown command: /%s · type ?", name))
 		return true
 	}
 	cmd.run(a, args)

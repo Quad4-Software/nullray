@@ -8,6 +8,7 @@ package app
 import "core:fmt"
 import "core:path/filepath"
 import "core:strings"
+import "core:time"
 import "nullray:agent"
 import "nullray:config"
 import "nullray:constants"
@@ -70,7 +71,8 @@ app_draw :: proc(buf: ^ui.Buffer, user: rawptr) {
 	}
 	ui.buffer_text(buf, a.help_btn_x, 0, "?", t.accent, t.status_bg, {.Bold})
 
-	ui.buffer_hline(buf, 0, 1, buf.width, '─', t.border, t.bg)
+	app_draw_tabs(buf, a, 1)
+	ui.buffer_hline(buf, 0, 2, buf.width, '─', t.border, t.bg)
 
 	if a.show_help {
 		app_draw_help(buf, a)
@@ -84,7 +86,7 @@ app_draw :: proc(buf: ^ui.Buffer, user: rawptr) {
 	}
 
 	input_rows := app_input_rows(a, buf.width)
-	msg_top := 2
+	msg_top := 3
 	msg_bottom := buf.height - 3 - input_rows
 	msg_h := max(msg_bottom - msg_top + 1, 1)
 
@@ -141,7 +143,16 @@ app_draw :: proc(buf: ^ui.Buffer, user: rawptr) {
 		status_left = fmt.tprintf("shell: %s · /allow /deny", pending)
 		status_fg = t.warn
 	} else if a.session.busy {
-		status_left = fmt.tprintf("%s %s", ui.spinner_frame(&a.spinner), a.session.status)
+		secs := int(time.tick_since(a.session.busy_since) / time.Second)
+		status_left = fmt.tprintf(
+			"%s %s · %ds",
+			ui.spinner_frame(&a.spinner),
+			a.session.status,
+			secs,
+		)
+		if len(a.session.live_tool) > 0 {
+			status_left = fmt.tprintf("%s · %s", status_left, a.session.live_tool)
+		}
 		if !a.follow {
 			status_left = fmt.tprintf("%s · End to follow", status_left)
 		}
@@ -161,7 +172,7 @@ app_draw :: proc(buf: ^ui.Buffer, user: rawptr) {
 		}
 		status_fg = t.accent
 	} else if a.session.last_usage.total_tokens > 0 {
-		status_left = session.session_ready_status(&a.session)
+		status_left = session.session_ready_status(a.session)
 	}
 	help := "type / · ? help · ^q quit"
 	if a.view_open {
@@ -197,7 +208,7 @@ app_draw_status_overlay :: proc(buf: ^ui.Buffer, a: ^App) {
 	if a.status_scroll > max_scroll {
 		a.status_scroll = max_scroll
 	}
-	y := 2
+	y := 3
 	for i := a.status_scroll; i < len(lines) && y < buf.height - 3; i += 1 {
 		ui.buffer_fill_rect(buf, 0, y, buf.width, 1, ' ', t.fg, t.bg)
 		ui.buffer_text_clip(buf, 1, y, buf.width - 1, lines[i], t.fg, t.bg)
@@ -223,7 +234,7 @@ app_draw_help :: proc(buf: ^ui.Buffer, a: ^App) {
 	if a.help_scroll > max_scroll {
 		a.help_scroll = max_scroll
 	}
-	y := 2
+	y := 3
 	for i := a.help_scroll; i < len(lines) && y < buf.height - 3; i += 1 {
 		ui.buffer_fill_rect(buf, 0, y, buf.width, 1, ' ', t.fg, t.bg)
 		ui.buffer_text_clip(buf, 1, y, buf.width - 1, lines[i], t.fg, t.bg)

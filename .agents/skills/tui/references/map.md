@@ -29,6 +29,7 @@ Dense file map for nullray/ui, nullray/app, nullray/config.
 | File | Owns |
 |------|------|
 | app.odin | App, init/destroy, dirty, on_tick |
+| tabs.odin | session tabs: lifecycle, strip draw, Ctrl-X prefix, open_tabs persist |
 | app_credits.odin | OpenRouter credits, hide-sensitive |
 | setup.odin | setup wizard state and open/close |
 | setup_flow.odin | setup models, reasoning, save |

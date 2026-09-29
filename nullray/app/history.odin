@@ -190,9 +190,9 @@ app_reset_all_state :: proc(a: ^App) -> bool {
 	app_reveal_reset(a)
 	a.reset_pending = false
 
-	_ = session.session_new(&a.session, "")
+	_ = session.session_new(a.session, "")
 	provider.set_session(a.session.name)
-	session.session_set_status(&a.session, "reset complete")
+	session.session_set_status(a.session, "reset complete")
 	app_refresh_banner(a)
 	app_setup_open(a, true)
 	app_mark_dirty(a)

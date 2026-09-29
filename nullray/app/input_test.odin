@@ -16,6 +16,9 @@ test_app_minimal :: proc() -> (a: App, loop: ui.Loop) {
 	loop.term.height = 24
 	a = {}
 	a.loop = &loop
+	a.session = new(session.Session)
+	append(&a.tabs, Tab{sess = a.session})
+	a.active_tab = 0
 	strings.builder_init(&a.input)
 	a.binds = config.binds_defaults()
 	a.follow = true
@@ -25,6 +28,13 @@ test_app_minimal :: proc() -> (a: App, loop: ui.Loop) {
 
 @(private)
 test_app_destroy_minimal :: proc(a: ^App) {
+	for t in a.tabs {
+		if t.sess != a.session {
+			free(t.sess)
+		}
+	}
+	delete(a.tabs)
+	free(a.session)
 	strings.builder_destroy(&a.input)
 	app_toasts_destroy(a)
 	app_expand_hits_clear(a)
@@ -98,8 +108,8 @@ test_stop_agent_bind_cancels :: proc(t: ^testing.T) {
 	a, loop := test_app_minimal()
 	_ = loop
 	defer test_app_destroy_minimal(&a)
-	session.session_init(&a.session)
-	defer session.session_destroy(&a.session)
+	session.session_init(a.session)
+	defer session.session_destroy(a.session)
 	a.session.busy = true
 	a.session.pause_requested = true
 	a.pasting = true
@@ -114,8 +124,8 @@ test_ctrl_c_busy_soft_stops :: proc(t: ^testing.T) {
 	a, loop := test_app_minimal()
 	_ = loop
 	defer test_app_destroy_minimal(&a)
-	session.session_init(&a.session)
-	defer session.session_destroy(&a.session)
+	session.session_init(a.session)
+	defer session.session_destroy(a.session)
 	a.session.busy = true
 	quit := app_on_event(ui.Event{kind = .Ctrl_C}, &a)
 	testing.expect(t, !quit)
@@ -127,8 +137,8 @@ test_ctrl_c_idle_quits :: proc(t: ^testing.T) {
 	a, loop := test_app_minimal()
 	_ = loop
 	defer test_app_destroy_minimal(&a)
-	session.session_init(&a.session)
-	defer session.session_destroy(&a.session)
+	session.session_init(a.session)
+	defer session.session_destroy(a.session)
 	a.session.busy = false
 	quit := app_on_event(ui.Event{kind = .Ctrl_C}, &a)
 	testing.expect(t, quit)
@@ -139,8 +149,8 @@ test_clear_chat_blocked_when_busy :: proc(t: ^testing.T) {
 	a, loop := test_app_minimal()
 	_ = loop
 	defer test_app_destroy_minimal(&a)
-	session.session_init(&a.session)
-	defer session.session_destroy(&a.session)
+	session.session_init(a.session)
+	defer session.session_destroy(a.session)
 	a.session.busy = true
 	before := len(a.session.messages)
 	append(&a.session.messages, provider.Message{role = .User, content = strings.clone("keep")})

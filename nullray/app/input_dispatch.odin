@@ -18,13 +18,13 @@ app_handle_bind_action :: proc(a: ^App, ev: ui.Event, suggesting: bool) -> (quit
 	case .Quit:
 		// Ctrl-C while busy stops the agent. Ctrl-Q (or Ctrl-C when idle) quits.
 		if a.session.busy && ev.kind == .Ctrl_C {
-			session.session_request_cancel(&a.session)
+			session.session_request_cancel(a.session)
 			a.pasting = false
 			app_mark_dirty(a)
 			return false, true
 		}
 		if a.session.busy {
-			session.session_request_cancel(&a.session)
+			session.session_request_cancel(a.session)
 		}
 		return true, true
 	case .Help:
@@ -32,7 +32,7 @@ app_handle_bind_action :: proc(a: ^App, ev: ui.Event, suggesting: bool) -> (quit
 		return false, true
 	case .Clear_Chat:
 		if a.session.busy {
-			session.session_set_status(&a.session, "stopping · clear chat after stop")
+			session.session_set_status(a.session, "stopping · clear chat after stop")
 			app_mark_dirty(a)
 			return false, true
 		}
@@ -40,9 +40,9 @@ app_handle_bind_action :: proc(a: ^App, ev: ui.Event, suggesting: bool) -> (quit
 			provider.destroy_message(m)
 		}
 		clear(&a.session.messages)
-		session.session_clear_streaming(&a.session)
-		session.session_set_status(&a.session, "cleared")
-		session.session_maybe_persist(&a.session)
+		session.session_clear_streaming(a.session)
+		session.session_set_status(a.session, "cleared")
+		session.session_maybe_persist(a.session)
 		app_mark_dirty(a)
 		return false, true
 	case .Provider_Next:
@@ -55,7 +55,7 @@ app_handle_bind_action :: proc(a: ^App, ev: ui.Event, suggesting: bool) -> (quit
 		return false, true
 	case .Compact:
 		p := provider.registry_active(&a.registry)
-		if session.session_compact_with_provider(&a.session, p) {
+		if session.session_compact_with_provider(a.session, p) {
 			app_mark_dirty(a)
 		}
 		return false, true
@@ -65,7 +65,7 @@ app_handle_bind_action :: proc(a: ^App, ev: ui.Event, suggesting: bool) -> (quit
 		if !a.session.tools_enabled {
 			mode = "tools off"
 		}
-		session.session_set_status(&a.session, mode)
+		session.session_set_status(a.session, mode)
 		app_mark_dirty(a)
 		return false, true
 	case .Clear_Input:
@@ -128,18 +128,27 @@ app_handle_bind_action :: proc(a: ^App, ev: ui.Event, suggesting: bool) -> (quit
 		return false, true
 	case .Pause_Agent:
 		if a.session.busy {
-			session.session_request_pause(&a.session)
+			session.session_request_pause(a.session)
 			app_mark_dirty(a)
 		}
 		return false, true
 	case .Stop_Agent:
 		if a.session.busy {
-			session.session_request_cancel(&a.session)
+			session.session_request_cancel(a.session)
 			a.pasting = false
 			app_mark_dirty(a)
 			return false, true
 		}
 		app_handle_esc_idle(a)
+		return false, true
+	case .Tab_Next:
+		app_tab_cycle(a, 1)
+		return false, true
+	case .Tab_Prev:
+		app_tab_cycle(a, -1)
+		return false, true
+	case .Tab_Close:
+		app_tab_close(a, a.active_tab)
 		return false, true
 	case .None:
 	}

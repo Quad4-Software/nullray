@@ -4,11 +4,14 @@ package app
 import "core:os"
 import "core:testing"
 import "nullray:constants"
+import "nullray:session"
 import "nullray:ui"
 
 @(test)
 test_layout_frozen_count_idle :: proc(t: ^testing.T) {
 	a: App
+	a.session = new(session.Session)
+	defer free(a.session)
 	blocks := make([]Transcript_Block, 3, context.temp_allocator)
 	n := layout_frozen_count(&a, blocks)
 	testing.expect_value(t, n, 3)
@@ -17,6 +20,8 @@ test_layout_frozen_count_idle :: proc(t: ^testing.T) {
 @(test)
 test_layout_cache_width_busts :: proc(t: ^testing.T) {
 	a: App
+	a.session = new(session.Session)
+	defer free(a.session)
 	a.layout_cache.valid = true
 	a.layout_cache.width = 80
 	a.layout_cache.theme_accent = ui.INK.accent

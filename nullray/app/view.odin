@@ -110,16 +110,16 @@ app_view_set_recent :: proc(a: ^App, paths: []string) {
 @(private)
 app_view_load_body :: proc(a: ^App, abs_path: string) -> bool {
 	if sandbox.path_is_secret_blocked(abs_path) {
-		session.session_set_status(&a.session, "secret file blocked")
+		session.session_set_status(a.session, "secret file blocked")
 		return false
 	}
 	if !sandbox.path_allowed(sandbox.state(), abs_path, false) {
-		session.session_set_status(&a.session, "path not allowed for read")
+		session.session_set_status(a.session, "path not allowed for read")
 		return false
 	}
 	data, err := os.read_entire_file(abs_path, context.allocator)
 	if err != nil {
-		session.session_set_status(&a.session, "view read failed")
+		session.session_set_status(a.session, "view read failed")
 		return false
 	}
 	text := string(data)
@@ -155,11 +155,11 @@ app_view_open :: proc(a: ^App, path: string) -> bool {
 	base := filepath.base(a.view_path)
 	if len(a.view_recent) > 1 {
 		session.session_set_status(
-			&a.session,
+			a.session,
 			fmt.tprintf("view: %s (%d/%d)", base, a.view_idx + 1, len(a.view_recent)),
 		)
 	} else {
-		session.session_set_status(&a.session, fmt.tprintf("view: %s", base))
+		session.session_set_status(a.session, fmt.tprintf("view: %s", base))
 	}
 	app_mark_dirty(a)
 	return true
@@ -176,7 +176,7 @@ app_view_open_text :: proc(a: ^App, title: string, body: string) -> bool {
 	a.view_scroll = 0
 	a.view_open = true
 	a.view_focus = true
-	session.session_set_status(&a.session, fmt.tprintf("view: %s", title))
+	session.session_set_status(a.session, fmt.tprintf("view: %s", title))
 	app_mark_dirty(a)
 	return true
 }
@@ -209,7 +209,7 @@ app_view_switch :: proc(a: ^App, delta: int) {
 		a.view_idx = idx
 		base := filepath.base(a.view_path)
 		session.session_set_status(
-			&a.session,
+			a.session,
 			fmt.tprintf("view: %s (%d/%d)", base, a.view_idx + 1, n),
 		)
 		app_mark_dirty(a)

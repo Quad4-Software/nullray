@@ -27,7 +27,10 @@ App :: struct {
 	registry:       provider.Registry,
 	tools_reg:      tools.Registry,
 	mcp_reg:        mcp.Registry,
-	session:        session.Session,
+	session:        ^session.Session,
+	tabs:           [dynamic]Tab,
+	active_tab:     int,
+	tab_x_prefix:   bool,
 	subagents:      subagent.Runtime,
 	input:          strings.Builder,
 	cursor:         int,
@@ -121,10 +124,13 @@ app_init :: proc(a: ^App, loop: ^ui.Loop) {
 	mcp.registry_init(&a.mcp_reg, &a.tools_reg)
 	mcp.mcp_autoload(&a.mcp_reg)
 	provider.registry_init(&a.registry)
-	session.session_init(&a.session)
-	a.session.tools_registry = &a.tools_reg
-	_ = session.session_apply_saved_model(&a.session, &a.registry)
-	session.session_sticky_auto_provider(&a.session, &a.registry)
+	app_tabs_restore(a)
+	if len(a.tabs) == 0 {
+		s := app_session_alloc(a)
+		append(&a.tabs, Tab{sess = s})
+		a.active_tab = 0
+	}
+	app_tab_bind_active(a)
 	rag.install_memory_hooks()
 	rag.bind_providers(&a.registry, provider.registry_active(&a.registry))
 	subagent.runtime_init(&a.subagents, a.session.name, &a.tools_reg)
@@ -137,7 +143,7 @@ app_init :: proc(a: ^App, loop: ^ui.Loop) {
 		delete(a.subagents.main_model)
 		a.subagents.main_model = strings.clone(p.default_model)
 	}
-	session.session_rebuild_system_prompt(&a.session)
+	session.session_rebuild_system_prompt(a.session)
 	strings.builder_init(&a.input)
 	a.spinner = ui.spinner_init()
 	a.dirty = true
@@ -151,16 +157,16 @@ app_init :: proc(a: ^App, loop: ^ui.Loop) {
 	agent.apply_auto_mode()
 	if agent.auto_from_env() {
 		a.session.agent_mode = .Edit
-		session.session_sync_mode_env(&a.session)
-		session.session_rebuild_system_prompt(&a.session)
+		session.session_sync_mode_env(a.session)
+		session.session_rebuild_system_prompt(a.session)
 	}
 	app_refresh_credits(a)
 
 	cfg_dir := sandbox.resolve_config_dir(context.temp_allocator)
 	if sid, recovered := session.crash_lock_recover(cfg_dir); recovered {
-		if session.session_switch(&a.session, sid) {
-			_ = session.session_apply_saved_model(&a.session, &a.registry)
-			session.session_set_status(&a.session, fmt.tprintf("recovered session %s after crash", sid))
+		if session.session_switch(a.session, sid) {
+			_ = session.session_apply_saved_model(a.session, &a.registry)
+			session.session_set_status(a.session, fmt.tprintf("recovered session %s after crash", sid))
 		}
 		delete(sid)
 		session.crash_lock_clear(cfg_dir)
@@ -172,11 +178,11 @@ app_init :: proc(a: ^App, loop: ^ui.Loop) {
 	app_refresh_provider_status(a)
 	if plan_in := agent.plan_in_from_env(); len(plan_in) > 0 {
 		defer delete(plan_in)
-		if err := session.session_seed_plan_file(&a.session, plan_in); len(err) > 0 {
-			session.session_set_status(&a.session, err)
+		if err := session.session_seed_plan_file(a.session, plan_in); len(err) > 0 {
+			session.session_set_status(a.session, err)
 		} else {
 			session.session_set_status(
-				&a.session,
+				a.session,
 				fmt.tprintf("plan loaded %s (use /approve)", a.session.last_plan_path),
 			)
 		}
@@ -187,11 +193,19 @@ app_init :: proc(a: ^App, loop: ^ui.Loop) {
 app_destroy :: proc(a: ^App) {
 	cfg_dir := sandbox.resolve_config_dir(context.temp_allocator)
 	session.crash_lock_clear(cfg_dir)
-	session.session_shutdown(&a.session)
+	app_tabs_persist(a)
+	for t in a.tabs {
+		session.session_shutdown(t.sess)
+	}
 	subagent.runtime_set(nil)
 	subagent.runtime_destroy(&a.subagents)
 	provider.registry_destroy(&a.registry)
-	session.session_destroy(&a.session)
+	for t in a.tabs {
+		session.session_destroy(t.sess)
+		free(t.sess)
+	}
+	delete(a.tabs)
+	a.session = nil
 	mcp.registry_destroy(&a.mcp_reg)
 	tools.registry_destroy(&a.tools_reg)
 	strings.builder_destroy(&a.input)
@@ -235,7 +249,7 @@ app_refresh_provider_status :: proc(a: ^App) {
 	} else if !a.hide_sensitive && len(a.credits_label) > 0 {
 		status = fmt.tprintf("%s · %s", status, a.credits_label)
 	}
-	session.session_set_status(&a.session, status)
+	session.session_set_status(a.session, status)
 }
 
 app_mark_dirty :: proc(a: ^App) {
@@ -280,13 +294,13 @@ app_on_tick :: proc(user: rawptr) -> bool {
 		}
 	}
 	was_busy := a.session.busy
-	if session.session_tick_status_hold(&a.session) {
+	if session.session_tick_status_hold(a.session) {
 		changed = true
 	}
 	if app_apply_improve_pending(a) {
 		changed = true
 	}
-	poll_changed := session.session_poll(&a.session)
+	poll_changed := app_poll_tabs(a)
 	changed = poll_changed || changed
 	if app_reveal_tick(a) {
 		changed = true
@@ -317,7 +331,7 @@ app_on_tick :: proc(user: rawptr) -> bool {
 	}
 	// Redraw on new deltas, or on spinner/caret/reveal cadence while busy.
 	// Avoid full transcript layout every poll tick with no UI change.
-	if a.session.busy || a.session.has_streaming || a.session.has_thinking || len(a.session.pending_status) > 0 {
+	if app_tabs_any_busy(a) || a.session.has_streaming || a.session.has_thinking || len(a.session.pending_status) > 0 {
 		anim_due := time.tick_diff(a.anim_tick, time.tick_now()) >=
 			time.Duration(constants.SPINNER_FRAME_MS) * time.Millisecond
 		if poll_changed || anim_due {

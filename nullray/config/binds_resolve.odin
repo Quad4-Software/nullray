@@ -66,6 +66,15 @@ binds_resolve :: proc(b: Binds, kind: ui.Key) -> Action {
 	if kind == b.stop_agent {
 		return .Stop_Agent
 	}
+	if kind == b.tab_next && b.tab_next != .None {
+		return .Tab_Next
+	}
+	if kind == b.tab_prev && b.tab_prev != .None {
+		return .Tab_Prev
+	}
+	if kind == b.tab_close && b.tab_close != .None {
+		return .Tab_Close
+	}
 	return .None
 }
 
@@ -80,7 +89,7 @@ binds_help_text :: proc(b: Binds, preset: Key_Preset, allocator := context.alloc
 		edit = "  (preset emacs) ctrl-a/e home/end  ctrl-b/f move  ctrl-k kill-eol  ctrl-w kill word  ctrl-d del  ctrl-u kill to start\n"
 	}
 	return fmt.aprintf(
-		"%s  %-14s quit\n  %-14s clear chat\n  %-14s next provider\n  %-14s prev provider\n  %-14s compact\n  %-14s toggle tools\n  %-14s clear input\n  %-14s help\n  %-14s scroll up\n  %-14s scroll down\n  %-14s page up\n  %-14s page down\n  %-14s follow bottom\n  %-14s scroll top\n  %-14s improve prompt\n  %-14s undo improve\n  %-14s pause agent\n  %-14s stop agent (when busy)\n  /copy          copy selection\n  edit file     %s\n  preset via    --keys / NULLRAY_KEYS / keys.ini preset=",
+		"%s  %-14s quit\n  %-14s clear chat\n  %-14s next provider\n  %-14s prev provider\n  %-14s compact\n  %-14s toggle tools\n  %-14s clear input\n  %-14s help\n  %-14s scroll up\n  %-14s scroll down\n  %-14s page up\n  %-14s page down\n  %-14s follow bottom\n  %-14s scroll top\n  %-14s improve prompt\n  %-14s undo improve\n  %-14s pause agent\n  %-14s stop agent (when busy)\n  %-14s next tab\n  %-14s prev tab\n  %-14s close tab\n  ctrl-x        tab prefix (n new, w close, arrows)\n  /copy          copy selection\n  edit file     %s\n  preset via    --keys / NULLRAY_KEYS / keys.ini preset=",
 		edit,
 		key_name(b.quit),
 		key_name(b.clear_chat),
@@ -100,6 +109,9 @@ binds_help_text :: proc(b: Binds, preset: Key_Preset, allocator := context.alloc
 		key_name(b.undo_improve),
 		key_name(b.pause_agent),
 		key_name(b.stop_agent),
+		key_name(b.tab_next),
+		key_name(b.tab_prev),
+		key_name(b.tab_close),
 		keys_path(context.temp_allocator),
 		allocator = allocator,
 	)
@@ -133,6 +145,9 @@ improve=f2
 undo_improve=ctrl-z
 pause=f3
 stop=esc
+tab_next=f4
+tab_prev=backtab
+tab_close=ctrl-g
 `
 	return os.write_entire_file(path, transmute([]u8)body) == nil
 }
@@ -172,6 +187,16 @@ parse_key_name :: proc(name: string) -> (ui.Key, bool) {
 		return .Ctrl_W, true
 	case "ctrl-z", "c-z":
 		return .Ctrl_Z, true
+	case "ctrl-x", "c-x":
+		return .Ctrl_X, true
+	case "ctrl-o", "c-o":
+		return .Ctrl_O, true
+	case "ctrl-g", "c-g":
+		return .Ctrl_G, true
+	case "ctrl-s", "c-s":
+		return .Ctrl_S, true
+	case "backtab", "shift-tab", "shift_tab":
+		return .Backtab, true
 	case "none", "off", "-":
 		return .None, true
 	case "up":
@@ -244,6 +269,16 @@ key_name :: proc(k: ui.Key) -> string {
 		return "ctrl-w"
 	case .Ctrl_Z:
 		return "ctrl-z"
+	case .Ctrl_X:
+		return "ctrl-x"
+	case .Ctrl_O:
+		return "ctrl-o"
+	case .Ctrl_G:
+		return "ctrl-g"
+	case .Ctrl_S:
+		return "ctrl-s"
+	case .Backtab:
+		return "backtab"
 	case .Up:
 		return "up"
 	case .Down:

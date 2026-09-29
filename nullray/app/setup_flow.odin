@@ -312,7 +312,7 @@ setup_save :: proc(a: ^App) {
 	if ap := provider.registry_active(&a.registry); ap != nil {
 		delete(ap.default_model)
 		ap.default_model = strings.clone(strings.trim_space(a.setup_model))
-		session.session_remember_model(&a.session, ap.id, ap.default_model)
+		session.session_remember_model(a.session, ap.id, ap.default_model)
 	}
 	delete(a.session.reasoning_effort)
 	a.session.reasoning_effort = strings.clone(effort)
@@ -321,5 +321,5 @@ setup_save :: proc(a: ^App) {
 	app_setup_close(a)
 	app_refresh_provider_status(a)
 	app_refresh_credits(a)
-	session.session_set_status(&a.session, "setup saved to ~/.config/nullray/env")
+	session.session_set_status(a.session, "setup saved to ~/.config/nullray/env")
 }

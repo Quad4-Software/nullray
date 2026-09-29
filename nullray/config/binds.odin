@@ -34,6 +34,9 @@ Action :: enum {
 	Undo_Improve,
 	Stop_Agent,
 	Pause_Agent,
+	Tab_Next,
+	Tab_Prev,
+	Tab_Close,
 }
 
 Key_Preset :: enum {
@@ -61,6 +64,9 @@ Binds :: struct {
 	undo_improve:  ui.Key,
 	stop_agent:    ui.Key,
 	pause_agent:   ui.Key,
+	tab_next:      ui.Key,
+	tab_prev:      ui.Key,
+	tab_close:     ui.Key,
 }
 
 binds_defaults :: proc() -> Binds {
@@ -83,6 +89,9 @@ binds_defaults :: proc() -> Binds {
 		undo_improve = .Ctrl_Z,
 		stop_agent = .Esc,
 		pause_agent = .F3,
+		tab_next = .F4,
+		tab_prev = .Backtab,
+		tab_close = .Ctrl_G,
 	}
 }
 
@@ -258,6 +267,12 @@ load_binds :: proc() -> (Binds, Key_Preset) {
 			b.stop_agent = k
 		case "pause", "pause_agent":
 			b.pause_agent = k
+		case "tab_next", "tabs_next":
+			b.tab_next = k
+		case "tab_prev", "tabs_prev":
+			b.tab_prev = k
+		case "tab_close", "tabs_close":
+			b.tab_close = k
 		}
 	}
 	return b, p

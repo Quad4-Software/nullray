@@ -87,7 +87,7 @@ app_handle_view_event :: proc(a: ^App, ev: ui.Event, suggesting: bool) -> bool {
 	}
 	if ev.kind == .Esc && len(strings.to_string(a.input)) == 0 && !a.session.busy {
 		app_view_close(a)
-		session.session_set_status(&a.session, "view closed")
+		session.session_set_status(a.session, "view closed")
 		return true
 	}
 	if a.view_focus {

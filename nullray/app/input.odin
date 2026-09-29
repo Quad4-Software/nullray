@@ -65,7 +65,7 @@ app_handle_esc_idle :: proc(a: ^App) {
 	}
 	if a.view_open && len(strings.to_string(a.input)) == 0 {
 		app_view_close(a)
-		session.session_set_status(&a.session, "view closed")
+		session.session_set_status(a.session, "view closed")
 		return
 	}
 	if len(strings.to_string(a.input)) > 0 {
@@ -111,6 +111,28 @@ app_on_event :: proc(ev: ui.Event, user: rawptr) -> bool {
 
 	if quit, handled := app_handle_help_status_event(a, ev); handled {
 		return quit
+	}
+
+	if a.tab_x_prefix {
+		a.tab_x_prefix = false
+		app_tab_prefix_key(a, ev)
+		app_mark_dirty(a)
+		return false
+	}
+	if ev.kind == .Ctrl_X {
+		a.tab_x_prefix = true
+		session.session_set_status(
+			a.session,
+			"tab: n new · w close · h/← prev · l/→ next · 1-9 jump · o sessions",
+		)
+		app_mark_dirty(a)
+		return false
+	}
+	if ev.kind == .Mouse_Press && ev.my == 1 {
+		if idx := app_tab_at_x(a, ev.mx); idx >= 0 {
+			app_tab_goto(a, idx)
+		}
+		return false
 	}
 
 	if ev.kind == .Mouse_Press && ev.my == 0 && ev.mx >= a.help_btn_x {
@@ -188,9 +210,9 @@ app_submit :: proc(a: ^App) {
 
 	app_history_push(a, text)
 	app_reveal_reset(a)
-	session.session_push_user_media(&a.session, text, a.pending_media[:])
+	session.session_push_user_media(a.session, text, a.pending_media[:])
 	app_media_clear(a)
 	p := provider.registry_active(&a.registry)
-	session.session_start_chat(&a.session, p)
+	session.session_start_chat(a.session, p)
 	app_mark_dirty(a)
 }

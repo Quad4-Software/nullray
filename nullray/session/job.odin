@@ -9,6 +9,7 @@ import "core:fmt"
 import "core:strings"
 import "core:sync"
 import "core:thread"
+import "core:time"
 import "nullray:agent"
 import "nullray:http"
 import "nullray:provider"
@@ -128,6 +129,7 @@ session_start_chat :: proc(s: ^Session, p: ^provider.Provider) {
 	session_join_job(s)
 	session_clear_control(s)
 	s.busy = true
+	s.busy_since = time.tick_now()
 
 	session_rebuild_system_prompt(s)
 	session_remember_model(s, p.id, p.default_model)

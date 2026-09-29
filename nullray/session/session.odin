@@ -72,6 +72,7 @@ Session :: struct {
 	verify_obligations:  [dynamic]string,
 	live_tool:           string,
 	live_tool_detail:    string,
+	busy_since:          time.Tick,
 }
 
 session_init :: proc(s: ^Session) {

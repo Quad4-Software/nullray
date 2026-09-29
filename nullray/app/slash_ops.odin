@@ -33,7 +33,7 @@ slash_cmd_ops :: proc(a: ^App, args: string) {
 	if len(cfg.extra_rw) > 0 {
 		fmt.sbprintf(&b, " rw=%s", strings.join(cfg.extra_rw[:], ",", context.temp_allocator))
 	}
-	session.session_set_status(&a.session, strings.to_string(b))
+	session.session_set_status(a.session, strings.to_string(b))
 }
 
 slash_cmd_usage :: proc(a: ^App, args: string) {
@@ -41,28 +41,28 @@ slash_cmd_usage :: proc(a: ^App, args: string) {
 	lower := strings.to_lower(rest, context.temp_allocator)
 	switch {
 	case lower == "json":
-		js := session.session_usage_summary_json(&a.session)
-		session.session_push_assistant(&a.session, js)
+		js := session.session_usage_summary_json(a.session)
+		session.session_push_assistant(a.session, js)
 		delete(js)
-		session.session_set_status(&a.session, "usage json")
+		session.session_set_status(a.session, "usage json")
 	case strings.has_prefix(lower, "export"):
 		path := strings.trim_space(rest[len("export"):])
 		if len(path) == 0 {
-			session.session_set_status(&a.session, "usage: /usage export PATH")
+			session.session_set_status(a.session, "usage: /usage export PATH")
 			return
 		}
 		ok, err := store.export_usage_summary(a.session.session_path, path)
 		if !ok {
-			session.session_set_status(&a.session, err)
+			session.session_set_status(a.session, err)
 			delete(err)
 			return
 		}
-		session.session_set_status(&a.session, fmt.tprintf("usage exported %s", path))
+		session.session_set_status(a.session, fmt.tprintf("usage exported %s", path))
 	case:
-		txt := session.session_usage_summary_text(&a.session, a.hide_sensitive)
-		session.session_push_assistant(&a.session, txt)
+		txt := session.session_usage_summary_text(a.session, a.hide_sensitive)
+		session.session_push_assistant(a.session, txt)
 		delete(txt)
-		session.session_set_status(&a.session, "usage")
+		session.session_set_status(a.session, "usage")
 	}
 }
 
@@ -71,37 +71,37 @@ slash_cmd_verify :: proc(a: ^App, args: string) {
 	if len(rest) == 0 {
 		v, off := agent.verify_command_from_env(context.temp_allocator)
 		if off {
-			session.session_set_status(&a.session, "verify off (default). /verify on or /verify make test")
+			session.session_set_status(a.session, "verify off (default). /verify on or /verify make test")
 			return
 		}
 		if len(v) == 0 {
 			resolved, _ := agent.resolve_verify_command(a.session.plan_verify, context.temp_allocator)
 			if len(resolved) > 0 {
-				session.session_set_status(&a.session, fmt.tprintf("verify on -> %s", resolved))
+				session.session_set_status(a.session, fmt.tprintf("verify on -> %s", resolved))
 			} else {
-				session.session_set_status(&a.session, "verify on (plan/AGENTS/make test)")
+				session.session_set_status(a.session, "verify on (plan/AGENTS/make test)")
 			}
 			return
 		}
-		session.session_set_status(&a.session, fmt.tprintf("verify %s", v))
+		session.session_set_status(a.session, fmt.tprintf("verify %s", v))
 		return
 	}
 	lower := strings.to_lower(rest, context.temp_allocator)
 	switch lower {
 	case "off", "0", "false", "no":
 		os.set_env(constants.ENV_VERIFY, "0")
-		session.session_set_status(&a.session, "verify off")
+		session.session_set_status(a.session, "verify off")
 	case "on", "1", "true", "yes":
 		os.set_env(constants.ENV_VERIFY, "1")
 		resolved, _ := agent.resolve_verify_command(a.session.plan_verify, context.temp_allocator)
 		if len(resolved) > 0 {
-			session.session_set_status(&a.session, fmt.tprintf("verify on -> %s", resolved))
+			session.session_set_status(a.session, fmt.tprintf("verify on -> %s", resolved))
 		} else {
-			session.session_set_status(&a.session, "verify on")
+			session.session_set_status(a.session, "verify on")
 		}
 	case:
 		os.set_env(constants.ENV_VERIFY, rest)
-		session.session_set_status(&a.session, fmt.tprintf("verify %s", rest))
+		session.session_set_status(a.session, fmt.tprintf("verify %s", rest))
 	}
 }
 
@@ -109,14 +109,14 @@ slash_cmd_perms :: proc(a: ^App, args: string) {
 	rest := strings.trim_space(args)
 	if len(rest) == 0 {
 		session.session_set_status(
-			&a.session,
+			a.session,
 			fmt.tprintf("perms %s (ask|allow|yolo)", tools.perms_string(tools.perms_from_env())),
 		)
 		return
 	}
 	p, ok := tools.perms_from_string(rest)
 	if !ok {
-		session.session_set_status(&a.session, "usage: /perms ask|allow|yolo")
+		session.session_set_status(a.session, "usage: /perms ask|allow|yolo")
 		return
 	}
 	os.set_env(constants.ENV_PERMS, tools.perms_string(p))
@@ -134,7 +134,7 @@ slash_cmd_perms :: proc(a: ^App, args: string) {
 		os.unset_env(constants.ENV_SHELL_CONFIRM)
 		os.set_env(constants.ENV_GATE, "2")
 	}
-	session.session_set_status(&a.session, fmt.tprintf("perms %s gate %s", tools.perms_string(p), tools.gate_string(tools.gate_from_env())))
+	session.session_set_status(a.session, fmt.tprintf("perms %s gate %s", tools.perms_string(p), tools.gate_string(tools.gate_from_env())))
 }
 
 slash_cmd_quirks :: proc(a: ^App, args: string) {
@@ -145,21 +145,21 @@ slash_cmd_quirks :: proc(a: ^App, args: string) {
 		model = p.default_model
 	}
 	body := provider.quirks_active_labels(model, context.temp_allocator)
-	session.session_set_status(&a.session, body)
+	session.session_set_status(a.session, body)
 }
 
 slash_cmd_gate :: proc(a: ^App, args: string) {
 	rest := strings.trim_space(args)
 	if len(rest) == 0 {
 		session.session_set_status(
-			&a.session,
+			a.session,
 			fmt.tprintf("gate %s (0 read | 1 write | 2 shell | 3 destructive)", tools.gate_label(tools.gate_from_env())),
 		)
 		return
 	}
 	g, ok := tools.gate_parse(rest)
 	if !ok {
-		session.session_set_status(&a.session, "usage: /gate 0..3|ask|allow|yolo")
+		session.session_set_status(a.session, "usage: /gate 0..3|ask|allow|yolo")
 		return
 	}
 	os.set_env(constants.ENV_GATE, tools.gate_string(g))
@@ -177,63 +177,63 @@ slash_cmd_gate :: proc(a: ^App, args: string) {
 		os.set_env(constants.ENV_SHELL_CONFIRM, "0")
 		os.set_env(constants.ENV_AUTONOMY, "1")
 	}
-	session.session_set_status(&a.session, fmt.tprintf("gate %s", tools.gate_label(g)))
+	session.session_set_status(a.session, fmt.tprintf("gate %s", tools.gate_label(g)))
 }
 
 slash_cmd_hooks :: proc(a: ^App, args: string) {
 	rest := strings.trim_space(args)
 	if rest == "trust" || rest == "approve" {
 		_ = hooks.hooks_trust_workspace()
-		session.session_set_status(&a.session, "workspace hooks trusted")
+		session.session_set_status(a.session, "workspace hooks trusted")
 		return
 	}
 	path := hooks.hooks_workspace_source(context.temp_allocator)
-	session.session_set_status(&a.session, fmt.tprintf("hooks: %s · /hooks trust to re-approve", path))
+	session.session_set_status(a.session, fmt.tprintf("hooks: %s · /hooks trust to re-approve", path))
 }
 
 slash_cmd_pause :: proc(a: ^App, args: string) {
 	_ = args
 	if a.session.busy {
-		session.session_request_pause(&a.session)
+		session.session_request_pause(a.session)
 	} else {
-		session.session_set_status(&a.session, "not running")
+		session.session_set_status(a.session, "not running")
 	}
 }
 
 slash_cmd_stop :: proc(a: ^App, args: string) {
 	_ = args
 	if a.session.busy {
-		session.session_request_cancel(&a.session)
+		session.session_request_cancel(a.session)
 	} else {
-		session.session_set_status(&a.session, "not running")
+		session.session_set_status(a.session, "not running")
 	}
 }
 
 slash_cmd_continue :: proc(a: ^App, args: string) {
 	extra := strings.trim_space(args)
 	p := provider.registry_active(&a.registry)
-	session.session_resume(&a.session, p, extra)
+	session.session_resume(a.session, p, extra)
 	app_mark_dirty(a)
 }
 
 slash_cmd_retry :: proc(a: ^App, args: string) {
 	_ = args
 	if a.session.busy {
-		session.session_set_status(&a.session, "busy · stop first or wait")
+		session.session_set_status(a.session, "busy · stop first or wait")
 		return
 	}
 	p := provider.registry_active(&a.registry)
 	if p == nil {
-		session.session_set_status(&a.session, "no provider")
+		session.session_set_status(a.session, "no provider")
 		return
 	}
 	app_reveal_reset(a)
-	if session.session_retry_last(&a.session, p) {
+	if session.session_retry_last(a.session, p) {
 		app_toast_ok(a, "retrying last turn")
-		session.session_set_status(&a.session, "retrying...")
+		session.session_set_status(a.session, "retrying...")
 	} else {
 		app_toast(a, "nothing to retry", .Warn)
-		session.session_set_status(&a.session, "nothing to retry")
+		session.session_set_status(a.session, "nothing to retry")
 	}
 	app_mark_dirty(a)
 }
@@ -243,19 +243,19 @@ slash_cmd_auto :: proc(a: ^App, args: string) {
 	if rest == "on" {
 		os.set_env(constants.ENV_AUTO, "1")
 		agent.apply_auto_mode()
-		session.session_set_mode(&a.session, .Edit)
-		session.session_set_status(&a.session, "auto on (edit + yolo)")
+		session.session_set_mode(a.session, .Edit)
+		session.session_set_status(a.session, "auto on (edit + yolo)")
 		return
 	}
 	if rest == "off" {
 		os.unset_env(constants.ENV_AUTO)
 		os.unset_env(constants.ENV_AUTONOMY)
 		os.set_env(constants.ENV_PERMS, "allow")
-		session.session_set_status(&a.session, "auto off")
+		session.session_set_status(a.session, "auto off")
 		return
 	}
 	on := agent.auto_from_env()
-	session.session_set_status(&a.session, fmt.tprintf("auto %s (use /auto on|off)", on ? "on" : "off"))
+	session.session_set_status(a.session, fmt.tprintf("auto %s (use /auto on|off)", on ? "on" : "off"))
 }
 
 slash_cmd_secrets :: proc(a: ^App, args: string) {
@@ -265,7 +265,7 @@ slash_cmd_secrets :: proc(a: ^App, args: string) {
 		if !ok || len(cur) == 0 {
 			cur = "(none)"
 		}
-		session.session_set_status(&a.session, fmt.tprintf("NULLRAY_SECRETS_ALLOW=%s", cur))
+		session.session_set_status(a.session, fmt.tprintf("NULLRAY_SECRETS_ALLOW=%s", cur))
 		return
 	}
 	cur, _ := os.lookup_env(constants.ENV_SECRETS_ALLOW, context.temp_allocator)
@@ -274,7 +274,7 @@ slash_cmd_secrets :: proc(a: ^App, args: string) {
 	} else {
 		os.set_env(constants.ENV_SECRETS_ALLOW, path)
 	}
-	session.session_set_status(&a.session, fmt.tprintf("secrets allow += %s", path))
+	session.session_set_status(a.session, fmt.tprintf("secrets allow += %s", path))
 }
 
 slash_cmd_hide :: proc(a: ^App, args: string) {
@@ -282,19 +282,19 @@ slash_cmd_hide :: proc(a: ^App, args: string) {
 	switch strings.to_lower(rest, context.temp_allocator) {
 	case "on", "1", "true", "yes", "hide":
 		app_set_hide_sensitive(a, true)
-		session.session_set_status(&a.session, "hide on (balances hidden)")
+		session.session_set_status(a.session, "hide on (balances hidden)")
 	case "off", "0", "false", "no", "show":
 		app_set_hide_sensitive(a, false)
-		session.session_set_status(&a.session, "hide off")
+		session.session_set_status(a.session, "hide off")
 	case "":
 		app_set_hide_sensitive(a, !a.hide_sensitive)
 		if a.hide_sensitive {
-			session.session_set_status(&a.session, "hide on (balances hidden)")
+			session.session_set_status(a.session, "hide on (balances hidden)")
 		} else {
-			session.session_set_status(&a.session, "hide off")
+			session.session_set_status(a.session, "hide off")
 		}
 	case:
-		session.session_set_status(&a.session, "usage: /hide on|off")
+		session.session_set_status(a.session, "usage: /hide on|off")
 	}
 }
 
@@ -302,15 +302,15 @@ slash_cmd_allow :: proc(a: ^App, args: string) {
 	_ = args
 	cmd, ok := tools.shell_allow_once()
 	if !ok {
-		session.session_set_status(&a.session, "no pending shell command")
+		session.session_set_status(a.session, "no pending shell command")
 		return
 	}
-	session.session_set_status(&a.session, fmt.tprintf("allowed once: %s (agent may retry)", cmd))
+	session.session_set_status(a.session, fmt.tprintf("allowed once: %s (agent may retry)", cmd))
 	delete(cmd)
 }
 
 slash_cmd_deny :: proc(a: ^App, args: string) {
 	_ = args
 	tools.shell_deny_pending()
-	session.session_set_status(&a.session, "pending shell denied")
+	session.session_set_status(a.session, "pending shell denied")
 }

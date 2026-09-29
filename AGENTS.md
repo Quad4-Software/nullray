@@ -172,6 +172,8 @@ Speculative tools (on by default): set NULLRAY_SPECULATE=0 to disable. Pre-runs 
 
 Key presets: default, neovim, emacs (preset= in keys.ini), or NULLRAY_KEYS / --keys.
 
+Session tabs (nullray/app/tabs.odin): a.session is a ^Session into tabs[active_tab].sess; every tab is a live session that can stay busy in the background. Strip under the title bar; ctrl-x prefix (n new, w close, arrows, digits, o sessions); binds tab_next=f4, tab_prev=backtab, tab_close=ctrl-g; /tab and /new and /resume manage. Open names persist to open_tabs in the config dir (explicit NULLRAY_SESSION wins). Busy status shows spinner, elapsed seconds (session.busy_since), and live_tool.
+
 Splash defaults on. Off: NULLRAY_SPLASH=0 (also false/off/no/disable) or --no-splash. Force: --splash or NULLRAY_SPLASH=1.
 
 View pane auto-opens the last write path after a turn. Off: NULLRAY_VIEW_AUTO=0 or `/view auto off`.
