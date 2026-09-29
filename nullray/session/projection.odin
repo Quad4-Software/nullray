@@ -5,9 +5,23 @@ Provider-facing LID projection and prepare write-back into the session transcrip
 
 package session
 
+import "core:os"
+import "core:strconv"
 import "core:strings"
 import "nullray:agent"
+import "nullray:constants"
 import "nullray:provider"
+
+// Media payloads are re-billed every turn they ride along. Keep them only on
+// the newest media-bearing user turns; older turns keep their text markers.
+media_turns_from_env :: proc() -> int {
+	if v, ok := os.lookup_env(constants.ENV_MEDIA_TURNS, context.temp_allocator); ok {
+		if n, nok := strconv.parse_int(v); nok && n >= 0 {
+			return n
+		}
+	}
+	return constants.MEDIA_TURNS_DEFAULT
+}
 
 /*
 Build the model view from the full session transcript.
@@ -18,9 +32,34 @@ session_project_messages :: proc(
 	allocator := context.allocator,
 ) -> [dynamic]provider.Message {
 	out := make([dynamic]provider.Message, 0, len(s.messages), allocator)
+
+	// User turns past NULLRAY_MEDIA_TURNS lose their binary payloads here.
+	media_cut := -1
+	{
+		media_keep := media_turns_from_env()
+		count := 0
+		for i := len(s.messages) - 1; i >= 0; i -= 1 {
+			if s.messages[i].role == .User && len(s.messages[i].media) > 0 {
+				count += 1
+				if count > media_keep {
+					media_cut = i
+					break
+				}
+			}
+		}
+	}
+	strip_media := proc(m: ^provider.Message, i: int, cut: int) {
+		if cut >= 0 && i <= cut && len(m.media) > 0 {
+			provider.destroy_media_parts_owned(m.media)
+			m.media = nil
+		}
+	}
+
 	if !agent.lid_enabled() || len(s.messages) == 0 {
-		for m in s.messages {
-			append(&out, provider.clone_message(m, allocator))
+		for m, i in s.messages {
+			cloned := provider.clone_message(m, allocator)
+			strip_media(&cloned, i, media_cut)
+			append(&out, cloned)
 		}
 		return out
 	}
@@ -77,6 +116,7 @@ session_project_messages :: proc(
 			delete(cloned.content)
 			cloned.content = stub
 		}
+		strip_media(&cloned, i, media_cut)
 		append(&out, cloned)
 	}
 	return out

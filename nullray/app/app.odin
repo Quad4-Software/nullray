@@ -96,6 +96,7 @@ App :: struct {
 	input_history:      [dynamic]string,
 	input_hist_idx:     int,
 	input_draft:        string,
+	pending_media:      [dynamic]provider.Media_Part,
 	reveal_stream:      int,
 	reveal_think:       int,
 	reset_pending:      bool,
@@ -203,6 +204,7 @@ app_destroy :: proc(a: ^App) {
 	app_toasts_destroy(a)
 	app_sel_destroy(a)
 	app_history_destroy(a)
+	app_media_clear(a)
 	delete(a.input_draft)
 	delete(a.status_body)
 	app_expand_hits_clear(a)

@@ -159,7 +159,7 @@ app_on_event :: proc(ev: ui.Event, user: rawptr) -> bool {
 
 app_submit :: proc(a: ^App) {
 	text := strings.trim_space(strings.to_string(a.input))
-	if len(text) == 0 {
+	if len(text) == 0 && len(a.pending_media) == 0 {
 		return
 	}
 	if a.session.busy && !slash_busy_exempt(text) {
@@ -188,7 +188,8 @@ app_submit :: proc(a: ^App) {
 
 	app_history_push(a, text)
 	app_reveal_reset(a)
-	session.session_push_user(&a.session, text)
+	session.session_push_user_media(&a.session, text, a.pending_media[:])
+	app_media_clear(a)
 	p := provider.registry_active(&a.registry)
 	session.session_start_chat(&a.session, p)
 	app_mark_dirty(a)

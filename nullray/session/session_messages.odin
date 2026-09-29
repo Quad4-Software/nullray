@@ -8,6 +8,15 @@ import "nullray:constants"
 import "nullray:provider"
 
 session_push_user :: proc(s: ^Session, text: string) {
+	session_push_user_media(s, text, nil)
+}
+
+/*
+Push a user turn with media parts. Marker lines join the content so the
+transcript and projections keep a readable trace after reloads drop the
+binary payloads.
+*/
+session_push_user_media :: proc(s: ^Session, text: string, media: []provider.Media_Part) {
 	if s.mode_policy == .Auto {
 		suggested := agent.auto_suggest_mode(text)
 		if suggested != s.agent_mode {
@@ -15,7 +24,30 @@ session_push_user :: proc(s: ^Session, text: string) {
 		}
 	}
 	cap_messages(s)
-	append(&s.messages, provider.Message{role = .User, content = strings.clone(text)})
+	body := text
+	if len(media) > 0 {
+		b := strings.builder_make(context.allocator)
+		strings.write_string(&b, text)
+		for mp in media {
+			strings.write_string(&b, "\n[media:")
+			strings.write_string(&b, provider.media_kind_string(mp.kind))
+			strings.write_string(&b, ":")
+			strings.write_string(&b, mp.label)
+			strings.write_byte(&b, ']')
+		}
+		body = strings.to_string(b)
+	}
+	msg := provider.Message{role = .User, content = strings.clone(body)}
+	if len(media) > 0 {
+		msg.media = make([]provider.Media_Part, len(media))
+		for mp, i in media {
+			msg.media[i] = provider.clone_media_part(mp)
+		}
+	}
+	if len(media) > 0 {
+		delete(body)
+	}
+	append(&s.messages, msg)
 	session_maybe_persist(s)
 }
 

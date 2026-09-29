@@ -253,6 +253,17 @@ parse_cli :: proc(args: []string) -> Cli {
 				return cli
 			}
 			cli.message_file = v
+		case "--image", "--audio", "--video", "--media":
+			v, ok := take_value(args, &i)
+			if !ok {
+				cli.err = fmt.aprintf("%s needs a path", arg)
+				return cli
+			}
+			kind := ""
+			if arg != "--media" {
+				kind = arg[2:]
+			}
+			append(&cli.media_args, Media_Arg{path = v, kind = kind})
 		case "--out":
 			v, ok := take_value(args, &i)
 			if !ok {

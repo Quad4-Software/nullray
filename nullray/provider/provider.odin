@@ -20,6 +20,19 @@ Tool_Call :: struct {
 	arguments: string,
 }
 
+Media_Kind :: enum {
+	Image,
+	Audio,
+	Video,
+}
+
+Media_Part :: struct {
+	kind:     Media_Kind,
+	mime:     string,
+	data_b64: string,
+	label:    string,
+}
+
 Message :: struct {
 	role:         Role,
 	content:      string,
@@ -28,6 +41,7 @@ Message :: struct {
 	tool_calls:   []Tool_Call,
 	name:         string,
 	cacheable:    bool,
+	media:        []Media_Part,
 }
 
 Chat_Request :: struct {
@@ -171,6 +185,28 @@ destroy_tool_calls_owned :: proc(calls: []Tool_Call) {
 	delete(calls)
 }
 
+clone_media_part :: proc(mp: Media_Part, allocator := context.allocator) -> Media_Part {
+	return Media_Part{
+		kind = mp.kind,
+		mime = strings.clone(mp.mime, allocator),
+		data_b64 = strings.clone(mp.data_b64, allocator),
+		label = strings.clone(mp.label, allocator),
+	}
+}
+
+destroy_media_parts :: proc(parts: []Media_Part) {
+	for mp in parts {
+		delete(mp.mime)
+		delete(mp.data_b64)
+		delete(mp.label)
+	}
+}
+
+destroy_media_parts_owned :: proc(parts: []Media_Part) {
+	destroy_media_parts(parts)
+	delete(parts)
+}
+
 clone_message :: proc(m: Message, allocator := context.allocator) -> Message {
 	out := Message{
 		role = m.role,
@@ -186,6 +222,12 @@ clone_message :: proc(m: Message, allocator := context.allocator) -> Message {
 			out.tool_calls[i] = clone_tool_call(tc, allocator)
 		}
 	}
+	if len(m.media) > 0 {
+		out.media = make([]Media_Part, len(m.media), allocator)
+		for mp, i in m.media {
+			out.media[i] = clone_media_part(mp, allocator)
+		}
+	}
 	return out
 }
 
@@ -195,6 +237,7 @@ destroy_message :: proc(m: Message) {
 	delete(m.tool_call_id)
 	delete(m.name)
 	destroy_tool_calls_owned(m.tool_calls)
+	destroy_media_parts_owned(m.media)
 }
 
 destroy_messages :: proc(msgs: []Message) {

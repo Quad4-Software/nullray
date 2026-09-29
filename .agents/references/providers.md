@@ -67,4 +67,10 @@ Local notes:
 - NULLRAY_RAG=auto|1|0 (default auto). Index under .nullray/rag/. NULLRAY_RAG_ARTIFACTS=0 skips artifact indexing. rag_reindex rebuilds memory and retained artifacts.
 - Embed privacy: cloud embed providers receive indexed text even when chat is local. Prefer a local embed model (nomic) when ZDR or offline matter. Do not index the live codebase; use grep/locate for source.
 
+Media attachments:
+
+- User messages can carry image (image_url), audio (input_audio), and video (video_url) parts as base64 data URIs. Serialized in provider/openai_request.odin write_media_content_json; gating hints in provider/media.odin media_kind_supported (advisory only).
+- Attach via /attach PATH in the TUI or --image/--audio/--video/--media in print mode. NULLRAY_MEDIA=0 disables, NULLRAY_MEDIA_MAX caps bytes, NULLRAY_MEDIA_TURNS limits how many past user turns resend payloads.
+- Verified on OpenCode Zen chat/completions: qwen3.x and minimax-m3 accept image_url; qwen3.x-plus accepts video_url. Zen free-tier and most claude/gpt/gemini ids reject /chat/completions entirely (ModelProtocolUnsupported), so media tests need qwen/minimax-class models.
+
 Source of truth: nullray/constants/constants.odin and nullray/provider/builtins.odin.

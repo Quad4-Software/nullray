@@ -20,6 +20,7 @@ import "nullray:tools"
 
 Config :: struct {
 	prompt:           string,
+	media:            []Media_Input,
 	output_format:    string,
 	out_path:         string,
 	plan_out:         string,
@@ -190,7 +191,14 @@ run_print :: proc(cfg: Config) -> Result {
 		session.session_rebuild_system_prompt(&s)
 	}
 
-	session.session_push_user(&s, prompt)
+	parts, merr := load_media_parts(cfg.media, p)
+	if len(merr) > 0 {
+		res.err = merr
+		return res
+	}
+	defer provider.destroy_media_parts_owned(parts)
+
+	session.session_push_user_media(&s, prompt, parts)
 	session.session_start_chat(&s, p)
 
 	deadline := time.tick_now()

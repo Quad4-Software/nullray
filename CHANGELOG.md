@@ -4,6 +4,9 @@ Notable changes for nullray.
 
 ## [Unreleased]
 
+### Added
+- Image, audio, and video attachments. In the TUI, /attach on a media file queues it for the next message; /attach lists the queue and /attach clear empties it. Print mode adds repeatable --image, --audio, --video, and --media flags. Older turns keep a text marker and stop resending the payload after NULLRAY_MEDIA_TURNS (default 2). NULLRAY_MEDIA=0 disables, NULLRAY_MEDIA_MAX caps file size (default 15MB).
+
 ## [0.4.0] - 2026-09-14
 
 ### Added

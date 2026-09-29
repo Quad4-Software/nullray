@@ -40,7 +40,7 @@ _nullray() {
   COMPREPLY=()
   cur="${COMP_WORDS[COMP_CWORD]}"
   prev="${COMP_WORDS[COMP_CWORD-1]}"
-  opts="--help -h --version -V --ephemeral -e --self-test -t --audit --review --review-scope --base --staged --unstaged --include-untracked --paths --doctor --debug --print -P --ask -q --bare --fail-on-findings --provider -p --model -m --theme --mode --hunt --perms --gate --sandbox --workspace -w --session --list-sessions --inspect-session --follow --search-sessions --delete-session --rename-session --force --export-session --import-session --as --list-skills --install-skill --uninstall-skill --skills --keys --message-file --out --plan-out --plan-in --output-format --print-strict --auto --usage --timeout --no-splash --no-subagents --splash --hide-sensitive --list-models --completions --man"
+  opts="--help -h --version -V --ephemeral -e --self-test -t --audit --review --review-scope --base --staged --unstaged --include-untracked --paths --doctor --debug --print -P --ask -q --bare --fail-on-findings --provider -p --model -m --theme --mode --hunt --perms --gate --sandbox --workspace -w --session --list-sessions --inspect-session --follow --search-sessions --delete-session --rename-session --force --export-session --import-session --as --list-skills --install-skill --uninstall-skill --skills --keys --message-file --image --audio --video --media --out --plan-out --plan-in --output-format --print-strict --auto --usage --timeout --no-splash --no-subagents --splash --hide-sensitive --list-models --completions --man"
   providers="ollama lmstudio llamacpp openai openai-compat openrouter opencode opencode-go anthropic gemini groq deepseek mistral together fireworks xai azure cerebras cohere nvidia dashscope"
   modes="ask plan review edit"
   hunts="auto balanced explore oracle adversarial"
@@ -60,7 +60,7 @@ _nullray() {
     --output-format) COMPREPLY=( $(compgen -W "text json" -- "$cur") ); return ;;
     --completions) COMPREPLY=( $(compgen -W "bash zsh fish powershell elvish nushell" -- "$cur") ); return ;;
     --theme) COMPREPLY=( $(compgen -W "ink ember moss slate rose mono dusk" -- "$cur") ); return ;;
-    --workspace|-w|--session|--search-sessions|--delete-session|--rename-session|--export-session|--import-session|--as|--model|-m|--message-file|--out|--plan-out|--plan-in|--install-skill|--uninstall-skill|--skills|--base|--paths) COMPREPLY=( $(compgen -f -- "$cur") ); return ;;
+    --workspace|-w|--session|--search-sessions|--delete-session|--rename-session|--export-session|--import-session|--as|--model|-m|--message-file|--image|--audio|--video|--media|--out|--plan-out|--plan-in|--install-skill|--uninstall-skill|--skills|--base|--paths) COMPREPLY=( $(compgen -f -- "$cur") ); return ;;
   esac
   if [[ "$cur" == -* ]]; then
     COMPREPLY=( $(compgen -W "$opts" -- "$cur") )
@@ -118,6 +118,10 @@ _nullray() {
     '--skills[extra skill root dirs]:path:_files -/'
     '--keys[keybind preset]:keys:(default neovim emacs)'
     '--message-file[prompt file]:file:_files'
+    '--image[attach image]:file:_files'
+    '--audio[attach audio]:file:_files'
+    '--video[attach video]:file:_files'
+    '--media[attach media file]:file:_files'
     '--out[write final reply or export dir]:file:_files'
     '--plan-out[plan artifact path]:file:_files'
     '--plan-in[load Done Contract plan]:file:_files'

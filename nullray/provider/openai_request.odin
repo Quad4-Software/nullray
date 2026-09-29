@@ -195,7 +195,11 @@ write_message_json :: proc(b: ^strings.Builder, m: Message, p: ^Provider = nil) 
 		}
 	}
 	strings.write_string(b, `,"content":`)
-	write_json_string(b, m.content)
+	if m.role == .User && len(m.media) > 0 {
+		write_media_content_json(b, m)
+	} else {
+		write_json_string(b, m.content)
+	}
 	if m.role == .Assistant && len(m.reasoning) > 0 {
 		field := assistant_reasoning_json_field(p)
 		strings.write_string(b, `,"`)
@@ -223,6 +227,47 @@ write_message_json :: proc(b: ^strings.Builder, m: Message, p: ^Provider = nil) 
 		strings.write_byte(b, ']')
 	}
 	strings.write_byte(b, '}')
+}
+
+// User messages with media parts serialize as an OpenAI content array:
+// text part first, then image_url / input_audio / video_url data URIs.
+@(private)
+write_media_content_json :: proc(b: ^strings.Builder, m: Message) {
+	strings.write_byte(b, '[')
+	wrote := false
+	if len(m.content) > 0 {
+		strings.write_string(b, `{"type":"text","text":`)
+		write_json_string(b, m.content)
+		strings.write_byte(b, '}')
+		wrote = true
+	}
+	for mp in m.media {
+		if wrote {
+			strings.write_byte(b, ',')
+		}
+		wrote = true
+		switch mp.kind {
+		case .Image:
+			strings.write_string(b, `{"type":"image_url","image_url":{"url":"data:`)
+			strings.write_string(b, mp.mime)
+			strings.write_string(b, ";base64,")
+			strings.write_string(b, mp.data_b64)
+			strings.write_string(b, `"}}`)
+		case .Audio:
+			strings.write_string(b, `{"type":"input_audio","input_audio":{"data":`)
+			write_json_string(b, mp.data_b64)
+			strings.write_string(b, `,"format":`)
+			write_json_string(b, media_audio_format(mp.mime))
+			strings.write_string(b, `}}`)
+		case .Video:
+			strings.write_string(b, `{"type":"video_url","video_url":{"url":"data:`)
+			strings.write_string(b, mp.mime)
+			strings.write_string(b, ";base64,")
+			strings.write_string(b, mp.data_b64)
+			strings.write_string(b, `"}}`)
+		}
+	}
+	strings.write_byte(b, ']')
 }
 
 @(private)

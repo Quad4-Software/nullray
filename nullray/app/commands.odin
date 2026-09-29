@@ -80,7 +80,7 @@ SLASH_COMMANDS := []Slash_Command{
 	{"deny", "/deny", "drop pending shell command", slash_cmd_deny},
 	{"undo", "/undo", "undo last agent file write", slash_cmd_undo},
 	{"checkpoint", "/checkpoint [list|restore N|diff N]", "list or restore file checkpoints", slash_cmd_checkpoint},
-	{"attach", "/attach PATH", "attach a file into the next prompt", slash_cmd_attach},
+	{"attach", "/attach PATH", "attach text or media into the next prompt", slash_cmd_attach},
 	{"view", "/view [PATH|auto on|off]", "open a file in the side pane or toggle auto-open", slash_cmd_view},
 	{"artifact", "/artifact ID", "open an LID artifact in the side pane", slash_cmd_artifact},
 	{"close", "/close", "close the file view pane", slash_cmd_close},

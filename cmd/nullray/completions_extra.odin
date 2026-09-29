@@ -45,6 +45,10 @@ complete -c nullray -l uninstall-skill -d 'Uninstall config skill' -r
 complete -c nullray -l skills -d 'Extra skill root dirs' -r -F
 complete -c nullray -l keys -d 'Keybind preset' -xa 'default neovim emacs'
 complete -c nullray -l message-file -d 'Prompt from file' -r -F
+complete -c nullray -l image -d 'Attach an image' -r -F
+complete -c nullray -l audio -d 'Attach audio' -r -F
+complete -c nullray -l video -d 'Attach video' -r -F
+complete -c nullray -l media -d 'Attach media, kind from extension' -r -F
 complete -c nullray -l out -d 'Write final reply or export dir' -r -F
 complete -c nullray -l plan-out -d 'Plan artifact path' -r -F
 complete -c nullray -l plan-in -d 'Load Done Contract plan' -r -F
@@ -71,7 +75,7 @@ COMPLETIONS_POWERSHELL :: `Register-ArgumentCompleter -CommandName nullray -Scri
     '--workspace','-w','--session','--list-sessions','--search-sessions',
     '--delete-session','--rename-session','--force','--export-session','--import-session','--as',
     '--list-skills','--install-skill','--uninstall-skill','--skills',
-    '--keys','--message-file','--out','--plan-out','--plan-in',
+    '--keys','--message-file','--image','--audio','--video','--media','--out','--plan-out','--plan-in',
     '--output-format','--print-strict','--auto','--usage','--timeout','--no-splash','--no-subagents','--splash','--hide-sensitive','--list-models','--completions','--man'
   )
   $opts | Where-Object { $_ -like "$wordToComplete*" } | ForEach-Object {
@@ -89,7 +93,7 @@ set edit:completion:arg-completer[nullray] = {|@args|
     --workspace -w --session --list-sessions --search-sessions
     --delete-session --rename-session --force --export-session --import-session --as
     --list-skills --install-skill --uninstall-skill --skills
-    --keys --message-file --out --plan-out --plan-in
+    --keys --message-file --image --audio --video --media --out --plan-out --plan-in
     --output-format --print-strict --auto --usage --timeout --no-splash --no-subagents --splash --hide-sensitive --list-models --completions --man
   ]
   put $@flags
@@ -104,7 +108,7 @@ COMPLETIONS_NUSHELL :: `def "nu-complete nullray flags" [] {
     --workspace -w --session --list-sessions --search-sessions
     --delete-session --rename-session --force --export-session --import-session --as
     --list-skills --install-skill --uninstall-skill --skills
-    --keys --message-file --out --plan-out --plan-in
+    --keys --message-file --image --audio --video --media --out --plan-out --plan-in
     --output-format --print-strict --auto --usage --timeout --no-splash --no-subagents --splash --hide-sensitive --list-models --completions --man
   ]
 }

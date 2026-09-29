@@ -16,6 +16,11 @@ import "nullray:sandbox"
 import "nullray:selftest"
 import "nullray:ui"
 
+Media_Arg :: struct {
+	path: string,
+	kind: string,
+}
+
 Cli :: struct {
 	ephemeral:        bool,
 	self_test:        bool,
@@ -61,6 +66,7 @@ Cli :: struct {
 	session:          string,
 	keys:             string,
 	message_file:     string,
+	media_args:       [dynamic]Media_Arg,
 	out_path:         string,
 	plan_out:         string,
 	plan_in:          string,
@@ -251,8 +257,14 @@ run_print_mode :: proc(cli: ^Cli) -> int {
 	}
 	defer delete(prompt)
 
+	media := make([dynamic]run.Media_Input, context.temp_allocator)
+	for ma in cli.media_args {
+		append(&media, run.Media_Input{path = ma.path, kind = ma.kind})
+	}
+
 	rcfg := run.Config{
 		prompt = prompt,
+		media = media[:],
 		output_format = cli.output_format,
 		out_path = cli.out_path,
 		plan_out = cli.plan_out,

@@ -7,8 +7,11 @@ package app
 
 import "core:fmt"
 import "core:os"
+import "core:path/filepath"
 import "core:strings"
 import "nullray:config"
+import "nullray:constants"
+import "nullray:provider"
 import "nullray:sandbox"
 import "nullray:session"
 import "nullray:skills"
@@ -119,15 +122,76 @@ slash_cmd_copy :: proc(a: ^App, args: string) {
 	}
 }
 
+app_media_clear :: proc(a: ^App) {
+	provider.destroy_media_parts_owned(a.pending_media[:])
+	a.pending_media = nil
+}
+
 slash_cmd_attach :: proc(a: ^App, args: string) {
 	path := strings.trim_space(args)
 	if len(path) == 0 {
-		session.session_set_status(&a.session, "usage: /attach path")
+		if len(a.pending_media) > 0 {
+			names := make([dynamic]string, context.temp_allocator)
+			for mp in a.pending_media {
+				append(
+					&names,
+					fmt.tprintf(
+						"%s:%s",
+						provider.media_kind_string(mp.kind),
+						mp.label,
+					),
+				)
+			}
+			session.session_set_status(
+				&a.session,
+				fmt.tprintf(
+					"queued: %s",
+					strings.join(names[:], ", ", context.temp_allocator),
+				),
+			)
+		} else {
+			session.session_set_status(&a.session, "usage: /attach path|clear")
+		}
+		return
+	}
+	if strings.to_lower(path, context.temp_allocator) == "clear" {
+		app_media_clear(a)
+		session.session_set_status(&a.session, "media queue cleared")
 		return
 	}
 	abs := tools.resolve_path(path, context.temp_allocator)
 	if sandbox.path_is_secret_blocked(abs) {
 		session.session_set_status(&a.session, "secret file blocked")
+		return
+	}
+	kind, mime, is_media := provider.media_detect(abs)
+	if is_media {
+		if len(a.pending_media) >= constants.MEDIA_MAX_PARTS {
+			session.session_set_status(&a.session, "media queue full")
+			return
+		}
+		part, merr := provider.media_load_file(abs, kind, mime)
+		if len(merr) > 0 {
+			session.session_set_status(&a.session, fmt.tprintf("attach failed: %s", merr))
+			return
+		}
+		append(&a.pending_media, part)
+		note := ""
+		if p := provider.registry_active(&a.registry); p != nil {
+			if !provider.media_kind_supported(p, p.default_model, kind) {
+				note = " (model may not accept it)"
+			}
+		}
+		session.session_set_status(
+			&a.session,
+			fmt.tprintf(
+				"queued %s %s (%d pending)%s",
+				provider.media_kind_string(kind),
+				filepath.base(abs),
+				len(a.pending_media),
+				note,
+			),
+		)
 		return
 	}
 	data, err := os.read_entire_file(abs, context.temp_allocator)
