@@ -234,6 +234,7 @@ run_request :: proc(
 	timeout_sec: int,
 	max_body: int,
 	allow_url: Url_Allow = nil,
+	owner: rawptr = nil,
 ) -> (status: int, resp_body: []u8, retry_after: int, err: string) {
 	cur_url := strings.clone(url, context.allocator)
 	defer delete(cur_url)
@@ -253,7 +254,7 @@ run_request :: proc(
 		if derr != "" {
 			return 0, nil, 0, derr
 		}
-		conn_register_active(&conn)
+		conn_register_active(&conn, owner)
 
 		if conn.use_tls && conn.alpn == .H2 {
 			status, body_slice, retry_after, location, herr := run_h2_request(

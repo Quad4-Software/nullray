@@ -27,6 +27,8 @@ Conn :: struct {
 	alpn:     Alpn_Proto,
 	deadline: time.Time,
 	closed:   bool,
+	// Cancel owner key (session pointer) for per-tab Esc targeting.
+	owner:    rawptr,
 }
 
 Url_Parts :: struct {
@@ -160,7 +162,7 @@ conn_read :: proc(conn: ^Conn, buf: []u8) -> (n: int, err: string) {
 		return 0, ""
 	}
 	for {
-		if cancel_requested() {
+		if cancel_requested(conn.owner) {
 			return 0, "cancelled"
 		}
 		if conn_past_deadline(conn) {
@@ -195,7 +197,7 @@ conn_read :: proc(conn: ^Conn, buf: []u8) -> (n: int, err: string) {
 conn_write :: proc(conn: ^Conn, data: []u8) -> (written: int, err: string) {
 	off := 0
 	for off < len(data) {
-		if cancel_requested() {
+		if cancel_requested(conn.owner) {
 			return written, "cancelled"
 		}
 		if conn_past_deadline(conn) {

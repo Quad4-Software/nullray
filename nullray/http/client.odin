@@ -27,6 +27,9 @@ Request :: struct {
 	timeout:   int,
 	max_body:  int,
 	allow_url: Url_Allow,
+	// Session pointer that owns this request for Esc cancellation. Nil means
+	// the request is not cancel-targeted.
+	owner:     rawptr,
 }
 
 global_init :: proc() -> bool {
@@ -78,18 +81,19 @@ get_checked :: proc(
 	}, allocator)
 }
 
-post_json :: proc(url: string, headers: []string, body: string, timeout_sec: int = 120, allocator := context.allocator) -> Response {
+post_json :: proc(url: string, headers: []string, body: string, timeout_sec: int = 120, allocator := context.allocator, owner: rawptr = nil) -> Response {
 	return do_request(Request{
 		method = "POST",
 		url = url,
 		headers = headers,
 		body = body,
 		timeout = timeout_sec,
+		owner = owner,
 	}, allocator)
 }
 
 do_request :: proc(req: Request, allocator := context.allocator) -> Response {
-	if cancel_requested() {
+	if cancel_requested(req.owner) {
 		return Response{ok = false, err = "cancelled"}
 	}
 
@@ -105,8 +109,9 @@ do_request :: proc(req: Request, allocator := context.allocator) -> Response {
 		req.timeout,
 		max_body,
 		req.allow_url,
+		req.owner,
 	)
-	if cancel_requested() {
+	if cancel_requested(req.owner) {
 		return Response{ok = false, err = "cancelled"}
 	}
 	if rerr != "" {

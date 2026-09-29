@@ -340,8 +340,8 @@ tool_apply_edits :: proc(args_json: string, allocator := context.allocator) -> (
 	}
 	for s in staged {
 		snapshot_before_write(s.abs)
-		if werr := os.write_entire_file(s.abs, transmute([]u8)s.content); werr != nil {
-			return "", fmt.aprintf("write failed for %s: %v", s.abs, werr, allocator = allocator)
+		if werr := tool_write_atomic(s.abs, transmute([]u8)s.content); len(werr) > 0 {
+			return "", fmt.aprintf("write failed for %s: %s", s.abs, werr, allocator = allocator)
 		}
 	}
 	return fmt.aprintf("ok applied=%d", total, allocator = allocator), ""

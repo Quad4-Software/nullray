@@ -21,7 +21,7 @@ missing file is fine because git treats it as absent.
 git_env :: proc(repo: Repo) -> []string {
 	home, _ := os.lookup_env("HOME", context.temp_allocator)
 	xdg, xok := os.lookup_env("XDG_CONFIG_HOME", context.temp_allocator)
-	candidates: [dynamic]string
+	candidates := make([dynamic]string, context.temp_allocator)
 	if len(home) > 0 {
 		append(&candidates, strings.concatenate({home, "/.gitconfig"}, context.temp_allocator))
 		if xok && len(xdg) > 0 {

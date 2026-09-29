@@ -168,13 +168,13 @@ test_runtime_child_token_rollup :: proc(t: ^testing.T) {
 test_session_bind_tls_roundtrip :: proc(t: ^testing.T) {
 	_, _, ok_before := session_bind()
 	testing.expect(t, !ok_before)
-	session_bind_set("/tmp/sess-a.jsonl", true)
-	defer session_bind_clear()
+	prev := session_bind_set("/tmp/sess-a.jsonl", true)
+	defer session_bind_clear(prev)
 	path, persist, ok := session_bind()
 	testing.expect(t, ok)
 	testing.expect(t, path == "/tmp/sess-a.jsonl")
 	testing.expect(t, persist)
-	session_bind_clear()
+	session_bind_clear(prev)
 	_, _, ok_after := session_bind()
 	testing.expect(t, !ok_after)
 }

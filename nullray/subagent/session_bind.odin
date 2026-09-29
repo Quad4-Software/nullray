@@ -20,20 +20,23 @@ Session_Bind :: struct {
 @(thread_local)
 tls_session_bind: Session_Bind
 
-// Set the owning session for this thread. Caller clears on the way out.
-session_bind_set :: proc(path: string, persist: bool) {
-	delete(tls_session_bind.path)
+// Set the owning session for this thread and return the previous binding so
+// the caller can restore it. Synchronous child jobs run on the parent thread,
+// where a plain clear would leave the rest of the parent turn unbound.
+session_bind_set :: proc(path: string, persist: bool) -> (prev: Session_Bind) {
+	prev = tls_session_bind
 	tls_session_bind = {}
 	tls_session_bind.set = true
 	tls_session_bind.persist = persist
 	if len(path) > 0 {
 		tls_session_bind.path = strings.clone(path)
 	}
+	return prev
 }
 
-session_bind_clear :: proc() {
+session_bind_clear :: proc(prev: Session_Bind) {
 	delete(tls_session_bind.path)
-	tls_session_bind = {}
+	tls_session_bind = prev
 }
 
 // Returns the bound session for this thread. String is borrowed.

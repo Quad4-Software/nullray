@@ -6,6 +6,7 @@ Apply before http/UI/threads.
 
 package sandbox
 
+import "base:runtime"
 import "core:fmt"
 import "core:strings"
 
@@ -22,30 +23,31 @@ Result :: struct {
 }
 
 apply :: proc(cfg: Config) -> Result {
+	// Global state outlives the caller's allocator; keep it on the heap so a
+	// test tracking arena teardown cannot leave stale pointers behind.
+	state_destroy_heap(&g_state)
 	if cfg.mode == .Off {
-		g_state = {}
 		g_state.mode = .Off
 		g_state.net = cfg.net
 		g_state.fs = cfg.fs
-		g_state.workspace = strings.clone(cfg.workspace)
-		g_state.config_dir = strings.clone(cfg.config_dir)
-		g_state.tmp_dir = strings.clone(cfg.tmp_dir)
+		g_state.workspace = strings.clone(cfg.workspace, runtime.heap_allocator())
+		g_state.config_dir = strings.clone(cfg.config_dir, runtime.heap_allocator())
+		g_state.tmp_dir = strings.clone(cfg.tmp_dir, runtime.heap_allocator())
 		return Result{ok = true, applied = false, message = "sandbox off"}
 	}
 
 	ensure_dirs(cfg)
 
-	g_state = {}
 	g_state.mode = cfg.mode
 	g_state.net = cfg.net
 	g_state.fs = cfg.fs
-	g_state.workspace = strings.clone(cfg.workspace)
-	g_state.config_dir = strings.clone(cfg.config_dir)
-	g_state.tmp_dir = strings.clone(cfg.tmp_dir)
-	g_state.allow_rw = make([dynamic]string)
-	g_state.allow_ro = make([dynamic]string)
-	g_state.allow_sock = make([dynamic]string)
-	g_state.ops_label = strings.clone(cfg.ops_label)
+	g_state.workspace = strings.clone(cfg.workspace, runtime.heap_allocator())
+	g_state.config_dir = strings.clone(cfg.config_dir, runtime.heap_allocator())
+	g_state.tmp_dir = strings.clone(cfg.tmp_dir, runtime.heap_allocator())
+	g_state.allow_rw = make([dynamic]string, 0, runtime.heap_allocator())
+	g_state.allow_ro = make([dynamic]string, 0, runtime.heap_allocator())
+	g_state.allow_sock = make([dynamic]string, 0, runtime.heap_allocator())
+	g_state.ops_label = strings.clone(cfg.ops_label, runtime.heap_allocator())
 	g_state.keep_docker_host = cfg.keep_docker_host
 	g_state.keep_kubeconfig = cfg.keep_kubeconfig
 
@@ -139,5 +141,5 @@ append_unique_path :: proc(list: ^[dynamic]string, path: string) {
 			return
 		}
 	}
-	append(list, strings.clone(path))
+	append(list, strings.clone(path, runtime.heap_allocator()))
 }

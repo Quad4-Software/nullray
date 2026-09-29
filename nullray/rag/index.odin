@@ -173,7 +173,8 @@ load_index :: proc(allocator := context.allocator) -> (
 			dim = len(vdata) / (4 * len(chunks))
 		}
 	}
-	if dim <= 0 {
+	// Cap dim so a corrupt meta cannot overflow len(chunks)*row_bytes below.
+	if dim <= 0 || dim > 8192 {
 		return chunks, vectors, "rag dim unknown"
 	}
 	row_bytes := dim * 4

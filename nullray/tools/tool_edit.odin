@@ -77,8 +77,8 @@ tool_edit_file :: proc(args_json: string, allocator := context.allocator) -> (re
 		return "", gate_err
 	}
 	snapshot_before_write(abs)
-	if werr := os.write_entire_file(abs, transmute([]u8)updated); werr != nil {
-		return "", fmt.aprintf("write failed: %v", werr, allocator = allocator)
+	if werr := tool_write_atomic(abs, transmute([]u8)updated); len(werr) > 0 {
+		return "", strings.clone(werr, allocator)
 	}
 	if kind == .Fuzzy {
 		return strings.clone("ok fuzzy", allocator), ""

@@ -40,6 +40,7 @@ run_stream_request :: proc(
 	on_chunk: Stream_Chunk_Proc,
 	user: rawptr,
 	timeout_sec: int,
+	owner: rawptr = nil,
 ) -> (code: int, err_body: []u8, retry_after: int, err: string) {
 	parts, perr := parse_url(url, context.temp_allocator)
 	if perr != "" {
@@ -49,7 +50,7 @@ run_stream_request :: proc(
 	if derr != "" {
 		return 0, nil, 0, derr
 	}
-	conn_register_active(&conn)
+	conn_register_active(&conn, owner)
 	defer conn_close(&conn)
 
 	if conn.use_tls && conn.alpn == .H2 {
@@ -135,13 +136,14 @@ post_json_stream :: proc(
 	on_chunk: Stream_Chunk_Proc,
 	user: rawptr,
 	timeout_sec: int = 120,
+	owner: rawptr = nil,
 ) -> Response {
-	if cancel_requested() {
+	if cancel_requested(owner) {
 		return Response{ok = false, err = "cancelled"}
 	}
 
-	status, raw, retry_after, rerr := run_stream_request(url, headers, body, on_chunk, user, timeout_sec)
-	if cancel_requested() {
+	status, raw, retry_after, rerr := run_stream_request(url, headers, body, on_chunk, user, timeout_sec, owner)
+	if cancel_requested(owner) {
 		return Response{ok = false, err = "cancelled"}
 	}
 	if rerr != "" {

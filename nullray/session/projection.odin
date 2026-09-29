@@ -6,6 +6,7 @@ Provider-facing LID projection and prepare write-back into the session transcrip
 package session
 
 import "core:os"
+import "core:sync"
 import "core:strconv"
 import "core:strings"
 import "nullray:agent"
@@ -125,11 +126,12 @@ session_project_messages :: proc(
 /*
 Persist prepare mutations into s.messages so the next turn does not re-summarize fat history.
 */
-session_writeback_prepare :: proc(s: ^Session, flat: []provider.Message, stats: agent.Prepare_Stats) -> bool {
-	if s == nil || len(flat) == 0 {
-		return false
-	}
-	if stats.compacted {
+// Applies the writeback to s.messages. UI thread only: callers on the chat
+// worker must stash via session_writeback_stash and let the Writeback event
+// run this, never mutate s.messages there.
+@(private)
+session_writeback_apply_flat :: proc(s: ^Session, flat: []provider.Message, compacted: bool) -> bool {
+	if compacted {
 		for m in s.messages {
 			provider.destroy_message(m)
 		}
@@ -142,9 +144,6 @@ session_writeback_prepare :: proc(s: ^Session, flat: []provider.Message, stats: 
 		}
 		session_maybe_persist(s)
 		return true
-	}
-	if stats.cleared == 0 {
-		return false
 	}
 	changed := false
 	for fm in flat {
@@ -175,6 +174,62 @@ session_writeback_prepare :: proc(s: ^Session, flat: []provider.Message, stats: 
 		session_maybe_persist(s)
 	}
 	return changed
+}
+
+session_writeback_prepare :: proc(s: ^Session, flat: []provider.Message, stats: agent.Prepare_Stats) -> bool {
+	if s == nil || len(flat) == 0 {
+		return false
+	}
+	if stats.compacted {
+		return session_writeback_apply_flat(s, flat, true)
+	}
+	if stats.cleared == 0 {
+		return false
+	}
+	return session_writeback_apply_flat(s, flat, false)
+}
+
+// Worker-side writeback: stash the prepared window and let the Writeback
+// event apply it on the UI thread, before Turn_Commit lands the turn.
+session_writeback_stash :: proc(s: ^Session, flat: []provider.Message, stats: agent.Prepare_Stats) -> bool {
+	if s == nil || len(flat) == 0 {
+		return false
+	}
+	if !stats.compacted && stats.cleared == 0 {
+		return false
+	}
+	sync.mutex_lock(&s.commit_mu)
+	for m in s.writeback_flat {
+		provider.destroy_message(m)
+	}
+	clear(&s.writeback_flat)
+	for m in flat {
+		append(&s.writeback_flat, provider.clone_message(m))
+	}
+	s.writeback_compact = stats.compacted
+	s.writeback_pending = true
+	sync.mutex_unlock(&s.commit_mu)
+	session_enqueue(s, Event{kind = .Writeback})
+	return true
+}
+
+// UI-side drain of a worker writeback.
+session_apply_writeback :: proc(s: ^Session) {
+	sync.mutex_lock(&s.commit_mu)
+	if !s.writeback_pending {
+		sync.mutex_unlock(&s.commit_mu)
+		return
+	}
+	flat := s.writeback_flat
+	compacted := s.writeback_compact
+	s.writeback_flat = {}
+	s.writeback_pending = false
+	sync.mutex_unlock(&s.commit_mu)
+	_ = session_writeback_apply_flat(s, flat[:], compacted)
+	for m in flat {
+		provider.destroy_message(m)
+	}
+	delete(flat)
 }
 
 /*

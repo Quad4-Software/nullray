@@ -34,7 +34,9 @@ session_join_job :: proc(s: ^Session, wait_ms := -1) -> bool {
 	for !thread.is_done(th) {
 		if time.tick_since(deadline) > limit {
 			// Abandon hung worker. thread.terminate is unsafe with the Odin allocator.
-			// Print-mode process exit reclaims the OS thread. Caller clears busy.
+			// The worker may still enqueue into s later, so session_destroy must
+			// leak rather than free. Caller clears busy.
+			s.job_abandoned = true
 			return true
 		}
 		time.sleep(10 * time.Millisecond)

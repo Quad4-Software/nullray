@@ -9,6 +9,7 @@ import "core:fmt"
 import "core:path/filepath"
 import "core:strings"
 import "nullray:constants"
+import "nullray:http"
 import "nullray:provider"
 import "nullray:sandbox"
 import "nullray:store"
@@ -65,8 +66,10 @@ child_job_proc :: proc(data: rawptr) {
 
 	// Grandchild spawns inherit this session binding (nested task calls
 	// run on this thread).
-	session_bind_set(job.sess_path, job.sess_persist)
-	defer session_bind_clear()
+	bind_prev := session_bind_set(job.sess_path, job.sess_persist)
+	defer session_bind_clear(bind_prev)
+	http_prev := http.bind_owner(job.cancel_owner)
+	defer http.unbind_owner(http_prev)
 
 	if len(job.workspace) > 0 {
 		sandbox.workspace_override_set(job.workspace)

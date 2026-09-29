@@ -118,6 +118,10 @@ session_usage_summary_text :: proc(s: ^Session, hide_sensitive: bool, allocator 
 	}
 	strings.write_byte(&b, '\n')
 	fmt.sbprintf(&b, "input_chars: last %d peak %d\n", s.last_input_chars, s.peak_input_chars)
+	if s.session_usage.cache_read_tokens > 0 {
+		pct := f64(s.session_usage.cache_read_tokens) * 100.0 / f64(max(s.session_usage.prompt_tokens, 1))
+		fmt.sbprintf(&b, "cache_read: %d (%.1f%% of prompt tokens)\n", s.session_usage.cache_read_tokens, pct)
+	}
 	if s.subagent_total_tokens > 0 {
 		fmt.sbprintf(&b, "subagent_tokens: %d\n", s.subagent_total_tokens)
 	}
@@ -142,7 +146,7 @@ session_usage_summary_text :: proc(s: ^Session, hide_sensitive: bool, allocator 
 
 session_usage_summary_json :: proc(s: ^Session, allocator := context.allocator) -> string {
 	return fmt.aprintf(
-		`{{"turns":%d,"prompt_tokens":%d,"completion_tokens":%d,"total_tokens":%d,"reasoning_tokens":%d,"cost_usd":%.6f,"cost_known":%v,"peak_input_chars":%d,"last_input_chars":%d,"subagent_total_tokens":%d,"last_prompt_tokens":%d,"last_completion_tokens":%d,"last_total_tokens":%d,"last_cost_usd":%.6f,"last_cost_known":%v,"stopped":%q,"model":%q,"provider":%q}}`,
+		`{{"turns":%d,"prompt_tokens":%d,"completion_tokens":%d,"total_tokens":%d,"reasoning_tokens":%d,"cost_usd":%.6f,"cost_known":%v,"peak_input_chars":%d,"last_input_chars":%d,"subagent_total_tokens":%d,"last_prompt_tokens":%d,"last_completion_tokens":%d,"last_total_tokens":%d,"last_cost_usd":%.6f,"last_cost_known":%v,"cache_read_tokens":%d,"stopped":%q,"model":%q,"provider":%q}}`,
 		s.usage_turns,
 		s.session_usage.prompt_tokens,
 		s.session_usage.completion_tokens,

@@ -5,6 +5,7 @@ search_tools: discover deferred tool schemas and activate them for lean prompts.
 
 package tools
 
+import "base:runtime"
 import "core:fmt"
 import "core:strings"
 import "core:sync"
@@ -19,10 +20,12 @@ deferred_clear :: proc() {
 	sync.mutex_lock(&g_deferred_mu)
 	defer sync.mutex_unlock(&g_deferred_mu)
 	for n in g_deferred_names {
-		delete(n)
+		delete(n, runtime.heap_allocator())
 	}
 	delete(g_deferred_names)
-	g_deferred_names = make([dynamic]string)
+	// Global state must outlive the caller's allocator (test tracking arenas
+	// are torn down between tests).
+	g_deferred_names = make([dynamic]string, 0, runtime.heap_allocator())
 }
 
 deferred_activate :: proc(name: string) {
@@ -37,7 +40,7 @@ deferred_activate :: proc(name: string) {
 			return
 		}
 	}
-	append(&g_deferred_names, strings.clone(trimmed))
+	append(&g_deferred_names, strings.clone(trimmed, runtime.heap_allocator()))
 }
 
 deferred_active :: proc(name: string) -> bool {

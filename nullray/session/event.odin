@@ -27,6 +27,7 @@ Event_Kind :: enum {
 	Stream_Clear,
 	Usage,
 	Turn_Commit,
+	Writeback,
 }
 
 Event :: struct {
@@ -38,6 +39,8 @@ Event :: struct {
 	completion_tokens:  int,
 	total_tokens:       int,
 	reasoning_tokens:   int,
+	cache_read_tokens:  int,
+	cache_write_tokens: int,
 	cost_usd:           f64,
 	cost_known:         bool,
 	input_chars:        int,
@@ -127,6 +130,9 @@ session_poll :: proc(s: ^Session) -> (changed: bool) {
 			changed = true
 		case .Turn_Commit:
 			session_apply_pending_commit(s)
+			changed = true
+		case .Writeback:
+			session_apply_writeback(s)
 			changed = true
 		case .Assistant_Done:
 			s.busy = false
@@ -239,6 +245,10 @@ session_poll :: proc(s: ^Session) -> (changed: bool) {
 			session_clear_live_tool(s)
 			session_clear_streaming(s)
 			session_set_status(s, fmt.tprintf("error: %s", ev.text))
+			if len(ev.stopped) > 0 {
+				delete(s.last_stopped)
+				s.last_stopped = strings.clone(ev.stopped)
+			}
 			changed = true
 		}
 		delete(ev.text)
@@ -276,6 +286,8 @@ session_record_turn_usage :: proc(s: ^Session, ev: Event) {
 		completion_tokens = ev.completion_tokens,
 		total_tokens = ev.total_tokens,
 		reasoning_tokens = ev.reasoning_tokens,
+		cache_read_tokens = ev.cache_read_tokens,
+		cache_write_tokens = ev.cache_write_tokens,
 		input_chars = ev.input_chars,
 		cost_usd = ev.cost_usd,
 		cost_known = ev.cost_known,

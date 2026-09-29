@@ -19,6 +19,9 @@ Stdio_Session :: struct {
 	next_id:           int,
 	server_id:         string,
 	protocol_version:  string,
+	// Bytes read past a newline but not yet returned. Servers often batch
+	// multiple frames in one write.
+	pending:           [dynamic]u8,
 }
 
 stdio_start :: proc(session: ^Stdio_Session, command: []string, cwd: string) -> (err: string) {
@@ -92,12 +95,13 @@ stdio_read_line :: proc(
 		return "", strings.clone("session not open", allocator)
 	}
 
-	b: strings.Builder
-	strings.builder_init(&b, allocator)
 	buf: [256]u8
 	start := time.now()
 
 	for {
+		if nl, ok := stdio_take_line(session, allocator); ok {
+			return nl, ""
+		}
 		if time.since(start) >= timeout {
 			return "", strings.clone("read timeout", allocator)
 		}
@@ -106,28 +110,45 @@ stdio_read_line :: proc(
 		if has_data {
 			n, rerr := os.read(session.stdout_r, buf[:])
 			if n > 0 {
-				for i in 0 ..< n {
-					if buf[i] == '\n' {
-						return strings.to_string(b), ""
-					}
-					strings.write_byte(&b, buf[i])
-				}
+				append(&session.pending, ..buf[:n])
 			}
 			if rerr == io.Error.EOF || rerr == os.General_Error.Broken_Pipe {
-				if strings.builder_len(b) > 0 {
-					return strings.to_string(b), ""
+				if nl, ok := stdio_take_line(session, allocator); ok {
+					return nl, ""
+				}
+				if len(session.pending) > 0 {
+					out := strings.clone(string(session.pending[:]), allocator)
+					clear(&session.pending)
+					return out, ""
 				}
 				return "", strings.clone("eof", allocator)
 			}
 		} else if read_err == io.Error.EOF || read_err == os.General_Error.Broken_Pipe {
-			if strings.builder_len(b) > 0 {
-				return strings.to_string(b), ""
+			if len(session.pending) > 0 {
+				out := strings.clone(string(session.pending[:]), allocator)
+				clear(&session.pending)
+				return out, ""
 			}
 			return "", strings.clone("eof", allocator)
 		}
 
 		time.sleep(time.Millisecond * time.Duration(constants.POLL_TIMEOUT_MS))
 	}
+}
+
+// Pop one line from the pending carry buffer. ok=false when incomplete.
+@(private)
+stdio_take_line :: proc(session: ^Stdio_Session, allocator := context.allocator) -> (string, bool) {
+	for b, i in session.pending {
+		if b == '\n' {
+			line := strings.clone(string(session.pending[:i]), allocator)
+			rest := len(session.pending) - i - 1
+			copy(session.pending[:rest], session.pending[i + 1:])
+			resize(&session.pending, rest)
+			return line, true
+		}
+	}
+	return "", false
 }
 
 stdio_request :: proc(
@@ -177,6 +198,7 @@ stdio_close :: proc(session: ^Stdio_Session) {
 		return
 	}
 	delete(session.protocol_version)
+	delete(session.pending)
 	session.protocol_version = ""
 	if session.stdin_w != nil {
 		os.close(session.stdin_w)

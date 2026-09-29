@@ -74,8 +74,8 @@ session_request_cancel :: proc(s: ^Session) {
 	s.cancel_requested = true
 	s.pause_requested = false
 	sync.mutex_unlock(&s.control_mu)
-	http.cancel_request()
-	tools.shell_cancel_active()
+	http.cancel_request(s)
+	tools.shell_cancel_active(s)
 	if rt := subagent.runtime(); rt != nil {
 		subagent.roster_cancel_children_of(&rt.roster, "main")
 	}
@@ -94,7 +94,7 @@ session_clear_control :: proc(s: ^Session) {
 	s.cancel_requested = false
 	s.pause_requested = false
 	sync.mutex_unlock(&s.control_mu)
-	http.cancel_clear()
+	http.cancel_clear(s)
 }
 
 session_stop_check :: proc(user: rawptr) -> agent.Stop_Kind {

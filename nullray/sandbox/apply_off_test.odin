@@ -11,7 +11,7 @@ test_apply_off_keeps_workspace :: proc(t: ^testing.T) {
 	defer {
 		test_env_restore(constants.ENV_SANDBOX, had_s, prev_s)
 		test_env_restore(constants.ENV_WORKSPACE, had_w, prev_w)
-		state_destroy(&g_state)
+		state_destroy_heap(&g_state)
 		g_state = {}
 	}
 	cfg := config_from_env()

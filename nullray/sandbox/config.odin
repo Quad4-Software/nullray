@@ -5,6 +5,7 @@ Sandbox mode, path allowlists, and privacy env parsing.
 
 package sandbox
 
+import "base:runtime"
 import "core:fmt"
 import "core:os"
 import "core:path/filepath"
@@ -172,6 +173,28 @@ state_destroy :: proc(s: ^State) {
 	delete(s.allow_ro)
 	for p in s.allow_sock {
 		delete(p)
+	}
+	delete(s.allow_sock)
+	s^ = {}
+}
+
+// Frees g_state fields allocated on the heap allocator in apply. Plain
+// state_destroy is for States built with the caller's allocator.
+state_destroy_heap :: proc(s: ^State) {
+	delete(s.workspace, runtime.heap_allocator())
+	delete(s.config_dir, runtime.heap_allocator())
+	delete(s.tmp_dir, runtime.heap_allocator())
+	delete(s.ops_label, runtime.heap_allocator())
+	for p in s.allow_rw {
+		delete(p, runtime.heap_allocator())
+	}
+	delete(s.allow_rw)
+	for p in s.allow_ro {
+		delete(p, runtime.heap_allocator())
+	}
+	delete(s.allow_ro)
+	for p in s.allow_sock {
+		delete(p, runtime.heap_allocator())
 	}
 	delete(s.allow_sock)
 	s^ = {}

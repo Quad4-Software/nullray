@@ -11,6 +11,7 @@ import "core:strings"
 import "core:thread"
 import "core:time"
 import "nullray:constants"
+import "nullray:http"
 import "nullray:provider"
 import "nullray:sandbox"
 import "nullray:store"
@@ -25,6 +26,9 @@ Child_Job :: struct {
 	workspace:    string,
 	sess_path:    string,
 	sess_persist: bool,
+	// Cancel owner inherited from the spawning worker: parent Esc aborts
+	// child HTTP streams and shells too.
+	cancel_owner: rawptr,
 }
 
 spawn_child :: proc(
@@ -176,6 +180,7 @@ spawn_child :: proc(
 	job.handle_id = strings.clone(id)
 	job.parent_id = strings.clone(parent_id)
 	job.workspace = strings.clone(ws)
+	job.cancel_owner = http.owner_for_thread()
 	// Pin usage attribution to the session that owns this worker, not the
 	// frontmost tab: the bind travels with the job to its finish path.
 	if bp, bpersist, bok := session_bind(); bok {

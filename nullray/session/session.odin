@@ -14,6 +14,7 @@ import "core:thread"
 import "core:time"
 import "nullray:agent"
 import "nullray:constants"
+import "nullray:http"
 import "nullray:provider"
 import "nullray:store"
 import "nullray:tools"
@@ -53,9 +54,15 @@ Session :: struct {
 	control_mu:          sync.Mutex,
 	job_mu:              sync.Mutex,
 	job_thread:          ^thread.Thread,
+	job_abandoned:       bool,
 	turn_base:           int,
 	pending_commit:      [dynamic]provider.Message,
 	commit_mu:           sync.Mutex,
+	// Mid-turn compaction prepared on the chat worker, applied on the UI
+	// thread by the Writeback event so the worker never mutates s.messages.
+	writeback_flat:      [dynamic]provider.Message,
+	writeback_pending:   bool,
+	writeback_compact:   bool,
 	skip_assistant_push: bool,
 	last_plan_path:      string,
 	plan_body:           string,
@@ -134,8 +141,16 @@ session_init :: proc(s: ^Session) {
 	session_sync_mode_env(s)
 }
 
-session_destroy :: proc(s: ^Session) {
+// Returns false when a worker was abandoned mid-join: the Session memory stays
+// allocated (leaked) so the still-running thread cannot write into freed
+// fields. Callers must skip free(s) in that case.
+session_destroy :: proc(s: ^Session) -> (released: bool) {
 	session_shutdown(s)
+	// Drop the stale cancel flag so a later Session cannot inherit it if this address is reused.
+	http.cancel_clear(s)
+	if s.job_abandoned {
+		return false
+	}
 	_ = store.artifact_gc()
 	if len(s.session_path) > 0 {
 		store.session_unlock(s.session_path)
@@ -149,6 +164,8 @@ session_destroy :: proc(s: ^Session) {
 		delete(e.text)
 		delete(e.name)
 		delete(e.reasoning)
+		delete(e.stopped)
+		delete(e.agent_id)
 	}
 	delete(s.pending)
 	sync.mutex_unlock(&s.pending_mu)
@@ -157,6 +174,10 @@ session_destroy :: proc(s: ^Session) {
 		provider.destroy_message(m)
 	}
 	delete(s.pending_commit)
+	for m in s.writeback_flat {
+		provider.destroy_message(m)
+	}
+	delete(s.writeback_flat)
 	sync.mutex_unlock(&s.commit_mu)
 	delete(s.status)
 	delete(s.pending_status)
@@ -182,6 +203,7 @@ session_destroy :: proc(s: ^Session) {
 	strings.builder_destroy(&s.streaming)
 	strings.builder_destroy(&s.thinking)
 	s^ = {}
+	return true
 }
 
 tools_enabled_from_env :: proc() -> bool {

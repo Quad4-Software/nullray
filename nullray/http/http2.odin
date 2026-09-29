@@ -65,7 +65,7 @@ h2_stop_cb :: proc "c" (ctx: rawptr) -> c.int {
 	if io == nil || io.conn == nil {
 		return 1
 	}
-	if cancel_requested() {
+	if cancel_requested(io.conn.owner) {
 		return 1
 	}
 	if conn_past_deadline(io.conn) {
@@ -206,7 +206,7 @@ run_h2_request :: proc(
 		256,
 	)
 	if rc != 0 {
-		if cancel_requested() {
+		if cancel_requested(conn.owner) {
 			return 0, nil, 0, "", "cancelled"
 		}
 		if conn_past_deadline(conn) {
@@ -295,7 +295,7 @@ run_h2_stream :: proc(
 		on_chunk(string(st.line_buf[:]), user)
 	}
 	if rc != 0 {
-		if cancel_requested() {
+		if cancel_requested(conn.owner) {
 			return 0, nil, 0, "cancelled"
 		}
 		if conn_past_deadline(conn) {

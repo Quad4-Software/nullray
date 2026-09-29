@@ -38,7 +38,7 @@ undo_last_write :: proc(allocator := context.allocator) -> (msg: string, ok: boo
 		if !show_ok {
 			return strings.clone("undo checkpoint missing", allocator), false
 		}
-		if os.write_entire_file(e.abs_path, transmute([]u8)data) != nil {
+		if werr := tool_write_atomic(e.abs_path, transmute([]u8)data); len(werr) > 0 {
 			return strings.clone("undo write failed", allocator), false
 		}
 		return fmt.aprintf("restored %s", e.abs_path, allocator = allocator), true
@@ -47,7 +47,7 @@ undo_last_write :: proc(allocator := context.allocator) -> (msg: string, ok: boo
 	if err != nil {
 		return strings.clone("undo backup missing", allocator), false
 	}
-	if os.write_entire_file(e.abs_path, data) != nil {
+	if werr := tool_write_atomic(e.abs_path, data); len(werr) > 0 {
 		return strings.clone("undo write failed", allocator), false
 	}
 	return fmt.aprintf("restored %s", e.abs_path, allocator = allocator), true
@@ -95,7 +95,7 @@ checkpoint_restore :: proc(id: int, allocator := context.allocator) -> (msg: str
 		if !show_ok {
 			return strings.clone("checkpoint missing", allocator), false
 		}
-		if os.write_entire_file(e.abs_path, transmute([]u8)data) != nil {
+		if werr := tool_write_atomic(e.abs_path, transmute([]u8)data); len(werr) > 0 {
 			return strings.clone("checkpoint restore write failed", allocator), false
 		}
 		return fmt.aprintf("restored checkpoint %d %s", id, e.abs_path, allocator = allocator), true
@@ -104,7 +104,7 @@ checkpoint_restore :: proc(id: int, allocator := context.allocator) -> (msg: str
 	if err != nil {
 		return strings.clone("checkpoint backup missing", allocator), false
 	}
-	if os.write_entire_file(e.abs_path, data) != nil {
+	if werr := tool_write_atomic(e.abs_path, data); len(werr) > 0 {
 		return strings.clone("checkpoint restore write failed", allocator), false
 	}
 	return fmt.aprintf("restored checkpoint %d %s", id, e.abs_path, allocator = allocator), true

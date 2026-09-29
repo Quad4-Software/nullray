@@ -146,8 +146,8 @@ tool_write_file :: proc(args_json: string, allocator := context.allocator) -> (r
 		return "", gate_err
 	}
 	snapshot_before_write(abs)
-	if werr := os.write_entire_file(abs, transmute([]u8)content); werr != nil {
-		return "", fmt.aprintf("write failed: %v", werr, allocator = allocator)
+	if werr := tool_write_atomic(abs, transmute([]u8)content); len(werr) > 0 {
+		return "", strings.clone(werr, allocator)
 	}
 	return strings.clone("ok", allocator), ""
 }

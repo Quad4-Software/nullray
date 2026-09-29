@@ -91,7 +91,10 @@ decode_csi :: proc() -> (ev: Event, ok: bool) {
 				return Event{kind = .Esc}, true
 			}
 			if b >= '0' && b <= '9' {
-				n = n * 10 + int(b - '0')
+				// Clamp rather than overflow on a pathological digit run.
+				if n < 1_000_000 {
+					n = n * 10 + int(b - '0')
+				}
 				continue
 			}
 			if b == ';' {
@@ -185,7 +188,9 @@ read_csi_int :: proc() -> (n: int, ok: bool) {
 			push_byte(b2)
 			return n, true
 		}
-		n = n * 10 + int(b2 - '0')
+		if n < 1_000_000 {
+			n = n * 10 + int(b2 - '0')
+		}
 	}
 }
 

@@ -127,14 +127,18 @@ broker_run :: proc(
 		return exec_capture(cmd, cwd, sudo_askpass, doas_askpass, allocator)
 	}
 
-	for i := 0; i < 600; i += 1 {
+	// A brokered exec takes at least process-spawn time, so pure yield polling
+	// falls through before the broker can ever answer.
+	deadline := time.tick_now()
+	limit := time.Second * 30
+	for time.tick_since(deadline) < limit {
 		data, rerr := os.read_entire_file(resp_path, context.temp_allocator)
 		if rerr == nil {
 			_ = os.remove(req_path)
 			_ = os.remove(resp_path)
 			return parse_broker_response(string(data), allocator)
 		}
-		thread.yield()
+		time.sleep(5 * time.Millisecond)
 	}
 	_ = os.remove(req_path)
 	return exec_capture(cmd, cwd, sudo_askpass, doas_askpass, allocator)
@@ -183,12 +187,20 @@ parse_broker_response :: proc(data: string, allocator := context.allocator) -> R
 }
 
 run_elevate_broker_server :: proc(sock_path: string) -> int {
+	parent := os.get_ppid()
 	req_dir := fmt.tprintf("%s.d", sock_path)
 	_ = os.make_directory(req_dir)
 	ready := "ready"
 	_ = os.write_entire_file(sock_path, transmute([]byte)ready)
 
 	for {
+		// Exit when the parent died without calling broker_stop (crash, kill
+		// -9) so orphan brokers do not pile up in XDG_RUNTIME_DIR.
+		if os.get_ppid() != parent {
+			_ = os.remove(sock_path)
+			_ = os.remove_all(req_dir)
+			return 0
+		}
 		fis, err := os.read_directory_by_path(req_dir, -1, context.temp_allocator)
 		if err != nil {
 			time.sleep(20 * time.Millisecond)

@@ -5,6 +5,7 @@ package session
 import "core:fmt"
 import "core:strings"
 import "nullray:agent"
+import "nullray:http"
 import "nullray:provider"
 import "nullray:sandbox"
 import "nullray:subagent"
@@ -41,7 +42,7 @@ session_prepare_cb :: proc(
 ) -> agent.Prepare_Stats {
 	stats := session_prepare_context(msgs, p)
 	s := cast(^Session)user
-	if s != nil && session_writeback_prepare(s, msgs[:], stats) {
+	if s != nil && session_writeback_stash(s, msgs[:], stats) {
 		stats.writeback = true
 	}
 	return stats
@@ -59,9 +60,11 @@ chat_job :: proc(data: rawptr) {
 	}
 
 	// Tool calls on this worker belong to args.session even when another
-	// tab is frontmost; pins subagent usage attribution.
-	subagent.session_bind_set(args.session.session_path, args.session.persist)
-	defer subagent.session_bind_clear()
+	// tab is frontmost. This pins subagent usage attribution.
+	bind_prev := subagent.session_bind_set(args.session.session_path, args.session.persist)
+	defer subagent.session_bind_clear(bind_prev)
+	http_prev := http.bind_owner(args.session)
+	defer http.unbind_owner(http_prev)
 	provider.set_session(args.session.name)
 
 	cfg := agent.default_config()
@@ -113,7 +116,11 @@ chat_job :: proc(data: rawptr) {
 		if len(msg) == 0 {
 			msg = "request failed"
 		}
-		session_enqueue(args.session, Event{kind = .Error, text = strings.clone(msg)})
+		session_enqueue(args.session, Event{
+			kind = .Error,
+			text = strings.clone(msg),
+			stopped = strings.clone(result.stopped),
+		})
 		delete(result.err)
 		if len(result.messages) > 0 {
 			provider.destroy_messages(result.messages[:])
@@ -132,6 +139,8 @@ chat_job :: proc(data: rawptr) {
 		completion_tokens = result.usage.completion_tokens,
 		total_tokens = result.usage.total_tokens,
 		reasoning_tokens = result.usage.reasoning_tokens,
+		cache_read_tokens = result.usage.cache_read_tokens,
+		cache_write_tokens = result.usage.cache_write_tokens,
 		cost_usd = result.usage.cost_usd,
 		cost_known = result.usage.cost_known,
 		input_chars = args.session.last_input_chars,
@@ -159,8 +168,8 @@ chat_job :: proc(data: rawptr) {
 		}
 	}
 
-	delete(args.session.last_stopped)
-	args.session.last_stopped = strings.clone(result.stopped)
+	// last_stopped is applied on the UI thread by the Usage event, so writing it
+	// here races the reader.
 
 	content := result.content
 	reasoning := ""
