@@ -66,3 +66,4 @@ flatpak_app/
 .logo-preview/
 
 .tmp/
+site-docs/
