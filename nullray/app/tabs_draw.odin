@@ -20,10 +20,10 @@ tab_label :: proc(name: string) -> string {
 	return name
 }
 
-// Display width of one strip cell: indicator + label + space + separator.
+// Display width of one strip cell: indicator + space + label + space + separator.
 @(private)
 tab_cell_w :: proc(name: string) -> int {
-	return min(ui.string_cols(name), TAB_LABEL_MAX) + 3
+	return min(ui.string_cols(name), TAB_LABEL_MAX) + 4
 }
 
 // Horizontal strip at row y: busy tabs spin, finished-away tabs flag done,
@@ -86,7 +86,7 @@ app_draw_tabs :: proc(buf: ^ui.Buffer, a: ^App, y: int) {
 		} else if tab.done_pending {
 			indicator = "●"
 		}
-		w := ui.string_cols(label) + 3
+		w := ui.string_cols(label) + 4
 		rmark := i < n - 1 ? EDGE_W : 0
 		if x + w + rmark > buf.width - PLUS_W {
 			ui.buffer_text(buf, x, y, "›", t.muted, t.status_bg)
@@ -102,7 +102,7 @@ app_draw_tabs :: proc(buf: ^ui.Buffer, a: ^App, y: int) {
 		} else if tab.sess.busy || tab.done_pending {
 			fg = t.accent
 		}
-		text := fmt.tprintf("%s%s ", indicator, label)
+		text := fmt.tprintf("%s %s ", indicator, label)
 		append(&a.tab_hits, Tab_Hit{i = i, x0 = x, x1 = x + w})
 		ui.buffer_text(buf, x, y, text, fg, bg, style)
 		x += ui.string_cols(text)

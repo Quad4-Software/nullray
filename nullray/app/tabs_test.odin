@@ -48,7 +48,8 @@ test_tab_at_x_hit_map :: proc(t: ^testing.T) {
 
 	testing.expect_value(t, app_tab_hit(&a, 1), 0)
 	testing.expect_value(t, app_tab_hit(&a, 4), 0)
-	testing.expect_value(t, app_tab_hit(&a, 9), 1)
+	testing.expect_value(t, app_tab_hit(&a, 9), 0)
+	testing.expect_value(t, app_tab_hit(&a, 12), 1)
 	testing.expect_value(t, app_tab_hit(&a, 60), -1)
 	testing.expect(t, a.tab_plus_x > 0)
 }
