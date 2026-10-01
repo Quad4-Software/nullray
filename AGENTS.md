@@ -217,6 +217,10 @@ Workflows under .github/workflows/.
 
 Skill: ci-pinned-actions. Scripts: scripts/print-smoke.sh, scripts/print-smoke.ps1.
 
+## Commits
+
+Conventional Commits: type(scope): summary. Types feat, fix, docs, style, refactor, perf, test, build, ci, chore, revert. Subject max 72 chars, imperative, no trailing period. Blank line before body, body lines wrapped at 80. scripts/check-commit-msg.sh validates a message file and is wired as the local commit-msg hook.
+
 ## Memory
 
 Clone strings you own. Delete in matching destroy procs. Prefer context.temp_allocator for short-lived parse and path work. Skills: memory, odin-idioms. Traps: .agents/references/footguns.md.
