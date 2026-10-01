@@ -15,7 +15,7 @@ import "nullray:ui"
 app_collect_blocks :: proc(a: ^App, accent: ui.Color, allocator := context.temp_allocator) -> []Transcript_Block {
 	t := ui.theme()
 	blocks := make([dynamic]Transcript_Block, 0, len(a.session.messages) + 4, allocator)
-	for m in a.session.messages {
+	for m, mi in a.session.messages {
 		app_append_gap(&blocks)
 
 		label := "you"
@@ -60,13 +60,16 @@ app_collect_blocks :: proc(a: ^App, accent: ui.Color, allocator := context.temp_
 		}
 
 		if m.role == .Assistant && len(m.reasoning) > 0 {
+			rbody, rkind, rid := collapse_apply(a, fmt.tprintf("think-%d", mi), m.reasoning)
 			append(&blocks, Transcript_Block{
 				prefix = "think  ",
-				body = m.reasoning,
+				body = rbody,
 				prefix_fg = t.muted,
 				body_fg = t.muted,
 				prefix_style = {.Dim},
 				body_style = {.Dim},
+				expand_kind = rkind,
+				expand_id = rid,
 			})
 		}
 
@@ -78,20 +81,15 @@ app_collect_blocks :: proc(a: ^App, accent: ui.Color, allocator := context.temp_
 			if stub, ok := tool_artifact_stub(m.content, context.temp_allocator); ok {
 				body = stub
 				expand_kind = "artifact"
-				idx := strings.index(m.content, "artifact=")
-				if idx >= 0 {
-					rest := m.content[idx + len("artifact="):]
-					end := 0
-					for end < len(rest) {
-						c := rest[end]
-						if (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || (c >= '0' && c <= '9') || c == '-' || c == '_' {
-							end += 1
-							continue
-						}
-						break
-					}
-					expand_id = rest[:end]
+				expand_id = artifact_id_of(m.content)
+			} else {
+				// Tool calls collapse like opencode: marker plus tail lines,
+				// click toggles. tool_call_id is the stable key.
+				bid := m.tool_call_id
+				if len(bid) == 0 {
+					bid = fmt.tprintf("tool-%d", mi)
 				}
+				body, expand_kind, expand_id = collapse_apply(a, bid, body)
 			}
 		}
 		if render_md {

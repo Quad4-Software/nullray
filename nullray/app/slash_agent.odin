@@ -247,6 +247,18 @@ slash_cmd_tools :: proc(a: ^App, args: string) {
 	session.session_set_status(a.session, mode)
 }
 
+// Flip every collapsible block at once; per-block clicks still override.
+slash_cmd_expand :: proc(a: ^App, args: string) {
+	_ = args
+	a.expand_all = !a.expand_all
+	for k in a.expanded {
+		delete(k)
+	}
+	clear(&a.expanded)
+	app_mark_dirty(a)
+	session.session_set_status(a.session, a.expand_all ? "blocks expanded" : "blocks collapsed")
+}
+
 slash_cmd_reasoning :: proc(a: ^App, args: string) {
 	rest := strings.trim_space(args)
 	if len(rest) == 0 {

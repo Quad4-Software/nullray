@@ -5,6 +5,7 @@ Notable changes for nullray.
 ## [Unreleased]
 
 ### Added
+- Long tool results and thinking blocks fold to a marker plus their tail lines in the TUI. Click a block to expand or collapse it, /expand toggles all at once, and NULLRAY_COLLAPSE=0 disables folding.
 - Documentation site at nullray.xyz/docs covering install, providers, configuration, modes, the TUI, commands, CLI flags, sessions, sandbox, security, skills, MCP, subagents, memory, and troubleshooting.
 - nullray now adopts credentials and defaults from other AI CLIs already configured on the machine. API keys, custom endpoints, and the chosen provider/model are read from Claude Code, OpenCode, pi, Codex, Gemini CLI, Qwen Code, Crush, goose, aider, aichat, and llm config files, so a first run works without the setup wizard when a key is found. Only unset variables are filled, helper commands are never executed, and adopted values never appear in logs. --doctor lists what was detected, and NULLRAY_ADOPT=0 disables adoption.
 - ANTHROPIC_BASE_URL now points the anthropic provider at a Messages-compatible endpoint or proxy.

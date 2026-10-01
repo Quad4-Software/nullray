@@ -103,6 +103,7 @@ print_help :: proc() {
 	fmt.println("           NULLRAY_REVIEW_PATHS NULLRAY_COLOR NULLRAY_ALT_SCREEN NULLRAY_MOUSE")
 	fmt.println("           NULLRAY_DEBUG OPENAI_API_KEY OPENAI_BASE_URL OLLAMA_HOST")
 	fmt.println("           NULLRAY_MEDIA NULLRAY_MEDIA_MAX NULLRAY_MEDIA_TURNS")
+	fmt.println("           NULLRAY_COLLAPSE")
 	fmt.println("           LM_STUDIO_HOST LM_API_TOKEN")
 	fmt.println("")
 	fmt.println("completions: nullray --completions bash|zsh|fish|powershell|elvish|nushell")

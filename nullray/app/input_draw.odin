@@ -142,6 +142,11 @@ app_try_click_expand :: proc(a: ^App, mx, my: int) -> bool {
 				_ = app_view_open_text(a, "code", row.body)
 				return true
 			}
+			if row.kind == "block" && len(row.id) > 0 {
+				app_block_toggle(a, row.id)
+				app_mark_dirty(a)
+				return true
+			}
 		}
 	}
 	return false

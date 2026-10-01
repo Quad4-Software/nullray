@@ -6,7 +6,9 @@ Transcript block types and block assembly helpers.
 package app
 
 import "core:fmt"
+import "core:os"
 import "core:strings"
+import "nullray:constants"
 import "nullray:ui"
 
 Transcript_Block :: struct {
@@ -30,7 +32,91 @@ Transcript_Block :: struct {
 }
 
 CODE_PREVIEW_LINES :: 16
+TOOL_PREVIEW_LINES :: 3
 CONTENT_X :: 2
+
+// NULLRAY_COLLAPSE=0 keeps every tool and think block fully expanded.
+@(private)
+collapse_enabled :: proc() -> bool {
+	v, ok := os.lookup_env(constants.ENV_COLLAPSE, context.temp_allocator)
+	if !ok {
+		return true
+	}
+	switch strings.to_lower(strings.trim_space(v), context.temp_allocator) {
+	case "0", "false", "off", "no", "disable":
+		return false
+	}
+	return true
+}
+
+// Per-block expand state. expand_all flips the default and per-id entries
+// act as overrides, so a click under expand_all collapses that block.
+@(private)
+app_block_expanded :: proc(a: ^App, id: string) -> bool {
+	if a == nil {
+		return false
+	}
+	_, toggled := a.expanded[id]
+	return a.expand_all != toggled
+}
+
+@(private)
+app_block_toggle :: proc(a: ^App, id: string) {
+	if a.expanded == nil {
+		a.expanded = make(map[string]bool)
+	}
+	if id in a.expanded {
+		for k in a.expanded {
+			if k == id {
+				delete(k)
+				break
+			}
+		}
+		delete_key(&a.expanded, id)
+		return
+	}
+	a.expanded[strings.clone(id)] = true
+}
+
+// Fold a long body to a marker plus its tail, like opencode's "(N earlier
+// lines)" preview. Returns the preview text and whether it collapsed.
+@(private)
+collapse_preview :: proc(body: string, keep := TOOL_PREVIEW_LINES) -> (string, bool) {
+	total := strings.count(body, "\n") + 1
+	if total <= keep + 1 {
+		return "", false
+	}
+	// Last `keep` lines: index of the newline that starts that tail.
+	start := len(body)
+	need := keep
+	for i := len(body) - 1; i >= 0 && need > 0; i -= 1 {
+		if body[i] == '\n' {
+			need -= 1
+			if need == 0 {
+				start = i + 1
+			}
+		}
+	}
+	tail := body[start:]
+	return fmt.tprintf("… %d earlier lines\n%s", total - keep, tail), true
+}
+
+// Collapse decision for a block identified by id. Returns the body to
+// draw plus expand fields: a collapsed block gets a preview and an
+// expanded one keeps its toggle so a click folds it back.
+@(private)
+collapse_apply :: proc(a: ^App, id, body: string) -> (out, kind, eid: string) {
+	if !collapse_enabled() || len(id) == 0 {
+		return body, "", ""
+	}
+	if app_block_expanded(a, id) {
+		return body, "block", id
+	}
+	if pv, ok := collapse_preview(body); ok {
+		return pv, "block", id
+	}
+	return body, "", ""
+}
 
 @(private)
 block_body_width :: proc(buf_width: int, prefix: string) -> int {
@@ -244,6 +330,26 @@ app_append_md_content :: proc(
 			first = false
 		}
 	}
+}
+
+// Artifact id after artifact= in a tool result envelope.
+@(private)
+artifact_id_of :: proc(content: string) -> string {
+	idx := strings.index(content, "artifact=")
+	if idx < 0 {
+		return ""
+	}
+	rest := content[idx + len("artifact="):]
+	end := 0
+	for end < len(rest) {
+		c := rest[end]
+		if (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || (c >= '0' && c <= '9') || c == '-' || c == '_' {
+			end += 1
+			continue
+		}
+		break
+	}
+	return rest[:end]
 }
 
 @(private)

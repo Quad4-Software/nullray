@@ -65,6 +65,7 @@ this list in-app.
 | `/checkpoint [list\|restore N\|diff N]` | File checkpoints |
 | `/drop N` | Drop the last N user turns (backup saved) |
 | `/compact` | Compact conversation history |
+| `/expand` | Expand or collapse all tool and think blocks |
 
 ## Sandbox and ops
 

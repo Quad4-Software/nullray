@@ -1,0 +1,24 @@
+# nullray
+
+> Terminal coding agent written in Odin. Custom TUI, Landlock/seccomp
+> sandbox on Linux, OpenAI-compatible providers, local models. Repo:
+> https://github.com/Quad4-Software/nullray
+
+## Docs
+
+- [Home](https://nullray.xyz/docs/): overview and doc map
+- [Install](https://nullray.xyz/docs/install/): packages and source build
+- [Quick start](https://nullray.xyz/docs/quick-start/): first run
+- [Providers](https://nullray.xyz/docs/providers/): keys and models
+- [Configuration](https://nullray.xyz/docs/configuration/): env vars
+- [Modes and permissions](https://nullray.xyz/docs/modes/): modes, gate
+- [TUI](https://nullray.xyz/docs/tui/): interface and binds
+- [Slash commands](https://nullray.xyz/docs/commands/): command table
+- [CLI reference](https://nullray.xyz/docs/cli/): flags and print mode
+- [Sessions](https://nullray.xyz/docs/sessions/): transcripts and usage
+- [Sandbox](https://nullray.xyz/docs/sandbox/): Landlock and ops profiles
+- [Security](https://nullray.xyz/docs/security/): secrets and trust
+- [Skills and MCP](https://nullray.xyz/docs/skills-mcp/): extensibility
+- [Subagents](https://nullray.xyz/docs/subagents/): task tool
+- [Memory and RAG](https://nullray.xyz/docs/memory-rag/): recall and vectors
+- [Troubleshooting](https://nullray.xyz/docs/troubleshooting/): doctor and fixes

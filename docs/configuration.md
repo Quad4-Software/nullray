@@ -83,6 +83,7 @@ process only, so nothing silently persists a borrowed credential.
 | `NULLRAY_PRINT_STRICT` | Exit 1 on incomplete runs |
 | `NULLRAY_PRINT_USAGE` | Print token and cost summary |
 | `NULLRAY_RECALL` | Scoped memory recall (0 disables) |
+| `NULLRAY_COLLAPSE` | Fold long tool/think blocks (0 disables) |
 | `NULLRAY_MEDIA` | Media attachments (0 disables) |
 | `NULLRAY_MEDIA_MAX` | Per-file cap, default 15 MB |
 | `NULLRAY_MEDIA_TURNS` | Resend window, default 2 |

@@ -26,6 +26,7 @@ SLASH_COMMANDS := []Slash_Command{
 	{"compact", "/compact", "compact conversation history", slash_cmd_compact},
 	{"drop", "/drop N", "drop last N user turns (backup saved)", slash_cmd_drop},
 	{"tools", "/tools", "toggle agent tools", slash_cmd_tools},
+	{"expand", "/expand", "expand or collapse all tool calls", slash_cmd_expand},
 	{"reasoning", "/reasoning LEVEL", "set reasoning effort", slash_cmd_reasoning},
 	{"think", "/think LEVEL", "alias for /reasoning", slash_cmd_reasoning},
 	{"sessions", "/sessions", "list saved sessions", slash_cmd_sessions},

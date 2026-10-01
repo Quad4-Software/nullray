@@ -1,0 +1,18 @@
+{
+  "name": "nullray Documentation",
+  "short_name": "nullray Docs",
+  "description": "Terminal coding agent in Odin with a custom TUI and sandboxed tools",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#0a0a0b",
+  "theme_color": "#0a0a0b",
+  "icons": [
+    {
+      "src": "assets/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    }
+  ]
+}

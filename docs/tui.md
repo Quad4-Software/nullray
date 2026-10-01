@@ -42,6 +42,14 @@ parts on providers that accept them.
 Esc cancels a running turn in the active tab. `/pause` stops after the
 current step, `/continue` resumes with an optional note, `/stop` aborts.
 
+## Collapsed blocks
+
+Long tool results and thinking blocks fold to a marker line plus the
+last few lines, so a `read_file` dump or a noisy `run_shell` does not
+bury the conversation. Click a collapsed block to expand it, click again
+to fold it back. `/expand` toggles every block at once and
+`NULLRAY_COLLAPSE=0` turns folding off entirely.
+
 ## View pane
 
 After a turn writes a file, the view pane auto-opens on that path.

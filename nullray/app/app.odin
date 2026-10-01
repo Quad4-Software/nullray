@@ -129,6 +129,8 @@ App :: struct {
 	status_body:        string,
 	layout_cache:       Layout_Cache,
 	expand_hits:        [dynamic]Expand_Hit,
+	expanded:           map[string]bool,
+	expand_all:         bool,
 }
 
 app_init :: proc(a: ^App, loop: ^ui.Loop) {
@@ -166,6 +168,7 @@ app_init :: proc(a: ^App, loop: ^ui.Loop) {
 	a.splash_start = time.tick_now()
 	a.binds, a.keys_preset = config.load_binds()
 	_ = config.write_default_keys_file()
+	a.expanded = make(map[string]bool)
 	a.hide_sensitive = hide_sensitive_from_env()
 	app_refresh_banner(a)
 	agent.apply_auto_mode()
@@ -252,6 +255,10 @@ app_destroy :: proc(a: ^App) {
 	delete(a.status_body)
 	app_expand_hits_clear(a)
 	delete(a.expand_hits)
+	for k in a.expanded {
+		delete(k)
+	}
+	delete(a.expanded)
 	app_layout_cache_clear(a)
 	app_elevate_clear(a)
 }
