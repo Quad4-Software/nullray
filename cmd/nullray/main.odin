@@ -121,6 +121,16 @@ main :: proc() {
 	if _, err := config.load_env_file(); err != "" {
 		fmt.eprintln("nullray: config env:", err)
 	}
+	adopt_notes := config.foreign_adopt()
+	defer {
+		for n in adopt_notes {
+			delete(n)
+		}
+		delete(adopt_notes)
+	}
+	for n in adopt_notes {
+		fmt.eprintln("nullray: adopt", n)
+	}
 	apply_cli_env(&cli)
 
 	crash.install()

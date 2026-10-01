@@ -194,6 +194,15 @@ NULLRAY_OPENROUTER_IGNORE, NULLRAY_OPENROUTER_ZDR, NULLRAY_LOCAL_PROBE, NULLRAY_
 NULLRAY_BARE, NULLRAY_SKILLS, NULLRAY_PRINT_TIMEOUT, NULLRAY_OUT, NULLRAY_PLAN_OUT, NULLRAY_PLAN_IN,
 NULLRAY_COLOR, NULLRAY_ALT_SCREEN, NULLRAY_MOUSE, NULLRAY_DEBUG,
 OPENROUTER_API_KEY, OLLAMA_HOST, LM_STUDIO_HOST, LM_API_TOKEN, LLAMA_CPP_HOST.
+.PP
+At startup nullray adopts provider keys, base URLs, and the chosen model from
+other AI CLI configs it finds (Claude Code, OpenCode, pi, Codex, Gemini CLI,
+Qwen Code, Crush, goose, aider, aichat, llm). Only unset variables are filled
+and helper commands are never run. Set
+.B NULLRAY_ADOPT=0
+to disable; see
+.B --doctor
+for what was detected.
 .SH FILES
 .TP
 .I ~/.config/nullray/env

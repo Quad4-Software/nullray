@@ -5,6 +5,7 @@ Named OpenAI-compat cloud providers (Anthropic, Gemini, Groq, …).
 
 package provider
 
+import "core:os"
 import "core:strings"
 import "nullray:constants"
 
@@ -48,7 +49,11 @@ make_compat_named :: proc(
 make_anthropic :: proc(base_url := "", api_key := "", model := "") -> Provider {
 	base := base_url
 	if len(base) == 0 {
-		base = constants.DEFAULT_ANTHROPIC_BASE
+		if host, ok := os.lookup_env(constants.ENV_ANTHROPIC_BASE, context.temp_allocator); ok {
+			base = normalize_openai_base(host)
+		} else {
+			base = constants.DEFAULT_ANTHROPIC_BASE
+		}
 	} else {
 		base = normalize_openai_base(base)
 	}

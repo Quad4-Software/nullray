@@ -19,6 +19,14 @@ main :: proc() {
 	if _, err := config.load_env_file(); err != "" {
 		fmt.eprintln("nullray_chat_smoke: config:", err)
 	}
+	adopt_notes := config.foreign_adopt()
+	for n in adopt_notes {
+		fmt.eprintln("nullray_chat_smoke: adopt", n)
+	}
+	for n in adopt_notes {
+		delete(n)
+	}
+	delete(adopt_notes)
 
 	tools_reg: tools.Registry
 	tools.registry_init(&tools_reg)

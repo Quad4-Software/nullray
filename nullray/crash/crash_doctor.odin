@@ -9,6 +9,7 @@ import "core:fmt"
 import "core:os"
 import "core:path/filepath"
 import "core:strings"
+import "nullray:config"
 import "nullray:constants"
 import "nullray:rag"
 import "nullray:sandbox"
@@ -114,6 +115,10 @@ doctor :: proc() -> int {
 	print_env_present("OPENROUTER_API_KEY", constants.ENV_OPENROUTER_KEY)
 	print_env_present("OPENAI_API_KEY", constants.ENV_OPENAI_KEY)
 	print_env_present("ANTHROPIC_API_KEY", constants.ENV_ANTHROPIC_KEY)
+	print_env("adopt", constants.ENV_ADOPT)
+	for line in config.foreign_report(context.temp_allocator) {
+		fmt.println(line)
+	}
 
 	tty := stdin_is_tty()
 	fmt.printf("stdin tty: %v\n", tty)
