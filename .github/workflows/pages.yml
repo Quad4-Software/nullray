@@ -21,6 +21,9 @@ on:
     branches: [master]
     paths:
       - web/**
+      - docs/**
+      - overrides/**
+      - zensical.toml
       - install.sh
       - .github/workflows/pages.yml
   workflow_dispatch:
@@ -57,12 +60,25 @@ jobs:
       - name: Configure Pages
         uses: actions/configure-pages@45bfe0192ca1faeb007ade9deae92b16b8254a0d # v6.0.0
 
+      - name: Set up Python
+        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: "3.13"
+
+      - name: Install docs tooling
+        run: pip install -r docs/requirements-docs.txt
+
+      - name: Build docs
+        run: zensical build
+
       - name: Stage site
         run: |
           set -euo pipefail
           mkdir -p _site
           cp -r web/. _site/
           install -m 644 install.sh _site/install
+          mkdir -p _site/docs
+          cp -r site-docs/. _site/docs/
 
       - name: Upload artifact
         uses: actions/upload-pages-artifact@fc324d3547104276b827a68afc52ff2a11cc49c9 # v5.0.0

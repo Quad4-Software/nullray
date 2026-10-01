@@ -1,0 +1,60 @@
+[project]
+site_name = "nullray"
+site_url = "https://nullray.xyz/docs/"
+site_description = "Terminal coding agent in Odin with a custom TUI and sandboxed tools"
+repo_url = "https://github.com/Quad4-Software/nullray"
+edit_uri = "edit/master/docs/"
+docs_dir = "docs"
+site_dir = "site-docs"
+extra_css = [
+  "stylesheets/void.css",
+]
+extra_javascript = [
+  "javascripts/pwa.js",
+]
+nav = [
+  { "Home" = "index.md" },
+  { "Install" = "install.md" },
+  { "Quick start" = "quick-start.md" },
+  { "Providers" = "providers.md" },
+  { "Configuration" = "configuration.md" },
+  { "Modes and permissions" = "modes.md" },
+  { "TUI" = "tui.md" },
+  { "Slash commands" = "commands.md" },
+  { "CLI reference" = "cli.md" },
+  { "Sessions" = "sessions.md" },
+  { "Sandbox" = "sandbox.md" },
+  { "Security" = "security.md" },
+  { "Skills and MCP" = "skills-mcp.md" },
+  { "Subagents" = "subagents.md" },
+  { "Memory and RAG" = "memory-rag.md" },
+  { "Troubleshooting" = "troubleshooting.md" },
+]
+
+[project.theme]
+custom_dir = "overrides"
+features = [
+  "navigation.sections",
+  "navigation.footer",
+  "navigation.top",
+  "toc.integrate",
+  "content.action.edit",
+  "search.highlight",
+]
+font.text = "Space Grotesk"
+font.code = "Space Mono"
+logo = "assets/logo.svg"
+favicon = "assets/favicon.svg"
+
+# Dark "void" first so the no-JS default matches nullray.xyz
+[[project.theme.palette]]
+media = "(prefers-color-scheme: dark)"
+scheme = "void"
+toggle.icon = "lucide/moon"
+toggle.name = "Switch to light mode"
+
+[[project.theme.palette]]
+media = "(prefers-color-scheme: light)"
+scheme = "paper"
+toggle.icon = "lucide/sun"
+toggle.name = "Switch to dark mode"

@@ -65,6 +65,7 @@ the system prompt, full body via `list_skills` / `load_skill` (or auto-match).
 | packaging/appimage | Slim and SDK AppImage AppRun, desktop, tools.manifest |
 | packaging/odin-pin | Pinned Odin commit for CI, Docker, SDK |
 | web | GitHub Pages site (index.html, CNAME) + Dockerfile for self-host (busybox httpd, rootless, ~2.5MB) |
+| docs | Zensical docs site, deployed at /docs by pages.yml. zensical.toml config, overrides/ theme, build to site-docs/ |
 | install.sh | POSIX installer, served at /install by pages.yml |
 | Dockerfile | Multi-stage rootless image (Debian trixie) |
 | docker-compose.yml | Interactive terminal attach |
@@ -208,7 +209,7 @@ Workflows under .github/workflows/.
 
 - `ci.yml`: package tests (Linux) plus build/self-test/print-smoke on Linux, macOS, Windows
 - `print.yml`: dedicated print-mode smoke on Linux, macOS, Windows (optional live `--print` when OPENROUTER_API_KEY is set)
-- `pages.yml`: deploys web/ to GitHub Pages on push to master, stages install.sh at /install. Custom domain nullray.xyz via web/CNAME, DNS on Bunny (CNAME to quad4-software.github.io)
+- `pages.yml`: deploys web/ to GitHub Pages on push to master, stages install.sh at /install and the Zensical docs build at /docs. Custom domain nullray.xyz via web/CNAME, DNS on Bunny (CNAME to quad4-software.github.io)
 - Pin every third-party action to a full commit SHA with a version comment
 - First step of every job: step-security/harden-runner
 - No pull_request_target
