@@ -49,6 +49,8 @@ print_strict_fail :: proc(s: ^session.Session, res: Result, living: int, tool_on
 		}
 	}
 	switch res.stopped {
+	case "judge_fail":
+		return true, "print-strict: judge scored the run incomplete"
 	case "loop", "timeout":
 		return true, fmt.tprintf("print-strict: stopped with %s", res.stopped)
 	case "max_steps":

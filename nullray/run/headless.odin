@@ -284,6 +284,7 @@ run_print :: proc(cfg: Config) -> Result {
 	res.stopped = strings.clone(stopped)
 	res.ok = true
 	res.exit_code = 0
+	headless_judge_gate(&s, &res, p, prompt, &rt, deadline, timeout, timeout_sec)
 
 	if len(s.last_plan_path) > 0 {
 		res.plan_path = strings.clone(s.last_plan_path)

@@ -1,9 +1,12 @@
 // SPDX-License-Identifier: LicenseRef-QSL-1.0-0BSD
 package provider
 
+import "core:encoding/json"
 import "core:os"
+import "core:strings"
 import "core:testing"
 import "nullray:constants"
+import "nullray:http"
 
 @(test)
 test_parse_openai_models_reasoning_meta :: proc(t: ^testing.T) {
@@ -65,7 +68,9 @@ test_make_lmstudio_defaults :: proc(t: ^testing.T) {
 	testing.expect_value(t, p.api_key, "lm-studio")
 	testing.expect_value(t, p.base_url, "http://127.0.0.1:1234/v1")
 	testing.expect(t, p.list_models != nil)
-	if _, ok := os.lookup_env(constants.ENV_LMSTUDIO_KEY, context.temp_allocator); !ok {
+	// Placeholder applies only when no key resolves from env or the
+	// pre-scrub cache (populated by the key_cache tests in this binary).
+	if len(lookup_api_key_env(constants.ENV_LMSTUDIO_KEY, constants.ENV_API_KEY)) == 0 {
 		p2 := make_lmstudio()
 		defer provider_destroy(&p2)
 		testing.expect_value(t, p2.api_key, "lm-studio")
@@ -86,6 +91,69 @@ test_make_llamacpp_defaults :: proc(t: ^testing.T) {
 		defer provider_destroy(&p2)
 		testing.expect_value(t, p2.base_url, constants.DEFAULT_LLAMACPP_BASE)
 	}
+}
+
+@(test)
+test_llamacpp_probe_bases_defaults :: proc(t: ^testing.T) {
+	prev, had := os.lookup_env(constants.ENV_LLAMACPP_HOST, context.temp_allocator)
+	saved := strings.clone(prev)
+	defer delete(saved)
+	defer if had {
+		os.set_env(constants.ENV_LLAMACPP_HOST, saved)
+	}
+	if had {
+		os.unset_env(constants.ENV_LLAMACPP_HOST)
+	}
+	bases := llamacpp_probe_bases()
+	testing.expect_value(t, len(bases), len(LLAMACPP_BASES))
+	testing.expect_value(t, bases[0], constants.DEFAULT_LLAMACPP_BASE)
+	testing.expect_value(t, bases[1], "http://127.0.0.1:9931/v1")
+}
+
+@(test)
+test_llamacpp_probe_bases_env_pins :: proc(t: ^testing.T) {
+	prev, had := os.lookup_env(constants.ENV_LLAMACPP_HOST, context.temp_allocator)
+	saved := strings.clone(prev)
+	defer delete(saved)
+	defer if had {
+		os.set_env(constants.ENV_LLAMACPP_HOST, saved)
+	} else {
+		os.unset_env(constants.ENV_LLAMACPP_HOST)
+	}
+	os.set_env(constants.ENV_LLAMACPP_HOST, "http://127.0.0.1:9555")
+	bases := llamacpp_probe_bases()
+	testing.expect_value(t, len(bases), 1)
+	testing.expect_value(t, bases[0], "http://127.0.0.1:9555/v1")
+}
+
+@(test)
+test_provider_http_error_local_401_hint :: proc(t: ^testing.T) {
+	p := make_llamacpp("http://127.0.0.1:8080", "", "local")
+	defer provider_destroy(&p)
+	res := http.Response{
+		ok = false,
+		status = 401,
+		body = `{"error":{"message":"Invalid API Key","code":401}}`,
+	}
+	err := provider_http_error(res, &p)
+	defer delete(err)
+	testing.expect(t, strings.contains(err, "Invalid API Key"))
+	testing.expect(t, strings.contains(err, "LLAMA_CPP_API_KEY"))
+}
+
+@(test)
+test_provider_http_error_ctx_hint :: proc(t: ^testing.T) {
+	p := make_llamacpp("http://127.0.0.1:8080", "", "local")
+	defer provider_destroy(&p)
+	res := http.Response{
+		ok = false,
+		status = 400,
+		body = `{"error":{"message":"request (3941 tokens) exceeds the available context size (2048 tokens)","type":"exceed_context_size_error"}}`,
+	}
+	err := provider_http_error(res, &p)
+	defer delete(err)
+	testing.expect(t, strings.contains(err, "exceeds the available context size"))
+	testing.expect(t, strings.contains(err, "--ctx-size"))
 }
 
 @(test)
@@ -165,4 +233,61 @@ test_make_openai_compat_requires_base_shape :: proc(t: ^testing.T) {
 	testing.expect_value(t, p.base_url, "http://127.0.0.1:8080/v1")
 	testing.expect(t, !uses_max_completion_tokens(&p, "local"))
 	testing.expect(t, uses_max_completion_tokens(&p, "o3-mini"))
+}
+
+@(test)
+test_malformed_tool_arguments_are_sanitized :: proc(t: ^testing.T) {
+	// Small local models can emit runaway or unterminated tool arguments;
+	// re-sending them verbatim makes llama.cpp's jinja renderer 500 the next
+	// request. The writer must substitute a valid JSON stub.
+	p := make_llamacpp()
+	defer provider_destroy(&p)
+	msgs := []Message{
+		{role = .User, content = "run it"},
+		{
+			role = .Assistant,
+			content = "",
+			tool_calls = []Tool_Call{
+				{id = "c1", name = "run_shell", arguments = `{"command":"100000000000`},
+			},
+		},
+	}
+	body := build_openai_chat_body(&p, Chat_Request{messages = msgs}, "local", false, nil)
+	testing.expect(t, strings.contains(body, "_invalid_arguments"))
+	_, jerr := json.parse_string(body, .JSON, allocator = context.temp_allocator)
+	testing.expect_value(t, jerr, json.Error.None)
+}
+
+@(test)
+test_judge_config_parse :: proc(t: ^testing.T) {
+	prev, _ := os.lookup_env(ENV_JUDGE, context.temp_allocator)
+	defer {
+		if len(prev) > 0 {
+			os.set_env(ENV_JUDGE, prev)
+		} else {
+			os.unset_env(ENV_JUDGE)
+		}
+	}
+	os.set_env(ENV_JUDGE, "off")
+	cfg := judge_config_from_env()
+	testing.expect(t, cfg.kind == .Off)
+
+	os.set_env(ENV_JUDGE, "laya")
+	cfg = judge_config_from_env()
+	testing.expect(t, cfg.kind == .Jev)
+	testing.expect(t, cfg.url == "http://127.0.0.1:8000/v1")
+	testing.expect(t, cfg.model == "laya")
+
+	os.set_env(ENV_JUDGE, "jev:custom@http://example.test/api")
+	cfg = judge_config_from_env()
+	testing.expect(t, cfg.kind == .Jev)
+	testing.expect(t, cfg.url == "http://example.test/api")
+	testing.expect(t, cfg.model == "custom")
+
+	os.set_env(ENV_JUDGE, "chat")
+	local := make_ollama()
+	cfg = judge_config_from_env(&local)
+	testing.expect(t, cfg.kind == .Chat)
+	testing.expect(t, cfg.model == local.default_model)
+	provider_destroy(&local)
 }
