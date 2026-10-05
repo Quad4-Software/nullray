@@ -21,7 +21,7 @@ Ids are NULLRAY_PROVIDER values. Bases are OpenAI Chat Completions style unless 
 | openai-compat | OPENAI_API_KEY / NULLRAY_API_KEY. Base: OPENAI_BASE_URL or NULLRAY_BASE_URL | (required) |
 | ollama | OLLAMA_HOST | http://127.0.0.1:11434/v1 |
 | lmstudio | LM_API_TOKEN (default lm-studio), host LM_STUDIO_HOST | http://127.0.0.1:1234/v1 |
-| llamacpp | optional LLAMA_CPP_API_KEY, host LLAMA_CPP_HOST | http://127.0.0.1:8080/v1 |
+| llamacpp | optional LLAMA_CPP_API_KEY (post-scrub via key cache), host LLAMA_CPP_HOST | http://127.0.0.1:8080/v1 |
 | openrouter | OPENROUTER_API_KEY | https://openrouter.ai/api/v1 |
 | opencode | OPENCODE_API_KEY | https://opencode.ai/zen/v1 |
 | opencode-go | OPENCODE_API_KEY | https://opencode.ai/zen/go/v1 |
@@ -75,6 +75,15 @@ Local notes:
 
 - NULLRAY_LOCAL_PROBE=0|false|off|no skips HTTP live/down probes and auto-select.
 - With no NULLRAY_PROVIDER / -p, registry auto-selects the first live local among ollama, lmstudio, llamacpp.
+- llamacpp probes LLAMA_CPP_HOST first; when unset it tries the classic 8080 default and the newer 9931 default, and adopts whichever answers (including for explicit NULLRAY_PROVIDER=llamacpp).
+- LLAMA_CPP_API_KEY and LM_API_TOKEN are scrubbed from the process environment but still reach their providers through the pre-scrub key cache. LLAMA_CPP_HOST and LM_STUDIO_HOST stay in env.
+- Under NULLRAY_SANDBOX_NET=local the TCP connect allowlist covers 443, 80, and the default local ports (11434, 1234, 8080, 9931) plus any port parsed from a configured provider host URL (OLLAMA_HOST, LM_STUDIO_HOST, LLAMA_CPP_HOST, NULLRAY_BASE_URL, OPENAI_BASE_URL). NULLRAY_SANDBOX_PORTS=a,b adds more.
+- NULLRAY_HTTP_TIMEOUT (seconds) overrides the 120s chat timeout; raise it for slow CPU inference.
+- NULLRAY_PROMPT=tiny shrinks the system prompt to the core tool set (about 700 tokens vs 10k) for small models; auto resolves to tiny whenever the active provider is local. Use lean or full when the local model is large.
+- NULLRAY_JSON_MODE=1 sends response_format json_object when tools are off (llama.cpp enforces it via grammar, OpenAI and OpenRouter honor it). NULLRAY_JSON_SCHEMA=<schema JSON> sends a json_schema response_format for strict structured output.
+- NULLRAY_JUDGE adds a post-run completion judge: jev calls a System One decision API (zen /v1/systemone by default, model jev-1.13), laya points the same API at a local laya-serve on 127.0.0.1:8000, chat scores via the active provider's chat model, and auto picks jev when a key exists else chat on a local provider. Suffix :MODEL@URL overrides model and endpoint. NULLRAY_JUDGE_KEY sets the key, NULLRAY_JUDGE_CONFIDENCE the pass threshold (default 0.7). A low score marks the run judge_fail and --print-strict exits nonzero. NULLRAY_JUDGE_RETRY=1 escalates a failed run through NULLRAY_PROVIDER_FALLBACKS: the session is nudged and continued on each fallback provider until the judge passes. Judges see the agent's claims, not the filesystem, so pair with NULLRAY_VERIFY for outcome checks.
+- Function-calling specialist models (Salesforce xLAM-1b-fc-r and similar) only emit correct calls through their trained prompt format; llama.cpp's generic chat template ignores the tools field for them (supports_tools=false in /props). A custom --chat-template-file can wire the format up, but general instruct models (Qwen2.5/3, Granite) are the easier local pick. ibm-granite/granite-4.1-3b-GGUF reports supports_tools=true in /props and bench-tested at 4/10 on a 3B budget, a modest step over Qwen2.5-1.5B at 3/10.
+- llama-server defaults to a small context (4096); nullray's system prompt needs more. Start it with --ctx-size 16384 or larger. A prompt-too-large 400 now shows the server message plus a --ctx-size hint.
 - Embeddings: POST {base}/embeddings (encoding_format float). Ollama falls back to native POST /api/embed on 404.
 - NULLRAY_EMBED_PROVIDER / NULLRAY_EMBED_MODEL override the chat provider for vectors. Defaults: ollama nomic-embed-text, openrouter openai/text-embedding-3-small, openai text-embedding-3-small. lmstudio and llamacpp require NULLRAY_EMBED_MODEL.
 - NULLRAY_RAG=auto|1|0 (default auto). Index under .nullray/rag/. NULLRAY_RAG_ARTIFACTS=0 skips artifact indexing. rag_reindex rebuilds memory and retained artifacts.

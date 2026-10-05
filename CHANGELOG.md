@@ -9,6 +9,21 @@ Notable changes for nullray.
 - Documentation site at nullray.xyz/docs covering install, providers, configuration, modes, the TUI, commands, CLI flags, sessions, sandbox, security, skills, MCP, subagents, memory, and troubleshooting.
 - nullray now adopts credentials and defaults from other AI CLIs already configured on the machine. API keys, custom endpoints, and the chosen provider/model are read from Claude Code, OpenCode, pi, Codex, Gemini CLI, Qwen Code, Crush, goose, aider, aichat, and llm config files, so a first run works without the setup wizard when a key is found. Only unset variables are filled, helper commands are never executed, and adopted values never appear in logs. --doctor lists what was detected, and NULLRAY_ADOPT=0 disables adoption.
 - ANTHROPIC_BASE_URL now points the anthropic provider at a Messages-compatible endpoint or proxy.
+- llama.cpp auto-detection also tries port 9931, the new llama-server default, and adopts whichever port answers.
+- NULLRAY_HTTP_TIMEOUT overrides the 120s chat timeout for slow local inference.
+- NULLRAY_SANDBOX_PORTS allows extra TCP ports when sandbox net is local, and ports from configured provider host URLs are allowed automatically.
+- NULLRAY_JSON_MODE=1 and NULLRAY_JSON_SCHEMA=<schema> emit response_format json_object/json_schema on OpenAI-compatible providers, and llama.cpp enforces the shape with a grammar, for deterministic structured output.
+- NULLRAY_PROMPT=tiny ships a minimal prompt and core tool set for small local models, and auto resolves to it whenever the active provider is local.
+- NULLRAY_JUDGE optionally scores run completion through a decision backend: jev (System One compatible APIs like OpenCode Zen), laya (a local laya-serve instance), or chat (the active provider). NULLRAY_JUDGE_KEY sets the key and NULLRAY_JUDGE_CONFIDENCE the pass threshold; a failing score reports judge_fail and trips --print-strict. NULLRAY_JUDGE_RETRY=1 escalates a judged failure through NULLRAY_PROVIDER_FALLBACKS until the judge passes.
+
+### Fixed
+- LLAMA_CPP_API_KEY and LM_API_TOKEN reached providers only before the privacy scrub, so keyed llama.cpp and LM Studio servers always failed with 401.
+- LLAMA_CPP_HOST, LM_STUDIO_HOST, OPENAI_BASE_URL, OPENAI_ORG_ID, ANTHROPIC_BASE_URL, and AZURE_OPENAI_ENDPOINT were scrubbed from the environment, so custom server addresses were ignored.
+- Streaming chat dropped error bodies, hiding server messages like Invalid API Key behind bare HTTP codes.
+- Errors from local providers now name the fix: which key to set on a 401, and --ctx-size or num_ctx when the prompt is too large.
+- Tool calls from weaker models that use name variants (read-file, run shell, default_api.read_file) now resolve to the right tool, and genuinely unknown names get a did-you-mean hint instead of a dead end.
+- Bare JSON tool-call objects emitted as text ({"name": ..., "arguments": ...}) are now dispatched like native tool calls.
+- Malformed tool-call arguments no longer poison llama.cpp sessions; invalid argument payloads are sanitized before they go back into request history.
 
 ## [0.5.1] - 2026-09-29
 
