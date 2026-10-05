@@ -4,6 +4,11 @@ Notable changes for nullray.
 
 ## [Unreleased]
 
+## [0.6.1] - 2026-10-05
+
+### Fixed
+- Release packaging pins refreshed for the rotated upstream appimagetool build so AppImage artifacts verify and build again.
+
 ## [0.6.0] - 2026-10-05
 
 ### Added
