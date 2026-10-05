@@ -217,7 +217,7 @@ test_lean_prompt_tool_names_match_core :: proc(t: ^testing.T) {
 	os.set_env("NULLRAY_SUBAGENTS", "0")
 	defer os.unset_env("NULLRAY_SUBAGENTS")
 
-	prompt := build_system_prompt("", &reg, "", context.allocator)
+	prompt := build_system_prompt("", &reg, allocator = context.allocator)
 	defer delete(prompt)
 	tools_i := strings.index(prompt, "## Tools\n\n")
 	testing.expect(t, tools_i >= 0)
@@ -233,4 +233,87 @@ test_lean_prompt_tool_names_match_core :: proc(t: ^testing.T) {
 	testing.expect(t, strings.contains(section, "fetch_url"))
 	testing.expect(t, strings.contains(section, "search_tools"))
 	testing.expect(t, !strings.contains(section, "task"))
+}
+
+@(private)
+test_noop_run :: proc(args: string, allocator := context.allocator) -> (string, string) {
+	return strings.clone("ok", allocator), ""
+}
+
+@(test)
+test_parse_json_call_line_variants :: proc(t: ^testing.T) {
+	// Bare OpenAI-ish object on one line.
+	calls := parse_tool_calls_text(`{"name": "read_file", "arguments": {"path": "README.txt"}}`, context.allocator)
+	testing.expect(t, len(calls) == 1)
+	if len(calls) == 1 {
+		testing.expect(t, calls[0].name == "read_file")
+		testing.expect(t, strings.contains(calls[0].arguments, "README.txt"))
+	}
+	for c in calls {
+		delete(c.id)
+		delete(c.name)
+		delete(c.arguments)
+	}
+	delete(calls)
+	// function alias + string-encoded arguments.
+	calls2 := parse_tool_calls_text(`{"function": "grep_files", "arguments": "{\"pattern\": \"x\"}"}`, context.allocator)
+	testing.expect(t, len(calls2) == 1)
+	if len(calls2) == 1 {
+		testing.expect(t, calls2[0].name == "grep_files")
+		testing.expect(t, strings.contains(calls2[0].arguments, "x"))
+	}
+	for c in calls2 {
+		delete(c.id)
+		delete(c.name)
+		delete(c.arguments)
+	}
+	delete(calls2)
+	// Prose lines and non-call JSON are ignored.
+	calls3 := parse_tool_calls_text("I will read the file now.\n{\"unrelated\": 1}", context.allocator)
+	testing.expect(t, len(calls3) == 0)
+	delete(calls3)
+}
+
+@(test)
+test_normalize_tool_name_variants :: proc(t: ^testing.T) {
+	testing.expect(t, tools.normalize_tool_name("read-file", context.temp_allocator) == "read_file")
+	testing.expect(t, tools.normalize_tool_name("ReadFile", context.temp_allocator) == "readfile")
+	testing.expect(t, tools.normalize_tool_name("default_api.read_file", context.temp_allocator) == "read_file")
+	testing.expect(t, tools.normalize_tool_name("functions.grep_files", context.temp_allocator) == "grep_files")
+	testing.expect(t, tools.normalize_tool_name("run shell", context.temp_allocator) == "run_shell")
+}
+
+@(test)
+test_unknown_tool_did_you_mean :: proc(t: ^testing.T) {
+	reg := tools.Registry{}
+	defer delete(reg.tools)
+	tools.registry_register(&reg, tools.Tool{name = "read_file", description = "read", kind = .Read, run = test_noop_run})
+	_, err := tools.run(&reg, "read_fiel", "{}", "edit", context.allocator)
+	testing.expect(t, strings.contains(err, "did you mean read_file"))
+	delete(err)
+	// Normalized exact match runs instead of erroring.
+	res, err2 := tools.run(&reg, "read-file", "{}", "edit", context.allocator)
+	testing.expect(t, len(err2) == 0)
+	delete(res)
+	delete(err2)
+}
+
+@(test)
+test_prompt_tier_resolution :: proc(t: ^testing.T) {
+	prev, _ := os.lookup_env(constants.ENV_PROMPT, context.temp_allocator)
+	defer {
+		if len(prev) > 0 {
+			os.set_env(constants.ENV_PROMPT, prev)
+		} else {
+			os.unset_env(constants.ENV_PROMPT)
+		}
+	}
+	os.set_env(constants.ENV_PROMPT, "tiny")
+	testing.expect(t, prompt_tier_for("llamacpp") == .Tiny)
+	os.set_env(constants.ENV_PROMPT, "full")
+	testing.expect(t, prompt_tier_for("llamacpp") == .Full)
+	os.unset_env(constants.ENV_PROMPT)
+	// Auto: local providers drop to Tiny.
+	testing.expect(t, prompt_tier_for("llamacpp") == .Tiny)
+	testing.expect(t, prompt_tier_for("openai") != .Tiny)
 }

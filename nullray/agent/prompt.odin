@@ -36,17 +36,31 @@ Goals:
 - Never dump large code blocks into chat when file tools are available unless the user asked to see code in chat.
 - Never invent, guess, echo, or pass passwords in shell args. Elevated commands (sudo/doas/pkexec) go through nullray auth UI only. Do not use sudo -S or pipe secrets. After elevation lockout or cancel, stop and tell the human.`
 
+TINY_AGENT_PREAMBLE :: `You are nullray, a coding agent in a sandboxed workspace.
+Answer or act using the tools listed. Rules:
+- Prefer small edits. Use grep_files/glob_files before large reads.
+- Emit exactly one tool call per reply, with valid JSON arguments.
+- If a tool errors, correct the call or explain the blocker. Do not invent results.
+- Stop when the task is done or blocked.`
+
 build_system_prompt :: proc(
 	extra_skills: string = "",
 	tools_reg: ^tools.Registry = nil,
 	retrieve_query: string = "",
+	provider_id := "",
 	allocator := context.allocator,
 ) -> string {
-	lean := prompt_lean_enabled()
+	tier := prompt_tier_for(provider_id)
+	lean := tier == .Lean
+	tiny := tier == .Tiny
 	b: strings.Builder
 	strings.builder_init(&b, allocator)
-	strings.write_string(&b, CODING_AGENT_PREAMBLE)
-	if lean {
+	if tiny {
+		strings.write_string(&b, TINY_AGENT_PREAMBLE)
+	} else {
+		strings.write_string(&b, CODING_AGENT_PREAMBLE)
+	}
+	if lean || tiny {
 		strings.write_string(
 			&b,
 			"\n\nLID harness: large tool payloads arrive as status/path/artifact/excerpt envelopes. Prefer grep_artifact then bounded read_artifact (default line/byte caps). Prefer short steps.",
@@ -82,12 +96,12 @@ build_system_prompt :: proc(
 		reg = tools.registry()
 	}
 	mode_s := ""
-	if lean {
+	if lean || tiny {
 		mode_s = mode_string(mode)
 	}
 	catalog := tools.describe_for_prompt(reg, context.temp_allocator, mode_s)
-	if lean {
-		// Names only under lean. Match openai_tools_json lean core (+ subagent subset).
+	if lean || tiny {
+		// Names only under lean/tiny. Match the openai_tools_json filters.
 		b2: strings.Builder
 		strings.builder_init(&b2, context.temp_allocator)
 		first := true
@@ -98,11 +112,17 @@ build_system_prompt :: proc(
 					continue
 				}
 			}
-			core := tools.lean_core_tool(t.name)
-			sub := sub_on && tools.lean_subagent_tool(t.name)
-			hunt := tools.lean_hunt_tools_enabled() && tools.lean_hunt_tool(t.name)
-			deferred := tools.deferred_active(t.name)
-			if !core && !sub && !hunt && !deferred {
+			keep := false
+			if tiny {
+				keep = tools.tiny_core_tool(t.name) || tools.deferred_active(t.name)
+			} else {
+				core := tools.lean_core_tool(t.name)
+				sub := sub_on && tools.lean_subagent_tool(t.name)
+				hunt := tools.lean_hunt_tools_enabled() && tools.lean_hunt_tool(t.name)
+				deferred := tools.deferred_active(t.name)
+				keep = core || sub || hunt || deferred
+			}
+			if !keep {
 				continue
 			}
 			if !first {
@@ -112,6 +132,9 @@ build_system_prompt :: proc(
 			strings.write_string(&b2, t.name)
 		}
 		catalog = strings.to_string(b2)
+		if tiny {
+			catalog = strings.concatenate({catalog, " (search_tools exposes more on demand)"}, context.temp_allocator)
+		}
 	}
 	strings.write_string(&b, catalog)
 	strings.write_string(&b, "\n\nPrefer native function/tool calling when the API supports it. ")
@@ -122,6 +145,9 @@ build_system_prompt :: proc(
 	agents_cap := constants.MAX_AGENTS_PROMPT_CHARS
 	if lean {
 		agents_cap = 800
+	}
+	if tiny {
+		agents_cap = 400
 	}
 	agents, agents_path := load_agents_md(context.temp_allocator)
 	if len(agents) > 0 {
@@ -142,7 +168,7 @@ build_system_prompt :: proc(
 		} else {
 			strings.write_string(&b, "\n\n## Project instructions (AGENTS.md)\n\n")
 		}
-		if lean {
+		if lean || tiny {
 			strings.write_string(
 				&b,
 				"Lean profile: load details with read_file when needed.\nPath: ",
@@ -183,30 +209,34 @@ build_system_prompt :: proc(
 		}
 	}
 
-	mem_cap := constants.MAX_MEMORY_PROMPT_CHARS
-	if lean {
-		mem_cap = mem_cap / 2
-	}
-	rag_cap := constants.RAG_PROMPT_CHARS
-	if lean {
-		rag_cap = rag_cap / 2
-	}
-	retrieved := ""
-	if len(strings.trim_space(retrieve_query)) > 0 {
-		retrieved = rag.Prompt_Block(retrieve_query, rag_cap, context.temp_allocator)
-	}
-	if len(retrieved) > 0 {
-		mem_cap = mem_cap / 2
-		strings.write_string(&b, "\n\n## Retrieved memory\n\n")
-		strings.write_string(&b, retrieved)
-	}
-	memory_digest := project_memory.Digest(mem_cap, context.temp_allocator)
-	if len(memory_digest) > 0 {
-		strings.write_string(&b, "\n\n## Project memory\n\n")
-		strings.write_string(&b, memory_digest)
+	// Memory, RAG recall, and the skills catalog are dropped under tiny; a small
+	// local model cannot spend that budget well.
+	if !tiny {
+		mem_cap := constants.MAX_MEMORY_PROMPT_CHARS
+		if lean {
+			mem_cap = mem_cap / 2
+		}
+		rag_cap := constants.RAG_PROMPT_CHARS
+		if lean {
+			rag_cap = rag_cap / 2
+		}
+		retrieved := ""
+		if len(strings.trim_space(retrieve_query)) > 0 {
+			retrieved = rag.Prompt_Block(retrieve_query, rag_cap, context.temp_allocator)
+		}
+		if len(retrieved) > 0 {
+			mem_cap = mem_cap / 2
+			strings.write_string(&b, "\n\n## Retrieved memory\n\n")
+			strings.write_string(&b, retrieved)
+		}
+		memory_digest := project_memory.Digest(mem_cap, context.temp_allocator)
+		if len(memory_digest) > 0 {
+			strings.write_string(&b, "\n\n## Project memory\n\n")
+			strings.write_string(&b, memory_digest)
+		}
 	}
 
-	if len(extra_skills) > 0 {
+	if len(extra_skills) > 0 && !tiny {
 		strings.write_string(&b, "\n\n## Skills catalog\n\n")
 		strings.write_string(&b, extra_skills)
 		if lean {

@@ -39,7 +39,7 @@ run_turn :: proc(req: Run_Request, cfg: Config, allocator := context.allocator) 
 	harness: Harness_Metrics
 	if tools_on {
 		// Own across every chat step. Stream callbacks must not free this.
-		tools_json = tools.openai_tools_json(reg, mode_s, prompt_lean_enabled(), allocator, cfg.tool_allow)
+		tools_json = tools.openai_tools_json(reg, mode_s, prompt_tier_for(req.prov.id), allocator, cfg.tool_allow)
 		harness.tools_json_chars = len(tools_json)
 	}
 	defer if len(tools_json) > 0 {

@@ -50,7 +50,7 @@ session_rebuild_system_prompt :: proc(s: ^Session, retrieve_query: string = "") 
 	if len(q) == 0 {
 		q = session_last_user_text(s)
 	}
-	s.system_prompt = agent.build_system_prompt(skills_prompt, s.tools_registry, q)
+	s.system_prompt = agent.build_system_prompt(skills_prompt, s.tools_registry, q, s.provider_id)
 	delete(skills_prompt)
 }
 

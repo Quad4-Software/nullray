@@ -10,6 +10,7 @@ import "core:strconv"
 import "core:strings"
 import "nullray:constants"
 import "nullray:provider"
+import "nullray:tools"
 
 Harness_Metrics :: struct {
 	call_count:             int,
@@ -72,18 +73,35 @@ lid_enabled :: proc() -> bool {
 	return true
 }
 
-prompt_lean_enabled :: proc() -> bool {
+// NULLRAY_PROMPT=full|lean|tiny|auto. auto is the default: Lean in print mode
+// and Tiny when the active provider is local (small local models drown in a
+// full tool catalog). Override explicitly when running a large local model.
+prompt_tier_for :: proc(provider_id := "") -> tools.Prompt_Tier {
 	if v, ok := os.lookup_env(constants.ENV_PROMPT, context.temp_allocator); ok {
 		switch strings.to_lower(strings.trim_space(v), context.temp_allocator) {
+		case "tiny":
+			return .Tiny
 		case "lean":
-			return true
+			return .Lean
 		case "full":
-			return false
-		case "auto":
-			return print_mode_active()
+			return .Full
 		}
 	}
-	return print_mode_active()
+	if provider.provider_is_local(provider_id) {
+		return .Tiny
+	}
+	if print_mode_active() {
+		return .Lean
+	}
+	return .Full
+}
+
+prompt_tier :: proc() -> tools.Prompt_Tier {
+	return prompt_tier_for("")
+}
+
+prompt_lean_enabled :: proc() -> bool {
+	return prompt_tier() != .Full
 }
 
 print_mode_active :: proc() -> bool {

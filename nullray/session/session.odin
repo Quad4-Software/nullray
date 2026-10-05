@@ -121,7 +121,7 @@ session_init :: proc(s: ^Session) {
 	}
 
 	skills_prompt := agent.load_skills_prompt()
-	s.system_prompt = agent.build_system_prompt(skills_prompt, s.tools_registry)
+	s.system_prompt = agent.build_system_prompt(skills_prompt, s.tools_registry, provider_id = s.provider_id)
 	delete(skills_prompt)
 
 	if s.persist {
