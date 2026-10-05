@@ -16,6 +16,12 @@ test_env_keep_allowlist :: proc(t: ^testing.T) {
 		"OPENROUTER_API_KEY",
 		"OLLAMA_HOST",
 		"LM_API_KEY",
+		"LM_STUDIO_HOST",
+		"LLAMA_CPP_HOST",
+		"OPENAI_BASE_URL",
+		"OPENAI_ORG_ID",
+		"ANTHROPIC_BASE_URL",
+		"AZURE_OPENAI_ENDPOINT",
 		"XDG_CONFIG_HOME",
 		"SSL_CERT_FILE",
 	}
@@ -39,6 +45,7 @@ test_env_keep_denylist :: proc(t: ^testing.T) {
 		"NPM_TOKEN",
 		"NODE_OPTIONS",
 		"LD_PRELOAD",
+		"LLAMA_CPP_API_KEY",
 	}
 	for k in deny {
 		testing.expectf(t, !env_keep(k), "expected deny %s", k)

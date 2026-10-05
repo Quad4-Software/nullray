@@ -30,6 +30,12 @@ ALLOWED_ENV_PREFIXES :: []string{
 	"OPENROUTER_",
 	"OPENCODE_",
 	"LM_API_",
+	"LM_STUDIO_HOST",
+	"LLAMA_CPP_HOST",
+	"OPENAI_BASE_URL",
+	"OPENAI_ORG_ID",
+	"OPENAI_PROJECT_ID",
+	"ANTHROPIC_BASE_URL",
 	"HTTP_PROXY",
 	"HTTPS_PROXY",
 	"ALL_PROXY",
@@ -89,6 +95,10 @@ env_keep :: proc(key: string, cfg: Config = {}) -> bool {
 		return true
 	}
 	if cfg.keep_kubeconfig && (key == "KUBECONFIG" || key == "KUBE_CONFIG") {
+		return true
+	}
+	// Non-secret endpoint URLs under otherwise-denied vendor prefixes.
+	if key == "AZURE_OPENAI_ENDPOINT" {
 		return true
 	}
 	for d in DENIED_ENV_PREFIXES {

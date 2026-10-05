@@ -50,9 +50,8 @@ make_lmstudio :: proc(base_url := "", api_key := "", model := "") -> Provider {
 	}
 	key := api_key
 	if len(key) == 0 {
-		if v, ok := os.lookup_env(constants.ENV_LMSTUDIO_KEY, context.temp_allocator); ok {
-			key = v
-		} else {
+		key = lookup_api_key_env(constants.ENV_LMSTUDIO_KEY, constants.ENV_API_KEY)
+		if len(key) == 0 {
 			key = "lm-studio"
 		}
 	}
@@ -86,9 +85,7 @@ make_llamacpp :: proc(base_url := "", api_key := "", model := "") -> Provider {
 	}
 	key := api_key
 	if len(key) == 0 {
-		if v, ok := os.lookup_env(constants.ENV_LLAMACPP_KEY, context.temp_allocator); ok {
-			key = v
-		}
+		key = lookup_api_key_env(constants.ENV_LLAMACPP_KEY, constants.ENV_API_KEY)
 	}
 	m := model
 	if len(m) == 0 {
