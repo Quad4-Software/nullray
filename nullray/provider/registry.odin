@@ -140,9 +140,16 @@ registry_auto_select_local :: proc(r: ^Registry) -> bool {
 		return false
 	}
 	for id in LOCAL_PROBE_IDS {
-		if probe_local_provider(id, 2) {
-			return registry_set_active(r, id)
+		base := probe_local_base(id, 2)
+		if len(base) == 0 {
+			continue
 		}
+		// Probing can discover the server on a non-default port; adopt it.
+		if p, ok := registry_find(r, id); ok && p.base_url != base {
+			delete(p.base_url)
+			p.base_url = strings.clone(base)
+		}
+		return registry_set_active(r, id)
 	}
 	return false
 }
@@ -159,12 +166,13 @@ registry_cycle :: proc(r: ^Registry, delta: int) {
 }
 
 registry_select_from_env :: proc(r: ^Registry) {
+	probed := false
 	if provider_env_set() {
 		if id, ok := os.lookup_env(constants.ENV_PROVIDER, context.temp_allocator); ok {
 			_ = registry_set_active(r, id)
 		}
 	} else {
-		_ = registry_auto_select_local(r)
+		probed = registry_auto_select_local(r)
 	}
 	p := registry_active(r)
 	if p == nil {
@@ -177,6 +185,14 @@ registry_select_from_env :: proc(r: ^Registry) {
 	if base, ok := os.lookup_env(constants.ENV_BASE_URL, context.temp_allocator); ok && len(base) > 0 {
 		delete(p.base_url)
 		p.base_url = strings.clone(normalize_openai_base(base))
+	}
+	// An explicit llamacpp pick still benefits from port discovery when the
+	// user did not pin a base via NULLRAY_BASE_URL or LLAMA_CPP_HOST.
+	if p.id == "llamacpp" && !probed && !llamacpp_base_pinned() {
+		if base := probe_local_base("llamacpp", 2); len(base) > 0 && p.base_url != base {
+			delete(p.base_url)
+			p.base_url = strings.clone(base)
+		}
 	}
 	if key, ok := os.lookup_env(constants.ENV_API_KEY, context.temp_allocator); ok && len(key) > 0 {
 		if len(p.api_key) == 0 {

@@ -13,6 +13,9 @@ import "nullray:http"
 
 LOCAL_PROBE_IDS :: []string{"ollama", "lmstudio", "llamacpp"}
 
+// llama-server is moving its default port to 9931; probe both.
+LLAMACPP_BASES :: []string{constants.DEFAULT_LLAMACPP_BASE, "http://127.0.0.1:9931/v1"}
+
 local_probe_enabled_from_env :: proc() -> bool {
 	if v, ok := os.lookup_env(constants.ENV_LOCAL_PROBE, context.temp_allocator); ok {
 		switch strings.to_lower(strings.trim_space(v), context.temp_allocator) {
@@ -96,36 +99,86 @@ llamacpp_list_models_timeout :: proc(
 	return openai_list_models_timeout(p, timeout_sec, allocator)
 }
 
-// Short HTTP probe for local OpenAI-compat hosts (setup, readiness, auto-select).
-probe_local_provider :: proc(id: string, timeout_sec := 2) -> bool {
+// True when a base was pinned via LLAMA_CPP_HOST or NULLRAY_BASE_URL.
+llamacpp_base_pinned :: proc() -> bool {
 	if !local_probe_enabled_from_env() {
-		return false
+		return true
 	}
-	p: Provider
+	host, has_host := os.lookup_env(constants.ENV_LLAMACPP_HOST, context.temp_allocator)
+	base_env, has_base := os.lookup_env(constants.ENV_BASE_URL, context.temp_allocator)
+	return (has_host && len(strings.trim_space(host)) > 0) ||
+		(has_base && len(strings.trim_space(base_env)) > 0)
+}
+
+/*
+llama.cpp probe candidates: an explicit LLAMA_CPP_HOST wins alone (user pinned
+a host), otherwise the classic 8080 and newer 9931 defaults are tried.
+*/
+llamacpp_probe_bases :: proc(allocator := context.temp_allocator) -> []string {
+	if host, ok := os.lookup_env(constants.ENV_LLAMACPP_HOST, context.temp_allocator);
+	   ok && len(strings.trim_space(host)) > 0 {
+		out := make([]string, 1, allocator)
+		out[0] = normalize_openai_base(host, allocator)
+		return out
+	}
+	out := make([]string, len(LLAMACPP_BASES), allocator)
+	for b, i in LLAMACPP_BASES {
+		out[i] = strings.clone(b, allocator)
+	}
+	return out
+}
+
+/*
+Returns the live base URL for a local provider id, or "" when nothing answers.
+For llamacpp the base may differ from the configured default when the server
+listens on an alternate known port.
+*/
+probe_local_base :: proc(id: string, timeout_sec := 2, allocator := context.temp_allocator) -> string {
+	if !local_probe_enabled_from_env() {
+		return ""
+	}
 	switch id {
 	case "ollama":
-		p = make_ollama()
+		p := make_ollama()
 		defer provider_destroy(&p)
 		models, err := ollama_list_models_timeout(&p, timeout_sec)
 		defer destroy_models(models)
 		defer delete(err)
-		return err == "" && len(models) > 0
+		if err == "" && len(models) > 0 {
+			return strings.clone(p.base_url, allocator)
+		}
 	case "lmstudio":
-		p = make_lmstudio()
+		p := make_lmstudio()
 		defer provider_destroy(&p)
 		models, err := lmstudio_list_models_timeout(&p, timeout_sec)
 		defer destroy_models(models)
 		defer delete(err)
-		return err == "" && len(models) > 0
+		if err == "" && len(models) > 0 {
+			return strings.clone(p.base_url, allocator)
+		}
 	case "llamacpp":
-		p = make_llamacpp()
-		defer provider_destroy(&p)
-		models, err := llamacpp_list_models_timeout(&p, timeout_sec)
-		defer destroy_models(models)
-		defer delete(err)
-		return err == "" && len(models) > 0
+		for base in llamacpp_probe_bases() {
+			p := make_llamacpp(base)
+			models, err := llamacpp_list_models_timeout(&p, timeout_sec)
+			live := err == "" && len(models) > 0
+			// A 401/403 still proves a server is there; adopt the base so chat
+			// surfaces a real auth error instead of a misleading refused.
+			blocked := strings.has_prefix(err, "HTTP 401") ||
+				strings.has_prefix(err, "HTTP 403")
+			provider_destroy(&p)
+			destroy_models(models)
+			delete(err)
+			if live || blocked {
+				return strings.clone(base, allocator)
+			}
+		}
 	}
-	return false
+	return ""
+}
+
+// Short HTTP probe for local OpenAI-compat hosts (setup, readiness, auto-select).
+probe_local_provider :: proc(id: string, timeout_sec := 2) -> bool {
+	return len(probe_local_base(id, timeout_sec)) > 0
 }
 
 openai_compat_root :: proc(base_url: string, allocator := context.temp_allocator) -> string {
