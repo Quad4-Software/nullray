@@ -228,7 +228,7 @@ run_h2_stream :: proc(
 	body: string,
 	on_chunk: Stream_Chunk_Proc,
 	user: rawptr,
-) -> (status: int, err_body: []u8, retry_after: int, err: string) {
+) -> (status: int, err_body: string, retry_after: int, err: string) {
 	io := H2_Io{conn = conn}
 	st: H2_Stream_State
 	st.line_buf = make([dynamic]u8, context.allocator)
@@ -289,19 +289,19 @@ run_h2_stream :: proc(
 		256,
 	)
 	if st.err != "" {
-		return int(status_c), raw[:int(err_len)], int(retry_c), st.err
+		return int(status_c), string(raw[:int(err_len)]), int(retry_c), st.err
 	}
 	if len(st.line_buf) > 0 && on_chunk != nil {
 		on_chunk(string(st.line_buf[:]), user)
 	}
 	if rc != 0 {
 		if cancel_requested(conn.owner) {
-			return 0, nil, 0, "cancelled"
+			return 0, "", 0, "cancelled"
 		}
 		if conn_past_deadline(conn) {
-			return 0, nil, 0, "timeout"
+			return 0, "", 0, "timeout"
 		}
-		return 0, nil, 0, tls_err_buf(nil, &err_buf[0], 256)
+		return 0, "", 0, tls_err_buf(nil, &err_buf[0], 256)
 	}
-	return int(status_c), raw[:int(err_len)], int(retry_c), ""
+	return int(status_c), string(raw[:int(err_len)]), int(retry_c), ""
 }

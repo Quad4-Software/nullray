@@ -41,14 +41,14 @@ run_stream_request :: proc(
 	user: rawptr,
 	timeout_sec: int,
 	owner: rawptr = nil,
-) -> (code: int, err_body: []u8, retry_after: int, err: string) {
+) -> (code: int, err_body: string, retry_after: int, err: string) {
 	parts, perr := parse_url(url, context.temp_allocator)
 	if perr != "" {
-		return 0, nil, 0, perr
+		return 0, "", 0, perr
 	}
 	conn, derr := conn_dial(parts, timeout_sec)
 	if derr != "" {
-		return 0, nil, 0, derr
+		return 0, "", 0, derr
 	}
 	conn_register_active(&conn, owner)
 	defer conn_close(&conn)
@@ -64,7 +64,7 @@ run_stream_request :: proc(
 	req := build_request("POST", parts, stream_headers[:], body)
 	_, werr := conn_write(&conn, transmute([]u8)req)
 	if werr != "" {
-		return 0, nil, 0, werr
+		return 0, "", 0, werr
 	}
 
 	acc: [dynamic]u8
@@ -73,10 +73,10 @@ run_stream_request :: proc(
 
 	found, rerr := read_until(&conn, &acc, "\r\n\r\n", MAX_HEADER_BYTES)
 	if rerr != "" {
-		return 0, nil, 0, rerr
+		return 0, "", 0, rerr
 	}
 	if !found {
-		return 0, nil, 0, "response headers too large"
+		return 0, "", 0, "response headers too large"
 	}
 
 	idx := strings.index(string(acc[:]), "\r\n\r\n")
@@ -85,11 +85,11 @@ run_stream_request :: proc(
 
 	lines := strings.split(header_blob, "\r\n", context.temp_allocator)
 	if len(lines) == 0 {
-		return 0, nil, 0, "invalid response"
+		return 0, "", 0, "invalid response"
 	}
 	status, ok := parse_status_line(lines[0])
 	if !ok {
-		return 0, nil, 0, "invalid status line"
+		return 0, "", 0, "invalid status line"
 	}
 	parse_headers(strings.join(lines[1:], "\r\n", context.temp_allocator), &st)
 	retry_after = st.retry_after
@@ -99,15 +99,22 @@ run_stream_request :: proc(
 	defer delete(line_buf)
 	append(&line_buf, ..body_acc)
 
-	flush_stream_lines(&line_buf, on_chunk, user)
-
+	// Mirror bytes that arrived with the headers into raw. On error status the
+	// whole body can fit in the prefetch, and without this it never reaches the
+	// caller (it is consumed by the SSE line parser instead).
 	raw: [dynamic]u8
 	defer delete(raw)
+	if len(body_acc) > 0 {
+		append(&raw, ..body_acc[:min(len(body_acc), constants.MAX_STREAM_ERROR_BYTES)])
+	}
+
+	flush_stream_lines(&line_buf, on_chunk, user)
+
 	tmp: [4096]u8
 	for {
 		got, rd_err := read_some(&conn, tmp[:])
 		if rd_err != "" {
-			return code, raw[:], retry_after, rd_err
+			return code, strings.clone(string(raw[:]), context.temp_allocator), retry_after, rd_err
 		}
 		if got == 0 {
 			break
@@ -118,7 +125,7 @@ run_stream_request :: proc(
 		}
 		append(&line_buf, ..tmp[:got])
 		if len(line_buf) > MAX_STREAM_LINE_BYTES {
-			return code, raw[:], retry_after, "SSE line too long"
+			return code, strings.clone(string(raw[:]), context.temp_allocator), retry_after, "SSE line too long"
 		}
 		flush_stream_lines(&line_buf, on_chunk, user)
 	}
@@ -126,7 +133,7 @@ run_stream_request :: proc(
 	if len(line_buf) > 0 && on_chunk != nil {
 		on_chunk(string(line_buf[:]), user)
 	}
-	return code, raw[:], retry_after, ""
+	return code, strings.clone(string(raw[:]), context.temp_allocator), retry_after, ""
 }
 
 post_json_stream :: proc(
@@ -142,7 +149,7 @@ post_json_stream :: proc(
 		return Response{ok = false, err = "cancelled"}
 	}
 
-	status, raw, retry_after, rerr := run_stream_request(url, headers, body, on_chunk, user, timeout_sec, owner)
+	status, err_body, retry_after, rerr := run_stream_request(url, headers, body, on_chunk, user, timeout_sec, owner)
 	if cancel_requested(owner) {
 		return Response{ok = false, err = "cancelled"}
 	}
@@ -150,11 +157,10 @@ post_json_stream :: proc(
 		return Response{ok = false, err = strings.clone(rerr, context.allocator)}
 	}
 	if status >= 400 {
-		err_body := strings.clone(string(raw), context.allocator)
 		return Response{
 			ok = false,
 			status = status,
-			body = err_body,
+			body = strings.clone(err_body, context.allocator),
 			err = fmt.tprintf("HTTP %d", status),
 			retry_after = retry_after,
 		}

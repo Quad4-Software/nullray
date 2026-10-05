@@ -28,15 +28,31 @@ provider_http_error :: proc(res: http.Response, p: ^Provider = nil, allocator :=
 					allocator,
 				)
 			}
+			if p != nil && provider_is_local(p.id) {
+				return fmt.aprintf(
+					"HTTP 401 unauthorized: %s (%s)",
+					msg,
+					local_auth_hint(p.id),
+					allocator = allocator,
+				)
+			}
 			return fmt.aprintf(
 				"HTTP 401 unauthorized: %s (check API key in ~/.config/nullray/env)",
 				msg,
 				allocator = allocator,
 			)
 		}
+		if p != nil && provider_is_local(p.id) {
+			return fmt.aprintf("HTTP 401 unauthorized (%s)", local_auth_hint(p.id), allocator = allocator)
+		}
 		return strings.clone("HTTP 401 unauthorized (check API key in ~/.config/nullray/env)", allocator)
 	}
 	if msg := extract_provider_error_message(res.body); len(msg) > 0 {
+		if p != nil {
+			if hint := local_ctx_hint(p.id, msg); len(hint) > 0 {
+				return fmt.aprintf("%s%s", msg, hint, allocator = allocator)
+			}
+		}
 		return strings.clone(msg, allocator)
 	}
 	if res.status == 402 {
@@ -52,6 +68,41 @@ provider_http_error :: proc(res: http.Response, p: ^Provider = nil, allocator :=
 		return strings.clone(res.err, allocator)
 	}
 	return fmt.aprintf("HTTP %d", res.status, allocator = allocator)
+}
+
+// Actionable auth hint for local servers that enforce a key.
+@(private)
+local_auth_hint :: proc(id: string) -> string {
+	switch id {
+	case "llamacpp":
+		return "server requires a key; set LLAMA_CPP_API_KEY to match llama-server --api-key"
+	case "lmstudio":
+		return "server requires a key; set LM_API_TOKEN"
+	case "ollama":
+		return "server requires auth; check OLLAMA_HOST"
+	}
+	return "check local server auth"
+}
+
+// Suffix for prompt-too-large errors from local servers.
+@(private)
+local_ctx_hint :: proc(id: string, msg: string) -> string {
+	low := strings.to_lower(msg, context.temp_allocator)
+	if !strings.contains(low, "context size") &&
+	   !strings.contains(low, "context_length") &&
+	   !strings.contains(low, "exceed_context") &&
+	   !strings.contains(low, "context window") {
+		return ""
+	}
+	switch id {
+	case "llamacpp":
+		return " (raise llama-server --ctx-size; --parallel divides it across slots)"
+	case "ollama":
+		return " (raise num_ctx, e.g. OLLAMA_CONTEXT_LENGTH)"
+	case "lmstudio":
+		return " (raise the model context length in LM Studio)"
+	}
+	return ""
 }
 
 @(private)
