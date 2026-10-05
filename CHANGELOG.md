@@ -4,6 +4,8 @@ Notable changes for nullray.
 
 ## [Unreleased]
 
+## [0.6.0] - 2026-10-05
+
 ### Added
 - Long tool results and thinking blocks fold to a marker plus their tail lines in the TUI. Click a block to expand or collapse it, /expand toggles all at once, and NULLRAY_COLLAPSE=0 disables folding.
 - Documentation site at nullray.xyz/docs covering install, providers, configuration, modes, the TUI, commands, CLI flags, sessions, sandbox, security, skills, MCP, subagents, memory, and troubleshooting.
