@@ -45,6 +45,8 @@ Config :: struct {
 	keep_kubeconfig:  bool,
 	seccomp:          bool,
 	landlock:         bool,
+	// TCP ports allowed for connect/bind when net == .Local (Landlock ABI 4+).
+	net_ports:        [dynamic]u64,
 }
 
 State :: struct {
@@ -132,6 +134,8 @@ config_from_env :: proc(allocator := context.allocator) -> Config {
 	if v, ok := os.lookup_env(constants.ENV_SANDBOX_EXTRA_RW, context.temp_allocator); ok && len(v) > 0 {
 		parse_extra_paths(v, &cfg.extra_rw, allocator)
 	}
+	cfg.net_ports = default_net_ports(allocator)
+	net_ports_from_env(&cfg.net_ports)
 	docs_append_ro_paths(&cfg.extra_ro, allocator)
 	toolchain_append_rw_paths(&cfg.extra_rw, allocator)
 	ops_apply_to_config(&cfg, allocator)
@@ -155,6 +159,7 @@ config_destroy :: proc(cfg: ^Config) {
 		delete(p)
 	}
 	delete(cfg.extra_sock)
+	delete(cfg.net_ports)
 	cfg^ = {}
 }
 
