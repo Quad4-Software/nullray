@@ -43,7 +43,7 @@ openai_chat :: proc(p: ^Provider, req: Chat_Request, allocator := context.alloca
 			return Chat_Response{ok = false, err = strings.clone("cancelled", allocator)}
 		}
 		body := build_openai_chat_body(p, req, model, false, ignore[:])
-		last = http.post_json(url, headers[:], body, constants.HTTP_TIMEOUT_SEC, context.temp_allocator)
+		last = http.post_json(url, headers[:], body, http_timeout_sec(), context.temp_allocator)
 		if last.ok {
 			return parse_openai_chat_response(last.body, allocator)
 		}
@@ -103,6 +103,8 @@ build_openai_chat_body :: proc(
 		}
 		strings.write_string(&b, `,"tool_choice":`)
 		write_json_string(&b, choice)
+	} else {
+		write_response_format_json(&b)
 	}
 	if p != nil && p.id == "openrouter" && cache_enabled() {
 		strings.write_string(&b, `,"prompt_cache_key":"nullray"`)

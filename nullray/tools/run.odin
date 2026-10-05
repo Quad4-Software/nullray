@@ -255,8 +255,22 @@ run :: proc(
 	if strings.has_prefix(name, "mcp:") && r != nil && r.external_run != nil {
 		return r.external_run(r.external_user, name, args_json, allocator)
 	}
-	t, ok := registry_find(r, name)
+	// Weak models emit name variants (read-file, readfile, default_api.read_file);
+	// normalize before rejecting.
+	resolved := name
+	if _, ok := registry_find(r, resolved); !ok {
+		norm := normalize_tool_name(name, context.temp_allocator)
+		if norm != resolved {
+			if _, ok2 := registry_find(r, norm); ok2 {
+				resolved = norm
+			}
+		}
+	}
+	t, ok := registry_find(r, resolved)
 	if !ok {
+		if near := closest_tool_name(r, name, context.temp_allocator); len(near) > 0 {
+			return "", fmt.aprintf("unknown tool: %s (did you mean %s?)", name, near, allocator = allocator)
+		}
 		return "", fmt.aprintf("unknown tool: %s", name, allocator = allocator)
 	}
 	if t.run == nil {
@@ -303,7 +317,7 @@ describe_for_prompt :: proc(
 openai_tools_json :: proc(
 	r: ^Registry,
 	mode: string,
-	lean := false,
+	tier := Prompt_Tier.Full,
 	allocator := context.allocator,
 	allow: []string = nil,
 ) -> string {
@@ -317,7 +331,11 @@ openai_tools_json :: proc(
 			if !sub_on && is_subagent_tool_name(t.name) {
 				continue
 			}
-			if lean {
+			if tier == .Tiny {
+				if !tiny_core_tool(t.name) && !deferred_active(t.name) {
+					continue
+				}
+			} else if tier == .Lean {
 				core := lean_core_tool(t.name)
 				sub := sub_on && lean_subagent_tool(t.name)
 				hunt := lean_hunt_tools_enabled() && lean_hunt_tool(t.name)
@@ -334,12 +352,12 @@ openai_tools_json :: proc(
 			}
 			first = false
 			desc := t.description
-			if lean {
+			if tier != .Full {
 				desc = ""
 			}
 			esc := json_escape_string(desc, context.temp_allocator)
 			schema := t.schema_json
-			if lean {
+			if tier != .Full {
 				schema = schema_strip_descriptions(t.schema_json, context.temp_allocator)
 			}
 			strings.write_string(&b, `{"type":"function","function":{"name":"`)

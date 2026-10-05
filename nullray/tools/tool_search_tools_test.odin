@@ -20,7 +20,7 @@ test_search_tools_activates_deferred :: proc(t: ^testing.T) {
 	testing.expect(t, strings.contains(out, "audit_owasp"))
 	testing.expect(t, deferred_active("audit_owasp"))
 
-	lean_json := openai_tools_json(registry(), "edit", true, context.allocator)
+	lean_json := openai_tools_json(registry(), "edit", .Lean, context.allocator)
 	defer delete(lean_json)
 	testing.expect(t, strings.contains(lean_json, "audit_owasp"))
 }

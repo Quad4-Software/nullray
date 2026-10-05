@@ -5,6 +5,7 @@ OpenAI-compatible request body and header helpers.
 
 package provider
 
+import "core:encoding/json"
 import "core:fmt"
 import "core:os"
 import "core:strings"
@@ -44,6 +45,9 @@ append_provider_headers :: proc(headers: ^[dynamic]string, p: ^Provider, session
 }
 
 // Official OpenAI and reasoning models prefer max_completion_tokens.
+ENV_JSON_MODE :: "NULLRAY_JSON_MODE"
+ENV_JSON_SCHEMA :: "NULLRAY_JSON_SCHEMA"
+
 write_max_tokens_json :: proc(b: ^strings.Builder, p: ^Provider, max_tokens: int, model: string) {
 	if max_tokens <= 0 {
 		return
@@ -75,6 +79,30 @@ write_sampling_json :: proc(
 	}
 	if top_p_set {
 		fmt.sbprintf(b, `,"top_p":%.4g`, top_p)
+	}
+}
+
+// NULLRAY_JSON_MODE=1 sends response_format json_object for providers that
+// support it (llama.cpp, OpenAI, OpenRouter). NULLRAY_JSON_SCHEMA=<schema JSON>
+// sends type json_schema instead. Skipped when tools are enabled, because a
+// content grammar would also constrain tool-call emission on llama.cpp.
+write_response_format_json :: proc(b: ^strings.Builder) {
+	if v, ok := os.lookup_env(ENV_JSON_SCHEMA, context.temp_allocator); ok {
+		schema := strings.trim_space(v)
+		if len(schema) > 0 {
+			if _, perr := json.parse_string(schema, .JSON, allocator = context.temp_allocator); perr == .None {
+				strings.write_string(b, `,"response_format":{"type":"json_schema","json_schema":{"name":"response","schema":`)
+				strings.write_string(b, schema)
+				strings.write_string(b, `}}`)
+				return
+			}
+		}
+	}
+	if v, ok := os.lookup_env(ENV_JSON_MODE, context.temp_allocator); ok {
+		switch strings.to_lower(strings.trim_space(v), context.temp_allocator) {
+		case "1", "true", "yes", "on", "json", "json_object":
+			strings.write_string(b, `,"response_format":{"type":"json_object"}`)
+		}
 	}
 }
 
@@ -223,7 +251,7 @@ write_message_json :: proc(b: ^strings.Builder, m: Message, p: ^Provider = nil) 
 			strings.write_string(b, `,"type":"function","function":{"name":`)
 			write_json_string(b, tc.name)
 			strings.write_string(b, `,"arguments":`)
-			write_json_string(b, tc.arguments)
+			write_json_string(b, tool_args_valid_json(tc.arguments))
 			strings.write_string(b, `}}`)
 		}
 		strings.write_byte(b, ']')
@@ -317,4 +345,20 @@ write_json_string :: proc(b: ^strings.Builder, s: string) {
 		}
 	}
 	strings.write_byte(b, '"')
+}
+
+// Tool call arguments must be a JSON-encoded string per the API contract, and
+// OpenAI-compat servers that render history through templates (llama.cpp
+// --jinja) hard-fail the whole request when they re-parse malformed arguments.
+// Weak local models occasionally emit unterminated or runaway args, so swap in
+// a valid stub when the raw text does not parse.
+@(private)
+tool_args_valid_json :: proc(args: string) -> string {
+	if len(args) == 0 {
+		return "{}"
+	}
+	if _, err := json.parse_string(args, .JSON, allocator = context.temp_allocator); err != .None {
+		return `{"_invalid_arguments":"model emitted arguments that were not valid JSON"}`
+	}
+	return args
 }

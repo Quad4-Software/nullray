@@ -46,18 +46,18 @@ test_openai_tools_json_filters_by_mode :: proc(t: ^testing.T) {
 	registry_init(&reg)
 	defer registry_destroy(&reg)
 
-	ask_json := openai_tools_json(&reg, "ask", false, context.allocator)
+	ask_json := openai_tools_json(&reg, "ask", .Full, context.allocator)
 	defer delete(ask_json)
 	testing.expect(t, !strings.contains(ask_json, `"write_file"`))
 	testing.expect(t, strings.contains(ask_json, `"read_file"`))
 
-	review_json := openai_tools_json(&reg, "review", false, context.allocator)
+	review_json := openai_tools_json(&reg, "review", .Full, context.allocator)
 	defer delete(review_json)
 	testing.expect(t, !strings.contains(review_json, `"write_file"`))
 	testing.expect(t, !strings.contains(review_json, `"run_shell"`))
 	testing.expect(t, strings.contains(review_json, `"read_file"`))
 
-	edit_json := openai_tools_json(&reg, "edit", false, context.allocator)
+	edit_json := openai_tools_json(&reg, "edit", .Full, context.allocator)
 	defer delete(edit_json)
 	testing.expect(t, strings.contains(edit_json, `"write_file"`))
 	testing.expect(t, strings.contains(edit_json, `"run_shell"`))
@@ -70,9 +70,9 @@ test_openai_tools_json_lean_and_subagent_omit :: proc(t: ^testing.T) {
 	defer registry_destroy(&reg)
 	register_subagent_tools(&reg, true)
 
-	full := openai_tools_json(&reg, "edit", false, context.allocator)
+	full := openai_tools_json(&reg, "edit", .Full, context.allocator)
 	defer delete(full)
-	lean := openai_tools_json(&reg, "edit", true, context.allocator)
+	lean := openai_tools_json(&reg, "edit", .Lean, context.allocator)
 	defer delete(lean)
 
 	testing.expect(t, len(lean) < len(full))
@@ -87,7 +87,7 @@ test_openai_tools_json_lean_and_subagent_omit :: proc(t: ^testing.T) {
 	testing.expect(t, !strings.contains(lean, `"task"`))
 
 	register_subagent_tools(&reg, false)
-	no_sub := openai_tools_json(&reg, "edit", true, context.allocator)
+	no_sub := openai_tools_json(&reg, "edit", .Lean, context.allocator)
 	defer delete(no_sub)
 	testing.expect(t, !strings.contains(no_sub, `"task"`))
 	testing.expect(t, !strings.contains(no_sub, `"agents_status"`))
@@ -102,7 +102,7 @@ test_openai_tools_json_lean_and_subagent_omit :: proc(t: ^testing.T) {
 
 	os.set_env("NULLRAY_HUNT", "auto")
 	defer os.unset_env("NULLRAY_HUNT")
-	lean_hunt := openai_tools_json(&reg, "review", true, context.allocator)
+	lean_hunt := openai_tools_json(&reg, "review", .Lean, context.allocator)
 	defer delete(lean_hunt)
 	testing.expect(t, strings.contains(lean_hunt, `"audit_owasp"`))
 	testing.expect(t, strings.contains(lean_hunt, `"audit_deps"`))
@@ -146,7 +146,7 @@ test_tool_allow_filters_openai_json :: proc(t: ^testing.T) {
 	registry_init(&reg)
 	defer registry_destroy(&reg)
 	allow := LOCATE_TOOL_ALLOW
-	json := openai_tools_json(&reg, "ask", false, context.allocator, allow)
+	json := openai_tools_json(&reg, "ask", .Full, context.allocator, allow)
 	defer delete(json)
 	testing.expect(t, strings.contains(json, `"grep_files"`))
 	testing.expect(t, strings.contains(json, `"repo_map"`))
