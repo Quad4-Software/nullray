@@ -91,6 +91,18 @@ http_retry_limit :: proc() -> int {
 	return constants.HTTP_RETRIES_DEFAULT
 }
 
+// NULLRAY_HTTP_TIMEOUT (seconds) overrides the default; local servers on CPU
+// can exceed 120s on long prompts.
+http_timeout_sec :: proc() -> int {
+	if v, ok := os.lookup_env(constants.ENV_HTTP_TIMEOUT, context.temp_allocator); ok {
+		n, nok := strconv.parse_int(strings.trim_space(v))
+		if nok && n > 0 {
+			return n
+		}
+	}
+	return constants.HTTP_TIMEOUT_SEC
+}
+
 http_status_retryable :: proc(status: int) -> bool {
 	return status == 429 || status == 500 || status == 502 || status == 503 || status == 504 || status == 529
 }

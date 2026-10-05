@@ -42,7 +42,7 @@ anthropic_chat :: proc(p: ^Provider, req: Chat_Request, allocator := context.all
 			return Chat_Response{ok = false, err = strings.clone("cancelled", allocator)}
 		}
 		body := build_anthropic_body(p, req, model, false)
-		last = http.post_json(url, headers[:], body, constants.HTTP_TIMEOUT_SEC, context.temp_allocator)
+		last = http.post_json(url, headers[:], body, http_timeout_sec(), context.temp_allocator)
 		if last.ok {
 			return parse_anthropic_response(last.body, allocator)
 		}

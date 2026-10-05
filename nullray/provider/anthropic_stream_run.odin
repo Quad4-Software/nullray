@@ -57,7 +57,7 @@ anthropic_chat_stream :: proc(
 		accum.ok = true
 
 		body := build_anthropic_body(p, req, model, true)
-		last = http.post_json_stream(url, headers[:], body, anthropic_sse_line_cb, &accum, constants.HTTP_TIMEOUT_SEC)
+		last = http.post_json_stream(url, headers[:], body, anthropic_sse_line_cb, &accum, http_timeout_sec())
 		if last.ok {
 			if len(accum.err) > 0 {
 				retryable := accum.err_status == 0 || http_status_retryable(accum.err_status)
