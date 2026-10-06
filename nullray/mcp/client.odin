@@ -27,6 +27,27 @@ MCP_PROTOCOL_VERSIONS :: []string{
 MCP_PROTOCOL_LATEST :: "2025-11-25"
 MCP_PROTOCOL_OLDEST :: "2024-10-07"
 
+/*
+Tool names from a server land raw in the tools JSON request body, so the
+charset is restricted to what cannot break the encoding or collide with the
+mcp:server:name route format: letters, digits, dot, underscore, dash.
+*/
+@(private)
+mcp_tool_name_ok :: proc(name: string) -> bool {
+	if len(name) == 0 || len(name) > 128 {
+		return false
+	}
+	for c in name {
+		switch {
+		case c >= 'a' && c <= 'z', c >= 'A' && c <= 'Z', c >= '0' && c <= '9':
+		case c == '.' || c == '_' || c == '-':
+		case:
+			return false
+		}
+	}
+	return true
+}
+
 mcp_version_supported :: proc(version: string) -> bool {
 	v := strings.trim_space(version)
 	for known in MCP_PROTOCOL_VERSIONS {
@@ -44,12 +65,15 @@ client_initialize :: proc(session: ^Stdio_Session, allocator := context.allocato
 
 	last_err := ""
 	for version in MCP_PROTOCOL_VERSIONS {
-		params := fmt.aprintf(
-			`{{"protocolVersion":%q,"capabilities":{{"tools":{{}}}},"clientInfo":{{"name":"nullray","version":%q}}}}`,
-			version,
-			constants.VERSION,
-			allocator = context.temp_allocator,
-		)
+		// %q is not JSON escaping; build the params with a real escaper.
+		pb: strings.Builder
+		strings.builder_init(&pb, context.temp_allocator)
+		strings.write_string(&pb, `{"protocolVersion":`)
+		write_json_string(&pb, version)
+		strings.write_string(&pb, `,"capabilities":{"tools":{}},"clientInfo":{"name":"nullray","version":`)
+		write_json_string(&pb, constants.VERSION)
+		strings.write_string(&pb, `}}`)
+		params := strings.to_string(pb)
 		result_json, init_err := stdio_request(session, "initialize", params, allocator)
 		if init_err != "" {
 			delete(last_err)
@@ -173,7 +197,9 @@ client_list_tools :: proc(
 				tool_name = string(s)
 			}
 		}
-		if len(tool_name) == 0 {
+		if len(tool_name) == 0 || !mcp_tool_name_ok(tool_name) {
+			// A name carrying quotes, commas, or control chars would corrupt
+			// the tools JSON for every other tool in the request.
 			continue
 		}
 
@@ -186,9 +212,14 @@ client_list_tools :: proc(
 
 		schema := strings.clone(`{"type":"object","properties":{}}`, allocator)
 		if sv, sok := tobj["inputSchema"]; sok {
-			if unparsed, uerr := json.unparse(sv, allocator = allocator); uerr == nil {
+			// Re-emit sorted: json.unparse walks the map in hash order, which
+			// varies run to run and breaks provider prefix caching.
+			sb := strings.builder_make(context.temp_allocator)
+			tools.json_emit_sorted(sv, &sb)
+			emitted := strings.to_string(sb)
+			if len(emitted) > 0 {
 				delete(schema)
-				schema = unparsed
+				schema = strings.clone(emitted, allocator)
 			}
 		}
 

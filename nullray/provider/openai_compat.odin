@@ -6,6 +6,7 @@ OpenAI-compatible chat completions with native tool_calls.
 package provider
 
 import "base:runtime"
+import "core:os"
 import "core:strings"
 import "nullray:constants"
 import "nullray:http"
@@ -71,6 +72,14 @@ build_openai_chat_body :: proc(
 	stream: bool,
 	ignore: []string,
 ) -> string {
+	// Per-model profile defaults (model_profiles.json): sampling, reasoning,
+	// tool posture. Explicit request fields keep precedence over the profile.
+	req_p := req
+	pid := ""
+	if p != nil {
+		pid = p.id
+	}
+	profile_apply(pid, model, &req_p)
 	b: strings.Builder
 	strings.builder_init(&b, context.temp_allocator)
 	strings.write_string(&b, `{"model":`)
@@ -91,18 +100,31 @@ build_openai_chat_body :: proc(
 	} else {
 		strings.write_string(&b, `],"stream":false`)
 	}
-	write_max_tokens_json(&b, p, req.max_tokens, model)
-	write_sampling_json(&b, p, model, req.temperature, req.top_p, req.temperature_set, req.top_p_set)
-	write_reasoning_json(&b, p, req.reasoning_effort)
-	if len(req.tools_json) > 0 {
+	write_max_tokens_json(&b, p, req_p.max_tokens, model)
+	write_sampling_json(&b, p, model, req_p.temperature, req_p.top_p, req_p.temperature_set, req_p.top_p_set)
+	write_reasoning_json(&b, p, req_p.reasoning_effort)
+	if p != nil && p.id == "ollama" {
+		// Env NULLRAY_OLLAMA_NUM_CTX > profile num_ctx > caps-derived.
+		if !write_profile_num_ctx_json(&b, model) {
+			write_ollama_num_ctx_json(&b, p, model)
+		}
+	} else if p != nil && p.id == "llamacpp" {
+		// One GET /props per provider instance flags tool support.
+		llamacpp_ensure_caps(p)
+	}
+	if len(req_p.tools_json) > 0 {
 		strings.write_string(&b, `,"tools":`)
-		strings.write_string(&b, req.tools_json)
-		choice := req.tool_choice
+		strings.write_string(&b, req_p.tools_json)
+		choice := req_p.tool_choice
 		if len(choice) == 0 {
 			choice = "auto"
 		}
 		strings.write_string(&b, `,"tool_choice":`)
 		write_json_string(&b, choice)
+		if req_p.parallel_tool_calls_set {
+			strings.write_string(&b, `,"parallel_tool_calls":`)
+			strings.write_string(&b, req_p.parallel_tool_calls ? "true" : "false")
+		}
 	} else {
 		write_response_format_json(&b)
 	}
@@ -112,8 +134,49 @@ build_openai_chat_body :: proc(
 	if p != nil && p.id == "openrouter" {
 		write_openrouter_extras(&b, ignore)
 	}
+	write_local_cache_hints_json(&b, p)
 	strings.write_byte(&b, '}')
 	return strings.to_string(b)
+}
+
+/*
+KV cache and residency hints for local servers. llama.cpp reuses the prompt
+KV when cache_prompt is set, so an unchanged prefix skips prefill (warm
+starts run far faster than a cold prefill). No id_slot: a fixed slot would
+serialize concurrent agents onto one KV slot. Ollama honors a top-level
+keep_alive on /v1/chat/completions, so the model stays resident between
+turns instead of unloading after the server default.
+NULLRAY_OLLAMA_KEEP_ALIVE overrides the 30m duration; 0|off|false|no
+disables the field.
+*/
+write_local_cache_hints_json :: proc(b: ^strings.Builder, p: ^Provider) {
+	if p == nil {
+		return
+	}
+	switch p.id {
+	case "llamacpp":
+		strings.write_string(b, `,"cache_prompt":true`)
+	case "ollama":
+		keep := ollama_keep_alive(context.temp_allocator)
+		if len(keep) > 0 {
+			strings.write_string(b, `,"keep_alive":`)
+			write_json_string(b, keep)
+		}
+	case:
+	}
+}
+
+@(private)
+ollama_keep_alive :: proc(allocator := context.allocator) -> string {
+	if v, ok := os.lookup_env(constants.ENV_OLLAMA_KEEP_ALIVE, context.temp_allocator); ok {
+		raw := strings.trim_space(v)
+		switch strings.to_lower(raw, context.temp_allocator) {
+		case "0", "off", "false", "no", "disable", "disabled":
+			return ""
+		}
+		return strings.clone(raw, allocator)
+	}
+	return strings.clone("30m", allocator)
 }
 
 openai_list_models :: proc(p: ^Provider, allocator := context.allocator) -> (models: []Model_Info, err: string) {

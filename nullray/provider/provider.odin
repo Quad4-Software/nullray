@@ -56,6 +56,10 @@ Chat_Request :: struct {
 	top_p:            f64,
 	temperature_set:  bool,
 	top_p_set:        bool,
+	// OpenAI parallel_tool_calls opt-out; set only when a profile or caller
+	// pins it so servers that reject unknown fields never see it.
+	parallel_tool_calls:     bool,
+	parallel_tool_calls_set: bool,
 	on_tool_seal:     Tool_Seal_Proc,
 	seal_user:        rawptr,
 	session_id:       string,
@@ -135,6 +139,9 @@ Provider :: struct {
 	list_models:   List_Proc,
 	embed:         Embed_Proc,
 	user_data:     rawptr,
+	// Local server capability probe (ollama /api/show, llama.cpp /props).
+	// Owned strings freed by provider_destroy.
+	caps:          Local_Caps,
 }
 
 Chat_Proc :: #type proc(p: ^Provider, req: Chat_Request, allocator := context.allocator) -> Chat_Response

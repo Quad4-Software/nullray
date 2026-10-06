@@ -283,5 +283,6 @@ provider_destroy :: proc(p: ^Provider) {
 	delete(p.base_url)
 	delete(p.api_key)
 	delete(p.default_model)
+	local_caps_destroy(&p.caps)
 	p^ = {}
 }

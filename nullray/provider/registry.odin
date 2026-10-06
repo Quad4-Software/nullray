@@ -204,4 +204,8 @@ registry_select_from_env :: proc(r: ^Registry) {
 			p.api_key = strings.clone(key)
 		}
 	}
+	// Capability/context probe for the active local server so num_ctx and
+	// tool support resolve before the first request. The chat path re-checks
+	// lazily for provider clones and later model changes.
+	provider_ensure_caps(p, p.default_model)
 }
