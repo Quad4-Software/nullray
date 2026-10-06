@@ -4,10 +4,6 @@
 
 <p align="center">Terminal coding agent in Odin. Local models first.</p>
 
-<p align="center">
-  <img src="docs/assets/tui.gif" alt="nullray TUI on an edit turn" width="720">
-</p>
-
 Custom TUI, no curses. Linux Landlock and seccomp when you want a sandbox. Git and Fossil. About 5.3 MB stripped on Linux amd64.
 
 Local: Ollama, LM Studio, llama.cpp, any OpenAI-compatible `/v1`. Cloud: OpenCode, OpenAI, Anthropic, Gemini, Groq, DeepSeek, Mistral, Together, Fireworks, xAI, Azure OpenAI, OpenRouter.
