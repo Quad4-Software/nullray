@@ -64,7 +64,7 @@ chat_job :: proc(data: rawptr) {
 
 	// Tool calls on this worker belong to args.session even when another
 	// tab is frontmost. This pins subagent usage attribution.
-	bind_prev := subagent.session_bind_set(args.session.session_path, args.session.persist)
+	bind_prev := subagent.session_bind_set(args.session.session_path, args.session.persist, args.session.model, args.session.provider_id)
 	defer subagent.session_bind_clear(bind_prev)
 	http_prev := http.bind_owner(args.session)
 	defer http.unbind_owner(http_prev)

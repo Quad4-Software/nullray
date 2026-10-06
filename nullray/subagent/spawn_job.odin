@@ -68,7 +68,7 @@ child_job_proc :: proc(data: rawptr) {
 
 	// Grandchild spawns inherit this session binding (nested task calls
 	// run on this thread).
-	bind_prev := session_bind_set(job.sess_path, job.sess_persist)
+	bind_prev := session_bind_set(job.sess_path, job.sess_persist, job.spec.model, job.spec.provider)
 	defer session_bind_clear(bind_prev)
 	http_prev := http.bind_owner(job.cancel_owner)
 	defer http.unbind_owner(http_prev)

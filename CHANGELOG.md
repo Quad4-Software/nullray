@@ -2,6 +2,11 @@
 
 Notable changes for nullray.
 
+## [Unreleased]
+
+### Added
+- Optional AI provenance on agent commits: NULLRAY_AI_PROVENANCE=1 makes vcs_commit stamp Harness, Model, and Method trailers plus a JSON git note on refs/notes/ai-provenance. Labels come from the live session and can be pinned with NULLRAY_AI_HARNESS, NULLRAY_AI_MODEL, and NULLRAY_AI_METHOD or the ai.* git config keys. Repos with their own commit-msg hook keep ownership, and SKIP_AI_HOOK=1 skips it.
+
 ## [0.7.0] - 2026-10-06
 
 ### Added

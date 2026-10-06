@@ -12,9 +12,11 @@ import "core:strings"
 
 @(private)
 Session_Bind :: struct {
-	path:    string,
-	persist: bool,
-	set:     bool,
+	path:        string,
+	persist:     bool,
+	set:         bool,
+	model:       string,
+	provider_id: string,
 }
 
 @(thread_local)
@@ -23,7 +25,7 @@ tls_session_bind: Session_Bind
 // Set the owning session for this thread and return the previous binding so
 // the caller can restore it. Synchronous child jobs run on the parent thread,
 // where a plain clear would leave the rest of the parent turn unbound.
-session_bind_set :: proc(path: string, persist: bool) -> (prev: Session_Bind) {
+session_bind_set :: proc(path: string, persist: bool, model := "", provider_id := "") -> (prev: Session_Bind) {
 	prev = tls_session_bind
 	tls_session_bind = {}
 	tls_session_bind.set = true
@@ -31,12 +33,29 @@ session_bind_set :: proc(path: string, persist: bool) -> (prev: Session_Bind) {
 	if len(path) > 0 {
 		tls_session_bind.path = strings.clone(path)
 	}
+	if len(model) > 0 {
+		tls_session_bind.model = strings.clone(model)
+	}
+	if len(provider_id) > 0 {
+		tls_session_bind.provider_id = strings.clone(provider_id)
+	}
 	return prev
 }
 
 session_bind_clear :: proc(prev: Session_Bind) {
 	delete(tls_session_bind.path)
+	delete(tls_session_bind.model)
+	delete(tls_session_bind.provider_id)
 	tls_session_bind = prev
+}
+
+// Active model and provider for this thread's session. Borrowed strings;
+// empty when unbound or when the caller did not pin identity.
+session_bind_identity :: proc() -> (model: string, provider_id: string, ok: bool) {
+	if !tls_session_bind.set {
+		return "", "", false
+	}
+	return tls_session_bind.model, tls_session_bind.provider_id, true
 }
 
 // Returns the bound session for this thread. String is borrowed.

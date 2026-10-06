@@ -106,6 +106,10 @@ process only, so nothing silently persists a borrowed credential.
 | `NULLRAY_SECRETS_ALLOW` | Absolute paths allowed to read secrets |
 | `NULLRAY_VCS_NETWORK` | Enable vcs_push/pull/fetch/PR tools |
 | `NULLRAY_VCS_FORCE` | Allow force-push to main/master |
+| `NULLRAY_AI_PROVENANCE` | Stamp agent commits with Harness/Model/Method trailers and an ai-provenance git note |
+| `NULLRAY_AI_HARNESS` | Override the Harness trailer label |
+| `NULLRAY_AI_MODEL` | Override the Model trailer label |
+| `NULLRAY_AI_METHOD` | Override the Method trailer label |
 
 ## Foreign adoption control
 

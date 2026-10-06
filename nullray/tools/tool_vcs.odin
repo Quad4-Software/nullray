@@ -4,6 +4,8 @@ package tools
 import "core:fmt"
 import "core:strings"
 import "nullray:constants"
+import "nullray:provider"
+import "nullray:subagent"
 import "nullray:vcs"
 
 vcs_repo :: proc(allocator := context.allocator) -> vcs.Repo {
@@ -113,7 +115,12 @@ tool_vcs_commit :: proc(args_json: string, allocator := context.allocator) -> (s
 	defer delete(message)
 	repo := vcs_repo(allocator)
 	defer vcs.repo_destroy(&repo)
-	return vcs.commit(repo, message, allocator)
+	model, provider_id, _ := subagent.session_bind_identity()
+	method := provider_id
+	if provider.provider_is_local(provider_id) {
+		method = "Local"
+	}
+	return vcs.commit(repo, message, model, method, allocator)
 }
 
 tool_vcs_branch :: proc(args_json: string, allocator := context.allocator) -> (string, string) {

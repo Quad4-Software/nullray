@@ -125,13 +125,29 @@ log :: proc(repo: Repo, count: int = 20, allocator := context.allocator) -> (str
 	return "", strings.clone("unknown VCS", allocator)
 }
 
-commit :: proc(repo: Repo, message: string, allocator := context.allocator) -> (string, string) {
+commit :: proc(
+	repo: Repo,
+	message: string,
+	model := "",
+	method := "",
+	allocator := context.allocator,
+) -> (string, string) {
 	if len(strings.trim_space(message)) == 0 {
 		return "", strings.clone("commit message is required", allocator)
 	}
+	msg := message
+	prov := provenance_active(repo)
+	if prov {
+		harness, m, meth := provenance_identity(repo, model, method, context.temp_allocator)
+		msg = provenance_message(message, harness, m, meth, context.temp_allocator)
+	}
 	switch repo.kind {
 	case .Git:
-		return run(repo, {"git", "commit", "-m", message}, allocator)
+		out, err := run(repo, {"git", "commit", "-m", msg}, allocator)
+		if len(err) == 0 && prov {
+			provenance_note(repo, model, method)
+		}
+		return out, err
 	case .Fossil:
 		return run(repo, {"fossil", "commit", "-m", message}, allocator)
 	case .None:

@@ -258,7 +258,7 @@ prompt_worker :: proc(data: rawptr) {
 	args.ctx.srv = srv
 	args.ctx.sess = s
 
-	bind_prev := subagent.session_bind_set(s.id, false)
+	bind_prev := subagent.session_bind_set(s.id, false, args.model, args.prov.id)
 	defer subagent.session_bind_clear(bind_prev)
 	// Pin the spawn parent scope so children attribute to this session;
 	// session/cancel then kills only this subtree, not every session's.
