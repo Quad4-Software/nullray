@@ -64,7 +64,7 @@ script_tmp_dir :: proc(workspace: string, allocator := context.allocator) -> (di
 	if jerr != nil {
 		return "", fmt.aprintf("tmp path failed: %v", jerr, allocator = allocator)
 	}
-	if mkerr := os.make_directory_all(joined); mkerr != nil {
+	if mkerr := sandbox.mkdir_all(joined); mkerr != nil {
 		return "", fmt.aprintf("mkdir failed: %v", mkerr, allocator = allocator)
 	}
 	return joined, ""

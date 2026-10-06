@@ -9,8 +9,11 @@ import "core:fmt"
 import "core:io"
 import "core:os"
 import "core:path/filepath"
+import "core:strconv"
 import "core:strings"
 import "core:time"
+import "nullray:crash"
+import "nullray:sandbox"
 
 @(private)
 snapshot_run :: proc(argv: []string, cwd: string, allocator := context.allocator) -> (string, bool) {
@@ -101,12 +104,15 @@ snapshot_shadow_init :: proc(dir, root: string) -> bool {
 	if os.exists(head) {
 		return true
 	}
-	if os.make_directory_all(dir) != nil {
+	// make_directory_all reports Exist when callers already created dir, so
+	// judge by the result on disk, not the return code.
+	_ = sandbox.mkdir_all(dir)
+	if !os.is_dir(dir) {
 		return false
 	}
 	out, ok := snapshot_git(dir, root, []string{"init"}, context.temp_allocator)
-	_ = out
 	if !ok {
+		crash.logf("shadow init failed: %s", out)
 		return false
 	}
 	_, _ = snapshot_git(dir, root, []string{"config", "user.name", "nullray"}, context.temp_allocator)
@@ -123,12 +129,14 @@ snapshot_shadow_create :: proc(
 	if !rel_ok || !snapshot_shadow_init(dir, root) {
 		return "", "", false
 	}
-	_, add_ok := snapshot_git(dir, root, []string{"add", "-f", "-A", "--", relative}, context.temp_allocator)
+	out, add_ok := snapshot_git(dir, root, []string{"add", "-f", "-A", "--", relative}, context.temp_allocator)
 	if !add_ok {
+		crash.logf("shadow add failed: %s", out)
 		return "", "", false
 	}
 	tree_out, tree_ok := snapshot_git(dir, root, []string{"write-tree"}, context.temp_allocator)
 	if !tree_ok {
+		crash.logf("shadow write-tree failed: %s", tree_out)
 		return "", "", false
 	}
 	tree := strings.trim_space(tree_out)
@@ -139,6 +147,7 @@ snapshot_shadow_create :: proc(
 		context.temp_allocator,
 	)
 	if !commit_ok {
+		crash.logf("shadow commit-tree failed: %s", commit_out)
 		return "", "", false
 	}
 	hash := strings.trim_space(commit_out)
@@ -148,9 +157,79 @@ snapshot_shadow_create :: proc(
 		os.get_pid(),
 		g_snap_id,
 	)
-	_, ref_ok := snapshot_git(dir, root, []string{"update-ref", ref, hash}, context.temp_allocator)
+	rout, ref_ok := snapshot_git(dir, root, []string{"update-ref", ref, hash}, context.temp_allocator)
 	if !ref_ok {
+		crash.logf("shadow update-ref failed: %s", rout)
 		return "", "", false
 	}
 	return strings.clone(hash, allocator), strings.clone(ref, allocator), true
+}
+
+/*
+Commit the staged index as a standalone batch anchor under
+refs/nullray/ckpt-<id>. The index still holds pre-write content for the
+batch's files, so the anchor tree is the pre-batch state used by restore.
+Parentless on purpose: anchoring to a parent would keep every older
+checkpoint reachable forever and defeat pruning.
+*/
+@(private)
+snapshot_shadow_commit :: proc(
+	dir, root: string,
+	id: u64,
+	message: string,
+	allocator := context.allocator,
+) -> (commit, ref_name: string) {
+	if !snapshot_shadow_init(dir, root) {
+		return "", ""
+	}
+	tree_out, tree_ok := snapshot_git(dir, root, []string{"write-tree"}, context.temp_allocator)
+	if !tree_ok {
+		return "", ""
+	}
+	tree := strings.trim_space(tree_out)
+	commit_out, commit_ok := snapshot_git(
+		dir,
+		root,
+		[]string{"commit-tree", tree, "-m", message},
+		context.temp_allocator,
+	)
+	if !commit_ok {
+		return "", ""
+	}
+	hash := strings.trim_space(commit_out)
+	ref := fmt.tprintf("refs/nullray/ckpt-%d", id)
+	_, ref_ok := snapshot_git(dir, root, []string{"update-ref", ref, hash}, context.temp_allocator)
+	if !ref_ok {
+		return "", ""
+	}
+	return strings.clone(hash, allocator), strings.clone(ref, allocator)
+}
+
+/*
+Loose plus packed object size in KiB from git count-objects -v. Loose bytes
+are the size: field, packed bytes are size-pack:. Returns 0 when git fails or
+the repo is missing.
+*/
+@(private)
+snapshot_shadow_size_kb :: proc(dir, root: string) -> i64 {
+	out, ok := snapshot_git(dir, root, []string{"count-objects", "-v"}, context.temp_allocator)
+	if !ok {
+		return 0
+	}
+	total: i64 = 0
+	for line in strings.split_lines(out, context.temp_allocator) {
+		line := strings.trim_space(line)
+		value := ""
+		if strings.has_prefix(line, "size-pack:") {
+			value = strings.trim_space(line[len("size-pack:"):])
+		} else if strings.has_prefix(line, "size:") {
+			value = strings.trim_space(line[len("size:"):])
+		} else {
+			continue
+		}
+		if n, parsed := strconv.parse_i64(value); parsed {
+			total += n
+		}
+	}
+	return total
 }
