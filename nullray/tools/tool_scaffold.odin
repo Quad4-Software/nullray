@@ -28,7 +28,7 @@ scaffold_copy_file :: proc(src, abs: string, allocator := context.allocator) -> 
 		return fmt.aprintf("read scaffold failed: %v", rerr, allocator = allocator)
 	}
 	parent := filepath.dir(abs)
-	_ = os.make_directory_all(parent)
+	_ = sandbox.mkdir_all(parent)
 	snapshot_before_write(abs)
 	werr := os.write_entire_file(abs, data)
 	if werr != nil {

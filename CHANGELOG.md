@@ -2,7 +2,40 @@
 
 Notable changes for nullray.
 
-## [Unreleased]
+## [0.7.0] - 2026-10-06
+
+### Added
+- Print-mode observability and scripting flags: --stream writes reply tokens live, --trace emits one stderr line per tool call with elapsed time and exit code, --patch-out writes a unified diff of run changes, --no-adopt skips foreign config adoption, print runs start with a backend identity line (provider, model, endpoint) and end with a stats line (tokens, tok/s, wall time) unless NULLRAY_PRINT_STATS=0.
+- Scheduled wakeups deliver inside the daemon: jobs created under nullray serve fire on the owning session even when no client is attached, with coalescing while a session is busy.
+- Orchestrate mode turns the agent into a coordinator that decomposes work into task calls, fans out subagents into background groups, joins them with agents_wait, and verifies before reporting. Enable with /mode orchestrate, --mode orchestrate, or NULLRAY_MODE=orchestrate. The task tool now also accepts a provider field to route a subagent to a different provider (for example a local model for exploration and a cloud model for edits), and a new models_list tool reports the approved model policy for routing.
+- ask_question and ask_secret tools let the agent prompt the user mid-turn: free text, multiple choice, or yes/no through a TUI modal, and masked secret input for API keys and tokens. Secrets land in a named in-process vault and optionally bind to the environment so providers and shells can use them, and the value never enters tool results.
+- ACP support: nullray --acp serves the Agent Client Protocol v1 over stdio so editors like Zed can run sessions, prompts, modes, and model selection against nullray, with streamed agent and thinking chunks and tool-call updates. When the client supports elicitation, ask prompts are answered through the editor instead of the TUI.
+- Shared daemon: nullray serve runs the agent on a unix socket so clients reuse warm providers and sessions. nullray --print --connect (or NULLRAY_CONNECT) sends a prompt to the daemon, and nullray attach streams a live session and accepts prompts. Sockets are 0600 same-uid; there is no TCP listener.
+- Scheduled prompts: the schedule_prompt tool plus /loop and /remind inject a prompt into the session later (in 10m, every 1h, or 5-field cron). Durable jobs persist across restarts, recurring jobs expire after 7 days, and repeated failures pause a job. NULLRAY_HEARTBEAT runs a periodic checklist beat from .nullray/HEARTBEAT.md, and NULLRAY_SCHEDULE=0 disables scheduling.
+- Session task list: todo_write, todo_update, todo_add, and todo_list manage per-session tasks persisted under .nullray/todos. Open items are injected into every request, and a stale warning appears after two turns without an update so the model keeps the list current. /todo shows the list.
+- User script tools: executables in ~/.config/nullray/tools and .nullray/tools become agent tools, taking JSON args on stdin and returning stdout as the result, with optional description, schema, and permission-kind sidecars. Workspace scripts follow the hooks trust model.
+- Hooks cover more of the lifecycle: UserPromptSubmit, PermissionRequest and PermissionDenied (a hook can answer allow or deny instead of prompting), SubagentStart and SubagentStop, Notification, plus PreToolUse arg rewriting via a rewrite decision on stdout.
+- Diff-based subagent verification: agents_verify now reviews each child's actual worktree diff (and file heads for shared-isolation work) instead of only summaries, applies approved branches independently so one bad merge no longer blocks the rest, and children end with a structured RESULT trailer. The shared board supports blocked_on dependencies, per-item results, and group scoping.
+- Automatic checkpoints: every write step commits the pre-change file set to the .nullray/shadow content-addressed store, /checkpoint lists and restores labeled step snapshots, and checkpoint_list, checkpoint_diff, and checkpoint_restore are available as tools. NULLRAY_CHECKPOINT_AUTO=0 keeps manual checkpoints only.
+- Ollama and llama.cpp probing: startup probes read tool/vision/thinking capabilities and context length from /api/show, /api/ps, and /props, and chat requests send an explicit num_ctx (NULLRAY_OLLAMA_NUM_CTX overrides) so local models no longer silently truncate history at the 4k default. A warning fires when the effective window is under 16k.
+- External harnesses: harness_run delegates a task to another installed agent CLI (claude, opencode, gemini, codex, aider, goose, crush, pi presets, or custom entries in harnesses.json), and harness_list shows detected engines. Runs exec under the sandbox with argv substitution, bounded timeouts, head+tail output, and secret screening. NULLRAY_HARNESS=0 disables.
+- Model profiles: model_profiles.json under the config dir or workspace tunes num_ctx, temperature, top_p, reasoning, prompt tier, and parallel_tool_calls per model glob so local or weak models get the right request shape without touching env vars per session.
+- Reliability for weak tool models: malformed calls (unknown name, bad args JSON) get a bounded retry nudge per turn (NULLRAY_TOOL_RETRY, default 2) instead of a silent error, NULLRAY_TOOLSHIM=<model> adds an opt-in interpreter pass that converts tool-ish text into real calls, and tool schemas are stripped of grammar-heavy keywords on llama.cpp and Ollama (NULLRAY_SCHEMA_CLEAN overrides).
+- Smarter loop detection: the anti-loop fingerprint is now result-aware (polling that returns fresh output no longer trips it) and catches cyclic call patterns, with a warn-then-stop escalation that names the repeated tools.
+- Per-model smoke check: NULLRAY_MODEL_SMOKE=1|auto runs one canned tool-call request per model and shows the verdict in /providers so readiness reflects real behavior, not just a listed capability.
+- Prefix-cache hygiene: volatile prompt sections (retrieved and project memory) moved to the system-prompt tail, tools JSON emits sorted keys, script-tool registration is sorted, llama.cpp requests send cache_prompt, and Ollama requests send keep_alive (NULLRAY_OLLAMA_KEEP_ALIVE).
+
+### Fixed
+- The elevate askpass password prompt no longer closes instantly: the challenge deadline comparison ran backwards, so interactive sudo/doas password entry could never complete.
+- Hook and script-tool children now put system directories first on PATH, so a user-dir shim (like a stray sh in ~/.cargo/bin) can no longer silently break hook exec under the sandbox.
+- Shell tool output keeps head and tail with a dropped-byte count instead of dropping the tail, so error output at the end of long runs is no longer invisible to the agent. A double process reap that reported successful shell, man, elevate, and worktree commands with a wrong exit status is fixed.
+- Directory creation under the sandbox now works: os.make_directory_all opens every ancestor from / and Landlock denied it, so nothing under .nullray (shadow checkpoints, board, todos, schedules, artifacts, traces) could be created after startup. mkdir now walks up to the deepest existing ancestor first.
+- Sandboxed children can run git again: git aborted fatally when it could not read ~/.gitconfig or /etc/gitconfig, so the sandbox now sets GIT_CONFIG_NOSYSTEM plus empty global/system config paths in the process env.
+- A PreToolUse hook file in a cloned repo no longer runs without approval: workspace .nullray files (hooks.json, model_profiles.json, harnesses.json) are skipped until approved via /hooks trust, recorded persistently in the config dir; NULLRAY_HOOKS_TRUST=1 stays a one-shot override.
+- Daemon robustness: fixed a shutdown deadlock when a turn is streaming, a provider caps double-free after prompts, cancel leaking to other sessions' subagents, a subscribe map race, an elicit response use-after-free, and client cwd corruption when the temp arena rolled over mid-connect.
+- Process capture fixes: detached grandchildren holding pipes can no longer hang tool/hook/harness waits past timeout, flood output can no longer defeat timeouts, timeout kills now reach whole process groups, and hook stdin writers no longer crash the process on early-exit children.
+- tool_apropos no longer interpolates the keyword into a shell command (injection surface); it runs apropos by argv instead.
+- Print-mode trace crash fixed: a temp-allocator free in the tool-call trace path segfaulted during teardown.
 
 ## [0.6.1] - 2026-10-05
 
@@ -12,6 +45,8 @@ Notable changes for nullray.
 ## [0.6.0] - 2026-10-05
 
 ### Added
+- Print-mode observability and scripting flags: --stream writes reply tokens live, --trace emits one stderr line per tool call with elapsed time and exit code, --patch-out writes a unified diff of run changes, --no-adopt skips foreign config adoption, print runs start with a backend identity line (provider, model, endpoint) and end with a stats line (tokens, tok/s, wall time) unless NULLRAY_PRINT_STATS=0.
+- Scheduled wakeups deliver inside the daemon: jobs created under nullray serve fire on the owning session even when no client is attached, with coalescing while a session is busy.
 - Long tool results and thinking blocks fold to a marker plus their tail lines in the TUI. Click a block to expand or collapse it, /expand toggles all at once, and NULLRAY_COLLAPSE=0 disables folding.
 - Documentation site at nullray.xyz/docs covering install, providers, configuration, modes, the TUI, commands, CLI flags, sessions, sandbox, security, skills, MCP, subagents, memory, and troubleshooting.
 - nullray now adopts credentials and defaults from other AI CLIs already configured on the machine. API keys, custom endpoints, and the chosen provider/model are read from Claude Code, OpenCode, pi, Codex, Gemini CLI, Qwen Code, Crush, goose, aider, aichat, and llm config files, so a first run works without the setup wizard when a key is found. Only unset variables are filled, helper commands are never executed, and adopted values never appear in logs. --doctor lists what was detected, and NULLRAY_ADOPT=0 disables adoption.
@@ -40,6 +75,8 @@ Notable changes for nullray.
 ## [0.5.0] - 2026-09-29
 
 ### Added
+- Print-mode observability and scripting flags: --stream writes reply tokens live, --trace emits one stderr line per tool call with elapsed time and exit code, --patch-out writes a unified diff of run changes, --no-adopt skips foreign config adoption, print runs start with a backend identity line (provider, model, endpoint) and end with a stats line (tokens, tok/s, wall time) unless NULLRAY_PRINT_STATS=0.
+- Scheduled wakeups deliver inside the daemon: jobs created under nullray serve fire on the owning session even when no client is attached, with coalescing while a session is busy.
 - Session tabs like opencode: a strip under the title bar shows every open session. /new and /resume open new tabs, /tab list|new|open name|next|prev|close|N manages them, ctrl-x is a prefix (n new, w close, arrows switch), f4 and shift-tab cycle, and tabs are clickable including a + button. The strip scrolls with ‹ › overflow markers to keep the active tab visible (cap 16). Background tabs keep running and flag when done. The busy indicator now shows elapsed seconds and the live tool. Tab layout persists across restarts via open_tabs.
 - Image, audio, and video attachments. In the TUI, /attach on a media file queues it for the next message; /attach lists the queue and /attach clear empties it. Print mode adds repeatable --image, --audio, --video, and --media flags. Older turns keep a text marker and stop resending the payload after NULLRAY_MEDIA_TURNS (default 2). NULLRAY_MEDIA=0 disables, NULLRAY_MEDIA_MAX caps file size (default 15MB).
 - /models now lists the live catalog of the active provider, marks the current model, and tags OpenCode Zen entries that need the messages, responses, gemini, or systemone surface. Entries gain context-window and price details when the models.dev catalog cache is warm. /models policy keeps the old approved-model view.
@@ -73,6 +110,8 @@ Notable changes for nullray.
 ## [0.4.0] - 2026-09-14
 
 ### Added
+- Print-mode observability and scripting flags: --stream writes reply tokens live, --trace emits one stderr line per tool call with elapsed time and exit code, --patch-out writes a unified diff of run changes, --no-adopt skips foreign config adoption, print runs start with a backend identity line (provider, model, endpoint) and end with a stats line (tokens, tok/s, wall time) unless NULLRAY_PRINT_STATS=0.
+- Scheduled wakeups deliver inside the daemon: jobs created under nullray serve fire on the owning session even when no client is attached, with coalescing while a session is busy.
 - Local review bot via --review and /review local. Reviews Git or Fossil diffs with working, staged, unstaged, and base scopes. No forge required. Use --include-untracked for new files.
 - Review findings accept critical, major, minor, trivial, and info severities for bot-style reports.
 - Plan mode shows a short Done Contract example and nudges incomplete plans to rewrite required sections.
@@ -111,6 +150,8 @@ Notable changes for nullray.
 ## [0.3.1] - 2026-09-09
 
 ### Added
+- Print-mode observability and scripting flags: --stream writes reply tokens live, --trace emits one stderr line per tool call with elapsed time and exit code, --patch-out writes a unified diff of run changes, --no-adopt skips foreign config adoption, print runs start with a backend identity line (provider, model, endpoint) and end with a stats line (tokens, tok/s, wall time) unless NULLRAY_PRINT_STATS=0.
+- Scheduled wakeups deliver inside the daemon: jobs created under nullray serve fire on the owning session even when no client is attached, with coalescing while a session is busy.
 - Offline docs tools: tldr, GNU info, command --help, and lang_doc for go/python/ruby/rust.
 - grep_files supports case-insensitive and regex search, and uses ripgrep when available.
 - Soft sandbox grants read-only host docs caches by default (tldr, rustup, cargo bin). NULLRAY_DOCS=0 turns that off.
@@ -130,6 +171,8 @@ Notable changes for nullray.
 ## [0.3.0] - 2026-09-09
 
 ### Added
+- Print-mode observability and scripting flags: --stream writes reply tokens live, --trace emits one stderr line per tool call with elapsed time and exit code, --patch-out writes a unified diff of run changes, --no-adopt skips foreign config adoption, print runs start with a backend identity line (provider, model, endpoint) and end with a stats line (tokens, tok/s, wall time) unless NULLRAY_PRINT_STATS=0.
+- Scheduled wakeups deliver inside the daemon: jobs created under nullray serve fire on the owning session even when no client is attached, with coalescing while a session is busy.
 - Locate subagent: finds file spans and hands path:start-end cites back to the parent.
 - repo_map tool for a quick workspace tree.
 - Rename sessions from the TUI or CLI. Bare /new picks a unique name.
@@ -170,6 +213,8 @@ Notable changes for nullray.
 ## [0.2.0] - 2026-09-08
 
 ### Added
+- Print-mode observability and scripting flags: --stream writes reply tokens live, --trace emits one stderr line per tool call with elapsed time and exit code, --patch-out writes a unified diff of run changes, --no-adopt skips foreign config adoption, print runs start with a backend identity line (provider, model, endpoint) and end with a stats line (tokens, tok/s, wall time) unless NULLRAY_PRINT_STATS=0.
+- Scheduled wakeups deliver inside the daemon: jobs created under nullray serve fire on the owning session even when no client is attached, with coalescing while a session is busy.
 - Large tool dumps go to artifacts. Peek with read_artifact / grep_artifact.
 - Leaner prompts and shorter chat history in print mode.
 - Fuzzy file edits and multi-hunk apply on one file.
@@ -196,6 +241,8 @@ Notable changes for nullray.
 ## [0.1.0] - 2026-09-07
 
 ### Added
+- Print-mode observability and scripting flags: --stream writes reply tokens live, --trace emits one stderr line per tool call with elapsed time and exit code, --patch-out writes a unified diff of run changes, --no-adopt skips foreign config adoption, print runs start with a backend identity line (provider, model, endpoint) and end with a stats line (tokens, tok/s, wall time) unless NULLRAY_PRINT_STATS=0.
+- Scheduled wakeups deliver inside the daemon: jobs created under nullray serve fire on the owning session even when no client is attached, with coalescing while a session is busy.
 - First release: TUI coding agent with sandbox, tools, sessions, MCP, and man pages.
 - Many chat providers (OpenAI-compat, Anthropic, Gemini, OpenRouter, Ollama, and others).
 - Modes ask, plan, review, edit. Headless --print. Plans and optional verify.
