@@ -82,31 +82,85 @@ tool_apropos :: proc(args_json: string, allocator := context.allocator) -> (resu
 		if len(kw) == 0 || strings.contains(kw, ";") || strings.contains(kw, "|") {
 			return "", strings.clone("invalid apropos keyword", allocator)
 		}
-		cmd := fmt.aprintf(
-			"apropos -l %s 2>/dev/null | head -n %d",
-			kw,
-			constants.MAX_APROPOS_LINES,
-			allocator = context.temp_allocator,
-		)
-		out, oerr := run_capture_cmd(cmd, allocator)
+		// argv exec only: this is a read-only docs tool, so no shell ever
+		// sees the keyword and substitution metachars stay inert.
+		exe, ok := find_on_path("apropos", context.temp_allocator)
+		if !ok {
+			return "", strings.clone("apropos not found on PATH", allocator)
+		}
+		env := docs_man_env(context.temp_allocator)
+		out, oerr := run_capture_argv_env([]string{exe, "-l", kw}, env, allocator)
 		if oerr != "" {
+			// apropos exits nonzero with "nothing appropriate" on a miss;
+			// keep the friendly empty result for that case only.
+			if strings.contains(oerr, "nothing appropriate") {
+				delete(oerr, allocator)
+				return strings.clone("(no apropos matches)", allocator), ""
+			}
 			return "", oerr
 		}
 		if len(strings.trim_space(out)) == 0 {
 			delete(out)
 			return strings.clone("(no apropos matches)", allocator), ""
 		}
-		return out, ""
+		// Apply the old "| head -n" cap in-process.
+		capped := head_lines(out, constants.MAX_APROPOS_LINES, allocator)
+		delete(out)
+		return capped, ""
 	}
 }
 
+// Keep the first max_lines newline-terminated lines of s.
 @(private)
-run_capture_cmd :: proc(command: string, allocator := context.allocator) -> (result: string, err: string) {
-	return run_capture_argv([]string{"/bin/sh", "-c", command}, allocator)
+head_lines :: proc(s: string, max_lines: int, allocator := context.allocator) -> string {
+	seen := 0
+	for i in 0 ..< len(s) {
+		if s[i] == '\n' {
+			seen += 1
+			if seen >= max_lines {
+				return strings.clone(s[:i + 1], allocator)
+			}
+		}
+	}
+	return strings.clone(s, allocator)
 }
 
 run_capture_argv :: proc(argv: []string, allocator := context.allocator) -> (result: string, err: string) {
 	return run_capture_argv_env(argv, nil, allocator)
+}
+
+/*
+Bounded non-blocking drain: pulls at most SHELL_DRAIN_BUDGET bytes per call
+so a flooding writer cannot keep the outer loop from re-checking timeout
+and cancel. Returns true on EOF or read error; sets truncated^ when bytes
+had to be dropped past max_out.
+*/
+@(private)
+docs_pipe_drain :: proc(r: ^os.File, b: ^[dynamic]byte, buf: []u8, max_out: int, truncated: ^bool) -> bool {
+	left := SHELL_DRAIN_BUDGET
+	for left > 0 {
+		has_data, _ := os.pipe_has_data(r)
+		if !has_data {
+			return false
+		}
+		n, rerr := os.read(r, buf)
+		if n > 0 {
+			left -= n
+			if len(b^) < max_out {
+				take := min(n, max_out - len(b^))
+				append(b, ..buf[:take])
+				if take < n {
+					truncated^ = true
+				}
+			} else {
+				truncated^ = true
+			}
+		}
+		if n == 0 || rerr == io.Error.EOF || rerr == os.General_Error.Broken_Pipe {
+			return true
+		}
+	}
+	return false
 }
 
 @(private)
@@ -170,6 +224,7 @@ run_capture_argv_env :: proc(argv: []string, env: []string, allocator := context
 	stdout_done := false
 	stderr_done := false
 	timed_out := false
+	state: os.Process_State
 	cancelled := false
 	truncated := false
 
@@ -184,90 +239,29 @@ run_capture_argv_env :: proc(argv: []string, env: []string, allocator := context
 			shell_kill_process_tree(process)
 			break
 		}
+		stderr_trunc := false
 		if !stdout_done {
-			has_data, _ := os.pipe_has_data(stdout_r)
-			if has_data {
-				n, rerr := os.read(stdout_r, buf[:])
-				if n > 0 {
-					if len(stdout_b) < max_out {
-						remain := max_out - len(stdout_b)
-						take := n
-						if take > remain {
-							take = remain
-							truncated = true
-						}
-						append(&stdout_b, ..buf[:take])
-					} else {
-						truncated = true
-					}
-				}
-				if rerr == io.Error.EOF || rerr == os.General_Error.Broken_Pipe {
-					stdout_done = true
-				}
-			}
+			stdout_done = docs_pipe_drain(stdout_r, &stdout_b, buf[:], max_out, &truncated)
 		}
 		if !stderr_done {
-			has_data, _ := os.pipe_has_data(stderr_r)
-			if has_data {
-				n, rerr := os.read(stderr_r, buf[:])
-				if n > 0 {
-					if len(stderr_b) < max_out {
-						remain := max_out - len(stderr_b)
-						take := n
-						if take > remain {
-							take = remain
-						}
-						append(&stderr_b, ..buf[:take])
-					}
-				}
-				if rerr == io.Error.EOF || rerr == os.General_Error.Broken_Pipe {
-					stderr_done = true
-				}
-			}
+			stderr_done = docs_pipe_drain(stderr_r, &stderr_b, buf[:], max_out, &stderr_trunc)
 		}
 		wait_state, wait_err := os.process_wait(process, 0)
 		if wait_err == nil && wait_state.exited {
-			for !stdout_done {
-				n, rerr := os.read(stdout_r, buf[:])
-				if n > 0 {
-					if len(stdout_b) < max_out {
-						remain := max_out - len(stdout_b)
-						take := n
-						if take > remain {
-							take = remain
-							truncated = true
-						}
-						append(&stdout_b, ..buf[:take])
-					} else {
-						truncated = true
-					}
-				}
-				if n == 0 || rerr == io.Error.EOF || rerr == os.General_Error.Broken_Pipe {
-					stdout_done = true
-				}
-			}
-			for !stderr_done {
-				n, rerr := os.read(stderr_r, buf[:])
-				if n > 0 {
-					if len(stderr_b) < max_out {
-						remain := max_out - len(stderr_b)
-						take := n
-						if take > remain {
-							take = remain
-						}
-						append(&stderr_b, ..buf[:take])
-					}
-				}
-				if n == 0 || rerr == io.Error.EOF || rerr == os.General_Error.Broken_Pipe {
-					stderr_done = true
-				}
-			}
+			state = wait_state
+			// Child exited; drain only what is already buffered. A detached
+			// grandchild holding a write end must not turn this into a
+			// blocking read past the timeout.
+			_ = docs_pipe_drain(stdout_r, &stdout_b, buf[:], max_out, &truncated)
+			_ = docs_pipe_drain(stderr_r, &stderr_b, buf[:], max_out, &stderr_trunc)
 			break
 		}
 		time.sleep(5 * time.Millisecond)
 	}
-	state, _ := os.process_wait(process)
 	if !state.exited {
+		// Timeout and cancel already fired the kill; a pipes-EOF exit with
+		// the child still running leaves a blocking wait unbounded. Kill
+		// the tree first so the wait is bounded either way.
 		shell_kill_process_tree(process)
 		state, _ = os.process_wait(process)
 	}
@@ -276,6 +270,10 @@ run_capture_argv_env :: proc(argv: []string, env: []string, allocator := context
 	}
 	if timed_out {
 		return "", fmt.aprintf("docs command timed out after %dms", constants.DOCS_TIMEOUT_MS, allocator = allocator)
+	}
+	if !state.exited {
+		// Fail closed: no real status was captured.
+		return "", strings.clone("process status unavailable", allocator)
 	}
 	if state.exit_code != 0 && len(stdout_b) == 0 {
 		serr := strings.trim_space(string(stderr_b[:]))

@@ -11,6 +11,41 @@ import "core:os"
 import "core:strings"
 import "core:time"
 import "nullray:constants"
+import "nullray:http"
+
+// Per-call drain budget: pipe_has_data loops can be kept alive forever by a
+// flooding writer, so a drain returns after this many bytes and lets the
+// outer loop re-check timeout and cancel.
+@(private)
+ELEV_DRAIN_BUDGET :: 64 * 1024
+
+/*
+Bounded non-blocking drain for the post-exit path: the child is dead so its
+bytes are already kernel-buffered, but a detached grandchild may still hold
+the write end open. Read only what pipe_has_data reports ready so a
+surviving writer cannot wedge us on a blocking read.
+*/
+@(private)
+elev_drain :: proc(r: ^os.File, b: ^[dynamic]byte, buf: []u8, max_out: int) {
+	left := ELEV_DRAIN_BUDGET
+	for left > 0 {
+		has_data, _ := os.pipe_has_data(r)
+		if !has_data {
+			return
+		}
+		n, rerr := os.read(r, buf)
+		if n > 0 {
+			left -= n
+			if len(b^) < max_out {
+				take := min(n, max_out - len(b^))
+				append(b, ..buf[:take])
+			}
+		}
+		if n == 0 || rerr == io.Error.EOF || rerr == os.General_Error.Broken_Pipe {
+			return
+		}
+	}
+}
 
 @(private)
 probe_ticket :: proc(bin: string) -> bool {
@@ -84,6 +119,7 @@ exec_capture :: proc(
 			}
 		}
 	}
+	elev_claim_process_group(process)
 
 	stdout_b: [dynamic]byte
 	stdout_b.allocator = context.temp_allocator
@@ -96,17 +132,26 @@ exec_capture :: proc(
 	stdout_done := false
 	stderr_done := false
 	timed_out := false
+	cancelled := false
+	state: os.Process_State
 
 	for !stdout_done || !stderr_done {
-		if time.since(start) >= timeout {
-			timed_out = true
-			_ = os.process_kill(process)
+		if http.cancel_requested() {
+			cancelled = true
+			elev_kill_process_tree(process)
 			break
 		}
+		if time.since(start) >= timeout {
+			timed_out = true
+			elev_kill_process_tree(process)
+			break
+		}
+		got_data := false
 		if !stdout_done {
 			has_data, read_err := os.pipe_has_data(stdout_r)
 			if has_data {
 				n, rerr := os.read(stdout_r, buf[:])
+				got_data = got_data || n > 0
 				if n > 0 && len(stdout_b) < max_out {
 					remain := max_out - len(stdout_b)
 					if n > remain {
@@ -125,6 +170,7 @@ exec_capture :: proc(
 			has_data, read_err := os.pipe_has_data(stderr_r)
 			if has_data {
 				n, rerr := os.read(stderr_r, buf[:])
+				got_data = got_data || n > 0
 				if n > 0 && len(stderr_b) < max_out {
 					remain := max_out - len(stderr_b)
 					if n > remain {
@@ -141,39 +187,25 @@ exec_capture :: proc(
 		}
 		wait_state, wait_err := os.process_wait(process, 0)
 		if wait_err == nil && wait_state.exited {
-			for !stdout_done {
-				n, rerr := os.read(stdout_r, buf[:])
-				if n > 0 && len(stdout_b) < max_out {
-					remain := max_out - len(stdout_b)
-					if n > remain {
-						n = remain
-					}
-					append(&stdout_b, ..buf[:n])
-				}
-				if n == 0 || rerr == io.Error.EOF || rerr == os.General_Error.Broken_Pipe {
-					stdout_done = true
-				}
-			}
-			for !stderr_done {
-				n, rerr := os.read(stderr_r, buf[:])
-				if n > 0 && len(stderr_b) < max_out {
-					remain := max_out - len(stderr_b)
-					if n > remain {
-						n = remain
-					}
-					append(&stderr_b, ..buf[:n])
-				}
-				if n == 0 || rerr == io.Error.EOF || rerr == os.General_Error.Broken_Pipe {
-					stderr_done = true
-				}
-			}
+			state = wait_state
+			// Child exited; drain only what is already buffered. A detached
+			// grandchild holding a write end must not turn this into a
+			// blocking read past the timeout.
+			elev_drain(stdout_r, &stdout_b, buf[:], max_out)
+			elev_drain(stderr_r, &stderr_b, buf[:], max_out)
 			break
+		}
+		if !got_data {
+			// Quiet child: avoid a busy spin on poll+waitid.
+			time.sleep(2 * time.Millisecond)
 		}
 	}
 
-	state, _ := os.process_wait(process)
 	if !state.exited {
-		_ = os.process_kill(process)
+		// Timeout and cancel already fired the kill; a pipes-EOF exit with
+		// the child still running leaves a blocking wait unbounded. Kill
+		// the tree first so the wait is bounded either way.
+		elev_kill_process_tree(process)
 		state, _ = os.process_wait(process)
 	}
 
@@ -181,6 +213,13 @@ exec_capture :: proc(
 	res.exit_code = state.exit_code if state.exited else 1
 	if timed_out {
 		res.err = strings.clone("timeout", allocator)
+		res.exit_code = 1
+	} else if cancelled {
+		res.err = strings.clone("cancelled", allocator)
+		res.exit_code = 1
+	} else if !state.exited {
+		// Fail closed: no real status was captured.
+		res.err = strings.clone("process status unavailable", allocator)
 		res.exit_code = 1
 	}
 	if len(stdout_b) > 0 {

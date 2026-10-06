@@ -4,6 +4,7 @@ package elevate
 import "core:os"
 import "core:strings"
 import "core:testing"
+import "core:time"
 import "nullray:constants"
 
 @(test)
@@ -143,6 +144,20 @@ test_run_elevated_denies_root_shell :: proc(t: ^testing.T) {
 	r := run_elevated("sudo -i", "")
 	defer result_destroy(&r)
 	testing.expect(t, r.kind == .Denied_Shell)
+}
+
+// Regression: a detached grandchild holding the pipe write end must not
+// wedge the post-exit drain, and the real exit code must survive.
+@(test)
+test_exec_capture_detached_grandchild :: proc(t: ^testing.T) {
+	when ODIN_OS == .Windows {
+		return
+	}
+	start := time.now()
+	res := exec_capture("sleep 15 & exit 7", "", "", "", context.allocator)
+	defer result_destroy(&res)
+	testing.expectf(t, res.exit_code == 7, "exit_code=%d err=%q", res.exit_code, res.err)
+	testing.expectf(t, time.since(start) < 10 * time.Second, "detached grandchild wedged the drain")
 }
 
 @(test)

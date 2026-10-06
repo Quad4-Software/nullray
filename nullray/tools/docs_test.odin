@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: LicenseRef-QSL-1.0-0BSD
 package tools
 
+import "core:os"
 import "core:strings"
 import "core:testing"
 
@@ -71,6 +72,46 @@ test_lang_doc_python :: proc(t: ^testing.T) {
 	defer delete(out)
 	testing.expect(t, err == "")
 	testing.expect(t, strings.contains(strings.to_lower(out, context.temp_allocator), "join"))
+}
+
+// Regression: the apropos keyword went through /bin/sh -c so $(...) and
+// friends executed; argv exec must treat them as literal search text.
+@(test)
+test_apropos_no_shell_injection :: proc(t: ^testing.T) {
+	when ODIN_OS == .Windows {
+		return
+	}
+	_, has := find_on_path("apropos", context.temp_allocator)
+	if !has {
+		return
+	}
+	marker := "/tmp/nullray-apropos-pwned"
+	_ = os.remove(marker)
+	defer os.remove(marker)
+	out, err := tool_apropos(`{"keyword":"x$(touch /tmp/nullray-apropos-pwned)x"}`, context.allocator)
+	defer delete(out)
+	defer delete(err)
+	testing.expectf(t, !os.exists(marker), "apropos keyword reached a shell")
+}
+
+@(test)
+test_apropos_real_keyword_when_present :: proc(t: ^testing.T) {
+	when ODIN_OS == .Windows {
+		return
+	}
+	_, has := find_on_path("apropos", context.temp_allocator)
+	if !has {
+		return
+	}
+	out, err := tool_apropos(`{"keyword":"printf"}`, context.allocator)
+	defer delete(out)
+	defer delete(err)
+	if err != "" {
+		// apropos db may be absent on minimal systems
+		testing.expect(t, strings.contains(err, "apropos") || strings.contains(err, "failed"))
+		return
+	}
+	testing.expect(t, strings.contains(out, "printf") || strings.contains(out, "no apropos matches"))
 }
 
 @(test)
