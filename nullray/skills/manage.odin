@@ -11,6 +11,7 @@ import "core:os"
 import "core:path/filepath"
 import "core:strings"
 import "nullray:constants"
+import "nullray:sandbox"
 
 /*
 Split comma and OS path-list separators into trimmed paths.
@@ -114,7 +115,7 @@ copy_tree :: proc(src, dst: string) -> string {
 	}
 	if info.type == .Regular {
 		dir := filepath.dir(dst)
-		_ = os.make_directory_all(dir)
+		_ = sandbox.mkdir_all(dir)
 		if !copy_file_bytes(src, dst) {
 			return fmt.tprintf("copy failed: %s -> %s", src, dst)
 		}
@@ -123,7 +124,7 @@ copy_tree :: proc(src, dst: string) -> string {
 	if info.type != .Directory {
 		return fmt.tprintf("unsupported path type: %s", src)
 	}
-	if mkerr := os.make_directory_all(dst); mkerr != nil {
+	if mkerr := sandbox.mkdir_all(dst); mkerr != nil {
 		if st, serr := os.stat(dst, context.temp_allocator); serr != nil || st.type != .Directory {
 			return fmt.tprintf("cannot create directory %s", dst)
 		}
@@ -209,7 +210,7 @@ install_skill :: proc(
 	}
 
 	root := default_skills_dir(context.temp_allocator)
-	_ = os.make_directory_all(root)
+	_ = sandbox.mkdir_all(root)
 
 	if is_pkg {
 		dest_path, jerr := filepath.join({root, id}, allocator)
@@ -242,7 +243,7 @@ install_skill :: proc(
 		return "", "", msg
 	}
 	dir := filepath.dir(dest_path)
-	_ = os.make_directory_all(dir)
+	_ = sandbox.mkdir_all(dir)
 	if !copy_file_bytes(src_file, dest_path) {
 		delete(id)
 		delete(dest_path)

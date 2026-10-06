@@ -52,7 +52,7 @@ destroy_entries :: proc(entries: ^[dynamic]Entry, allocator := context.allocator
 }
 
 ensure_memory_dir :: proc(path: string) -> string {
-	_ = os.make_directory_all(path)
+	_ = sandbox.mkdir_all(path)
 	return ""
 }
 

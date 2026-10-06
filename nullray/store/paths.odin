@@ -23,7 +23,7 @@ session_dir :: proc(allocator := context.allocator) -> string {
 
 ensure_session_dir :: proc() -> bool {
 	dir := session_dir(context.temp_allocator)
-	_ = os.make_directory_all(dir)
+	_ = sandbox.mkdir_all(dir)
 	return true
 }
 

@@ -22,6 +22,7 @@ import "core:path/filepath"
 import "core:strings"
 import "core:time"
 import "nullray:constants"
+import "nullray:hooks"
 
 Backend :: enum {
 	Off,
@@ -60,6 +61,10 @@ notify_send :: proc(title, body: string) {
 	}
 	title := notify_sanitize(title, 80, context.temp_allocator)
 	body := notify_sanitize(body, 200, context.temp_allocator)
+	// The Notification hook observes the same title/body the desktop
+	// notification would carry; a hook can reroute (webhook, log) instead.
+	nres := hooks.run(.Notification, title, body, context.temp_allocator)
+	hooks.result_destroy(&nres, context.temp_allocator)
 	if mode == .Auto || mode == .Desktop {
 			if cmd := notify_desktop_command(title, body, context.temp_allocator); len(cmd) > 0 {
 			notify_run_helper(cmd)

@@ -175,7 +175,7 @@ verify_tools_pin :: proc(server_id: string, list: []tools.Tool, allocator := con
 	if derr != nil {
 		return strings.clone("cannot resolve MCP pin directory", allocator)
 	}
-	_ = os.make_directory_all(dir)
+	_ = sandbox.mkdir_all(dir)
 	safe: strings.Builder
 	strings.builder_init(&safe, context.temp_allocator)
 	for c in server_id {

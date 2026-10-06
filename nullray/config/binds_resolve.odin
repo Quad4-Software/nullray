@@ -122,7 +122,7 @@ write_default_keys_file :: proc() -> bool {
 	if _, err := os.stat(path, context.temp_allocator); err == nil {
 		return true
 	}
-	_ = os.make_directory_all(sandbox.resolve_config_dir(context.temp_allocator))
+	_ = sandbox.mkdir_all(sandbox.resolve_config_dir(context.temp_allocator))
 	body := `# nullray key bindings (one action=key per line)
 # preset=default|neovim|emacs  (or NULLRAY_KEYS / --keys)
 # keys: ctrl-a .. ctrl-z, up, down, left, right, home, end, pageup, pagedown, f1..f4, tab, enter, esc

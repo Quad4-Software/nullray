@@ -11,6 +11,7 @@ import "core:path/filepath"
 import "core:strconv"
 import "core:strings"
 import "nullray:provider"
+import "nullray:sandbox"
 
 copy_file_bytes :: proc(src, dst: string) -> bool {
 	data, err := os.read_entire_file(src, context.temp_allocator)
@@ -125,7 +126,7 @@ export_session :: proc(name: string, dest_dir: string) -> (ok: bool, err: string
 	if !os.exists(src) {
 		return false, fmt.tprintf("session %s not found", safe)
 	}
-	if mkerr := os.make_directory_all(dest); mkerr != nil {
+	if mkerr := sandbox.mkdir_all(dest); mkerr != nil {
 		if info, serr := os.stat(dest, context.temp_allocator); serr != nil || info.type != .Directory {
 			return false, fmt.tprintf("cannot create directory %s", dest)
 		}

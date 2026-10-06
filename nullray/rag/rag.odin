@@ -159,7 +159,7 @@ vectors_path :: proc(allocator := context.allocator) -> string {
 
 ensure_rag_dir :: proc() -> string {
 	dir := rag_dir(context.temp_allocator)
-	if err := os.make_directory_all(dir); err != nil && err != .Exist {
+	if err := sandbox.mkdir_all(dir); err != nil && err != .Exist {
 		return fmt.tprintf("rag mkdir failed: %v", err)
 	}
 	return ""

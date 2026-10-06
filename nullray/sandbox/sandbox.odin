@@ -8,6 +8,7 @@ package sandbox
 
 import "base:runtime"
 import "core:fmt"
+import "core:os"
 import "core:strings"
 
 g_state: State
@@ -108,6 +109,15 @@ apply :: proc(cfg: Config) -> Result {
 			}
 		}
 
+		// Children spawned later inherit the process env. Git aborts hard
+		// when it cannot read ~/.gitconfig or /etc/gitconfig under Landlock
+		// ("fatal: unknown error occurred while reading the configuration
+		// files"), so isolate config reads for every child we spawn.
+		if g_state.applied {
+			os.set_env("GIT_CONFIG_NOSYSTEM", "1")
+			os.set_env("GIT_CONFIG_GLOBAL", "/dev/null")
+			os.set_env("GIT_CONFIG_SYSTEM", "/dev/null")
+		}
 		return Result{
 			ok = true,
 			applied = g_state.applied,

@@ -128,6 +128,9 @@ toolchain_shell_env :: proc(allocator := context.allocator) -> []string {
 		   strings.has_prefix(e, "GOCACHE=") ||
 		   strings.has_prefix(e, "GOPATH=") ||
 		   strings.has_prefix(e, "GOTMPDIR=") ||
+		   strings.has_prefix(e, "GIT_CONFIG_NOSYSTEM=") ||
+		   strings.has_prefix(e, "GIT_CONFIG_GLOBAL=") ||
+		   strings.has_prefix(e, "GIT_CONFIG_SYSTEM=") ||
 		   strings.has_prefix(e, "TMPDIR=") {
 			continue
 		}
@@ -145,6 +148,16 @@ toolchain_shell_env :: proc(allocator := context.allocator) -> []string {
 	if len(tmp) > 0 {
 		append(&out, fmt_env_pair("GOTMPDIR", tmp, allocator))
 		append(&out, fmt_env_pair("TMPDIR", tmp, allocator))
+	}
+	// Landlock blocks ~/.gitconfig and /etc/gitconfig, and git treats an
+	// unreadable config as fatal ("unknown error occurred while reading
+	// the configuration files"), so sandboxed children get config reads
+	// disabled. Identity stays per-repo: shadow git sets local user.name
+	// already, and user repos can set their own.
+	if st := state(); st != nil && st.applied {
+		append(&out, fmt_env_pair("GIT_CONFIG_NOSYSTEM", "1", allocator))
+		append(&out, fmt_env_pair("GIT_CONFIG_GLOBAL", "/dev/null", allocator))
+		append(&out, fmt_env_pair("GIT_CONFIG_SYSTEM", "/dev/null", allocator))
 	}
 	return out[:]
 }

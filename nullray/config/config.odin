@@ -131,7 +131,7 @@ merge_env_keys :: proc(kvs: []Env_KV, path := "", apply_process := true) -> (err
 	}
 
 	dir := filepath.dir(p)
-	_ = os.make_directory_all(dir)
+	_ = sandbox.mkdir_all(dir)
 
 	existing := ""
 	if data, rerr := os.read_entire_file(p, context.temp_allocator); rerr == nil {

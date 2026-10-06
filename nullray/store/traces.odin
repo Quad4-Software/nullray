@@ -27,7 +27,7 @@ traces_dir :: proc(allocator := context.allocator) -> string {
 
 ensure_traces_dir :: proc() -> bool {
 	dir := traces_dir(context.temp_allocator)
-	_ = os.make_directory_all(dir)
+	_ = sandbox.mkdir_all(dir)
 	return true
 }
 
@@ -89,7 +89,7 @@ trace_store_verify_fail :: proc(
 	_ = os.write_entire_file(trace_path, transmute([]u8)body)
 
 	draft_dir, _ := filepath.join({dir, fmt.tprintf("%s_skill_draft", id)}, context.temp_allocator)
-	_ = os.make_directory_all(draft_dir)
+	_ = sandbox.mkdir_all(draft_dir)
 	skill_path, _ := filepath.join({draft_dir, "SKILL.md"}, context.temp_allocator)
 	skill := fmt.tprintf(
 		"---\nname: verify-repair-%d\ndescription: Draft from verify fail. Review before install.\n---\n\n# Verify repair draft\n\nCommand that failed: %s\n\n## Suggested rule\n\nAfter edits, run the project Verify command and fix reported path:line findings before claiming done.\n\n## Excerpt\n\n%s\n",

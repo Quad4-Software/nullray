@@ -104,7 +104,7 @@ ephemeral_usage_path :: proc(stamp: string, allocator := context.allocator) -> s
 		ws = "."
 	}
 	dir, _ := filepath.join({ws, ".nullray", "usage"}, context.temp_allocator)
-	_ = os.make_directory_all(dir)
+	_ = sandbox.mkdir_all(dir)
 	safe := sanitize_name(stamp)
 	if len(safe) == 0 {
 		safe = "ephemeral"

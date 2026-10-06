@@ -11,6 +11,7 @@ import "core:path/filepath"
 import "core:strings"
 import "core:time"
 import "nullray:provider"
+import "nullray:sandbox"
 
 backup_dir :: proc(allocator := context.allocator) -> string {
 	ensure_session_dir()
@@ -29,7 +30,7 @@ backup_transcript :: proc(
 	allocator := context.allocator,
 ) -> (path: string, ok: bool) {
 	dir := backup_dir(context.temp_allocator)
-	_ = os.make_directory_all(dir)
+	_ = sandbox.mkdir_all(dir)
 	stem := "session"
 	if len(session_path) > 0 {
 		base := filepath.base(session_path)

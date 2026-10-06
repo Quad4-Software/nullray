@@ -34,7 +34,7 @@ audit_log_append :: proc(event, tool_name, path_hash, finding_id: string) {
 	}
 	path := audit_log_path(context.temp_allocator)
 	dir := sandbox.resolve_config_dir(context.temp_allocator)
-	_ = os.make_directory_all(dir)
+	_ = sandbox.mkdir_all(dir)
 	ts := time.now()
 	line := fmt.aprintf(
 		"{\"ts\":%d,\"event\":\"%s\",\"tool\":\"%s\",\"path_hash\":\"%s\",\"finding\":\"%s\"}\n",

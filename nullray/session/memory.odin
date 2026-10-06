@@ -12,6 +12,7 @@ import "core:strconv"
 import "core:strings"
 import "nullray:constants"
 import "nullray:provider"
+import "nullray:sandbox"
 
 mem_max_chars_from_env :: proc() -> int {
 	if v, ok := os.lookup_env(constants.ENV_MEM_MAX_CHARS, context.temp_allocator); ok {
@@ -81,7 +82,7 @@ runtime_dir :: proc(config_dir: string, allocator := context.allocator) -> strin
 
 crash_lock_path :: proc(config_dir: string, allocator := context.allocator) -> string {
 	dir := runtime_dir(config_dir, context.temp_allocator)
-	_ = os.make_directory_all(dir)
+	_ = sandbox.mkdir_all(dir)
 	return fmt.aprintf("%s/nullray-%d.lock", dir, os.get_pid(), allocator = allocator)
 }
 

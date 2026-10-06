@@ -21,7 +21,7 @@ session_write_handoff :: proc(s: ^Session, summary: string = "") {
 	}
 	path, _ := filepath.join({ws, constants.HANDOFF_FILE}, context.temp_allocator)
 	dir := filepath.dir(path)
-	_ = os.make_directory_all(dir)
+	_ = sandbox.mkdir_all(dir)
 
 	goal := ""
 	if len(s.plan_body) > 0 {
