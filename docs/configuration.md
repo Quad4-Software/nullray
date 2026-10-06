@@ -38,7 +38,7 @@ process only, so nothing silently persists a borrowed credential.
 | `NULLRAY_PROVIDER` | | Provider id, see [providers](providers.md) |
 | `NULLRAY_MODEL` | | Model name |
 | `NULLRAY_REASONING` | | Reasoning effort: low, medium, high, none |
-| `NULLRAY_MODE` | edit | ask, plan, review, edit |
+| `NULLRAY_MODE` | edit | ask, plan, review, edit, orchestrate |
 | `NULLRAY_PERMS` | ask | Shell policy: ask, allow, yolo |
 | `NULLRAY_GATE` | | Tool capability gate 0..3 |
 | `NULLRAY_SANDBOX` | warn | off, soft, warn, strict, on |
@@ -82,6 +82,10 @@ process only, so nothing silently persists a borrowed credential.
 | `NULLRAY_PRINT_TIMEOUT` | Print wall clock, default 600s |
 | `NULLRAY_PRINT_STRICT` | Exit 1 on incomplete runs |
 | `NULLRAY_PRINT_USAGE` | Print token and cost summary |
+| `NULLRAY_PRINT_STREAM` | Stream reply tokens live in print mode |
+| `NULLRAY_PRINT_STATS` | Completion stats line on stderr (0 disables) |
+| `NULLRAY_TRACE` | Stderr tool-call lines in print mode |
+| `NULLRAY_PATCH_OUT` | Write a unified diff of run changes to PATH |
 | `NULLRAY_RECALL` | Scoped memory recall (0 disables) |
 | `NULLRAY_COLLAPSE` | Fold long tool/think blocks (0 disables) |
 | `NULLRAY_MEDIA` | Media attachments (0 disables) |
@@ -114,3 +118,14 @@ variable beats adoption, so a stray foreign config can only fill gaps.
 `mcp.json` holds MCP server autoload entries. Workspace hooks live in
 `.nullray/hooks.json`. See [skills and MCP](skills-mcp.md) and
 [security](security.md).
+
+## Local model caching
+
+nullray pins prefix reuse on local servers: llamacpp chat requests carry
+`cache_prompt: true`, and ollama requests carry
+`keep_alive: "30m"` so the model stays resident between turns
+(`NULLRAY_OLLAMA_KEEP_ALIVE` overrides the duration, `0` disables).
+Run llama.cpp's server with `--cache-reuse 256` so an unchanged prompt
+prefix hits warm KV instead of a full prefill. On the build side the
+system prompt is ordered stable-first: volatile blocks like the task
+list and retrieved memory sit at the tail of the request.

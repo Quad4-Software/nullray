@@ -37,9 +37,44 @@ Run one agent turn without the TUI, print the reply, and exit.
 Defaults to ephemeral session and mode ask. Prompt from remaining args,
 .B \-\-message\-file, or stdin when not a TTY.
 .TP
+.B \-\-acp
+Run the Agent Client Protocol v1 server over stdio (ndjson JSON-RPC)
+for editor integrations. stdout carries protocol messages only.
+.TP
+.B \-\-serve
+Run the shared agent daemon on a unix socket
+(default $XDG_RUNTIME_DIR/nullray/nullray.sock, override with
+.B NULLRAY_SERVE_SOCK
+).
+Also: nullray serve. Clients attach with
+.B \-\-connect
+or nullray attach.
+.TP
+.B \-\-connect
+With \-\-print, run the prompt on a running daemon instead of a cold
+process. Exits 2 when no daemon is serving.
+.TP
+.BR attach " [" SESSION ]
+Attach to a daemon session and stream updates; lines typed become
+session/prompt calls. Ctrl-D detaches; the session keeps running.
+.TP
 .BR \-q ", " \-\-ask
 Run one ephemeral read-only question without the TUI. This never enables
 write or shell tools.
+.TP
+.B \-\-stream
+Stream reply tokens to stdout as they arrive in print mode.
+.TP
+.B \-\-trace
+Emit one stderr line per tool call (start, done with elapsed time and
+exit code) in print mode.
+.TP
+.B \-\-patch\-out " " PATH
+After a print run, write a unified diff of everything changed
+(git diff against HEAD, or the shadow checkpoint diff outside a repo).
+.TP
+.B \-\-no\-adopt
+Do not import API keys or provider settings from other AI CLI configs.
 .TP
 .B \-\-bare
 Skip home MCP autoload and non-workspace skills (CI reproducibility).
@@ -85,7 +120,7 @@ Override the default model for the active provider.
 UI theme (ink, dusk, mono, ...).
 .TP
 .B \-\-mode \fIMODE\fR
-Agent mode: ask, plan, review, or edit.
+Agent mode: ask, plan, review, edit, or orchestrate.
 .TP
 .B \-\-perms \fIPOLICY\fR
 Shell permission policy: ask, allow, or yolo.

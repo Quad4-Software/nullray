@@ -31,7 +31,7 @@ them by what they do.
 
 | Flag | Purpose |
 |------|---------|
-| `--mode MODE` | ask, plan, review, edit |
+| `--mode MODE` | ask, plan, review, edit, orchestrate |
 | `--hunt [PROFILE]` | Vuln hunt: auto, balanced, explore, oracle, adversarial |
 | `--perms POLICY` | ask, allow, yolo |
 | `--gate LEVEL` | 0..3, or ask, allow, yolo aliases |
@@ -57,9 +57,40 @@ arguments, `--message-file PATH`, or stdin when it is not a TTY.
 | `--plan-in PATH` | Apply a Done Contract into edit |
 | `--output-format text\|json` | Reply format |
 | `--print-strict` | Exit 1 on incomplete plan, verify failure, step cap, loop, timeout, or living subagents |
+| `--stream` | Stream reply tokens to stdout live (print mode) |
+| `--trace` | One stderr line per tool call with elapsed time and exit code |
+| `--patch-out PATH` | Write a unified diff of everything the run changed |
+| `--no-adopt` | Skip foreign config/key adoption for this run |
 | `--fail-on-findings` | Exit 1 when review ends `FINDINGS: N`, N > 0 |
 | `--usage` | Print token and cost summary |
 | `--timeout SEC` | Wall clock limit, default 600 |
+
+## ACP server
+
+`--acp` runs the Agent Client Protocol v1 server over stdio (newline-delimited
+JSON-RPC) so editors such as Zed can drive nullray as their agent. stdout
+carries protocol messages only; logs go to stderr. Modes map to ACP session
+modes, including orchestrate.
+
+| Flag | Purpose |
+|------|---------|
+| `--acp` | ACP v1 server over stdio |
+
+## Daemon
+
+`nullray serve` (or `--serve`) runs a shared agent daemon on a unix socket:
+`$XDG_RUNTIME_DIR/nullray/nullray.sock` by default, `NULLRAY_SERVE_SOCK` to
+override. Sessions live in the daemon and survive client disconnects;
+`--print --connect` (or `NULLRAY_CONNECT`) runs a prompt through the warm
+daemon instead of a cold process, and `nullray attach [SESSION]` attaches a
+streaming client that can send prompts. Socket perms are 0600; there is no
+TCP listener. Remote access goes over `ssh -L` forwarding.
+
+| Flag | Purpose |
+|------|---------|
+| `--serve` | Run the shared daemon |
+| `--connect` | Route `--print` through the daemon |
+| `attach [SESSION]` | Attach to a daemon session |
 
 ## Review bot
 

@@ -49,6 +49,35 @@ Run one agent turn without the TUI, print the reply, and exit.
 Defaults to ephemeral session and mode ask. Prompt from remaining args,
 .B \-\-message\-file, or stdin when not a TTY.
 .TP
+.B \-\-acp
+Run the Agent Client Protocol v1 server over stdio (ndjson JSON-RPC)
+for editor integrations. stdout carries protocol messages only.
+.TP
+.B \-\-serve
+Run the shared agent daemon on a unix socket (same ACP protocol). Also
+available as the positional command
+.BR "nullray serve" .
+Socket path:
+.B NULLRAY_SERVE_SOCK,
+else
+.IR $XDG_RUNTIME_DIR /nullray/nullray.sock,
+else
+.IR ~/.config/nullray/nullray.sock .
+A daemon crash drops live sessions.
+.TP
+.B \-\-connect
+With
+.BR \-\-print ,
+run the prompt through a running
+.B nullray serve
+daemon instead of a cold start. Also enabled by
+.BR NULLRAY_CONNECT .
+.TP
+.BR attach " [" SESSION ]
+Attach to a daemon session and stream updates. Ctrl-D or
+.B exit
+detaches; the session stays alive in the daemon.
+.TP
 .BR \-q ", " \-\-ask
 Run one ephemeral read-only question without the TUI. This never enables
 write or shell tools.
@@ -189,6 +218,7 @@ NULLRAY_SANDBOX, NULLRAY_WORKSPACE, NULLRAY_SESSION, NULLRAY_EPHEMERAL, NULLRAY_
 NULLRAY_KEYS, NULLRAY_STREAM, NULLRAY_HTTP_RETRIES, NULLRAY_FALLBACK_MODELS,
 NULLRAY_OPENROUTER_IGNORE, NULLRAY_BARE, NULLRAY_SKILLS, NULLRAY_PRINT_TIMEOUT, NULLRAY_OUT, NULLRAY_PLAN_OUT, NULLRAY_PLAN_IN,
 NULLRAY_COLOR, NULLRAY_ALT_SCREEN, NULLRAY_MOUSE, NULLRAY_DEBUG,
+NULLRAY_CONNECT, NULLRAY_SERVE_SOCK,
 OPENROUTER_API_KEY, OLLAMA_HOST, LM_STUDIO_HOST, LM_API_TOKEN, LLAMA_CPP_HOST,
 LLAMA_CPP_API_KEY, NULLRAY_HTTP_TIMEOUT, NULLRAY_SANDBOX_PORTS, NULLRAY_PROMPT, NULLRAY_JUDGE, NULLRAY_JSON_MODE.
 .SH FILES

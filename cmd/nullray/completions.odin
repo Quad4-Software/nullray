@@ -40,9 +40,10 @@ _nullray() {
   COMPREPLY=()
   cur="${COMP_WORDS[COMP_CWORD]}"
   prev="${COMP_WORDS[COMP_CWORD-1]}"
-  opts="--help -h --version -V --ephemeral -e --self-test -t --audit --review --review-scope --base --staged --unstaged --include-untracked --paths --doctor --debug --print -P --ask -q --bare --fail-on-findings --provider -p --model -m --theme --mode --hunt --perms --gate --sandbox --workspace -w --session --list-sessions --inspect-session --follow --search-sessions --delete-session --rename-session --force --export-session --import-session --as --list-skills --install-skill --uninstall-skill --skills --keys --message-file --image --audio --video --media --out --plan-out --plan-in --output-format --print-strict --auto --usage --timeout --no-splash --no-subagents --splash --hide-sensitive --list-models --completions --man"
+  opts="--help -h --version -V --ephemeral -e --self-test -t --audit --review --review-scope --base --staged --unstaged --include-untracked --paths --doctor --debug --print -P --stream --trace --patch-out --no-adopt --ask -q --acp --serve --connect --attach --bare --fail-on-findings --provider -p --model -m --theme --mode --hunt --perms --gate --sandbox --workspace -w --session --list-sessions --inspect-session --follow --search-sessions --delete-session --rename-session --force --export-session --import-session --as --list-skills --install-skill --uninstall-skill --skills --keys --message-file --image --audio --video --media --out --plan-out --plan-in --output-format --print-strict --auto --usage --timeout --no-splash --no-subagents --splash --hide-sensitive --list-models --completions --man"
+  cmds="serve attach"
   providers="ollama lmstudio llamacpp openai openai-compat openrouter opencode opencode-go anthropic gemini groq deepseek mistral together fireworks xai azure cerebras cohere nvidia dashscope"
-  modes="ask plan review edit"
+  modes="ask plan review edit orchestrate"
   hunts="auto balanced explore oracle adversarial"
   perms="ask allow yolo"
   sandboxes="off soft warn strict on"
@@ -64,6 +65,8 @@ _nullray() {
   esac
   if [[ "$cur" == -* ]]; then
     COMPREPLY=( $(compgen -W "$opts" -- "$cur") )
+  elif [[ $COMP_CWORD -eq 1 ]]; then
+    COMPREPLY=( $(compgen -W "$cmds" -- "$cur") )
   fi
 }
 complete -F _nullray nullray
@@ -88,7 +91,15 @@ _nullray() {
     '--doctor[print env and crash dump paths]'
     '--debug[verbose stderr lifecycle logs]'
     '--print[one-shot agent no TUI]' '-P[one-shot agent no TUI]'
+    '--stream[stream reply tokens live]'
+    '--trace[stderr tool-call lines]'
+    '--patch-out[write unified diff of run changes]:file:_files'
+    '--no-adopt[skip foreign config adoption]'
     '--ask[simple Q and A]' '-q[simple Q and A]'
+    '--acp[ACP server over stdio]'
+    '--serve[shared agent daemon on a unix socket]'
+    '--connect[route --print through a running daemon]'
+    '--attach[attach to a daemon session]'
     '--bare[skip home MCP and non-workspace skills]'
     '--fail-on-findings[exit 1 when review findings present]'
     '--provider[provider id]:provider:(ollama lmstudio llamacpp openai openai-compat openrouter opencode opencode-go anthropic gemini groq deepseek mistral together fireworks xai azure cerebras cohere nvidia dashscope)'
@@ -96,7 +107,7 @@ _nullray() {
     '--model[model id]:model:'
     '-m[model id]:model:'
     '--theme[ui theme]:theme:(ink ember moss slate rose mono dusk)'
-    '--mode[agent mode]:mode:(ask plan review edit)'
+    '--mode[agent mode]:mode:(ask plan review edit orchestrate)'
     '--hunt[vuln hunt profile]:profile:(auto balanced explore oracle adversarial)'
     '--perms[shell policy]:perms:(ask allow yolo)'
     '--gate[tool gate]:gate:(0 1 2 3 ask allow yolo)'

@@ -85,6 +85,10 @@ this list in-app.
 | `/keys` | Show key bindings |
 | `/skills [ID]` | List skills or show one |
 | `/agents [...]` | Subagent roster and controls |
+| `/todo` | Show the session task list |
+| `/loop <every> <prompt>` | Recurring prompt in this session |
+| `/remind <in> <text>` | One-shot reminder prompt |
+| `/schedule [list\|cancel]` | Manage scheduled prompts |
 | `/status` | Mode, plan, verify, tokens, context |
 | `/copy` | Copy selection or last reply |
 | `/reset` | Wipe sessions and config (needs confirm) |

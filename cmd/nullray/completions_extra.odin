@@ -21,12 +21,16 @@ complete -c nullray -l paths -d 'Comma-separated review path filters' -r
 complete -c nullray -l doctor -d 'Print env and crash dump paths'
 complete -c nullray -l debug -d 'Verbose stderr lifecycle logs'
 complete -c nullray -s P -l print -d 'One-shot agent without TUI'
+complete -c nullray -l acp -d 'Agent Client Protocol server over stdio'
+complete -c nullray -l serve -d 'Shared agent daemon on a unix socket'
+complete -c nullray -l connect -d 'Route --print through a running daemon'
+complete -c nullray -l attach -d 'Attach to a daemon session'
 complete -c nullray -l bare -d 'Skip home MCP and non-workspace skills'
 complete -c nullray -l fail-on-findings -d 'Exit 1 when review findings present'
 complete -c nullray -s p -l provider -d 'Provider id' -xa 'ollama lmstudio llamacpp openai openai-compat openrouter opencode opencode-go anthropic gemini groq deepseek mistral together fireworks xai azure cerebras cohere nvidia dashscope'
 complete -c nullray -s m -l model -d 'Model id' -r
 complete -c nullray -l theme -d 'UI theme' -xa 'ink ember moss slate rose mono dusk'
-complete -c nullray -l mode -d 'Agent mode' -xa 'ask plan review edit'
+complete -c nullray -l mode -d 'Agent mode' -xa 'ask plan review edit orchestrate'
 complete -c nullray -l perms -d 'Shell policy' -xa 'ask allow yolo'
 complete -c nullray -l sandbox -d 'Sandbox mode' -xa 'off soft warn strict on'
 complete -c nullray -s w -l workspace -d 'Workspace path' -r -F
@@ -70,7 +74,7 @@ COMPLETIONS_POWERSHELL :: `Register-ArgumentCompleter -CommandName nullray -Scri
   param($wordToComplete, $commandAst, $cursorPosition)
   $opts = @(
     '--help','-h','--version','-V','--ephemeral','-e','--self-test','-t',
-    '--audit','--doctor','--debug','--print','-P','--bare','--fail-on-findings',
+    '--audit','--doctor','--debug','--print','-P','--acp','--serve','--connect','--attach','--bare','--fail-on-findings',
     '--provider','-p','--model','-m','--theme','--mode','--hunt','--perms','--gate','--sandbox',
     '--workspace','-w','--session','--list-sessions','--search-sessions',
     '--delete-session','--rename-session','--force','--export-session','--import-session','--as',
@@ -88,7 +92,7 @@ COMPLETIONS_ELVISH :: `use str
 set edit:completion:arg-completer[nullray] = {|@args|
   var flags = [
     --help -h --version -V --ephemeral -e --self-test -t
-    --audit --doctor --debug --print -P --bare --fail-on-findings
+    --audit --doctor --debug --print -P --acp --serve --connect --attach --bare --fail-on-findings
     --provider -p --model -m --theme --mode --hunt --perms --gate --sandbox
     --workspace -w --session --list-sessions --search-sessions
     --delete-session --rename-session --force --export-session --import-session --as
@@ -103,7 +107,7 @@ set edit:completion:arg-completer[nullray] = {|@args|
 COMPLETIONS_NUSHELL :: `def "nu-complete nullray flags" [] {
   [
     --help -h --version -V --ephemeral -e --self-test -t
-    --audit --doctor --debug --print -P --bare --fail-on-findings
+    --audit --doctor --debug --print -P --acp --serve --connect --attach --bare --fail-on-findings
     --provider -p --model -m --theme --mode --perms --gate --sandbox
     --workspace -w --session --list-sessions --search-sessions
     --delete-session --rename-session --force --export-session --import-session --as
