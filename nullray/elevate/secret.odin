@@ -82,7 +82,7 @@ request_password :: proc(
 	deadline := time.time_add(time.now(), time.Duration(timeout_sec) * time.Second)
 	for !g_secret.answered && !g_secret.cancelled {
 		now := time.now()
-		if time.diff(now, deadline) >= 0 {
+		if time.diff(deadline, now) >= 0 {
 			g_secret.challenge.active = false
 			delete(g_secret.challenge.prompt)
 			delete(g_secret.challenge.command)
