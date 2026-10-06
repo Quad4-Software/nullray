@@ -95,6 +95,18 @@ roster_group_add :: proc(r: ^Roster, group_id: string, agent_id: string) {
 	}
 }
 
+roster_group_ids :: proc(r: ^Roster, group_id: string, allocator := context.allocator) -> [dynamic]string {
+	sync.mutex_lock(&r.mu)
+	defer sync.mutex_unlock(&r.mu)
+	ids := make([dynamic]string, allocator)
+	if g, ok := r.groups[group_id]; ok {
+		for id in g.agent_ids {
+			append(&ids, strings.clone(id, allocator))
+		}
+	}
+	return ids
+}
+
 roster_group_all_done :: proc(r: ^Roster, group_id: string) -> bool {
 	sync.mutex_lock(&r.mu)
 	defer sync.mutex_unlock(&r.mu)
@@ -196,25 +208,98 @@ roster_handle_snapshot :: proc(r: ^Roster, id: string) -> (max_steps: int, mode:
 	return h.max_steps, h.mode, h.isolation, h.worktree_path, true
 }
 
-roster_apply_worktrees :: proc(r: ^Roster, group_id: string, repo_root: string, allocator := context.allocator) -> (merged: int, err: string) {
+Apply_Branch :: struct {
+	agent_id: string,
+	branch:   string,
+	ok:       bool,
+	err:      string,
+}
+
+/*
+Ordered worktree branches eligible for apply, in group spawn order.
+Children the stored verify report marked as blocked never produce a
+target, so a failed-verify branch is never applied (even under --force,
+which only bypasses the verified gate).
+*/
+roster_apply_targets :: proc(r: ^Roster, group_id: string, allocator := context.allocator) -> (targets: [dynamic]Apply_Branch, found: bool) {
 	sync.mutex_lock(&r.mu)
 	defer sync.mutex_unlock(&r.mu)
-	g, found := r.groups[group_id]
-	if !found {
-		return 0, strings.clone("unknown group", allocator)
+	g, ok := r.groups[group_id]
+	if !ok {
+		return nil, false
 	}
+	targets = make([dynamic]Apply_Branch, allocator)
 	for id in g.agent_ids {
 		h, hok := r.agents[id]
 		if !hok || len(h.worktree_branch) == 0 {
 			continue
 		}
-		mok, merr := worktree_apply_merge(repo_root, h.worktree_branch, allocator)
-		if !mok {
-			return merged, merr
+		blocked := false
+		for c in g.verify.children {
+			if c.agent_id == id && c.verdict == .Block {
+				blocked = true
+				break
+			}
 		}
-		merged += 1
+		if blocked {
+			continue
+		}
+		append(&targets, Apply_Branch{
+			agent_id = strings.clone(id, allocator),
+			branch = strings.clone(h.worktree_branch, allocator),
+		})
 	}
-	return merged, ""
+	return targets, true
+}
+
+apply_report_text :: proc(results: []Apply_Branch, merged: int, allocator := context.allocator) -> string {
+	b: strings.Builder
+	strings.builder_init(&b, allocator)
+	failed := 0
+	for res in results {
+		if !res.ok {
+			failed += 1
+		}
+	}
+	fmt.sbprintf(&b, "merged=%d failed=%d\n", merged, failed)
+	for res in results {
+		if res.ok {
+			fmt.sbprintf(&b, "APPLY|%s|%s|ok\n", res.agent_id, res.branch)
+		} else {
+			reason := res.err
+			if nl := strings.index_byte(reason, '\n'); nl >= 0 {
+				reason = reason[:nl]
+			}
+			fmt.sbprintf(&b, "APPLY|%s|%s|fail|%s\n", res.agent_id, res.branch, reason)
+		}
+	}
+	return strings.to_string(b)
+}
+
+/*
+Apply eligible worktree branches in group order. A failed merge is recorded
+with its branch and the loop continues with the remaining branches, so one
+conflict does not abort the whole group.
+*/
+roster_apply_worktrees :: proc(r: ^Roster, group_id: string, repo_root: string, allocator := context.allocator) -> (merged: int, report: string, err: string) {
+	targets, found := roster_apply_targets(r, group_id, context.temp_allocator)
+	if !found {
+		return 0, "", strings.clone("unknown group", allocator)
+	}
+	results := make([dynamic]Apply_Branch, context.temp_allocator)
+	for t in targets {
+		mok, merr := worktree_apply_merge(repo_root, t.branch, context.temp_allocator)
+		append(&results, Apply_Branch{
+			agent_id = t.agent_id,
+			branch = t.branch,
+			ok = mok,
+			err = merr,
+		})
+		if mok {
+			merged += 1
+		}
+	}
+	return merged, apply_report_text(results[:], merged, allocator), ""
 }
 
 roster_compact_line :: proc(r: ^Roster, allocator := context.allocator) -> string {

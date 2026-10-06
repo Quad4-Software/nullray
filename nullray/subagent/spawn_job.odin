@@ -9,6 +9,7 @@ import "core:fmt"
 import "core:path/filepath"
 import "core:strings"
 import "nullray:constants"
+import "nullray:hooks"
 import "nullray:http"
 import "nullray:provider"
 import "nullray:sandbox"
@@ -42,6 +43,7 @@ cleanup_child_job :: proc(job: ^Child_Job) {
 	delete(job.spec.prompt)
 	delete(job.spec.subagent_type)
 	delete(job.spec.model)
+	delete(job.spec.provider)
 	delete(job.spec.resume_id)
 	delete(job.spec.group_id)
 	for h in job.spec.path_hints {
@@ -104,6 +106,19 @@ child_job_proc :: proc(data: rawptr) {
 	roster_finish(&job.rt.roster, job.handle_id, summary, escalate, failed)
 	lease_release_agent(&job.rt.leases, job.handle_id)
 
+	// SubagentStop is notification-only; a blocking exit code is ignored.
+	spayload := fmt.aprintf(
+		`{"id":%q,"type":%q,"description":%q,"stopped":%q,"failed":%v}`,
+		job.handle_id,
+		job.spec.subagent_type,
+		job.spec.description,
+		result.stopped,
+		failed,
+		allocator = context.temp_allocator,
+	)
+	sres := hooks.run(.SubagentStop, job.spec.subagent_type, spayload, context.temp_allocator)
+	hooks.result_destroy(&sres, context.temp_allocator)
+
 	if len(job.sess_path) > 0 && store.usage_persist_enabled(job.sess_persist) {
 		path := job.sess_path
 		if !job.sess_persist {
@@ -151,6 +166,8 @@ build_coord_preamble :: proc(rt: ^Runtime, id: string, parent_id: string, alloca
 	fmt.sbprintf(&b, "Your id: %s\nParent: %s\n", id, parent_id)
 	strings.write_string(&b, "Rules: publish findings with knowledge_put. Update agents_progress. Do not git stash. Do not edit paths you do not lease.\n")
 	strings.write_string(&b, "Use agents_status / agents_peek / knowledge_* before duplicating work.\n")
+	strings.write_string(&b, "End the final message with a RESULT block:\n")
+	strings.write_string(&b, "RESULT:\nfiles: a, b | tests: ran|none | confidence: high|med|low | escalate: none|why\n")
 	strings.write_string(&b, "Roster:\n")
 	strings.write_string(&b, roster_txt)
 	strings.write_byte(&b, '\n')

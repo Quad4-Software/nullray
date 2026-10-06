@@ -37,7 +37,7 @@ knowledge_init :: proc(k: ^Knowledge_Store, session_id: string) {
 	ws := workspace_dir()
 	k.dir, _ = filepath.join({ws, constants.KNOWLEDGE_DIR, session_id})
 	if !knowledge_ephemeral() {
-		_ = os.make_directory_all(k.dir)
+		_ = sandbox.mkdir_all(k.dir)
 	}
 	knowledge_load_jsonl(k)
 }

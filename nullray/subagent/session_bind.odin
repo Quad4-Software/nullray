@@ -46,3 +46,31 @@ session_bind :: proc() -> (path: string, persist: bool, ok: bool) {
 	}
 	return tls_session_bind.path, tls_session_bind.persist, true
 }
+
+// Per-thread parent-agent override. rt.current_agent is a single shared
+// value, so on a multi-session host (serve) concurrent session workers
+// would clobber it for each other; a thread-local scope pins the parent id
+// a worker's spawns attribute to without touching the shared field.
+@(thread_local)
+tls_agent_scope: string
+
+// Set this thread's spawn parent scope; returns the previous value so the
+// caller can restore it. Owned internally.
+agent_scope_set :: proc(id: string) -> (prev: string) {
+	prev = tls_agent_scope
+	tls_agent_scope = ""
+	if len(id) > 0 {
+		tls_agent_scope = strings.clone(id)
+	}
+	return prev
+}
+
+agent_scope_restore :: proc(prev: string) {
+	delete(tls_agent_scope)
+	tls_agent_scope = prev
+}
+
+// Borrowed; "" when no scope is bound on this thread.
+agent_scope :: proc() -> string {
+	return tls_agent_scope
+}

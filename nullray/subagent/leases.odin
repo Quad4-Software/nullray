@@ -12,6 +12,7 @@ import "core:strings"
 import "core:sync"
 import "core:time"
 import "nullray:constants"
+import "nullray:sandbox"
 
 Lease :: struct {
 	agent_id:   string,
@@ -32,7 +33,7 @@ lease_board_init :: proc(b: ^Lease_Board) {
 	b.leases = make(map[string]Lease)
 	ws := workspace_dir()
 	b.dir, _ = filepath.join({ws, constants.LEASES_DIR})
-	_ = os.make_directory_all(b.dir)
+	_ = sandbox.mkdir_all(b.dir)
 }
 
 lease_board_destroy :: proc(b: ^Lease_Board) {

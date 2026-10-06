@@ -11,6 +11,7 @@ import "core:strings"
 import "core:thread"
 import "core:time"
 import "nullray:constants"
+import "nullray:hooks"
 import "nullray:http"
 import "nullray:provider"
 import "nullray:sandbox"
@@ -50,7 +51,13 @@ spawn_child :: proc(
 		return "", fmt.aprintf("subagent cap reached (%d)", rt.limits.max, allocator = allocator)
 	}
 
-	parent_id := runtime_current_agent(rt, context.temp_allocator)
+	// A session worker may pin a thread-local scope (serve sessions bind
+	// their session id) so children attribute to that session instead of
+	// the shared "main" agent.
+	parent_id := strings.clone(agent_scope(), context.temp_allocator)
+	if len(parent_id) == 0 {
+		parent_id = runtime_current_agent(rt, context.temp_allocator)
+	}
 	parent_depth := 0
 	if d, ok := roster_agent_depth(&rt.roster, parent_id); ok {
 		parent_depth = d
@@ -82,6 +89,31 @@ spawn_child :: proc(
 	group_id := strings.trim_space(spec.group_id)
 	if len(group_id) == 0 {
 		group_id = fmt.aprintf("g-%s", id, allocator = context.temp_allocator)
+	}
+
+	// SubagentStart runs before any worktree or roster side effects so a
+	// blocking hook (exit 2) can refuse the spawn cleanly.
+	{
+		payload := fmt.aprintf(
+			`{"id":%q,"type":%q,"description":%q}`,
+			id,
+			type_name,
+			spec.description,
+			allocator = context.temp_allocator,
+		)
+		sres := hooks.run(.SubagentStart, type_name, payload, context.temp_allocator)
+		if sres.blocked {
+			msg := strings.clone(sres.message, allocator)
+			if len(msg) == 0 {
+				delete(msg, allocator)
+				msg = strings.clone("spawn blocked by SubagentStart hook", allocator)
+			}
+			hooks.result_destroy(&sres, context.temp_allocator)
+			delete(id)
+			delete(model)
+			return "", msg
+		}
+		hooks.result_destroy(&sres, context.temp_allocator)
 	}
 
 	ws := workspace_dir()
@@ -195,18 +227,32 @@ spawn_child :: proc(
 	append(&job.messages, provider.Message{role = .System, content = preamble, cacheable = true})
 	append(&job.messages, provider.Message{role = .User, content = user_prompt})
 
-	if rt.provider == nil {
-		cleanup_child_job(job)
-		free(job)
-		delete(id)
-		delete(model)
-		return "", strings.clone("no provider for subagent", allocator)
+	if len(spec.provider) > 0 {
+		made, mok := provider.make_provider_by_id(spec.provider)
+		if !mok || made.chat == nil {
+			cleanup_child_job(job)
+			free(job)
+			delete(id)
+			delete(model)
+			return "", fmt.aprintf("unknown or unconfigured provider: %s", spec.provider, allocator = allocator)
+		}
+		delete(made.default_model)
+		made.default_model = strings.clone(model)
+		job.prov = made
+	} else {
+		if rt.provider == nil {
+			cleanup_child_job(job)
+			free(job)
+			delete(id)
+			delete(model)
+			return "", strings.clone("no provider for subagent", allocator)
+		}
+		job.prov = provider_clone_basic(rt.provider, model)
 	}
-	job.prov = provider_clone_basic(rt.provider, model)
 	delete(model)
 
 	if spec.background {
-		msg := fmt.aprintf("spawned background agent %s group=%s model=%s isolation=%s", id, group_id, job.prov.default_model, isolation_string(isol), allocator = allocator)
+		msg := fmt.aprintf("spawned background agent %s group=%s provider=%s model=%s isolation=%s", id, group_id, job.prov.id, job.prov.default_model, isolation_string(isol), allocator = allocator)
 		delete(id)
 		th := thread.create_and_start_with_data(job, child_job_proc, nil, .Normal, false)
 		if th == nil {

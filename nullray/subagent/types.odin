@@ -59,6 +59,7 @@ Spawn_Spec :: struct {
 	prompt:        string,
 	subagent_type: string,
 	model:         string,
+	provider:      string,
 	isolation:     Isolation,
 	isolation_set: bool,
 	background:    bool,

@@ -5,8 +5,12 @@ Tests for subagent policy, leases, knowledge, and limits.
 
 package subagent
 
+import "core:fmt"
+import "core:os"
+import "core:path/filepath"
 import "core:strings"
 import "core:testing"
+import "core:time"
 
 @(test)
 test_limits_disable :: proc(t: ^testing.T) {
@@ -164,6 +168,147 @@ test_runtime_child_token_rollup :: proc(t: ^testing.T) {
 	testing.expect_value(t, runtime_take_child_tokens(&rt), 0)
 }
 
+// In-memory board, no persistence dir.
+board_test_fresh :: proc(b: ^Task_Board) {
+	b^ = {}
+	b.items = make([dynamic]Board_Item)
+}
+
+// Board rooted at a clean temp dir so save/load stay off the workspace.
+// Returned dir is temp-allocated; b.dir is an owned clone.
+board_test_dir :: proc(b: ^Task_Board, tag: string) -> string {
+	base, _ := os.temp_dir(context.temp_allocator)
+	dir, _ := filepath.join({base, fmt.tprintf("nullray_board_%s", tag)}, context.temp_allocator)
+	_ = os.remove_all(dir)
+	_ = os.make_directory_all(dir)
+	b^ = {}
+	b.items = make([dynamic]Board_Item)
+	b.dir = strings.clone(dir)
+	return dir
+}
+
+@(test)
+test_board_claim_blocked_by_deps :: proc(t: ^testing.T) {
+	b: Task_Board
+	board_test_fresh(&b)
+	defer board_destroy(&b)
+	a, _ := board_add(&b, "first")
+	defer delete(a)
+	c, _ := board_add(&b, "second", []string{a})
+	defer delete(c)
+	err := board_claim(&b, c, "agent-1")
+	testing.expect(t, len(err) > 0)
+	testing.expect(t, strings.contains(err, a))
+	delete(err)
+	lst := board_list_text(&b)
+	testing.expect(t, strings.contains(lst, "blocked-by="))
+	testing.expect(t, strings.contains(lst, a))
+	delete(lst)
+	derr := board_done(&b, a, "agent-1", "shipped")
+	testing.expect(t, derr == "")
+	cerr := board_claim(&b, c, "agent-1")
+	testing.expect(t, cerr == "")
+}
+
+@(test)
+test_board_claim_unknown_dep_blocks :: proc(t: ^testing.T) {
+	b: Task_Board
+	board_test_fresh(&b)
+	defer board_destroy(&b)
+	x, _ := board_add(&b, "ghost dep", []string{"t999"})
+	defer delete(x)
+	err := board_claim(&b, x, "agent-1")
+	testing.expect(t, len(err) > 0)
+	testing.expect(t, strings.contains(err, "t999"))
+	delete(err)
+}
+
+@(test)
+test_board_result_persist_roundtrip :: proc(t: ^testing.T) {
+	if knowledge_ephemeral() {
+		return
+	}
+	b: Task_Board
+	dir := board_test_dir(&b, "roundtrip")
+	defer board_destroy(&b)
+	a, _ := board_add(&b, "alpha", nil, "")
+	defer delete(a)
+	c, _ := board_add(&b, "beta", []string{a}, "g1")
+	defer delete(c)
+	derr := board_done(&b, a, "a1", "alpha shipped")
+	testing.expect(t, derr == "")
+
+	b2: Task_Board
+	b2.items = make([dynamic]Board_Item)
+	b2.dir = strings.clone(dir)
+	defer board_destroy(&b2)
+	board_load(&b2)
+	testing.expect_value(t, len(b2.items), 2)
+	testing.expect_value(t, b2.seq, 2)
+	seen_a, seen_c := false, false
+	for it in b2.items {
+		if it.id == a {
+			seen_a = true
+			testing.expect(t, it.status == .Done)
+			testing.expect(t, it.result == "alpha shipped")
+		}
+		if it.id == c {
+			seen_c = true
+			testing.expect(t, it.group == "g1")
+			testing.expect_value(t, len(it.blocked_on), 1)
+			testing.expect(t, it.blocked_on[0] == a)
+		}
+	}
+	testing.expect(t, seen_a)
+	testing.expect(t, seen_c)
+}
+
+@(test)
+test_board_load_legacy_line :: proc(t: ^testing.T) {
+	b: Task_Board
+	dir := board_test_dir(&b, "legacy")
+	defer board_destroy(&b)
+	path, _ := filepath.join({dir, "items.jsonl"}, context.temp_allocator)
+	// Legacy line lacks group/blocked_on/result keys.
+	legacy := `{"id":"t7","title":"old item","assignee":"a9","status":"claimed","updated":1}` + "\n"
+	_ = os.write_entire_file(path, transmute([]byte)legacy)
+	board_load(&b)
+	testing.expect_value(t, len(b.items), 1)
+	it := b.items[0]
+	testing.expect(t, it.id == "t7")
+	testing.expect(t, it.status == .Claimed)
+	testing.expect(t, it.assignee == "a9")
+	testing.expect(t, len(it.group) == 0)
+	testing.expect(t, len(it.result) == 0)
+	testing.expect_value(t, len(it.blocked_on), 0)
+	testing.expect_value(t, b.seq, 7)
+}
+
+@(test)
+test_board_group_filter :: proc(t: ^testing.T) {
+	b: Task_Board
+	board_test_fresh(&b)
+	defer board_destroy(&b)
+	ga, _ := board_add(&b, "g1 task", nil, "g1")
+	defer delete(ga)
+	gb, _ := board_add(&b, "g2 task", nil, "g2")
+	defer delete(gb)
+	plain, _ := board_add(&b, "all task")
+	defer delete(plain)
+
+	lst := board_list_text(&b, "g1")
+	testing.expect(t, strings.contains(lst, "g1 task"))
+	testing.expect(t, strings.contains(lst, "all task"))
+	testing.expect(t, !strings.contains(lst, "g2 task"))
+	delete(lst)
+
+	all := board_list_text(&b)
+	testing.expect(t, strings.contains(all, "g1 task"))
+	testing.expect(t, strings.contains(all, "g2 task"))
+	testing.expect(t, strings.contains(all, "all task"))
+	delete(all)
+}
+
 @(test)
 test_session_bind_tls_roundtrip :: proc(t: ^testing.T) {
 	_, _, ok_before := session_bind()
@@ -177,4 +322,19 @@ test_session_bind_tls_roundtrip :: proc(t: ^testing.T) {
 	session_bind_clear(prev)
 	_, _, ok_after := session_bind()
 	testing.expect(t, !ok_after)
+}
+
+// Regression: a detached grandchild holding the pipe write end must not
+// wedge the post-exit drain, and the real exit code must surface.
+@(test)
+test_run_cmd_detached_grandchild :: proc(t: ^testing.T) {
+	when ODIN_OS == .Windows {
+		return
+	}
+	start := time.now()
+	out, err := run_cmd([]string{"/bin/sh", "-c", "sleep 15 & exit 7"}, ".", context.allocator)
+	defer delete(out)
+	defer delete(err)
+	testing.expectf(t, strings.contains(err, "exit 7"), "err=%q", err)
+	testing.expectf(t, time.since(start) < 10 * time.Second, "detached grandchild wedged the drain")
 }

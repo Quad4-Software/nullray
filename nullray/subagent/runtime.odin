@@ -234,6 +234,8 @@ builtin_type_defaults :: proc(type_name: string) -> (mode: string, isolation: Is
 		return "edit", .Shared, "edit"
 	case "verify":
 		return "review", .Shared, "verify"
+	case "orchestrate", "orchestrator":
+		return "orchestrate", .Shared, "orchestrate"
 	}
 	return "ask", .Shared, "explore"
 }
