@@ -146,6 +146,41 @@ parse_cli :: proc(args: []string) -> Cli {
 			}
 		case "--print", "-P":
 			cli.print_mode = true
+		case "--trace":
+			cli.trace = true
+		case "--stream":
+			cli.stream_print = true
+		case "--no-adopt":
+			cli.no_adopt = true
+		case "--patch-out":
+			v, ok := take_value(args, &i)
+			if !ok {
+				cli.err = "--patch-out needs a path"
+				return cli
+			}
+			cli.patch_out = v
+		case "--acp":
+			cli.acp = true
+		case "--serve":
+			cli.serve = true
+		case "--connect":
+			cli.connect = true
+		case "--attach":
+			cli.attach = true
+		case "serve":
+			// Positional form: `nullray serve` starts the daemon.
+			if i == 0 {
+				cli.serve = true
+			} else {
+				append(&prompt_parts, arg)
+			}
+		case "attach":
+			// Positional form: `nullray attach [SESSION]`.
+			if i == 0 {
+				cli.attach = true
+			} else {
+				append(&prompt_parts, arg)
+			}
 		case "-q", "--ask":
 			cli.print_mode = true
 			cli.ask_simple = true
@@ -346,27 +381,4 @@ parse_cli :: proc(args: []string) -> Cli {
 		cli.err = "plan-in and plan-out cannot be used together"
 	}
 	return cli
-}
-
-@(private)
-parse_cli_int :: proc(s: string) -> (int, bool) {
-	n := 0
-	if len(s) == 0 {
-		return 0, false
-	}
-	for c in s {
-		if c < '0' || c > '9' {
-			return 0, false
-		}
-		n = n * 10 + int(c - '0')
-	}
-	return n, true
-}
-
-take_value :: proc(args: []string, i: ^int) -> (string, bool) {
-	if i^ + 1 >= len(args) {
-		return "", false
-	}
-	i^ += 1
-	return args[i^], true
 }

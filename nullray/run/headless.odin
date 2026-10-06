@@ -11,6 +11,7 @@ import "core:strings"
 import "core:time"
 import "nullray:agent"
 import "nullray:constants"
+import "nullray:hooks"
 import "nullray:mcp"
 import "nullray:provider"
 import "nullray:rag"
@@ -29,6 +30,9 @@ Config :: struct {
 	timeout_sec:      int,
 	print_strict:     bool,
 	print_usage:      bool,
+	trace:            bool,
+	stream_print:     bool,
+	patch_out:        string,
 }
 
 Result :: struct {
@@ -46,6 +50,8 @@ Result :: struct {
 	usage_turns:          int,
 	subagent_total_tokens: int,
 	tool_only:            bool,
+	streamed:             bool,
+	elapsed_sec:          f64,
 }
 
 result_destroy :: proc(r: ^Result) {
@@ -58,6 +64,7 @@ result_destroy :: proc(r: ^Result) {
 }
 
 run_print :: proc(cfg: Config) -> Result {
+	run_start := time.tick_now()
 	res: Result
 	res.mode = strings.clone(agent.mode_string(agent.mode_from_env()))
 	res.exit_code = 2
@@ -148,6 +155,16 @@ run_print :: proc(cfg: Config) -> Result {
 		res.err = strings.clone("no provider")
 		return res
 	}
+	patch_out := cfg.patch_out
+	if len(patch_out) == 0 {
+		if v, ok := os.lookup_env("NULLRAY_PATCH_OUT", context.temp_allocator); ok {
+			patch_out = v
+		}
+	}
+	// Backend identity on stderr: catches stale/wrong-model servers early.
+	fmt.eprintf("nullray: backend %s %s @ %s\n", p.id, p.default_model, p.base_url)
+	s.trace = cfg.trace || session.trace_from_env()
+	s.stream_stdout = cfg.stream_print || session.stream_print_from_env()
 
 	rt: subagent.Runtime
 	subagent.runtime_init(&rt, s.name, &tools_reg)
@@ -197,6 +214,19 @@ run_print :: proc(cfg: Config) -> Result {
 		return res
 	}
 	defer provider.destroy_media_parts_owned(parts)
+
+	// UserPromptSubmit hook: exit 2 blocks the prompt before it enters a turn.
+	prompt_hook := hooks.run(.UserPromptSubmit, "", prompt, context.temp_allocator)
+	if prompt_hook.blocked {
+		if len(prompt_hook.message) > 0 {
+			res.err = strings.clone(prompt_hook.message)
+		} else {
+			res.err = strings.clone("prompt blocked by UserPromptSubmit hook")
+		}
+		hooks.result_destroy(&prompt_hook, context.temp_allocator)
+		return res
+	}
+	hooks.result_destroy(&prompt_hook, context.temp_allocator)
 
 	session.session_push_user_media(&s, prompt, parts)
 	session.session_start_chat(&s, p)
@@ -284,6 +314,8 @@ run_print :: proc(cfg: Config) -> Result {
 	res.stopped = strings.clone(stopped)
 	res.ok = true
 	res.exit_code = 0
+	res.streamed = s.streamed_chars > 0
+	res.elapsed_sec = time.duration_seconds(time.tick_since(run_start))
 	headless_judge_gate(&s, &res, p, prompt, &rt, deadline, timeout, timeout_sec)
 
 	if len(s.last_plan_path) > 0 {
@@ -307,6 +339,10 @@ run_print :: proc(cfg: Config) -> Result {
 		}
 	}
 
+	if len(patch_out) > 0 {
+		write_patch_out(patch_out, &res)
+	}
+
 	if len(cfg.out_path) > 0 && s.agent_mode != .Plan {
 		if werr := write_text_file(cfg.out_path, res.text); len(werr) > 0 {
 			delete(res.err)
@@ -328,73 +364,4 @@ run_print :: proc(cfg: Config) -> Result {
 	}
 
 	return res
-}
-
-@(private)
-wait_session_chat :: proc(
-	s: ^session.Session,
-	rt: ^subagent.Runtime,
-	deadline: time.Tick,
-	timeout: time.Duration,
-	timeout_sec: int,
-	res: ^Result,
-) -> (
-	ok_done: bool,
-	fatal: string,
-) {
-	for {
-		_ = session.session_poll(s)
-		if !s.busy {
-			return true, ""
-		}
-		if time.tick_since(deadline) > timeout {
-			session.session_request_cancel(s)
-			// Brief wait for cancel to unblock HTTP/docs. Destroy abandons leftover workers.
-			for _ in 0 ..< 40 {
-				_ = session.session_poll(s)
-				if !s.busy {
-					break
-				}
-				time.sleep(50 * time.Millisecond)
-			}
-			delete(res.err)
-			res.err = strings.clone(fmt.tprintf("timed out after %d seconds", timeout_sec))
-			delete(res.stopped)
-			res.stopped = strings.clone("timeout")
-			res.usage = s.last_usage
-			res.session_usage = s.session_usage
-			res.input_chars = s.last_input_chars
-			res.peak_input_chars = s.peak_input_chars
-			res.usage_turns = s.usage_turns
-			res.subagent_total_tokens = s.subagent_total_tokens
-			text := last_assistant_text(s)
-			if len(text) > 0 {
-				delete(res.text)
-				res.text = text
-			}
-			living := subagent.roster_living_count(&rt.roster)
-			if living > 0 {
-				fmt.eprintf("nullray: %d subagent(s) still running\n", living)
-			}
-			strict := false
-			if v, ok := os.lookup_env(constants.ENV_PRINT_STRICT, context.temp_allocator); ok {
-				switch strings.to_lower(strings.trim_space(v), context.temp_allocator) {
-				case "1", "true", "yes", "on":
-					strict = true
-				}
-			}
-			if strict {
-				if fail, reason := print_strict_fail(s, res^, living, false); fail {
-					res.ok = false
-					res.exit_code = 1
-					fmt.eprintln("nullray:", reason)
-					return false, "timeout"
-				}
-			}
-			res.ok = false
-			res.exit_code = 2
-			return false, "timeout"
-		}
-		time.sleep(50 * time.Millisecond)
-	}
 }

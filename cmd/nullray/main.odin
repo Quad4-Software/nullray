@@ -3,7 +3,9 @@ package main
 
 import "core:fmt"
 import "core:os"
+import "core:path/filepath"
 import "core:strings"
+import "nullray:acp"
 import "nullray:app"
 import "nullray:config"
 import "nullray:constants"
@@ -15,6 +17,7 @@ import "nullray:provider"
 import "nullray:run"
 import "nullray:sandbox"
 import "nullray:selftest"
+import "nullray:serve"
 import "nullray:ui"
 
 Media_Arg :: struct {
@@ -43,6 +46,14 @@ Cli :: struct {
 	print_strict:     bool,
 	print_usage:      bool,
 	print_mode:       bool,
+	trace:            bool,
+	stream_print:     bool,
+	no_adopt:         bool,
+	patch_out:        string,
+	acp:              bool,
+	serve:            bool,
+	connect:          bool,
+	attach:           bool,
 	ask_simple:       bool,
 	auto:             bool,
 	bare:             bool,
@@ -92,6 +103,7 @@ Cli :: struct {
 }
 
 main :: proc() {
+	install_pipe_signals()
 	cli := parse_cli(os.args[1:])
 	if len(cli.err) > 0 {
 		fmt.eprintln("nullray:", cli.err)
@@ -120,6 +132,9 @@ main :: proc() {
 
 	if _, err := config.load_env_file(); err != "" {
 		fmt.eprintln("nullray: config env:", err)
+	}
+	if cli.no_adopt {
+		os.set_env(constants.ENV_ADOPT, "0")
 	}
 	adopt_notes := config.foreign_adopt()
 	defer {
@@ -192,13 +207,37 @@ main :: proc() {
 	if len(os.args) > 0 {
 		exe = os.args[0]
 	}
-	elevate.elevate_init(exe, cli.print_mode)
+	elevate.elevate_init(exe, cli.print_mode || cli.acp || cli.serve || cli.connect || cli.attach)
 	defer elevate.elevate_shutdown()
 
 	crash.logf("sandbox apply begin")
 	provider.cache_api_keys_from_env()
 	cfg := sandbox.config_from_env()
 	defer sandbox.config_destroy(&cfg)
+
+	// Serve: bind the socket before Landlock applies (MAKE_SOCK is granted
+	// nowhere), then grant the socket dir for connect resolve and cleanup
+	// unlink. Clients only need the resolve grant.
+	serve_fd := -1
+	serve_path := ""
+	if cli.serve {
+		pb := serve.prebind()
+		if len(pb.err) > 0 {
+			fmt.eprintln("nullray serve:", pb.err)
+			serve.prebind_destroy(&pb)
+			os.exit(1)
+		}
+		serve_fd = pb.fd
+		serve_path = pb.path
+		sock_dir := filepath.dir(serve_path)
+		append(&cfg.extra_rw, strings.clone(sock_dir))
+		append(&cfg.extra_sock, strings.clone(sock_dir))
+	} else if cli.connect || cli.attach || env_truthy(constants.ENV_CONNECT) {
+		sock_dir := serve.sock_dir(context.temp_allocator)
+		if len(sock_dir) > 0 && os.exists(sock_dir) {
+			append(&cfg.extra_sock, strings.clone(sock_dir))
+		}
+	}
 
 	sres := sandbox.apply(cfg)
 	if !sres.ok {
@@ -220,6 +259,19 @@ main :: proc() {
 	if cli.print_mode {
 		crash.set_note("print-mode")
 		os.exit(run_print_mode(&cli))
+	}
+	if cli.acp {
+		crash.set_note("acp")
+		os.exit(run_acp_mode(&cli))
+	}
+	if cli.serve {
+		crash.set_note("serve")
+		os.exit(serve.run_serve(serve_fd, serve_path, cli.bare))
+	}
+	if cli.attach {
+		crash.set_note("attach")
+		// Positional args after `attach` name the session.
+		os.exit(serve.run_attach(cli.prompt))
 	}
 
 	color := env_or(constants.ENV_COLOR, "")
@@ -258,6 +310,19 @@ main :: proc() {
 	}
 }
 
+run_acp_mode :: proc(cli: ^Cli) -> int {
+	return acp.run_server(cli.bare)
+}
+
+env_truthy :: proc(key: string) -> bool {
+	v, ok := os.lookup_env(key, context.temp_allocator)
+	if !ok {
+		return false
+	}
+	lv := strings.to_lower(v, context.temp_allocator)
+	return !(lv == "" || lv == "0" || lv == "false" || lv == "off" || lv == "no")
+}
+
 run_print_mode :: proc(cli: ^Cli) -> int {
 	want_stdin := !run.stdin_is_tty()
 	prompt, perr := run.build_prompt(cli.prompt, cli.message_file, want_stdin)
@@ -267,6 +332,19 @@ run_print_mode :: proc(cli: ^Cli) -> int {
 		return 2
 	}
 	defer delete(prompt)
+
+	// --connect / NULLRAY_CONNECT: reuse the warm daemon.
+	if cli.connect || env_truthy(constants.ENV_CONNECT) {
+		// cwd must outlive the whole RPC exchange; the temp arena can roll
+		// over mid-connect, so take an owned copy on the default allocator.
+		cwd, _ := os.get_working_directory(context.allocator)
+		defer delete(cwd)
+		timeout := cli.timeout_sec
+		if timeout <= 0 {
+			timeout = constants.DEFAULT_PRINT_TIMEOUT_SEC
+		}
+		return serve.run_print_via_serve(prompt, cwd, timeout)
+	}
 
 	media := make([dynamic]run.Media_Input, context.temp_allocator)
 	for ma in cli.media_args {
@@ -284,6 +362,9 @@ run_print_mode :: proc(cli: ^Cli) -> int {
 		timeout_sec = cli.timeout_sec,
 		print_strict = cli.print_strict,
 		print_usage = cli.print_usage,
+		trace = cli.trace,
+		stream_print = cli.stream_print,
+		patch_out = cli.patch_out,
 	}
 	res := run.run_print(rcfg)
 	defer run.result_destroy(&res)

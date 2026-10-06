@@ -5,9 +5,11 @@ import "core:fmt"
 import "core:os"
 import "core:strings"
 import "nullray:agent"
+import "core:path/filepath"
 import "nullray:constants"
 import "nullray:provider"
 import "nullray:session"
+import "nullray:tools"
 
 @(private)
 print_strict_from_env :: proc() -> bool {
@@ -91,7 +93,12 @@ emit_result :: proc(cfg: Config, res: Result) {
 			fmt.eprintln("nullray:", res.err)
 		}
 		if len(res.text) > 0 {
-			fmt.println(res.text)
+			if res.streamed {
+				// Deltas already went to stdout; ensure a trailing newline.
+				fmt.println()
+			} else {
+				fmt.println(res.text)
+			}
 		}
 		if len(res.plan_path) > 0 {
 			if len(agent.plan_in_from_env(context.temp_allocator)) > 0 {
@@ -101,9 +108,37 @@ emit_result :: proc(cfg: Config, res: Result) {
 			}
 		}
 	}
+	print_stats_line(res)
 	if cfg.print_usage || print_usage_from_env() {
 		emit_usage(res, format == "json")
 	}
+}
+
+// Compact completion line on stderr, always on in print mode (token counts,
+// rate, wall time, model). NULLRAY_PRINT_STATS=0 turns it off.
+print_stats_line :: proc(res: Result) {
+	if v, ok := os.lookup_env("NULLRAY_PRINT_STATS", context.temp_allocator); ok {
+		switch strings.to_lower(strings.trim_space(v), context.temp_allocator) {
+		case "0", "false", "off", "no":
+			return
+		}
+	}
+	out_tok := res.session_usage.completion_tokens
+	if out_tok <= 0 {
+		out_tok = res.usage.completion_tokens
+	}
+	rate := 0.0
+	if res.elapsed_sec > 0 {
+		rate = f64(out_tok) / res.elapsed_sec
+	}
+	fmt.eprintf(
+		"nullray: %d tok in %d tok out, %.1f tok/s, %.1fs, %s\n",
+		res.session_usage.prompt_tokens,
+		out_tok,
+		rate,
+		res.elapsed_sec,
+		res.mode,
+	)
 }
 
 @(private)
@@ -201,4 +236,79 @@ json_escape :: proc(s: string, allocator := context.allocator) -> string {
 		}
 	}
 	return strings.to_string(b)
+}
+
+/*
+--patch-out: unified diff of everything the run changed. Prefers git diff
+against HEAD in a repo; falls back to the shadow checkpoint diff when the
+workspace is not versioned. Untracked files are listed as a comment footer
+since they have no HEAD blob to diff against.
+*/
+write_patch_out :: proc(path: string, res: ^Result) {
+	ws := tools.workspace_root(context.temp_allocator)
+	out := ""
+	git_dir := ws
+	if len(ws) > 0 {
+		if gp, jerr := filepath.join({ws, ".git"}, context.temp_allocator); jerr == nil && os.exists(gp) {
+			git_dir = ws
+		} else {
+			git_dir = ""
+		}
+	}
+	// Landlock blocks ~/.gitconfig and /etc/gitconfig; run with config reads
+	// off so diff/ls-files do not fail on "fatal: unable to read config".
+	git_env := []string{
+		"GIT_CONFIG_NOSYSTEM=1",
+		"GIT_CONFIG_GLOBAL=/dev/null",
+		"GIT_CONFIG_SYSTEM=/dev/null",
+	}
+	if len(git_dir) > 0 {
+		diff, derr := tools.run_process_capture(
+			[]string{"git", "-C", git_dir, "diff", "HEAD"},
+			git_dir,
+			10_000,
+			context.temp_allocator,
+			git_env,
+		)
+		if len(derr) == 0 {
+			out = strip_exit_code_line(diff)
+			new_files, nerr := tools.run_process_capture(
+				[]string{"git", "-C", git_dir, "ls-files", "--others", "--exclude-standard"},
+				git_dir,
+				10_000,
+				context.temp_allocator,
+				git_env,
+			)
+			new_files = strip_exit_code_line(new_files)
+			if len(nerr) == 0 && len(strings.trim_space(new_files)) > 0 {
+				out = strings.concatenate({out, "\n# new files:\n", new_files}, context.temp_allocator)
+			}
+		}
+	}
+	if len(strings.trim_space(out)) == 0 {
+		// Non-git workspace: earliest checkpoint diff covers the run's writes.
+		if msg, ok := tools.checkpoint_diff(1, context.temp_allocator); ok {
+			out = strings.clone(msg, context.temp_allocator)
+		}
+	}
+	if werr := write_text_file(path, out); len(werr) > 0 {
+		res.err = strings.clone(werr)
+		res.ok = false
+		res.exit_code = 2
+		return
+	}
+	fmt.eprintf("nullray: patch written to %s\n", path)
+}
+
+// run_process_capture prefixes results with an exit_code=N line; patch
+// content must not carry it.
+@(private)
+strip_exit_code_line :: proc(text: string) -> string {
+	if strings.has_prefix(text, "exit_code=") {
+		if nl := strings.index_byte(text, '\n'); nl >= 0 {
+			return text[nl + 1:]
+		}
+		return ""
+	}
+	return text
 }

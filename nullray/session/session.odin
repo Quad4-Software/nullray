@@ -5,6 +5,7 @@ Chat session core: type, lifecycle, messages, mode, streaming, status.
 
 package session
 
+import "base:runtime"
 import "core:fmt"
 import "core:os"
 import "core:path/filepath"
@@ -79,6 +80,12 @@ Session :: struct {
 	verify_obligations:  [dynamic]string,
 	live_tool:           string,
 	live_tool_detail:    string,
+	// --trace/--stream (print mode): stderr tool lines and live stdout
+	// deltas emitted from the worker-thread event callback.
+	trace:               bool,
+	stream_stdout:       bool,
+	streamed_chars:      int,
+	trace_starts:        []Trace_Slot,
 	busy_since:          time.Tick,
 }
 
@@ -196,6 +203,7 @@ session_destroy :: proc(s: ^Session) -> (released: bool) {
 	session_clear_plan_steps(s)
 	delete(s.plan_steps_path)
 	delete(s.live_tool)
+	session_trace_destroy(s)
 	delete(s.live_tool_detail)
 	delete(s.last_stopped)
 	session_clear_verify_obligations(s)
