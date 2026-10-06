@@ -26,5 +26,5 @@ Out of scope: third-party model providers, MCP servers you configure yourself, a
 
 - Prefer `NULLRAY_PERMS=ask` until you trust a workspace.
 - Keep secrets out of the agent path unless listed in `NULLRAY_SECRETS_ALLOW`.
-- Releases use immutable GitHub releases, SHA-pinned Actions, and attach SBOMs plus sha256 tables.
+- GitHub Actions stay SHA-pinned. The public install path clones the repository and builds from source.
 - Container images on GHCR are multi-stage, rootless, and digest-pinned to Debian trixie-slim.

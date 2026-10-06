@@ -10,6 +10,7 @@ import "core:os"
 import "core:strconv"
 import "core:strings"
 import "nullray:constants"
+import nr_search "nullray:search"
 import nr_http "nullray:http"
 
 tool_fetch_url :: proc(args_json: string, allocator := context.allocator) -> (string, string) {
@@ -21,6 +22,11 @@ tool_fetch_url :: proc(args_json: string, allocator := context.allocator) -> (st
 	if block, why := fetch_url_blocked(url); block {
 		return "", strings.clone(why, allocator)
 	}
+	via, verr := json_arg_string_optional(args_json, "via", "", allocator)
+	if verr != "" {
+		return "", verr
+	}
+	defer delete(via)
 	format, ferr := json_arg_string_optional(args_json, "format", "auto", allocator)
 	if ferr != "" {
 		return "", ferr
@@ -43,9 +49,38 @@ tool_fetch_url :: proc(args_json: string, allocator := context.allocator) -> (st
 		"Accept: text/markdown, text/plain;q=0.9, text/html;q=0.8, application/xhtml+xml;q=0.7, */*;q=0.1",
 		"User-Agent: nullray-fetch/1.0",
 	}
-	resp := nr_http.get_checked(url, headers, 30, fetch_url_allow_hop, context.temp_allocator)
+	via_err: string
+	resp: nr_http.Response
+	if len(via) > 0 {
+		// Explicit via= routes the request through the named fetch
+		// provider instead of the direct path.
+		p, ok := nr_search.fetch_provider_by_id(via, context.temp_allocator)
+		if !ok {
+			return "", fmt.aprintf("via %s: provider not found or not configured", via, allocator = allocator)
+		}
+		fb, ferr := nr_search.exec_fetch(&p, url, context.temp_allocator)
+		if ferr != "" {
+			return "", fmt.aprintf("via %s: %s", via, ferr, allocator = allocator)
+		}
+		resp.ok = true
+		resp.status = 200
+		resp.body = fb
+	} else {
+		resp = nr_http.get_checked(url, headers, 30, fetch_url_allow_hop, context.temp_allocator)
+		if !resp.ok || resp.status == 403 || resp.status == 503 {
+			if p, ok := nr_search.fetch_provider_by_id("flaresolverr", context.temp_allocator); ok {
+				if fb, ferr := nr_search.exec_fetch(&p, url, context.temp_allocator); ferr == "" {
+					resp.ok = true
+					resp.status = 200
+					resp.body = fb
+				} else {
+					via_err = fmt.aprintf(" (flaresolverr failed: %s)", ferr, allocator = context.temp_allocator)
+				}
+			}
+		}
+	}
 	if !resp.ok {
-		return "", fmt.aprintf("fetch failed: %s", resp.err, allocator = allocator)
+		return "", fmt.aprintf("fetch failed: %s%s", resp.err, via_err, allocator = allocator)
 	}
 	body := resp.body
 	if len(body) > max_bytes {

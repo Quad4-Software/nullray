@@ -16,7 +16,8 @@ Config root is `~/.config/nullray` (`$XDG_CONFIG_HOME/nullray`).
 | `crashes/` | Latest signal dump path shown by `--doctor` |
 
 Workspace-local state lives under `.nullray/` in the project: plans,
-artifacts, memory, RAG vectors, worktrees, hooks.json, and traces.
+artifacts, memory, RAG vectors, worktrees, hooks.json, lint.json,
+commands, task logs, and traces.
 
 ## Precedence
 
@@ -79,6 +80,11 @@ process only, so nothing silently persists a borrowed credential.
 | `NULLRAY_SPECULATE_PARALLEL` | Speculation cap, default 2 |
 | `NULLRAY_AGENT_TOOLS` | 0 drops tool schemas entirely |
 | `NULLRAY_VERIFY` | Post-edit verify gate |
+| `NULLRAY_LINT` | Post-edit lint.json (0 disables) |
+| `NULLRAY_GGUF_SAMPLE` | Local tool-call temp clamp (0 disables) |
+| `NULLRAY_SAMPLES` | Best-of-N print runs |
+| `NULLRAY_ARCHITECT` | Architect then editor print turn |
+| `NULLRAY_COMMANDS` | Custom slash markdown (0 disables) |
 | `NULLRAY_PRINT_TIMEOUT` | Print wall clock, default 600s |
 | `NULLRAY_PRINT_STRICT` | Exit 1 on incomplete runs |
 | `NULLRAY_PRINT_USAGE` | Print token and cost summary |
@@ -107,9 +113,40 @@ process only, so nothing silently persists a borrowed credential.
 | `NULLRAY_VCS_NETWORK` | Enable vcs_push/pull/fetch/PR tools |
 | `NULLRAY_VCS_FORCE` | Allow force-push to main/master |
 | `NULLRAY_AI_PROVENANCE` | Stamp agent commits with Harness/Model/Method trailers and an ai-provenance git note |
+| `NULLRAY_SEARCH` | web_search tool (0 disables) |
+| `NULLRAY_SEARCH_BACKEND` | Backend id, csv order, or auto (default) |
+| `NULLRAY_SEARCH_URL` | SearXNG base URL for the searxng builtin |
 | `NULLRAY_AI_HARNESS` | Override the Harness trailer label |
 | `NULLRAY_AI_MODEL` | Override the Model trailer label |
 | `NULLRAY_AI_METHOD` | Override the Method trailer label |
+
+## Web search providers
+
+`web_search` normalizes results to title, URL, snippet. Backends are
+declared in `search_providers.json` under the config dir and (with hooks
+trust) `.nullray/search_providers.json` in the workspace. Keys interpolate
+with `${ENV}` only. Builtins: searxng, opensearch, tavily, brave, exa,
+kagi, kagi-enrich, parallel, tinyfish, mojeek, marginalia, firecrawl,
+grepapp. Any entry with `kind: search` adds a backend without code; a
+`kind: fetch` entry (flaresolverr builtin, `FLARESOLVERR_URL`) becomes a
+`fetch_url` fallback on 403/503 and a `via=` override.
+
+```json
+{
+  "myengine": {
+    "kind": "search",
+    "method": "GET",
+    "url": "https://search.example.com/api?q={query}&n={limit}",
+    "headers": {"Authorization": "Bearer ${MYENGINE_KEY}"},
+    "results_path": "items",
+    "map": {"title": "title", "url": "link", "snippet": "desc"}
+  }
+}
+```
+
+`NULLRAY_SEARCH_BACKEND=auto` rotates through ready backends and parks a
+rate-limited one for its Retry-After window. `queries`, `backends`, and
+`scope` args give the agent combined and federated searches.
 
 ## Foreign adoption control
 

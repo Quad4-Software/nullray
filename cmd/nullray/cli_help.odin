@@ -83,6 +83,8 @@ print_help :: proc() {
 	fmt.println("      --print-strict      exit 1 on incomplete plan/verify/living subagents")
 	fmt.println("      --auto              autonomous edit (NULLRAY_AUTO=1, 80 steps)")
 	fmt.println("      --usage             print token/cost summary (print mode)")
+	fmt.println("      --samples N         best-of-N print runs, pick by verifier")
+	fmt.println("      --architect         architect model plans, editor model executes")
 	fmt.println("      --timeout SEC       print-mode wall clock limit (default 600)")
 	fmt.println("      --bare              skip home MCP and non-workspace skills")
 	fmt.println("                          (NULLRAY_SKILLS / --skills still load)")

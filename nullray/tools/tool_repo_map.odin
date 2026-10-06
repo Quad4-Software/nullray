@@ -124,6 +124,12 @@ repo_map_walk :: proc(
 		strings.write_string(&line_b, e.name)
 		if e.type == .Directory {
 			strings.write_byte(&line_b, '/')
+		} else {
+			sym := repo_map_symbol_line(child, e.name, context.temp_allocator)
+			if len(sym) > 0 {
+				strings.write_string(&line_b, " ")
+				strings.write_string(&line_b, sym)
+			}
 		}
 		strings.write_byte(&line_b, '\n')
 		line := strings.to_string(line_b)

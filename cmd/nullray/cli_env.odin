@@ -51,8 +51,11 @@ apply_cli_env :: proc(cli: ^Cli) {
 	if len(cli.skills_paths) > 0 {
 		os.set_env(constants.ENV_SKILLS, cli.skills_paths)
 	}
-	if cli.fail_on_findings {
-		os.set_env(constants.ENV_FAIL_ON_FINDINGS, "1")
+	if cli.architect {
+		os.set_env(constants.ENV_ARCHITECT, "1")
+	}
+	if cli.samples > 1 {
+		os.set_env(constants.ENV_SAMPLES, fmt.tprintf("%d", cli.samples))
 	}
 	if len(cli.provider) > 0 {
 		os.set_env(constants.ENV_PROVIDER, cli.provider)

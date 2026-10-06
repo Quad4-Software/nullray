@@ -52,6 +52,12 @@ parse_url :: proc(raw: string, allocator := context.temp_allocator) -> (parts: U
 	parts.scheme = scheme
 	parts.host = host
 	parts.path = path
+	// split_url drops the ?query from path; re-append raw, minus fragment.
+	if qi := strings.index_byte(raw, '?'); qi >= 0 {
+		q := raw[qi + 1:]
+		if fi := strings.index_byte(q, '#'); fi >= 0 { q = q[:fi] }
+		parts.path = fmt.aprintf("%s?%s", path, q, allocator = allocator)
+	}
 	parts.use_tls = scheme == "https"
 	parts.port = parts.use_tls ? 443 : 80
 

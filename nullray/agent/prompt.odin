@@ -343,12 +343,30 @@ auto_activate_skill_notes :: proc(
 	loaded, _ := skills.load_default(allocator)
 	defer skills.skills_destroy(&loaded)
 	ids := skills.match_skills(loaded[:], user_text, skills.MAX_ACTIVE_SKILLS, context.temp_allocator)
+	seen := make(map[string]bool, context.temp_allocator)
 	for id in ids {
 		sk, ok := skills.find_by_id(loaded[:], id)
 		if !ok {
 			continue
 		}
+		seen[id] = true
 		append(&notes, skills.format_skill_payload(sk, "auto", allocator))
+	}
+	for tok in strings.fields(user_text, context.temp_allocator) {
+		if !strings.contains(tok, ".") && !strings.contains(tok, "/") {
+			continue
+		}
+		clean := strings.trim(tok, "`\"'(),")
+		for sk in loaded {
+			if seen[sk.id] || !skills.skill_matches_path(sk, clean) {
+				continue
+			}
+			if len(notes) >= skills.MAX_ACTIVE_SKILLS {
+				break
+			}
+			seen[sk.id] = true
+			append(&notes, skills.format_skill_payload(sk, "path", allocator))
+		}
 	}
 	return notes
 }

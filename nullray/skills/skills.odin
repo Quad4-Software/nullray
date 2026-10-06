@@ -21,6 +21,7 @@ Skill :: struct {
 	body:        string,
 	source:      string,
 	path:        string,
+	paths:       []string,
 }
 
 MAX_SKILLS :: 96
@@ -200,6 +201,7 @@ load_skill_file :: proc(path, id, source: string, allocator := context.allocator
 	raw := string(data)
 	meta, body_text := split_frontmatter(raw)
 	fm_name, fm_desc := parse_frontmatter_fields(meta, allocator)
+	fm_paths := parse_frontmatter_paths(meta, allocator)
 
 	body_owned: string
 	if meta == "" {
@@ -232,6 +234,7 @@ load_skill_file :: proc(path, id, source: string, allocator := context.allocator
 		body = body_owned,
 		source = strings.clone(source, allocator),
 		path = strings.clone(path, allocator),
+		paths = fm_paths,
 	}, true
 }
 

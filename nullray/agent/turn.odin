@@ -44,9 +44,6 @@ run_turn :: proc(req: Run_Request, cfg: Config, allocator := context.allocator) 
 		model = req.prov.default_model
 	}
 	if tools_on {
-		// Own across every chat step. Stream callbacks must not free this.
-		// prompt_tier_for_model consults model_profiles.json first, so the
-		// model must be resolved before the tools JSON is built.
 		tools_json = tools.openai_tools_json(reg, mode_s, prompt_tier_for_model(req.prov.id, model), allocator, cfg.tool_allow, req.prov.id)
 		harness.tools_json_chars = len(tools_json)
 	}
@@ -61,7 +58,6 @@ run_turn :: proc(req: Run_Request, cfg: Config, allocator := context.allocator) 
 			max_steps = constants.MAX_AGENT_STEPS
 		}
 	}
-	// NULLRAY_TOOLSHIM is read fresh each turn so /env or spawn changes apply.
 	shim_model, shim_on := toolshim_model(model)
 	shim_attempts := 0
 	last_content := ""
@@ -174,15 +170,8 @@ run_turn :: proc(req: Run_Request, cfg: Config, allocator := context.allocator) 
 				asst_streak = 1
 				prev_asst = res.content
 			}
-			if asst_streak >= constants.MAX_IDENTICAL_ASSISTANT_LOOPS {
-				delete(res.model)
-				delete(res.err)
-				delete(res.finish_reason)
-				if text_calls {
-					provider.destroy_tool_calls_owned(calls)
-				} else {
-					provider.destroy_tool_calls_owned(res.tool_calls)
-				}
+		if asst_streak >= constants.MAX_IDENTICAL_ASSISTANT_LOOPS {
+				turn_discard_chat_extras(&res, calls, text_calls)
 				emit(cfg, .Status, "anti-loop: repeated reply")
 				append(&msgs, provider.Message{role = .Assistant, content = res.content, reasoning = res.reasoning})
 				harness_log_metrics(harness)
@@ -224,14 +213,7 @@ run_turn :: proc(req: Run_Request, cfg: Config, allocator := context.allocator) 
 		}
 
 		if !tools_on || len(calls) == 0 {
-			delete(res.model)
-			delete(res.err)
-			delete(res.finish_reason)
-			if text_calls {
-				provider.destroy_tool_calls_owned(calls)
-			} else {
-				provider.destroy_tool_calls_owned(res.tool_calls)
-			}
+			turn_discard_chat_extras(&res, calls, text_calls)
 
 			if turn_needs_finalize(last_content, had_tools, finalize_nudged) {
 				finalize_nudged = true
@@ -277,7 +259,7 @@ run_turn :: proc(req: Run_Request, cfg: Config, allocator := context.allocator) 
 			}
 		}
 
-		elevate_stop, step_writes, step_rh := turn_exec_tool_calls(
+		elevate_stop, step_writes, step_rh, malformed, mal_kind := turn_exec_tool_calls(
 			&msgs,
 			cfg_local,
 			reg,
@@ -289,25 +271,20 @@ run_turn :: proc(req: Run_Request, cfg: Config, allocator := context.allocator) 
 			&harness,
 			allocator,
 		)
-		// Record sig + result head so the next step can tell a real repeat
-		// (same call, same output) from a poller (same call, fresh output).
 		loop_history_push(&loop_hist, Loop_Entry{sig = step_sig, result_head = step_rh})
-		// Fold the batch's pre-write snapshots into one labeled checkpoint.
-		// No-op when nothing was recorded (read-only steps, auto off).
 		tools.checkpoint_commit_step(step + 1)
+		if malformed {
+			turn_restart_malformed(&msgs, mal_kind, malformed_kind_name(mal_kind), malformed_left > 0, allocator)
+			emit(cfg, .Status, "harness: dropped malformed tool call")
+			turn_discard_chat_extras(&res, calls, text_calls)
+			continue
+		}
 		if step_writes {
 			had_writes = true
 		}
 		had_tools = true
 
-		delete(res.model)
-		delete(res.err)
-		delete(res.finish_reason)
-		if text_calls {
-			provider.destroy_tool_calls_owned(calls)
-		} else {
-			provider.destroy_tool_calls_owned(res.tool_calls)
-		}
+		turn_discard_chat_extras(&res, calls, text_calls)
 
 		if elevate_stop {
 			msg := strings.clone(
@@ -328,6 +305,7 @@ run_turn :: proc(req: Run_Request, cfg: Config, allocator := context.allocator) 
 		}
 
 		turn_mid_prepare(&msgs, cfg, req.prov, had_writes, &harness)
+		turn_inject_steer(&msgs, cfg_local, allocator)
 
 		if check_stop(cfg) == .Cancel {
 			harness_log_metrics(harness)

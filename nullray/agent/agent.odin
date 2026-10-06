@@ -20,6 +20,7 @@ Stop_Kind :: enum {
 }
 
 Stop_Check :: #type proc(user: rawptr) -> Stop_Kind
+Steer_Poll :: #type proc(user: rawptr) -> string
 
 Config :: struct {
 	max_steps:           int,
@@ -45,6 +46,7 @@ Config :: struct {
 	speculate_pool:      ^tools.Speculate_Pool,
 	tool_allow:          []string,
 	session_id:          string,
+	poll_steer:          Steer_Poll,
 }
 
 Event_Kind :: enum {

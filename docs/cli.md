@@ -63,6 +63,8 @@ arguments, `--message-file PATH`, or stdin when it is not a TTY.
 | `--no-adopt` | Skip foreign config/key adoption for this run |
 | `--fail-on-findings` | Exit 1 when review ends `FINDINGS: N`, N > 0 |
 | `--usage` | Print token and cost summary |
+| `--samples N` | Best-of-N print runs in git worktrees, pick by the verifier |
+| `--architect` | Architect model writes a Done Contract, then the editor model executes it |
 | `--timeout SEC` | Wall clock limit, default 600 |
 
 ## ACP server

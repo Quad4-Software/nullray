@@ -1,5 +1,6 @@
 # Pages: deploy web/ to GitHub Pages. install.sh is staged at /install so
 # the site can serve: curl -fsSL <pages-url>/install | sh
+# The installer clones the repo and builds from source.
 #
 # Harden-Runner first in every job:
 #   https://docs.stepsecurity.io/github-actions/harden-runner

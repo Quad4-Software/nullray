@@ -29,7 +29,7 @@ registry_register_builtins :: proc(r: ^Registry) {
 	})
 	registry_register(r, Tool{
 		name = "repo_map",
-		description = "Shallow relative tree of a workspace directory (depth and byte budget capped)",
+		description = "Shallow relative tree of a workspace directory with symbol names on source files (depth and byte budget capped)",
 		schema_json = `{"type":"object","properties":{"path":{"type":"string"},"depth":{"type":"string","description":"0-3, default 2"},"focus":{"type":"string","description":"optional filename glob or substring"}},"required":[]}`,
 		kind = .Read,
 		run = tool_repo_map,
@@ -57,8 +57,8 @@ registry_register_builtins :: proc(r: ^Registry) {
 	})
 	registry_register(r, Tool{
 		name = "run_shell",
-		description = "Run a shell command in the workspace when sandbox permits",
-		schema_json = `{"type":"object","properties":{"command":{"type":"string"},"timeout_ms":{"type":"string","description":"optional timeout in milliseconds"}},"required":["command"]}`,
+		description = "Run a shell command in the workspace when sandbox permits. background=true returns a pollable task_id and writes .nullray/tasks/<id>.log. Pass task_id to poll.",
+		schema_json = `{"type":"object","properties":{"command":{"type":"string"},"timeout_ms":{"type":"string","description":"optional timeout in milliseconds"},"background":{"type":"string","description":"true to run in the background"},"task_id":{"type":"string","description":"poll a background task"}},"required":[]}`,
 		kind = .Shell,
 		run = tool_run_shell,
 	})
@@ -381,9 +381,16 @@ registry_register_builtins :: proc(r: ^Registry) {
 	register_harness_tools(r)
 	registry_register(r, Tool{
 		name = "fetch_url",
-		description = "Fetch a public http(s) URL as text (HTML to plain when useful, size-capped, no browser)",
-		schema_json = `{"type":"object","properties":{"url":{"type":"string"},"format":{"type":"string","description":"auto, text, or raw"},"max_chars":{"type":"string"}},"required":["url"]}`,
+		description = "Fetch a public http(s) URL as text (HTML to plain when useful, size-capped, no browser). via picks a fetch provider (flaresolverr, etc) for protected pages",
+		schema_json = `{"type":"object","properties":{"url":{"type":"string"},"format":{"type":"string","description":"auto, text, or raw"},"max_chars":{"type":"string"},"via":{"type":"string","description":"fetch provider id from search_providers.json, e.g. flaresolverr"}},"required":["url"]}`,
 		kind = .Read,
 		run = tool_fetch_url,
+	})
+	registry_register(r, Tool{
+		name = "web_search",
+		description = "Search the web for titles, URLs, and snippets. SearXNG, OpenSearch, or SaaS keys per search_providers.json. Use fetch_url on a result for full text",
+		schema_json = `{"type":"object","properties":{"query":{"type":"string"},"queries":{"type":"array","items":{"type":"string"},"description":"combined multi-query fan-out, deduped"},"backends":{"type":"array","items":{"type":"string"},"description":"provider ids to federate across; default auto"},"count":{"type":"string","description":"max results, default 5, cap 10"},"scope":{"type":"string","description":"general, code, or news"},"context_max_chars":{"type":"string","description":"cap the result envelope, default 4000"}},"required":[]}`,
+		kind = .Read,
+		run = tool_web_search,
 	})
 }

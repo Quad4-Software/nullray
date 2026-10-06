@@ -186,6 +186,19 @@ app_handle_default_event :: proc(a: ^App, ev: ui.Event) -> bool {
 			app_submit(a)
 		}
 		return true
+	case .Tab:
+		if a.session.busy {
+			text := strings.trim_space(strings.to_string(a.input))
+			if len(text) > 0 && !strings.has_prefix(text, "/") {
+				if session.session_push_followup(a.session, text) {
+					strings.builder_reset(&a.input)
+					a.cursor = 0
+					app_toast(a, "queued", .Info)
+					app_mark_dirty(a)
+				}
+			}
+		}
+		return true
 	case .Backspace:
 		text := strings.to_string(a.input)
 		a.cursor = ui.cursor_snap_boundary(text, a.cursor)

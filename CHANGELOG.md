@@ -5,7 +5,29 @@ Notable changes for nullray.
 ## [Unreleased]
 
 ### Added
+- Anthropic tool results now set is_error so the model can self-correct failed calls.
+- Provider failover after rate limits, timeouts, and context-overflow errors, not only dead keys.
+- Optional post-edit lint from lint.json, findings come back as tool errors.
+- Custom slash commands from .nullray/commands markdown templates.
+- /context shows system, tools, messages, and memory size.
+- Local GGUF tool-call turns clamp temperature to 0.2 and pin repeat_penalty to 1.0.
+- Compaction uses a Goal / Files / Errors / Next / Pending steers template.
+- Malformed tool calls are dropped and resampled instead of kept in context.
+- Mid-turn steering: Enter injects into a running turn, Tab queues a follow-up, Esc still stops.
+- run_shell background=true returns a pollable task_id and writes .nullray/tasks logs.
+- --samples N runs best-of-N print turns in worktrees and picks by the verifier.
+- Skills can auto-load from a paths frontmatter glob when a matching file is touched.
+- /rewind restores the last file checkpoint, truncates turns, and summarizes from that point.
+- repo_map lists procedure and type names on source files.
+- --architect has the architect model write a Done Contract, then the editor model executes it.
 - Optional AI provenance on agent commits: NULLRAY_AI_PROVENANCE=1 makes vcs_commit stamp Harness, Model, and Method trailers plus a JSON git note on refs/notes/ai-provenance. Labels come from the live session and can be pinned with NULLRAY_AI_HARNESS, NULLRAY_AI_MODEL, and NULLRAY_AI_METHOD or the ai.* git config keys. Repos with their own commit-msg hook keep ownership, and SKIP_AI_HOOK=1 skips it.
+
+### Changed
+- Install clones the git repo and builds on Linux, macOS, and Windows instead of downloading a release archive.
+- The checkout lives under ~/.local/src/nullray by default so you can pull and rebuild.
+
+### Removed
+- GitHub release archives for Linux, macOS, and Windows.
 
 ## [0.7.0] - 2026-10-06
 

@@ -36,6 +36,19 @@ The agent gets a catalog of skill ids in the system prompt and pulls a
 full body on demand through `list_skills` or `load_skill`, or when the
 turn auto-matches one. The cap is 96 loaded skills.
 
+YAML frontmatter may include a `paths` list (globs). When the agent writes
+a matching file, that skill body is appended to the tool result. Example:
+
+```yaml
+---
+name: go
+description: Go workspace conventions
+paths:
+  - "**/*.go"
+  - "go.mod"
+---
+```
+
 ## MCP servers
 
 `~/.config/nullray/mcp.json` declares stdio MCP servers to autoload on

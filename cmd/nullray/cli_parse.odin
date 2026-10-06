@@ -358,6 +358,20 @@ parse_cli :: proc(args: []string) -> Cli {
 			cli.auto = true
 		case "--usage":
 			cli.print_usage = true
+		case "--samples":
+			v, ok := take_value(args, &i)
+			if !ok {
+				cli.err = "--samples needs N"
+				return cli
+			}
+			n, nok := parse_cli_int(v)
+			if !nok || n < 1 {
+				cli.err = "--samples needs a positive integer"
+				return cli
+			}
+			cli.samples = n
+		case "--architect":
+			cli.architect = true
 		case "--completions":
 			v, ok := take_value(args, &i)
 			if !ok {

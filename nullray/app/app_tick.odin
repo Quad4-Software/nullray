@@ -8,6 +8,7 @@ package app
 import "core:fmt"
 import "core:time"
 import "nullray:constants"
+import "nullray:provider"
 import "nullray:sandbox"
 import "nullray:session"
 import "nullray:store"
@@ -82,6 +83,13 @@ app_on_tick :: proc(user: rawptr) -> bool {
 		changed = true
 		if a.follow {
 			a.scroll = 0
+		}
+		if follow := session.session_take_followup(a.session); len(follow) > 0 {
+			session.session_push_user(a.session, follow)
+			delete(follow)
+			p := provider.registry_active(&a.registry)
+			session.session_start_chat(a.session, p)
+			app_toast(a, "queued follow-up", .Info)
 		}
 		if a.view_auto {
 			paths := collect_turn_write_paths(a.session.messages[:], context.allocator)

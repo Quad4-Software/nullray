@@ -49,6 +49,59 @@ auth_is_failover_worthy :: proc(err: string) -> bool {
 	return false
 }
 
+Failover_Why :: enum {
+	None,
+	Auth,
+	Rate_Limit,
+	Timeout,
+	Context,
+}
+
+failover_why_from_err :: proc(err: string) -> Failover_Why {
+	if len(err) == 0 {
+		return .None
+	}
+	if auth_is_failover_worthy(err) {
+		return .Auth
+	}
+	lower := strings.to_lower(err, context.temp_allocator)
+	if strings.contains(lower, "429") || strings.contains(lower, "rate limited") {
+		return .Rate_Limit
+	}
+	if strings.contains(lower, "timeout") || strings.contains(lower, "timed out") {
+		return .Timeout
+	}
+	if strings.contains(lower, "context size") ||
+	   strings.contains(lower, "context_length") ||
+	   strings.contains(lower, "exceed_context") ||
+	   strings.contains(lower, "context window") ||
+	   strings.contains(lower, "too many tokens") ||
+	   strings.contains(lower, "maximum context") ||
+	   strings.contains(lower, "prompt is too long") {
+		return .Context
+	}
+	return .None
+}
+
+chat_is_failover_worthy :: proc(err: string) -> bool {
+	return failover_why_from_err(err) != .None
+}
+
+failover_why_label :: proc(why: Failover_Why) -> string {
+	switch why {
+	case .Auth:
+		return "auth"
+	case .Rate_Limit:
+		return "rate_limit"
+	case .Timeout:
+		return "timeout"
+	case .Context:
+		return "context"
+	case .None:
+	}
+	return "error"
+}
+
 provider_fallback_ids :: proc(allocator := context.temp_allocator) -> []string {
 	v, ok := os.lookup_env(constants.ENV_PROVIDER_FALLBACKS, allocator)
 	if !ok || len(strings.trim_space(v)) == 0 {

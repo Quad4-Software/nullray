@@ -60,6 +60,9 @@ save_transcript_msgpack :: proc(path: string, messages: []provider.Message) -> b
 		if len(m.reasoning) > 0 {
 			nkeys += 1
 		}
+		if m.is_error {
+			nkeys += 1
+		}
 		if len(m.tool_calls) > 0 {
 			nkeys += 1
 		}
@@ -81,6 +84,10 @@ save_transcript_msgpack :: proc(path: string, messages: []provider.Message) -> b
 		if len(m.reasoning) > 0 {
 			mp_write_str(&buf, "reasoning")
 			mp_write_str(&buf, m.reasoning)
+		}
+		if m.is_error {
+			mp_write_str(&buf, "is_error")
+			mp_write_bool(&buf, true)
 		}
 		if len(m.tool_calls) > 0 {
 			mp_write_str(&buf, "tool_calls")
@@ -120,6 +127,7 @@ load_transcript_msgpack :: proc(path: string, allocator := context.allocator) ->
 		name := ""
 		reasoning := ""
 		tool_call_id := ""
+		is_error := false
 		calls: []provider.Tool_Call
 		for _ in 0 ..< nk {
 			key, kok := mp_read_str(&r)
@@ -157,6 +165,12 @@ load_transcript_msgpack :: proc(path: string, allocator := context.allocator) ->
 				if !kok {
 					return msgs, false
 				}
+			case "is_error":
+				b, bok := mp_read_u8(&r)
+				if !bok {
+					return msgs, false
+				}
+				is_error = b == 0xc3
 			case "tool_calls":
 				cn, cok := mp_read_array_len(&r)
 				if !cok {
@@ -218,6 +232,7 @@ load_transcript_msgpack :: proc(path: string, allocator := context.allocator) ->
 		msg := provider.Message{
 			role = role,
 			content = strings.clone(content, allocator),
+			is_error = is_error,
 		}
 		if len(name) > 0 {
 			msg.name = strings.clone(name, allocator)

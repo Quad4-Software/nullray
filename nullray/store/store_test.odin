@@ -50,6 +50,7 @@ test_transcript_roundtrip_with_tools :: proc(t: ^testing.T) {
 	append(&msgs, provider.Message{role = .User, content = strings.clone("hi")})
 	append(&msgs, provider.Message{role = .Assistant, content = strings.clone("yo")})
 	append(&msgs, provider.Message{role = .Tool, content = strings.clone("ok"), name = strings.clone("read_file")})
+	append(&msgs, provider.Message{role = .Tool, content = strings.clone("fail"), name = strings.clone("read_file"), is_error = true})
 	append(&msgs, provider.Message{role = .System, content = strings.clone("skip")})
 
 	testing.expect(t, save_transcript(path, msgs[:]))
@@ -62,12 +63,14 @@ test_transcript_roundtrip_with_tools :: proc(t: ^testing.T) {
 		}
 		delete(loaded)
 	}
-	testing.expect_value(t, len(loaded), 3)
+	testing.expect_value(t, len(loaded), 4)
 	testing.expect_value(t, loaded[0].role, provider.Role.User)
 	testing.expect_value(t, loaded[1].role, provider.Role.Assistant)
 	testing.expect_value(t, loaded[2].role, provider.Role.Tool)
 	testing.expect_value(t, loaded[2].name, "read_file")
 	testing.expect_value(t, loaded[2].content, "ok")
+	testing.expect(t, !loaded[2].is_error)
+	testing.expect(t, loaded[3].is_error)
 }
 
 @(test)
@@ -157,7 +160,7 @@ test_transcript_msgpack_roundtrip :: proc(t: ^testing.T) {
 	}
 	append(&msgs, provider.Message{role = .User, content = strings.clone("hi")})
 	append(&msgs, provider.Message{role = .Assistant, content = strings.clone("yo"), reasoning = strings.clone("think")})
-	append(&msgs, provider.Message{role = .Tool, content = strings.clone("ok"), name = strings.clone("read_file")})
+	append(&msgs, provider.Message{role = .Tool, content = strings.clone("ok"), name = strings.clone("read_file"), is_error = true})
 
 	testing.expect(t, save_transcript(path, msgs[:]))
 	testing.expect(t, session_path_is_msgpack(path))
@@ -174,6 +177,7 @@ test_transcript_msgpack_roundtrip :: proc(t: ^testing.T) {
 	testing.expect_value(t, loaded[0].content, "hi")
 	testing.expect_value(t, loaded[1].reasoning, "think")
 	testing.expect_value(t, loaded[2].name, "read_file")
+	testing.expect(t, loaded[2].is_error)
 }
 
 @(test)

@@ -147,6 +147,41 @@ json_arg_int_optional :: proc(
 	return default, fmt.aprintf("field %s must be an integer", key, allocator = allocator)
 }
 
+json_arg_bool :: proc(
+	args_json: string,
+	key: string,
+	default: bool,
+	allocator := context.allocator,
+) -> (value: bool, err: string) {
+	doc, parse_err := json.parse_string(args_json, .JSON, allocator = context.temp_allocator)
+	if parse_err != nil {
+		return default, fmt.aprintf("bad tool args JSON: %v", parse_err, allocator = allocator)
+	}
+	obj, obj_ok := doc.(json.Object)
+	if !obj_ok {
+		return default, strings.clone("tool args must be a JSON object", allocator)
+	}
+	val, found := obj[key]
+	if !found {
+		return default, ""
+	}
+	#partial switch v in val {
+	case json.Boolean:
+		return bool(v), ""
+	case json.Integer:
+		return v != 0, ""
+	case json.String:
+		switch strings.to_lower(string(v), context.temp_allocator) {
+		case "true", "1", "yes":
+			return true, ""
+		case "false", "0", "no":
+			return false, ""
+		}
+		return default, fmt.aprintf("field %s must be true or false", key, allocator = allocator)
+	}
+	return default, fmt.aprintf("field %s must be a boolean", key, allocator = allocator)
+}
+
 json_arg_bool_string :: proc(
 	args_json: string,
 	key: string,

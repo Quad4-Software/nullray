@@ -273,14 +273,19 @@ mock_turn :: proc(t: ^testing.T, tool_name: string, reg: ^tools.Registry, max_st
 }
 
 @(private)
-count_tool_msgs :: proc(msgs: []provider.Message, needle: string) -> int {
+count_role_msgs :: proc(msgs: []provider.Message, role: provider.Role, needle: string) -> int {
 	n := 0
 	for m in msgs {
-		if m.role == .Tool && strings.contains(m.content, needle) {
+		if m.role == role && strings.contains(m.content, needle) {
 			n += 1
 		}
 	}
 	return n
+}
+
+@(private)
+count_tool_msgs :: proc(msgs: []provider.Message, needle: string) -> int {
+	return count_role_msgs(msgs, .Tool, needle)
 }
 
 @(private)
@@ -318,9 +323,7 @@ test_run_turn_malformed_budget :: proc(t: ^testing.T) {
 	res := mock_turn(t, "no_such_tool_xyz", &reg, 12)
 	defer free_run_result(&res)
 	testing.expect(t, res.ok)
-	// Default budget 2: retry nudge first, then the give-up text.
-	testing.expect_value(t, count_tool_msgs(res.messages[:], "retry with corrected JSON"), 2)
-	testing.expect(t, count_tool_msgs(res.messages[:], "budget exhausted") >= 1)
-	// The unknown-call loop is still caught by anti-loop before max steps.
+	testing.expect(t, count_role_msgs(res.messages[:], .User, "dropped because it was malformed") >= 2)
+	testing.expect(t, count_role_msgs(res.messages[:], .User, "Retry budget exhausted") >= 1)
 	testing.expect_value(t, res.stopped, "loop")
 }

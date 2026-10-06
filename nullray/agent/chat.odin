@@ -52,6 +52,7 @@ run_one_chat :: proc(
 		top_p_set = cfg.top_p_set,
 		session_id = cfg.session_id,
 	}
+	provider.apply_gguf_tool_sampling(&req, p.id, model, tools_json)
 	if cfg.stream {
 		if p.stream == nil {
 			return provider.Chat_Response{
@@ -103,7 +104,7 @@ single_chat :: proc(
 	allocator := context.allocator,
 ) -> provider.Chat_Response {
 	res := run_one_chat(p, msgs, model, tools_json, cfg, harness, allocator)
-	if res.ok || !provider.auth_is_failover_worthy(res.err) {
+	if res.ok || !provider.chat_is_failover_worthy(res.err) {
 		return res
 	}
 	fallbacks := provider.provider_fallback_ids()
@@ -112,6 +113,7 @@ single_chat :: proc(
 	}
 	primary_err := res.err
 	primary_id := p.id
+	why_label := provider.failover_why_label(provider.failover_why_from_err(primary_err))
 	for id in fallbacks {
 		if id == primary_id {
 			continue
@@ -124,7 +126,7 @@ single_chat :: proc(
 			provider.provider_destroy(&alt)
 			continue
 		}
-		emit(cfg, .Status, fmt.tprintf("failover: trying %s after %s auth failure", id, primary_id))
+		emit(cfg, .Status, fmt.tprintf("failover: trying %s after %s %s failure", id, primary_id, why_label))
 		// Keep the requested model when it is a plain local name. Swap only when the
 		// primary id looks cloud-scoped (vendor/model) and the fallback has a default.
 		alt_model := model
@@ -139,7 +141,7 @@ single_chat :: proc(
 		provider.provider_destroy(&alt)
 		if try.ok {
 			delete(primary_err)
-			note := provider.failover_note(primary_id, id, "auth", context.temp_allocator)
+			note := provider.failover_note(primary_id, id, why_label, context.temp_allocator)
 			emit(cfg, .Status, note)
 			return try
 		}

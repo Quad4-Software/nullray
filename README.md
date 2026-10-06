@@ -1,26 +1,40 @@
-# nullray
+<p align="center">
+  <img src="logo/nullray-pixel.svg" alt="nullray" height="40">
+</p>
 
-Lightweight terminal agent with a custom TUI built in Odin.
+<p align="center">Terminal coding agent in Odin. Local models first.</p>
 
-![nullray](logo/nullray-social.png)
+<p align="center">
+  <img src="docs/assets/tui.gif" alt="nullray TUI on an edit turn" width="720">
+</p>
 
-Local: Ollama, LM Studio, llama.cpp.
+Custom TUI, no curses. Linux Landlock and seccomp when you want a sandbox. Git and Fossil. About 5.3 MB stripped on Linux amd64.
 
-Cloud: OpenCode, OpenAI, OpenAI-compatible, Anthropic, Gemini, Groq, DeepSeek, Mistral, Together, Fireworks, xAI, Azure OpenAI, OpenRouter.
+Local: Ollama, LM Studio, llama.cpp, any OpenAI-compatible `/v1`. Cloud: OpenCode, OpenAI, Anthropic, Gemini, Groq, DeepSeek, Mistral, Together, Fireworks, xAI, Azure OpenAI, OpenRouter.
 
-Platforms: Linux (amd64, arm64/aarch64), macOS (arm64), Windows (amd64).
+Platforms: Linux (amd64, arm64), macOS (arm64), Windows (amd64).
 
-Check out [Humanity's Last Command](https://github.com/markqvist/lc) for a more minimal and unique terminal AI harness.
+A smaller harness lives at [Humanity's Last Command](https://github.com/markqvist/lc).
 
 ## Features
 
-- Supports Git and Fossil
 - Local models are first class
 - Does not eat your RAM
-- Can do coding, bug hunting and sysadmin tasks.
-- Native OS sandboxing and privacy scrubbing (intended for cloud models)
+- Coding, bug hunting, and sysadmin work
+- Native OS sandbox plus privacy scrubbing for cloud keys
+- Reads man pages, `--help`, and language docs
 
-Can read man pages, command --help, and language docs.
+Docs: [nullray.xyz/docs](https://nullray.xyz/docs)
+
+## Install
+
+```sh
+curl -fsSL https://nullray.xyz/install | sh
+```
+
+The script clones into `~/.local/src/nullray`, builds from source, and
+installs to `~/.local`. It warns and stops if git or Odin is missing.
+Needs make and a C compiler too. Re-run to pull and rebuild.
 
 ## Build
 
@@ -32,18 +46,36 @@ make test
 make install
 ```
 
-`make install` uses `PREFIX` (default `/usr/local`). Use `make install PREFIX="$HOME/.local"` without sudo, and add `~/.local/bin` to `PATH`.
+`make install` uses `PREFIX` (default `/usr/local`). `make install PREFIX="$HOME/.local"` needs no sudo if `~/.local/bin` is on `PATH`.
 
 ```sh
 ./bin/nullray --self-test
 ./bin/nullray
 ```
 
-First TUI launch without a ready provider opens a setup overlay (reopen with /setup). Mid-session switch with /provider ID or /providers. Keys and base URLs stay in /setup. Saves to ~/.config/nullray/env. Headless --print, --self-test, and CI never open the wizard.
+First TUI launch without a ready provider opens a setup overlay. Reopen it with `/setup`. Switch mid-session with `/provider ID` or `/providers`. Keys save to `~/.config/nullray/env`. Headless `--print`, `--self-test`, and CI never open the wizard.
 
 ## Config
 
-~/.config/nullray/env:
+Local, no key:
+
+```ini
+NULLRAY_PROVIDER=ollama
+NULLRAY_MODEL=qwen2.5-coder:7b
+NULLRAY_MODE=edit
+NULLRAY_PERMS=allow
+```
+
+OpenAI-compatible local server:
+
+```ini
+NULLRAY_PROVIDER=openai-compat
+OPENAI_BASE_URL=http://127.0.0.1:8000/v1
+OPENAI_API_KEY=optional
+NULLRAY_MODEL=my-local-model
+```
+
+Cloud example, `~/.config/nullray/env`:
 
 ```ini
 NULLRAY_PROVIDER=openrouter
@@ -55,16 +87,7 @@ NULLRAY_CACHE=1
 OPENROUTER_API_KEY=sk-or-...
 ```
 
-Shell exports override the file. Secrets stay blocked unless listed in NULLRAY_SECRETS_ALLOW. MCP config is ~/.config/nullray/mcp.json. Key presets (default, neovim, emacs) live in keys.ini or --keys / NULLRAY_KEYS.
-
-OpenAI-compatible local endpoint:
-
-```ini
-NULLRAY_PROVIDER=openai-compat
-OPENAI_BASE_URL=http://127.0.0.1:8000/v1
-OPENAI_API_KEY=optional
-NULLRAY_MODEL=my-local-model
-```
+Shell exports override the file. Secrets stay blocked unless listed in `NULLRAY_SECRETS_ALLOW`. MCP lives in `~/.config/nullray/mcp.json`. Key presets (default, neovim, emacs) are `keys.ini` or `--keys` / `NULLRAY_KEYS`.
 
 | Provider | Auth |
 |----------|------|
@@ -78,21 +101,17 @@ NULLRAY_MODEL=my-local-model
 | lmstudio | LM_API_TOKEN (defaults to lm-studio) |
 | llamacpp | LLAMA_CPP_HOST (default http://127.0.0.1:8080/v1), optional LLAMA_CPP_API_KEY |
 | openrouter | OPENROUTER_API_KEY |
-| opencode / opencode-go | OpenCode Zen |
+| opencode / opencode-go | OPENCODE_API_KEY |
 
 ## Usage
 
 ```sh
-# Interactive TUI
 nullray
 
-# Quick ask
 nullray -q "What does session_init do?"
 
-# One-shot print
 nullray --print --mode ask "What does session_init do?"
 
-# Local review bot (Git or Fossil, no GitHub required)
 nullray --review
 nullray --review --staged
 nullray --review --base main --paths nullray/agent,cmd/nullray
@@ -101,43 +120,30 @@ nullray --review --include-untracked --fail-on-findings --output-format json
 
 In the TUI, `/review local` (or `/review local staged`, `/review local base main`) runs the same local diff review. `/review on` still enables the end-of-turn review pass after edits.
 
-## Ops and OS customize
+## Ops profiles
 
 Prefer ops profiles over `NULLRAY_SANDBOX=off`:
 
 ```sh
-# Edit ~/.config (Hyprland, Omarchy-style ricing) while keeping Landlock
 export NULLRAY_OPS=desktop
-
-# Drive Docker via unix sock (often root-equivalent)
 export NULLRAY_OPS=docker
-
-# Kubernetes needs an intentional secrets allow
 export NULLRAY_OPS=kube
 export NULLRAY_SECRETS_ALLOW="$HOME/.kube"
-
-# Combine
 export NULLRAY_OPS=desktop,docker
 ```
 
-Extra absolute paths: `NULLRAY_SANDBOX_EXTRA_RO` / `NULLRAY_SANDBOX_EXTRA_RW`. See `/ops` and `--doctor`.
+`desktop` keeps Landlock while you edit `~/.config`. `docker` talks to the engine socket. `kube` needs an explicit secrets allow. Extra absolute paths: `NULLRAY_SANDBOX_EXTRA_RO` / `NULLRAY_SANDBOX_EXTRA_RW`. See `/ops` and `--doctor`.
 
-Server print with sudo: `NULLRAY_ELEVATE=ticket` after a TUI approval, or `NULLRAY_ASKPASS`. Use `--perms allow` with `--print` for edit.
+Print with sudo: `NULLRAY_ELEVATE=ticket` after a TUI approval, or `NULLRAY_ASKPASS`. Use `--perms allow` with `--print` for edit.
 
 ## Network VCS and fetch
 
 ```sh
-export NULLRAY_VCS_NETWORK=1   # vcs_push / pull / fetch / PR tools
-export NULLRAY_VCS_FORCE=1     # allow force-push to main/master
+export NULLRAY_VCS_NETWORK=1
+export NULLRAY_VCS_FORCE=1
 ```
 
-`fetch_url` fetches public http(s) text (edit mode, size-capped, no browser).
-
-## Install script
-
-```sh
-curl -fsSL https://nullray.xyz/install | sh
-```
+`NULLRAY_VCS_NETWORK=1` enables `vcs_push` / pull / fetch / PR tools. `NULLRAY_VCS_FORCE=1` allows force-push to main/master. `fetch_url` fetches public http(s) text in edit mode (size-capped, no browser).
 
 ## Packages
 

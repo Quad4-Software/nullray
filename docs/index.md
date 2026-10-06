@@ -46,7 +46,7 @@ a setup overlay walks through provider and key entry.
 | [Memory and RAG](memory-rag.md) | Project memory, recall, embeddings |
 | [Troubleshooting](troubleshooting.md) | Doctor output, crashes, common fixes |
 
-Source, issues, and releases live on
+Source and issues live on
 [GitHub](https://github.com/Quad4-Software/nullray). License is
 QSL-1.0-0BSD: source-available, converts to 0BSD two years after each
 release.

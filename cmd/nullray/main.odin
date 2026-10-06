@@ -46,6 +46,8 @@ Cli :: struct {
 	print_strict:     bool,
 	print_usage:      bool,
 	print_mode:       bool,
+	samples:          int,
+	architect:        bool,
 	trace:            bool,
 	stream_print:     bool,
 	no_adopt:         bool,
@@ -365,6 +367,8 @@ run_print_mode :: proc(cli: ^Cli) -> int {
 		trace = cli.trace,
 		stream_print = cli.stream_print,
 		patch_out = cli.patch_out,
+		samples = cli.samples,
+		architect = cli.architect,
 	}
 	res := run.run_print(rcfg)
 	defer run.result_destroy(&res)

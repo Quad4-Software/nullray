@@ -13,6 +13,16 @@ import "nullray:sandbox"
 import "nullray:subagent"
 
 tool_run_shell :: proc(args_json: string, allocator := context.allocator) -> (result: string, err: string) {
+	task_id, tid_err := json_arg_string_optional(args_json, "task_id", "", allocator)
+	if tid_err != "" {
+		return "", tid_err
+	}
+	if len(strings.trim_space(task_id)) > 0 {
+		defer delete(task_id)
+		return shell_bg_poll(task_id, allocator)
+	}
+	delete(task_id)
+
 	command, perr := json_arg_string(args_json, "command", allocator)
 	if perr != "" {
 		return "", perr
@@ -62,5 +72,12 @@ tool_run_shell :: proc(args_json: string, allocator := context.allocator) -> (re
 	}
 	env := sandbox.toolchain_shell_env(allocator)
 	defer sandbox.toolchain_shell_env_destroy(env)
+	bg, berr := json_arg_bool(args_json, "background", false, allocator)
+	if berr != "" {
+		return "", berr
+	}
+	if bg {
+		return shell_bg_start(command, workspace, env, allocator)
+	}
 	return run_process_capture(argv[:], workspace, timeout_ms, allocator, env)
 }

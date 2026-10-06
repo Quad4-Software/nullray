@@ -276,6 +276,10 @@ skill_destroy :: proc(s: Skill) {
 	delete(s.body)
 	delete(s.source)
 	delete(s.path)
+	for p in s.paths {
+		delete(p)
+	}
+	delete(s.paths)
 }
 
 skills_destroy :: proc(skills: ^[dynamic]Skill) {

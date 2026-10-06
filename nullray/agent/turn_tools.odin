@@ -11,6 +11,7 @@ import "nullray:elevate"
 import "nullray:hooks"
 import "nullray:provider"
 import "nullray:sandbox"
+import "nullray:skills"
 import "nullray:store"
 import "nullray:tools"
 
@@ -25,7 +26,7 @@ turn_exec_tool_calls :: proc(
 	malformed_left: ^int,
 	harness: ^Harness_Metrics,
 	allocator := context.allocator,
-) -> (elevate_stop: bool, had_writes: bool, result_head: u64) {
+) -> (elevate_stop: bool, had_writes: bool, result_head: u64, malformed: bool, mal_kind: Malformed_Kind) {
 	if !loop_intervene && cfg_local.speculate_pool != nil && len(calls) > 0 {
 		speculate_submit_prefix(cfg_local.speculate_pool, calls, harness, allocator)
 	}
@@ -75,16 +76,17 @@ turn_exec_tool_calls :: proc(
 				}
 				hooks.result_destroy(&post, allocator)
 			}
-			// Call-formation failures get a bounded retry nudge; after the
-			// per-turn budget the model is told to stop calling tools.
+			// Formation failures drop this assistant attempt and resample.
 			if kind := malformed_call_class(tool_err); kind != .None {
 				retry := malformed_left != nil && malformed_left^ > 0
 				if retry {
 					malformed_left^ -= 1
 				}
-				wrapped := malformed_result_text(kind, tool_err, retry, allocator)
+				malformed = true
+				mal_kind = kind
+				delete(tool_result)
 				delete(tool_err)
-				tool_err = wrapped
+				break
 			}
 		}
 		raw := tool_result
@@ -94,6 +96,36 @@ turn_exec_tool_calls :: proc(
 			is_err = true
 		}
 		result_text := sandbox.redact_secrets(raw, allocator)
+		if !is_err {
+			if t, found := tools.registry_find(reg, c.name); found && t.kind == .Write {
+				path_arg, _ := tools.json_arg_string_optional(c.arguments, "path", "", context.temp_allocator)
+				if len(path_arg) > 0 {
+					lint_out := tools.lint_after_write(path_arg, allocator)
+					if len(lint_out) > 0 {
+						findings := parse_diagnostics(lint_out)
+						block := format_findings_block(findings[:], allocator)
+						delete_findings(&findings)
+						delete(lint_out)
+						if len(block) > 0 {
+							merged := fmt.aprintf("%s\n%s", result_text, block, allocator = allocator)
+							delete(result_text)
+							delete(block)
+							result_text = merged
+							is_err = true
+						} else {
+							delete(block)
+						}
+					}
+					skill_note := skills.notes_for_path(path_arg, allocator)
+					if len(skill_note) > 0 {
+						merged := fmt.aprintf("%s\n%s", result_text, skill_note, allocator = allocator)
+						delete(result_text)
+						delete(skill_note)
+						result_text = merged
+					}
+				}
+			}
+		}
 		head_hash = loop_result_head_update(head_hash, result_text, &head_left)
 		delete(tool_result)
 		delete(tool_err)
@@ -109,6 +141,7 @@ turn_exec_tool_calls :: proc(
 			content = trusted_boundary,
 			tool_call_id = strings.clone(c.id, allocator),
 			name = strings.clone(c.name, allocator),
+			is_error = is_err || looks_like_tool_error(trusted_boundary),
 		})
 		if elevate.is_nonretryable_elevate_text(result_text) {
 			elevate_stop = true
@@ -122,7 +155,7 @@ turn_exec_tool_calls :: proc(
 		}
 		delete(result_text)
 	}
-	return elevate_stop, had_writes, head_hash
+	return elevate_stop, had_writes, head_hash, malformed, mal_kind
 }
 
 turn_mid_prepare :: proc(

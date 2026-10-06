@@ -39,6 +39,9 @@ save_transcript_jsonl :: proc(path: string, messages: []provider.Message) -> boo
 			strings.write_string(&b, `,"reasoning":`)
 			strings.write_string(&b, json_quote(m.reasoning))
 		}
+		if m.is_error {
+			strings.write_string(&b, `,"is_error":true`)
+		}
 		if len(m.tool_calls) > 0 {
 			strings.write_string(&b, `,"tool_calls":[`)
 			for tc, i in m.tool_calls {
@@ -149,6 +152,11 @@ load_transcript_jsonl :: proc(path: string, allocator := context.allocator) -> (
 		}
 		if len(reasoning) > 0 {
 			msg.reasoning = strings.clone(reasoning, allocator)
+		}
+		if ev, eok := obj["is_error"]; eok {
+			if b, bok := ev.(json.Boolean); bok {
+				msg.is_error = bool(b)
+			}
 		}
 		if len(tool_call_id) > 0 {
 			msg.tool_call_id = strings.clone(tool_call_id, allocator)

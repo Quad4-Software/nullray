@@ -192,13 +192,24 @@ app_submit :: proc(a: ^App) {
 		return
 	}
 	if a.session.busy && !slash_busy_exempt(text) {
-		msg := "busy · Esc stop"
-		if pending := tools.shell_pending(context.temp_allocator); len(pending) > 0 {
-			msg = "busy · Esc stop · /allow|/deny"
-		} else if a.elevate_active {
-			msg = "busy · elevate active"
+		if strings.has_prefix(text, "/") {
+			msg := "busy · Esc stop"
+			if pending := tools.shell_pending(context.temp_allocator); len(pending) > 0 {
+				msg = "busy · Esc stop · /allow|/deny"
+			} else if a.elevate_active {
+				msg = "busy · elevate active"
+			}
+			app_toast_warn(a, msg)
+			return
 		}
-		app_toast_warn(a, msg)
+		if session.session_push_steer(a.session, text) {
+			strings.builder_reset(&a.input)
+			a.cursor = 0
+			app_toast(a, "steered", .Info)
+			app_mark_dirty(a)
+			return
+		}
+		app_toast_warn(a, "busy · Esc stop")
 		return
 	}
 	a.pasting = false

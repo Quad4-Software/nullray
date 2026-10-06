@@ -24,6 +24,7 @@ SLASH_COMMANDS := []Slash_Command{
 	{"help", "/help", "show commands and shortcuts", slash_cmd_help},
 	{"?", "/?", "alias for /help", slash_cmd_help},
 	{"compact", "/compact", "compact conversation history", slash_cmd_compact},
+	{"rewind", "/rewind [N]", "rewind N user turns, restore files, summarize from here", slash_cmd_rewind},
 	{"drop", "/drop N", "drop last N user turns (backup saved)", slash_cmd_drop},
 	{"tools", "/tools", "toggle agent tools", slash_cmd_tools},
 	{"expand", "/expand", "expand or collapse all tool calls", slash_cmd_expand},
@@ -63,6 +64,7 @@ SLASH_COMMANDS := []Slash_Command{
 	{"remind", "/remind <in> <text>", "one-shot reminder prompt", slash_cmd_remind},
 	{"approve", "/approve", "approve plan contract and switch to edit", slash_cmd_approve},
 	{"status", "/status", "show mode, plan, verify, tokens, context chars", slash_cmd_status},
+	{"context", "/context", "per-category context char and token estimate", slash_cmd_context},
 	{"ops", "/ops", "show NULLRAY_OPS grants and sandbox extras", slash_cmd_ops},
 	{"sandbox", "/sandbox", "alias for /ops", slash_cmd_ops},
 	{"usage", "/usage [json|export PATH]", "session token and cost summary", slash_cmd_usage},
@@ -158,6 +160,9 @@ slash_matches :: proc(prefix: string, allocator := context.temp_allocator) -> []
 			append(&out, cmd)
 		}
 	}
+	for c in custom_command_matches(body, allocator) {
+		append(&out, c)
+	}
 	return out[:]
 }
 
@@ -228,6 +233,9 @@ help_overlay_text :: proc(binds_help: string, allocator := context.allocator) ->
 			continue
 		}
 		fmt.sbprintf(&b, "  %-22s %s\n", cmd.usage, cmd.help)
+	}
+	for c in custom_command_matches("", context.temp_allocator) {
+		fmt.sbprintf(&b, "  %-22s %s\n", c.usage, c.help)
 	}
 	strings.write_string(&b, "\nClick ? again or press Esc / F1 to close.")
 	return strings.to_string(b)

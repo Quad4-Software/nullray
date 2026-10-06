@@ -95,3 +95,7 @@ NULLRAY_MODEL=my-local-model
 `NULLRAY_LOCAL_PROBE` controls whether the setup wizard probes localhost
 servers. `NULLRAY_QUIRKS` and `/quirks` show model output workarounds
 the session is applying.
+
+On local providers (and model ids that contain gguf) a tool-call turn
+clamps temperature to 0.2 and sends `repeat_penalty` 1.0.
+`NULLRAY_GGUF_SAMPLE=0` turns that off.

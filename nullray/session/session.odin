@@ -87,6 +87,9 @@ Session :: struct {
 	streamed_chars:      int,
 	trace_starts:        []Trace_Slot,
 	busy_since:          time.Tick,
+	steer_mu:            sync.Mutex,
+	steer_inbox:         [dynamic]string,
+	followup_queue:      [dynamic]string,
 }
 
 session_init :: proc(s: ^Session) {
@@ -208,6 +211,7 @@ session_destroy :: proc(s: ^Session) -> (released: bool) {
 	delete(s.last_stopped)
 	session_clear_verify_obligations(s)
 	delete(s.verify_obligations)
+	session_steer_destroy(s)
 	strings.builder_destroy(&s.streaming)
 	strings.builder_destroy(&s.thinking)
 	s^ = {}

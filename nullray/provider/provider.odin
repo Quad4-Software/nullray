@@ -41,6 +41,7 @@ Message :: struct {
 	tool_calls:   []Tool_Call,
 	name:         string,
 	cacheable:    bool,
+	is_error:     bool,
 	media:        []Media_Part,
 }
 
@@ -56,6 +57,8 @@ Chat_Request :: struct {
 	top_p:            f64,
 	temperature_set:  bool,
 	top_p_set:        bool,
+	repetition_penalty:     f64,
+	repetition_penalty_set: bool,
 	// OpenAI parallel_tool_calls opt-out; set only when a profile or caller
 	// pins it so servers that reject unknown fields never see it.
 	parallel_tool_calls:     bool,
@@ -233,6 +236,7 @@ clone_message :: proc(m: Message, allocator := context.allocator) -> Message {
 		tool_call_id = strings.clone(m.tool_call_id, allocator),
 		name = strings.clone(m.name, allocator),
 		cacheable = m.cacheable,
+		is_error = m.is_error,
 	}
 	if len(m.tool_calls) > 0 {
 		out.tool_calls = make([]Tool_Call, len(m.tool_calls), allocator)

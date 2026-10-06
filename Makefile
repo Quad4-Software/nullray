@@ -67,7 +67,7 @@ H2_SHIM_OBJ  := $(TLS_BUILD)/nullray_h2_shim.o
 .PHONY: all clean install uninstall run test selftest chat-smoke print-smoke rag-live coverage help completions man \
 	appimage appimage-sdk sdk-smoke flatpak docker-build debug tls-lib tls-size
 
-TEST_SUITES := ui agent tools skills session store sandbox memory rag mcp provider app config subagent elevate structure secure hooks harness vcs run patch http ask acp schedule todo serve
+TEST_SUITES := ui agent tools skills session store sandbox memory rag mcp provider app config subagent elevate structure secure hooks harness vcs run patch http ask acp schedule todo serve search
 TEST_FLAGS  := $(COLLECTION) -define:ODIN_TEST_THREADS=1 -debug
 
 all: $(OUT)
@@ -198,7 +198,9 @@ install: $(OUT) man completions
 	install -d $(DESTDIR)$(FISHCOMPDIR)
 	install -m 644 contrib/completions/nullray.fish $(DESTDIR)$(FISHCOMPDIR)/nullray.fish
 	install -d $(DESTDIR)$(SKILLDIR)
-	cp -a $(ROOT)/.agents/skills/. $(DESTDIR)$(SKILLDIR)/
+	if [ -d "$(ROOT)/.agents/skills" ]; then \
+		cp -a $(ROOT)/.agents/skills/. $(DESTDIR)$(SKILLDIR)/; \
+	fi
 
 uninstall:
 	rm -f $(DESTDIR)$(BINDIR)/nullray

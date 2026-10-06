@@ -145,6 +145,9 @@ write_anthropic_media_blocks :: proc(b: ^strings.Builder, m: Message, wrote_in: 
 write_anthropic_tool_result_block :: proc(b: ^strings.Builder, m: Message) {
 	strings.write_string(b, `{"type":"tool_result","tool_use_id":`)
 	write_json_string(b, m.tool_call_id)
+	if m.is_error {
+		strings.write_string(b, `,"is_error":true`)
+	}
 	strings.write_string(b, `,"content":[{"type":"text","text":`)
 	write_json_string(b, m.content)
 	strings.write_string(b, `}]}`)

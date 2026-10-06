@@ -33,6 +33,7 @@ this list in-app.
 | `/stop` or `/cancel` | Abort the running turn |
 | `/continue [note]` | Resume after pause or stop |
 | `/retry` | Retry the last user turn |
+| `/rewind [N]` | Restore files, drop last N user turns, summarize from here |
 | `/review on\|off\|local [scope]` | Review pass or local VCS review |
 | `/tools` | Toggle agent tools |
 | `/approve` | Approve a plan contract and switch to edit |
@@ -89,7 +90,15 @@ this list in-app.
 | `/loop <every> <prompt>` | Recurring prompt in this session |
 | `/remind <in> <text>` | One-shot reminder prompt |
 | `/schedule [list\|cancel]` | Manage scheduled prompts |
-| `/status` | Mode, plan, verify, tokens, context |
+| `/status` | Mode, plan, verify, tokens |
+| `/context` | Per-category context size (system, tools, messages, memory) |
 | `/copy` | Copy selection or last reply |
 | `/reset` | Wipe sessions and config (needs confirm) |
 | `/help` or `/?` | Command list |
+
+## Custom commands
+
+Markdown files in `.nullray/commands/` (and config `commands/`) become
+slash commands named after the file. `$ARGUMENTS` and `$1` through `$9` expand.
+Frontmatter `name` and `description` are optional. `NULLRAY_COMMANDS=0`
+turns this off.

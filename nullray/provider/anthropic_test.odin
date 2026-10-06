@@ -46,6 +46,29 @@ test_anthropic_body_shapes :: proc(t: ^testing.T) {
 	testing.expect_value(t, len(results), 2)
 	testing.expect(t, results[0].(json.Object)["type"].(json.String) == "tool_result")
 	testing.expect(t, results[0].(json.Object)["tool_use_id"].(json.String) == "call_1")
+	_, has_err := results[0].(json.Object)["is_error"]
+	testing.expect(t, !has_err)
+}
+
+@(test)
+test_anthropic_tool_result_is_error :: proc(t: ^testing.T) {
+	p := Provider{id = "anthropic"}
+	msgs := []Message{
+		{role = .User, content = "hi"},
+		{role = .Assistant, content = "", tool_calls = []Tool_Call{
+			{id = "call_1", name = "read_file", arguments = `{"path":"a"}`},
+		}},
+		{role = .Tool, tool_call_id = "call_1", content = "not found", is_error = true},
+	}
+	req := Chat_Request{model = "claude-sonnet-5", messages = msgs, max_tokens = 100}
+	body := build_anthropic_body(&p, req, "claude-sonnet-5", false)
+	doc, err := json.parse_string(body, .JSON, allocator = context.temp_allocator)
+	testing.expect(t, err == .None)
+	arr := doc.(json.Object)["messages"].(json.Array)
+	results := arr[2].(json.Object)["content"].(json.Array)
+	block := results[0].(json.Object)
+	testing.expect(t, block["type"].(json.String) == "tool_result")
+	testing.expect(t, block["is_error"].(json.Boolean) == true)
 }
 
 @(test)

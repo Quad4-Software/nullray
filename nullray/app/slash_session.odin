@@ -20,6 +20,21 @@ slash_cmd_compact :: proc(a: ^App, args: string) {
 	_ = session.session_compact_with_provider(a.session, p)
 }
 
+slash_cmd_rewind :: proc(a: ^App, args: string) {
+	rest := strings.trim_space(args)
+	n := 1
+	if len(rest) > 0 {
+		parsed, ok := strconv.parse_int(rest)
+		if !ok || parsed <= 0 {
+			session.session_set_status(a.session, "usage: /rewind [N]")
+			return
+		}
+		n = parsed
+	}
+	p := provider.registry_active(&a.registry)
+	_ = session.session_rewind(a.session, n, p)
+}
+
 slash_cmd_drop :: proc(a: ^App, args: string) {
 	rest := strings.trim_space(args)
 	if len(rest) == 0 {

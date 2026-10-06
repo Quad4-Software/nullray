@@ -102,6 +102,7 @@ build_openai_chat_body :: proc(
 	}
 	write_max_tokens_json(&b, p, req_p.max_tokens, model)
 	write_sampling_json(&b, p, model, req_p.temperature, req_p.top_p, req_p.temperature_set, req_p.top_p_set)
+	write_repeat_penalty_json(&b, p, req_p)
 	write_reasoning_json(&b, p, req_p.reasoning_effort)
 	if p != nil && p.id == "ollama" {
 		// Env NULLRAY_OLLAMA_NUM_CTX > profile num_ctx > caps-derived.

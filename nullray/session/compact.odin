@@ -22,7 +22,7 @@ compact_local_impl :: proc(s: ^Session) -> bool {
 	}
 	summary_b: strings.Builder
 	strings.builder_init(&summary_b)
-	strings.write_string(&summary_b, "Earlier conversation compacted:\n")
+	strings.write_string(&summary_b, "Goal:\n(compacted local)\nFiles:\n(see bullets)\nErrors:\n(see bullets)\nNext:\n(continue)\nPending steers:\n(none)\nEarlier conversation compacted:\n")
 	for i in 0 ..< drop_end {
 		m := s.messages[i]
 		role := provider.role_string(m.role)

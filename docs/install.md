@@ -1,7 +1,7 @@
 # Install
 
-nullray ships as a single static binary for Linux (amd64, arm64), macOS
-(arm64), and Windows (amd64).
+There are no pre-built binaries. You need git, the Odin compiler, make, and a C compiler (cc, clang, or gcc).
+Linux, macOS, and Windows (Git Bash) are supported.
 
 ## Install script
 
@@ -9,14 +9,15 @@ nullray ships as a single static binary for Linux (amd64, arm64), macOS
 curl -fsSL https://nullray.xyz/install | sh
 ```
 
-The script picks the right artifact for your platform and puts it on
-your PATH. It is a POSIX sh script, so it runs on a bare system.
+The script clones the repo into `~/.local/src/nullray` (or updates that
+checkout), builds, and installs into `~/.local`. It warns and exits if
+git or Odin is missing. Re-run to pull and rebuild. Override paths with
+`NULLRAY_SRC_DIR`, `NULLRAY_PREFIX`, `NULLRAY_REF`, and `NULLRAY_REPO`.
 
 ## Build from source
 
-Needs an Odin toolchain and a C compiler. `make` first builds
-`lib/libnullray_tls.a` from vendored Mbed TLS, nghttp2, and mlkem-native,
-then builds the binary at `bin/nullray`.
+`make` first builds `lib/libnullray_tls.a` from vendored Mbed TLS,
+nghttp2, and mlkem-native, then builds `bin/nullray`.
 
 ```sh
 git clone https://github.com/Quad4-Software/nullray.git
@@ -33,9 +34,13 @@ make install                      # PREFIX=/usr/local
 make install PREFIX="$HOME/.local"
 ```
 
-`make install` also drops the man page under `share/man/man1`, shell
-completions, packaged skills under `share/nullray/skills`, and scaffold
-packs under `share/nullray/scaffolds`.
+`make install` also drops the man page under `share/man/man1` and shell
+completions. Later updates:
+
+```sh
+git -C ~/.local/src/nullray pull
+make -C ~/.local/src/nullray install PREFIX="$HOME/.local"
+```
 
 ## Packages
 
@@ -61,23 +66,19 @@ packs under `share/nullray/scaffolds`.
 
 === "Flatpak"
 
-    Download the flatpak bundle from a release, then:
+    Build a bundle from this tree, then:
 
     ```sh
-    flatpak install --user ./nullray_*_linux_amd64.flatpak
+    make flatpak
+    flatpak install --user ./dist/nullray_*_linux_amd64.flatpak
     flatpak run xyz.nullray.code
     ```
 
 === "AppImage"
 
-    Release builds ship slim and SDK AppImages. The SDK variant bundles
-    the pinned Odin toolchain so a built-from-source workspace can build
-    with the same compiler as CI.
-
-=== "Release binaries"
-
-    Plain archives for Linux, macOS, and Windows attach to
-    [GitHub releases](https://github.com/Quad4-Software/nullray/releases).
+    Slim and SDK AppImages build with `make appimage` and
+    `make appimage-sdk`. The SDK variant can bundle the pinned Odin
+    toolchain so a workspace builds with the same compiler as CI.
 
 ## Verify
 

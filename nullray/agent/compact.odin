@@ -18,7 +18,7 @@ compact_with_model :: proc(p: ^provider.Provider, messages: []provider.Message, 
 	strings.builder_init(&prompt_b, context.temp_allocator)
 	strings.write_string(
 		&prompt_b,
-		"Summarize this coding-agent conversation for future context. Keep user goal, files touched, errors, next steps, and verify commands. Be concise.\n\n",
+		COMPACT_TEMPLATE_INTRO,
 	)
 	used := 0
 	for m in messages {
@@ -51,7 +51,7 @@ compact_with_model :: proc(p: ^provider.Provider, messages: []provider.Message, 
 		provider.destroy_chat_response(&res)
 		return "", false
 	}
-	out := strings.clone(res.content, allocator)
+	out := format_compact_fields(res.content, allocator)
 	provider.destroy_chat_response(&res)
 	return out, true
 }

@@ -33,6 +33,8 @@ Config :: struct {
 	trace:            bool,
 	stream_print:     bool,
 	patch_out:        string,
+	samples:          int,
+	architect:        bool,
 }
 
 Result :: struct {
@@ -63,7 +65,7 @@ result_destroy :: proc(r: ^Result) {
 	r^ = {}
 }
 
-run_print :: proc(cfg: Config) -> Result {
+run_print_inner :: proc(cfg: Config) -> Result {
 	run_start := time.tick_now()
 	res: Result
 	res.mode = strings.clone(agent.mode_string(agent.mode_from_env()))

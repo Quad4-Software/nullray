@@ -39,8 +39,10 @@ or media attachment for the next message, `/attach` lists the queue,
 `/attach clear` empties it. Images, audio, and video send as content
 parts on providers that accept them.
 
-Esc cancels a running turn in the active tab. `/pause` stops after the
-current step, `/continue` resumes with an optional note, `/stop` aborts.
+Esc cancels a running turn in the active tab. While a turn is busy, Enter
+injects the input as a mid-turn steer and Tab queues a follow-up for when
+the turn ends. `/pause` stops after the current step, `/continue` resumes
+with an optional note, `/stop` aborts.
 
 ## Collapsed blocks
 

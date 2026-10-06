@@ -83,6 +83,7 @@ chat_job :: proc(data: rawptr) {
 	cfg.user = args.session
 	cfg.session_id = args.session.name
 	cfg.stop_check = session_stop_check
+	cfg.poll_steer = session_poll_steer
 	cfg.prepare_context = session_prepare_cb
 	agent.hunt_log_sampling(cfg.hunt)
 
