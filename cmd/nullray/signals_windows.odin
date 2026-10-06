@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: LicenseRef-QSL-1.0-0BSD
-//go:build windows
+#+build windows
 
 package main
 
