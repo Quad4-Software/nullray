@@ -15,6 +15,7 @@ Agent_Mode :: enum {
 	Plan,
 	Review,
 	Edit,
+	Orchestrate,
 }
 
 /*
@@ -56,6 +57,8 @@ mode_from_string :: proc(s: string) -> (Agent_Mode, bool) {
 		return .Review, true
 	case "edit":
 		return .Edit, true
+	case "orchestrate", "orchestrator", "orch":
+		return .Orchestrate, true
 	}
 	return .Edit, false
 }
@@ -70,6 +73,8 @@ mode_string :: proc(m: Agent_Mode) -> string {
 		return "review"
 	case .Edit:
 		return "edit"
+	case .Orchestrate:
+		return "orchestrate"
 	}
 	return "edit"
 }
@@ -129,7 +134,7 @@ policy_from_env :: proc() -> Mode_Policy {
 
 tools_for_mode :: proc(mode: Agent_Mode) -> (allow_write: bool, allow_shell: bool, allow_read: bool) {
 	switch mode {
-	case .Ask, .Plan, .Review:
+	case .Ask, .Plan, .Review, .Orchestrate:
 		return false, false, true
 	case .Edit:
 		return true, true, true
@@ -137,7 +142,9 @@ tools_for_mode :: proc(mode: Agent_Mode) -> (allow_write: bool, allow_shell: boo
 	return true, true, true
 }
 
-mode_prompt_section :: proc(mode: Agent_Mode, policy: Mode_Policy, allocator := context.allocator) -> string {
+// lean is the request's resolved prompt tier (!= Full): the caller resolves
+// it model-aware so this section agrees with the tools JSON tier.
+mode_prompt_section :: proc(mode: Agent_Mode, policy: Mode_Policy, lean: bool, allocator := context.allocator) -> string {
 	b: strings.Builder
 	strings.builder_init(&b, allocator)
 	mode_name := mode_string(mode)
@@ -204,7 +211,7 @@ mode_prompt_section :: proc(mode: Agent_Mode, policy: Mode_Policy, allocator := 
 			&b,
 			"For security or vuln hunts, start with audit_owasp, audit_deps, audit_dockerfile, audit_compose, and audit_actions when those tools apply. Treat hits as leads and verify in context.\n",
 		)
-		if !prompt_lean_enabled() {
+		if !lean {
 			strings.write_string(
 				&b,
 				"Use load_skill bug-hunting for oracle, exploratory, and adversarial method detail.\n",
@@ -222,7 +229,7 @@ mode_prompt_section :: proc(mode: Agent_Mode, policy: Mode_Policy, allocator := 
 			&b,
 			"Do not call write/edit/shell tools.\n",
 		)
-		hunt_block := hunt_prompt_block(hunt_from_env(), context.temp_allocator)
+		hunt_block := hunt_prompt_block_lean(hunt_from_env(), lean, context.temp_allocator)
 		if len(hunt_block) > 0 {
 			strings.write_string(&b, hunt_block)
 		}
@@ -247,10 +254,43 @@ mode_prompt_section :: proc(mode: Agent_Mode, policy: Mode_Policy, allocator := 
 			&b,
 			"Do not place language module caches inside the workspace. Use absolute GOMODCACHE/GOCACHE under home. Fix compile errors instead of abandoning a half-broken tree.\n",
 		)
+	case .Orchestrate:
+		strings.write_string(
+			&b,
+			"Orchestrate mode: you coordinate subagents. Do not edit files or run shell yourself.\n",
+		)
+		strings.write_string(
+			&b,
+			"Decompose the request into discrete tasks. For each task call the task tool with a clear prompt, a subagent_type (explore|locate|architect|review|edit), and a model when a specific one fits better.\n",
+		)
+		strings.write_string(
+			&b,
+			"Model routing: call models_list once to see the approved models, aliases, and per-role defaults. Pass the model field on task to override, e.g. a fast model for explore and a strong model for edit. Leave model empty to use role defaults. The provider field routes a task to a different provider entirely (e.g. provider=ollama for local explore, provider=openrouter for cloud edit).\n",
+		)
+		strings.write_string(
+			&b,
+			"Set background and a shared group name to fan out independent tasks in parallel, then agents_wait on the group. Dependent tasks run serially in the foreground.\n",
+		)
+		strings.write_string(
+			&b,
+			"Effort scales with task breadth. Trivial tasks need zero subagents and a simple question must never spawn a swarm. Prefer serial dependent tasks over parallel fan-out, and never parallelize coupled writes (parallel edit children must own disjoint paths). Join the group and verify before reporting; spend subagent tokens only when breadth justifies it.\n",
+		)
+		strings.write_string(
+			&b,
+			"Track progress with agents_status and agents_peek. Share findings through knowledge_put and the board tools.\n",
+		)
+		strings.write_string(
+			&b,
+			"Before reporting completion on worktree-isolated work, run agents_verify on the group so changes can be applied safely.\n",
+		)
+		strings.write_string(
+			&b,
+			"When requirements are ambiguous, prefer ask_question over guessing. Finish with a short synthesis of what each agent did and the outcome.\n",
+		)
 	}
 	if policy == .Auto || policy == .Model {
 		strings.write_string(&b, "\nWhen a different mode fits better, emit a single line on its own:\n")
-		strings.write_string(&b, "MODE ask\nMODE plan\nMODE review\nMODE edit\n")
+		strings.write_string(&b, "MODE ask\nMODE plan\nMODE review\nMODE edit\nMODE orchestrate\n")
 		if policy == .Auto {
 			strings.write_string(&b, "The runtime may also switch modes based on user input heuristics.\n")
 		}
@@ -282,92 +322,6 @@ detect_mode_request :: proc(text: string, allocator := context.allocator) -> (Ag
 		strings.write_string(&out, line)
 	}
 	return found_mode, found, strings.to_string(out)
-}
-
-@(private)
-ASK_KEYWORDS :: []string{
-	"explain",
-	"what is",
-	"what's",
-	"how does",
-	"how do",
-	"why does",
-	"why is",
-	"describe",
-}
-
-@(private)
-PLAN_KEYWORDS :: []string{
-	"plan",
-	"design",
-	"approach",
-	"architect",
-	"strategy",
-	"roadmap",
-	"scaffold",
-	"bootstrap",
-	"greenfield",
-	"new project",
-	"new repo",
-}
-
-@(private)
-REVIEW_KEYWORDS :: []string{
-	"review",
-	"pr review",
-	"look over",
-	"code review",
-	"audit",
-	"hunt",
-	"vuln",
-	"vulnerab",
-	"security bug",
-	"cve",
-	"pentest",
-	"adversarial",
-	"oracle",
-}
-
-@(private)
-EDIT_KEYWORDS :: []string{
-	"fix",
-	"implement",
-	"edit",
-	"create",
-	"write",
-	"add",
-	"remove",
-	"delete",
-	"update",
-	"change",
-	"refactor",
-	"build",
-	"make",
-}
-
-auto_suggest_mode :: proc(user_text: string) -> Agent_Mode {
-	lower := strings.to_lower(user_text, context.temp_allocator)
-	for kw in REVIEW_KEYWORDS {
-		if strings.contains(lower, kw) {
-			return .Review
-		}
-	}
-	for kw in ASK_KEYWORDS {
-		if strings.contains(lower, kw) {
-			return .Ask
-		}
-	}
-	for kw in PLAN_KEYWORDS {
-		if strings.contains(lower, kw) {
-			return .Plan
-		}
-	}
-	for kw in EDIT_KEYWORDS {
-		if strings.contains(lower, kw) {
-			return .Edit
-		}
-	}
-	return .Edit
 }
 
 review_enabled_from_env :: proc() -> bool {

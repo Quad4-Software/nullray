@@ -14,6 +14,14 @@ Tool_Kind :: enum {
 
 Tool_Proc :: #type proc(args_json: string, allocator := context.allocator) -> (result: string, err: string)
 
+// Variant that also receives the tool name and a per-tool binding (script tools).
+Named_Tool_Proc :: #type proc(
+	user: rawptr,
+	name: string,
+	args_json: string,
+	allocator := context.allocator,
+) -> (result: string, err: string)
+
 External_Run_Proc :: #type proc(
 	user: rawptr,
 	name: string,
@@ -28,12 +36,16 @@ Tool :: struct {
 	kind:        Tool_Kind,
 	gate:        int,
 	run:         Tool_Proc,
+	run_named:   Named_Tool_Proc,
+	user:        rawptr,
 }
 
 Registry :: struct {
 	tools:          [dynamic]Tool,
 	external_run:   External_Run_Proc,
 	external_user:  rawptr,
+	// Owned Script_Tool bindings for tools registered from script dirs.
+	script_tools:   [dynamic]^Script_Tool,
 }
 
 g_registry: Registry
@@ -45,7 +57,14 @@ registry :: proc() -> ^Registry {
 registry_init :: proc(r: ^Registry) {
 	r^ = {}
 	r.tools = make([dynamic]Tool)
+	r.script_tools = make([dynamic]^Script_Tool)
 	registry_register_builtins(r)
+	register_todo_tools(r)
+	register_schedule_tools(r)
+	register_checkpoint_tools(r)
+	// Script tools come after builtins so a same-name script can only warn,
+	// never silently shadow a builtin (see scripthooks.odin).
+	register_script_tools(r)
 }
 registry_destroy :: proc(r: ^Registry) {
 	if r == nil {
@@ -53,6 +72,7 @@ registry_destroy :: proc(r: ^Registry) {
 	}
 	snapshots_destroy()
 	deferred_clear()
+	script_tools_destroy(r)
 	delete(r.tools)
 	r^ = {}
 }

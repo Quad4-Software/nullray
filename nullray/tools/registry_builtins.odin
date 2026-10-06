@@ -377,6 +377,8 @@ registry_register_builtins :: proc(r: ^Registry) {
 		kind = .Read,
 		run = tool_vcs_pr_watch,
 	})
+	register_ask_tools(r)
+	register_harness_tools(r)
 	registry_register(r, Tool{
 		name = "fetch_url",
 		description = "Fetch a public http(s) URL as text (HTML to plain when useful, size-capped, no browser)",

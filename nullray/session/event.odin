@@ -28,6 +28,7 @@ Event_Kind :: enum {
 	Usage,
 	Turn_Commit,
 	Writeback,
+	Wakeup,
 }
 
 Event :: struct {
@@ -83,9 +84,21 @@ session_poll :: proc(s: ^Session) -> (changed: bool) {
 	s.pending = make([dynamic]Event)
 	sync.mutex_unlock(&s.pending_mu)
 
+	deferred := make([dynamic]Event, 0, 4, context.temp_allocator)
 	for ev in batch {
+		if ev.kind == .Wakeup && s.busy {
+			// Keep queued; re-appended after the batch drains.
+			append(&deferred, ev)
+			continue
+		}
 		switch ev.kind {
 		case .None:
+		case .Wakeup:
+			if len(ev.text) > 0 {
+				session_push_user(s, ev.text)
+			}
+			wakeup_record(s, ev.name)
+			changed = true
 		case .Status:
 			session_set_status(s, ev.text)
 			if strings.has_prefix(ev.text, "verify ok") ||
@@ -256,6 +269,13 @@ session_poll :: proc(s: ^Session) -> (changed: bool) {
 		delete(ev.reasoning)
 		delete(ev.stopped)
 		delete(ev.agent_id)
+	}
+	if len(deferred) > 0 {
+		sync.mutex_lock(&s.pending_mu)
+		for dev in deferred {
+			append(&s.pending, dev)
+		}
+		sync.mutex_unlock(&s.pending_mu)
 	}
 	delete(batch)
 	return changed

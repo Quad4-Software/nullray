@@ -48,6 +48,8 @@ slash_cmd_models :: proc(a: ^App, args: string) {
 	job.prov.base_url = strings.clone(p.base_url)
 	job.prov.api_key = strings.clone(p.api_key)
 	job.prov.default_model = strings.clone(p.default_model)
+	job.prov.caps.probed_model = strings.clone(p.caps.probed_model)
+	job.prov.caps.parameter_size = strings.clone(p.caps.parameter_size)
 	job.current = strings.clone(p.default_model)
 	a.models_busy = true
 	a.models_sess = a.session

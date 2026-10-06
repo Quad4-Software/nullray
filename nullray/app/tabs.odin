@@ -153,6 +153,17 @@ app_tab_close :: proc(a: ^App, i: int) {
 			return
 		}
 	}
+	// Rebind the scheduled-wakeup delivery target before freeing: the
+	// schedule watcher thread reads g_sched_sess through the sink procs and
+	// would otherwise dereference a dead session pointer until the next tick.
+	replacement: ^session.Session
+	for other, j in a.tabs {
+		if j != i {
+			replacement = other.sess
+			break
+		}
+	}
+	app_sched_unbind(t.sess, replacement)
 	session.session_shutdown(t.sess)
 	if session.session_destroy(t.sess) {
 		free(t.sess)

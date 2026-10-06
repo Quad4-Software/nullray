@@ -111,7 +111,11 @@ slash_cmd_providers :: proc(a: ^App, args: string) {
 			mark = "*"
 		}
 		ready := provider.provider_readiness_label(&p)
-		fmt.sbprintf(&b, "%s %-16s %-18s %s\n", mark, p.id, p.name, ready)
+		smoke := ""
+		if r, ok := provider.smoke_result(p.id, p.default_model); ok {
+			smoke = fmt.tprintf(" tools:%s", provider.smoke_label(r))
+		}
+		fmt.sbprintf(&b, "%s %-16s %-18s %s%s\n", mark, p.id, p.name, ready, smoke)
 	}
 	strings.write_string(&b, "use /provider ID · /setup for keys")
 	out := strings.to_string(b)

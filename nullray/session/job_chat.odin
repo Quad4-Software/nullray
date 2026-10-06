@@ -16,13 +16,16 @@ agent_event_cb :: proc(ev: agent.Event, user: rawptr) {
 	s := cast(^Session)user
 	switch ev.kind {
 	case .Delta:
+		session_stream_delta(s, ev.text)
 		session_enqueue(s, Event{kind = .Assistant_Delta, text = strings.clone(ev.text)})
 	case .Reasoning_Delta:
 		session_enqueue(s, Event{kind = .Reasoning_Delta, text = strings.clone(ev.text)})
 	case .Tool_Start:
 		line := tools.tool_activity_line(ev.name, ev.text)
+		session_trace_start(s, ev.name, line)
 		session_enqueue(s, Event{kind = .Tool_Call, text = line, name = strings.clone(ev.name)})
 	case .Tool_Done:
+		session_trace_done(s, ev.name, ev.text)
 		done := fmt.aprintf("%s done", ev.name)
 		session_enqueue(s, Event{kind = .Status, text = done, name = strings.clone(ev.name)})
 	case .Tool_Message:

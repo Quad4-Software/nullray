@@ -198,6 +198,7 @@ app_draw :: proc(buf: ^ui.Buffer, user: rawptr) {
 	app_apply_selection_style(buf, a)
 	app_draw_toasts(buf, a)
 	app_draw_elevate_modal(buf, a)
+	app_draw_ask_modal(buf, a)
 
 	a.dirty = false
 }

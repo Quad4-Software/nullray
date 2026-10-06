@@ -77,6 +77,31 @@ lid_enabled :: proc() -> bool {
 // and Tiny when the active provider is local (small local models drown in a
 // full tool catalog). Override explicitly when running a large local model.
 prompt_tier_for :: proc(provider_id := "") -> tools.Prompt_Tier {
+	return prompt_tier_for_model(provider_id, "")
+}
+
+// Same resolution as prompt_tier_for, plus the per-model profile table: when
+// a matching model_profiles.json entry sets prompt_tier it wins over the env
+// and provider heuristics. Model "" skips the profile lookup entirely.
+prompt_tier_for_model :: proc(provider_id := "", model := "") -> tools.Prompt_Tier {
+	if len(model) > 0 {
+		if prof, ok := provider.profile_for(model); ok {
+			switch prof.prompt_tier {
+			case .Tiny:
+				return .Tiny
+			case .Lean:
+				return .Lean
+			case .Full:
+				return .Full
+			case .Unset:
+			}
+		}
+	}
+	return prompt_tier_for_heuristic(provider_id)
+}
+
+@(private)
+prompt_tier_for_heuristic :: proc(provider_id := "") -> tools.Prompt_Tier {
 	if v, ok := os.lookup_env(constants.ENV_PROMPT, context.temp_allocator); ok {
 		switch strings.to_lower(strings.trim_space(v), context.temp_allocator) {
 		case "tiny":

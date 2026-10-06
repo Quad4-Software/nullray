@@ -6,6 +6,7 @@ Input orchestration, slash helpers, and submit.
 package app
 
 import "core:strings"
+import "nullray:hooks"
 import "nullray:provider"
 import "nullray:session"
 import "nullray:tools"
@@ -109,6 +110,10 @@ app_on_event :: proc(ev: ui.Event, user: rawptr) -> bool {
 		return app_elevate_on_event(a, ev)
 	}
 
+	if a.ask_active {
+		return app_ask_on_event(a, ev)
+	}
+
 	if quit, handled := app_handle_help_status_event(a, ev); handled {
 		return quit
 	}
@@ -209,6 +214,20 @@ app_submit :: proc(a: ^App) {
 		app_mark_dirty(a)
 		return
 	}
+
+	// UserPromptSubmit hook: exit 2 blocks the prompt before it enters a turn.
+	prompt_hook := hooks.run(.UserPromptSubmit, "", text, context.temp_allocator)
+	if prompt_hook.blocked {
+		msg := prompt_hook.message
+		if len(msg) == 0 {
+			msg = "prompt blocked by UserPromptSubmit hook"
+		}
+		session.session_set_status(a.session, msg)
+		hooks.result_destroy(&prompt_hook, context.temp_allocator)
+		app_mark_dirty(a)
+		return
+	}
+	hooks.result_destroy(&prompt_hook, context.temp_allocator)
 
 	app_history_push(a, text)
 	app_reveal_reset(a)

@@ -42,6 +42,8 @@ app_improve_prompt :: proc(a: ^App) {
 	job.prov.base_url = strings.clone(p.base_url)
 	job.prov.api_key = strings.clone(p.api_key)
 	job.prov.default_model = strings.clone(p.default_model)
+	job.prov.caps.probed_model = strings.clone(p.caps.probed_model)
+	job.prov.caps.parameter_size = strings.clone(p.caps.parameter_size)
 	th := thread.create_and_start_with_data(job, improve_job)
 	if th == nil {
 		delete(job.draft)

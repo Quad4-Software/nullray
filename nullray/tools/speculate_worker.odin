@@ -109,11 +109,18 @@ speculate_worker :: proc(data: rawptr) {
 	pre := hooks.run(.PreToolUse, name, args, alloc)
 	if pre.blocked {
 		tool_err = pre.message
+		pre.message = ""
 		blocked_pre = true
 	} else {
-		delete(pre.message)
-		tool_result, tool_err = run(pool.reg, name, args, pool.mode, alloc, pool.tool_allow)
+		exec_args := args
+		// PreToolUse rewrite swaps the executed args wholesale; the hit then
+		// carries the rewritten result, same as the serial path.
+		if len(pre.rewrite_args) > 0 {
+			exec_args = pre.rewrite_args
+		}
+		tool_result, tool_err = run(pool.reg, name, exec_args, pool.mode, alloc, pool.tool_allow)
 	}
+	hooks.result_destroy(&pre, alloc)
 	elapsed := time.duration_milliseconds(time.tick_since(start))
 
 	sync.mutex_lock(&entry.mu)

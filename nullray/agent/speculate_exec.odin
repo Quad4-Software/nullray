@@ -51,7 +51,7 @@ tool_exec_maybe_speculate :: proc(
 	harness: ^Harness_Metrics,
 	allocator := context.allocator,
 	allow: []string = nil,
-) -> (tool_result: string, tool_err: string, do_post: bool) {
+) -> (tool_result: string, tool_err: string, do_post: bool, rewrote: bool) {
 	effective_allow := allow
 	if pool != nil && len(pool.tool_allow) > 0 {
 		effective_allow = pool.tool_allow
@@ -71,7 +71,7 @@ tool_exec_maybe_speculate :: proc(
 				delete(recall, allocator)
 				take.result = merged
 			}
-			return take.result, take.err, !take.blocked_pre
+			return take.result, take.err, !take.blocked_pre, false
 		}
 		if harness != nil && tools.speculate_hash_miss(pool, kid, c.name, c.arguments) {
 			harness.speculate_miss += 1
@@ -81,14 +81,24 @@ tool_exec_maybe_speculate :: proc(
 
 	pre := hooks.run(.PreToolUse, c.name, c.arguments, allocator)
 	if !pre.blocked && c.name == "vcs_commit" {
-		delete(pre.message)
+		hooks.result_destroy(&pre, allocator)
 		pre = hooks.run(.PreCommit, c.name, c.arguments, allocator)
 	}
 	if pre.blocked {
-		return "", pre.message, false
+		msg := pre.message
+		pre.message = ""
+		hooks.result_destroy(&pre, allocator)
+		return "", msg, false, false
 	}
-	delete(pre.message)
-	tool_result, tool_err = tools.run(reg, c.name, c.arguments, mode_s, allocator, effective_allow)
+	// A PreToolUse hook may rewrite the call args wholesale via a
+	// {"rewrite":{...}} or {"decision":"rewrite","args":{...}} stdout line.
+	exec_args := c.arguments
+	if len(pre.rewrite_args) > 0 {
+		exec_args = pre.rewrite_args
+		rewrote = true
+	}
+	tool_result, tool_err = tools.run(reg, c.name, exec_args, mode_s, allocator, effective_allow)
+	hooks.result_destroy(&pre, allocator)
 	// Scoped memory lands right after the action that triggered it. The
 	// lesson rides the tool result into context for the rest of the turn.
 	if recall := memory.recall_for_tool(c.name, c.arguments, allocator); len(recall) > 0 {
@@ -97,7 +107,7 @@ tool_exec_maybe_speculate :: proc(
 		delete(recall, allocator)
 		tool_result = merged
 	}
-	return tool_result, tool_err, true
+	return tool_result, tool_err, true, rewrote
 }
 
 tool_seal_bridge :: proc(idx: int, id, name, args: string, user: rawptr) {

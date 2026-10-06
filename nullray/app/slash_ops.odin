@@ -211,6 +211,21 @@ slash_cmd_stop :: proc(a: ^App, args: string) {
 
 slash_cmd_continue :: proc(a: ^App, args: string) {
 	extra := strings.trim_space(args)
+	// /continue text is a user prompt entering a turn; honor the same hook.
+	if len(extra) > 0 {
+		prompt_hook := hooks.run(.UserPromptSubmit, "", extra, context.temp_allocator)
+		if prompt_hook.blocked {
+			msg := prompt_hook.message
+			if len(msg) == 0 {
+				msg = "continue blocked by UserPromptSubmit hook"
+			}
+			session.session_set_status(a.session, msg)
+			hooks.result_destroy(&prompt_hook, context.temp_allocator)
+			app_mark_dirty(a)
+			return
+		}
+		hooks.result_destroy(&prompt_hook, context.temp_allocator)
+	}
 	p := provider.registry_active(&a.registry)
 	session.session_resume(a.session, p, extra)
 	app_mark_dirty(a)
@@ -311,6 +326,13 @@ slash_cmd_allow :: proc(a: ^App, args: string) {
 
 slash_cmd_deny :: proc(a: ^App, args: string) {
 	_ = args
+	// Grab the pending command before clearing it so the PermissionDenied
+	// notification hook can see what was refused.
+	pending := tools.shell_pending(context.temp_allocator)
 	tools.shell_deny_pending()
+	if len(pending) > 0 {
+		dres := hooks.run(.PermissionDenied, "shell", pending, context.temp_allocator)
+		hooks.result_destroy(&dres, context.temp_allocator)
+	}
 	session.session_set_status(a.session, "pending shell denied")
 }

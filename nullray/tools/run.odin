@@ -30,10 +30,12 @@ SUBAGENT_TOOL_NAMES :: []string{
 	"knowledge_get",
 	"knowledge_put",
 	"knowledge_list",
+	"models_list",
 	"model_use",
 	"board_list",
 	"board_add",
 	"board_claim",
+	"board_done",
 	"send_message",
 	"read_messages",
 }
@@ -59,7 +61,10 @@ lean_core_tool :: proc(name: string) -> bool {
 		"list_scaffolds", "scaffold", "audit_structure",
 		"vcs_status", "vcs_diff", "vcs_log", "vcs_commit", "vcs_branch", "vcs_merge",
 		"vcs_rebase", "vcs_push", "vcs_pull", "vcs_fetch",
-		"vcs_pr_create", "vcs_pr_view", "vcs_pr_checks", "vcs_pr_watch":
+		"vcs_pr_create", "vcs_pr_view", "vcs_pr_checks", "vcs_pr_watch",
+		"todo_write", "todo_update", "todo_add", "todo_list",
+		"schedule_prompt", "schedule_list", "schedule_cancel",
+		"harness_list", "harness_run":
 		return true
 	}
 	return false
@@ -97,7 +102,8 @@ lean_subagent_tool :: proc(name: string) -> bool {
 	switch name {
 	case "task", "agents_status", "agents_peek", "agents_progress",
 		"agents_wait", "agents_verify",
-		"knowledge_get", "knowledge_put", "knowledge_list":
+		"knowledge_get", "knowledge_put", "knowledge_list", "models_list",
+		"todo_list":
 		return true
 	}
 	return false
@@ -139,11 +145,9 @@ schema_strip_descriptions :: proc(schema: string, allocator := context.allocator
 		return strings.clone(schema, allocator)
 	}
 	stripped := schema_strip_descriptions_clone(doc, context.temp_allocator)
-	out, uerr := json.unparse(stripped, allocator = allocator)
-	if uerr != nil {
-		return strings.clone(schema, allocator)
-	}
-	return out
+	b := strings.builder_make(allocator)
+	json_emit_sorted(stripped, &b)
+	return strings.to_string(b)
 }
 
 schema_strip_descriptions_clone :: proc(v: json.Value, allocator := context.allocator) -> json.Value {
@@ -273,6 +277,9 @@ run :: proc(
 		}
 		return "", fmt.aprintf("unknown tool: %s", name, allocator = allocator)
 	}
+	if t.run_named != nil {
+		return t.run_named(t.user, resolved, args_json, allocator)
+	}
 	if t.run == nil {
 		return "", fmt.aprintf("tool not runnable: %s", name, allocator = allocator)
 	}
@@ -314,13 +321,17 @@ describe_for_prompt :: proc(
 	return strings.to_string(b)
 }
 
+// provider_id gates schema hygiene: llamacpp and ollama (or
+// NULLRAY_SCHEMA_CLEAN=1) get constraint keywords stripped per schema.
 openai_tools_json :: proc(
 	r: ^Registry,
 	mode: string,
 	tier := Prompt_Tier.Full,
 	allocator := context.allocator,
 	allow: []string = nil,
+	provider_id := "",
 ) -> string {
+	clean := schema_clean_enabled(provider_id)
 	b: strings.Builder
 	strings.builder_init(&b, allocator)
 	strings.write_string(&b, "[")
@@ -336,7 +347,9 @@ openai_tools_json :: proc(
 					continue
 				}
 			} else if tier == .Lean {
-				core := lean_core_tool(t.name)
+				// run_named marks a registered user script tool; scripts are
+				// trusted at registration so they stay visible in lean too.
+				core := lean_core_tool(t.name) || t.run_named != nil
 				sub := sub_on && lean_subagent_tool(t.name)
 				hunt := lean_hunt_tools_enabled() && lean_hunt_tool(t.name)
 				deferred := deferred_active(t.name)
@@ -357,8 +370,11 @@ openai_tools_json :: proc(
 			}
 			esc := json_escape_string(desc, context.temp_allocator)
 			schema := t.schema_json
+			if clean {
+				schema = schema_sanitize(schema, context.temp_allocator)
+			}
 			if tier != .Full {
-				schema = schema_strip_descriptions(t.schema_json, context.temp_allocator)
+				schema = schema_strip_descriptions(schema, context.temp_allocator)
 			}
 			strings.write_string(&b, `{"type":"function","function":{"name":"`)
 			strings.write_string(&b, t.name)

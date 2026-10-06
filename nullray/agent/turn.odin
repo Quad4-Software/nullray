@@ -20,15 +20,17 @@ run_turn :: proc(req: Run_Request, cfg: Config, allocator := context.allocator) 
 	if start_hook.blocked {
 		return Run_Result{ok = false, err = start_hook.message}
 	}
-	delete(start_hook.message)
+	hooks.result_destroy(&start_hook, allocator)
 	defer {
 		end_hook := hooks.run(.SessionEnd, allocator = context.temp_allocator)
-		delete(end_hook.message)
+		hooks.result_destroy(&end_hook, context.temp_allocator)
 		stop_hook := hooks.run(.Stop, allocator = context.temp_allocator)
-		delete(stop_hook.message)
+		hooks.result_destroy(&stop_hook, context.temp_allocator)
 	}
 
 	msgs := clone_messages(req.messages, allocator)
+	todo_turn := turn_todo_begin(cfg, &msgs, allocator)
+	defer turn_todo_end(todo_turn)
 	tools_on := req.tools_enabled && cfg.enable_tools
 	tools_json := ""
 	mode_s := mode_string(cfg.mode)
@@ -37,9 +39,15 @@ run_turn :: proc(req: Run_Request, cfg: Config, allocator := context.allocator) 
 		reg = tools.registry()
 	}
 	harness: Harness_Metrics
+	model := req.model
+	if len(model) == 0 {
+		model = req.prov.default_model
+	}
 	if tools_on {
 		// Own across every chat step. Stream callbacks must not free this.
-		tools_json = tools.openai_tools_json(reg, mode_s, prompt_tier_for(req.prov.id), allocator, cfg.tool_allow)
+		// prompt_tier_for_model consults model_profiles.json first, so the
+		// model must be resolved before the tools JSON is built.
+		tools_json = tools.openai_tools_json(reg, mode_s, prompt_tier_for_model(req.prov.id, model), allocator, cfg.tool_allow, req.prov.id)
 		harness.tools_json_chars = len(tools_json)
 	}
 	defer if len(tools_json) > 0 {
@@ -53,18 +61,18 @@ run_turn :: proc(req: Run_Request, cfg: Config, allocator := context.allocator) 
 			max_steps = constants.MAX_AGENT_STEPS
 		}
 	}
-	model := req.model
-	if len(model) == 0 {
-		model = req.prov.default_model
-	}
+	// NULLRAY_TOOLSHIM is read fresh each turn so /env or spawn changes apply.
+	shim_model, shim_on := toolshim_model(model)
+	shim_attempts := 0
 	last_content := ""
 	usage_sum: provider.Usage
 	cost_all_known := true
 	saw_cost := false
-	prev_tool_fp := ""
-	tool_fp_streak := 0
-	intervened_tool_fp := ""
+	loop_hist: Loop_History
+	loop_marks: Loop_Marks
 	loop_intervene := false
+	step_sig := u64(0)
+	malformed_left := tool_retry_budget()
 	prev_asst := ""
 	asst_streak := 0
 	verify_fails := cfg.verify_fail_count
@@ -139,6 +147,24 @@ run_turn :: proc(req: Run_Request, cfg: Config, allocator := context.allocator) 
 		if tools_on && len(calls) == 0 {
 			calls = parse_tool_calls_text(res.content, allocator)
 			text_calls = true
+			// Toolshim: text still looks like an attempted tool call but
+			// salvage found nothing. One side chat converts it.
+			if len(calls) == 0 && !finalize_nudged && shim_on &&
+			   shim_attempts < TOOLSHIM_MAX_PER_TURN &&
+			   shim_text_looks_toolish(res.content, reg) {
+				shim_attempts += 1
+				shim_calls, shim_ok := turn_toolshim_attempt(
+					req.prov, shim_model, res.content, reg, mode_s,
+					cfg_local.tool_allow, shim_attempts, &usage_sum, &saw_cost,
+					&cost_all_known, allocator,
+				)
+				if shim_ok {
+					calls = shim_calls
+					emit(cfg, .Status, "toolshim: converted text to tool call")
+				} else {
+					emit(cfg, .Status, "toolshim: conversion failed")
+				}
+			}
 		}
 
 		if len(calls) == 0 && len(res.content) > 0 {
@@ -165,37 +191,16 @@ run_turn :: proc(req: Run_Request, cfg: Config, allocator := context.allocator) 
 		}
 
 		if len(calls) > 0 {
-			fp := tool_fingerprint(calls)
-			if fp == prev_tool_fp {
-				tool_fp_streak += 1
-			} else {
-				tool_fp_streak = 1
-				prev_tool_fp = strings.clone(fp, context.temp_allocator)
+			step_sig = loop_sig_of_calls(calls)
+			stop, intervene, loop_res := turn_loop_gate(
+				&msgs, &loop_hist, &loop_marks, calls, step_sig,
+				&res, text_calls, cfg, usage_sum, harness, allocator,
+			)
+			if stop {
+				harness_log_metrics(harness)
+				return loop_res
 			}
-			if tool_fp_streak >= constants.MAX_IDENTICAL_TOOL_LOOPS {
-				if len(intervened_tool_fp) > 0 && fp == intervened_tool_fp {
-					delete(res.model)
-					delete(res.err)
-					delete(res.finish_reason)
-					if text_calls {
-						provider.destroy_tool_calls_owned(calls)
-					} else {
-						provider.destroy_tool_calls_owned(res.tool_calls)
-					}
-					msg := strings.clone(
-						"Stopped: repeated the same tool calls after a loop warning. Adjust the approach or /continue with new instructions.",
-						allocator,
-					)
-					emit(cfg, .Status, "anti-loop: repeated tools after intervene")
-					append(&msgs, provider.Message{role = .Assistant, content = msg})
-					harness_log_metrics(harness)
-					return Run_Result{ok = true, messages = msgs, content = msg, stopped = owned_stop("loop", allocator), usage = usage_sum, harness = harness}
-				}
-				intervened_tool_fp = strings.clone(fp, context.temp_allocator)
-				tool_fp_streak = 0
-				loop_intervene = true
-				emit(cfg, .Status, "anti-loop: intervene")
-			}
+			loop_intervene = intervene
 		}
 
 		asst := provider.Message{
@@ -272,16 +277,24 @@ run_turn :: proc(req: Run_Request, cfg: Config, allocator := context.allocator) 
 			}
 		}
 
-		elevate_stop, step_writes := turn_exec_tool_calls(
+		elevate_stop, step_writes, step_rh := turn_exec_tool_calls(
 			&msgs,
 			cfg_local,
 			reg,
 			mode_s,
 			calls,
 			loop_intervene,
+			loop_call_names(calls),
+			&malformed_left,
 			&harness,
 			allocator,
 		)
+		// Record sig + result head so the next step can tell a real repeat
+		// (same call, same output) from a poller (same call, fresh output).
+		loop_history_push(&loop_hist, Loop_Entry{sig = step_sig, result_head = step_rh})
+		// Fold the batch's pre-write snapshots into one labeled checkpoint.
+		// No-op when nothing was recorded (read-only steps, auto off).
+		tools.checkpoint_commit_step(step + 1)
 		if step_writes {
 			had_writes = true
 		}

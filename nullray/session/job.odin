@@ -131,8 +131,10 @@ session_start_chat :: proc(s: ^Session, p: ^provider.Provider) {
 	s.busy = true
 	s.busy_since = time.tick_now()
 
-	session_rebuild_system_prompt(s)
+	// Remember first so the rebuild below sees this turn's provider/model:
+	// the prompt tier is model-aware and must match the tools JSON tier.
 	session_remember_model(s, p.id, p.default_model)
+	session_rebuild_system_prompt(s)
 
 	sys_count := 0
 	if len(s.system_prompt) > 0 {
@@ -163,7 +165,7 @@ session_start_chat :: proc(s: ^Session, p: ^provider.Provider) {
 	delete(projected)
 	// Progressive skills: inject matched bodies into the volatile tail (not system prefix).
 	// Lean prompt skips auto skill body injection (load_skill on demand).
-	if !agent.prompt_lean_enabled() {
+	if agent.prompt_tier_for_model(p.id, s.model) == .Full {
 		last_user := ""
 		for i := len(s.messages) - 1; i >= 0; i -= 1 {
 			if s.messages[i].role == .User {
@@ -194,6 +196,8 @@ session_start_chat :: proc(s: ^Session, p: ^provider.Provider) {
 	args.prov.base_url = strings.clone(p.base_url)
 	args.prov.api_key = strings.clone(p.api_key)
 	args.prov.default_model = strings.clone(p.default_model)
+	args.prov.caps.probed_model = strings.clone(p.caps.probed_model)
+	args.prov.caps.parameter_size = strings.clone(p.caps.parameter_size)
 	args.messages = msgs
 	args.tools_enabled = s.tools_enabled
 	args.reasoning_effort = strings.clone(s.reasoning_effort)

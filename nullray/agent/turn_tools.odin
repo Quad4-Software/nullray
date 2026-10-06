@@ -5,6 +5,7 @@ Per-step tool execution, speculate handoff, and elevate stop detection.
 
 package agent
 
+import "core:fmt"
 import "core:strings"
 import "nullray:elevate"
 import "nullray:hooks"
@@ -20,12 +21,16 @@ turn_exec_tool_calls :: proc(
 	mode_s: string,
 	calls: []provider.Tool_Call,
 	loop_intervene: bool,
+	loop_names: string,
+	malformed_left: ^int,
 	harness: ^Harness_Metrics,
 	allocator := context.allocator,
-) -> (elevate_stop: bool, had_writes: bool) {
+) -> (elevate_stop: bool, had_writes: bool, result_head: u64) {
 	if !loop_intervene && cfg_local.speculate_pool != nil && len(calls) > 0 {
 		speculate_submit_prefix(cfg_local.speculate_pool, calls, harness, allocator)
 	}
+	head_hash := u64(0xcbf29ce484222325)
+	head_left := LOOP_RESULT_HEAD_BYTES
 	for c, ci in calls {
 		if check_stop(cfg_local) == .Cancel {
 			tools.speculate_discard_all(cfg_local.speculate_pool)
@@ -34,13 +39,15 @@ turn_exec_tool_calls :: proc(
 		emit(cfg_local, .Tool_Start, c.arguments, c.name)
 		tool_result, tool_err := "", ""
 		if loop_intervene {
-			tool_err = strings.clone(
-				"Loop detected: identical tool calls repeated. Do NOT retry with the same arguments. Change strategy or use different tools.",
-				allocator,
+			tool_err = fmt.aprintf(
+				"Loop detected: repeated tool call pattern (%s). Do NOT retry the same calls. Change approach or wrap up the answer without them.",
+				loop_names,
+				allocator = allocator,
 			)
 		} else {
 			do_post: bool
-			tool_result, tool_err, do_post = tool_exec_maybe_speculate(
+			rewrote: bool
+			tool_result, tool_err, do_post, rewrote = tool_exec_maybe_speculate(
 				cfg_local.speculate_pool,
 				reg,
 				mode_s,
@@ -50,6 +57,9 @@ turn_exec_tool_calls :: proc(
 				allocator,
 				cfg_local.tool_allow,
 			)
+			if rewrote {
+				emit(cfg_local, .Status, fmt.tprintf("hook rewrote args for %s", c.name))
+			}
 			if do_post {
 				post_payload := tool_result
 				if len(tool_err) > 0 {
@@ -61,9 +71,20 @@ turn_exec_tool_calls :: proc(
 					delete(tool_err)
 					tool_result = ""
 					tool_err = post.message
-				} else {
-					delete(post.message)
+					post.message = ""
 				}
+				hooks.result_destroy(&post, allocator)
+			}
+			// Call-formation failures get a bounded retry nudge; after the
+			// per-turn budget the model is told to stop calling tools.
+			if kind := malformed_call_class(tool_err); kind != .None {
+				retry := malformed_left != nil && malformed_left^ > 0
+				if retry {
+					malformed_left^ -= 1
+				}
+				wrapped := malformed_result_text(kind, tool_err, retry, allocator)
+				delete(tool_err)
+				tool_err = wrapped
 			}
 		}
 		raw := tool_result
@@ -73,6 +94,7 @@ turn_exec_tool_calls :: proc(
 			is_err = true
 		}
 		result_text := sandbox.redact_secrets(raw, allocator)
+		head_hash = loop_result_head_update(head_hash, result_text, &head_left)
 		delete(tool_result)
 		delete(tool_err)
 		store.audit_log_append("tool", c.name, "", "")
@@ -100,7 +122,7 @@ turn_exec_tool_calls :: proc(
 		}
 		delete(result_text)
 	}
-	return elevate_stop, had_writes
+	return elevate_stop, had_writes, head_hash
 }
 
 turn_mid_prepare :: proc(

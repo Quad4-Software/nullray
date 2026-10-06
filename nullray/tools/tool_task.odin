@@ -28,6 +28,8 @@ tool_task :: proc(args_json: string, allocator := context.allocator) -> (result:
 	defer delete(stype)
 	model, _ := json_arg_string_optional(args_json, "model", "", allocator)
 	defer delete(model)
+	prov_id, _ := json_arg_string_optional(args_json, "provider", "", allocator)
+	defer delete(prov_id)
 	isol_s, _ := json_arg_string_optional(args_json, "isolation", "", allocator)
 	defer delete(isol_s)
 	group, _ := json_arg_string_optional(args_json, "group", "", allocator)
@@ -46,6 +48,7 @@ tool_task :: proc(args_json: string, allocator := context.allocator) -> (result:
 		prompt = strings.clone(len(prompt) > 0 ? prompt : desc),
 		subagent_type = strings.clone(stype),
 		model = strings.clone(model),
+		provider = strings.clone(prov_id),
 		background = bg,
 		resume_id = strings.clone(resume),
 		group_id = strings.clone(group),
@@ -218,13 +221,32 @@ tool_model_use :: proc(args_json: string, allocator := context.allocator) -> (re
 	return out, ""
 }
 
-tool_board_list :: proc(args_json: string, allocator := context.allocator) -> (result: string, err: string) {
+tool_models_list :: proc(args_json: string, allocator := context.allocator) -> (result: string, err: string) {
 	_ = args_json
 	rt := subagent.runtime()
 	if rt == nil {
 		return strings.clone("(no runtime)", allocator), ""
 	}
-	return subagent.board_list_text(&rt.board, allocator), ""
+	b: strings.Builder
+	strings.builder_init(&b, allocator)
+	if rt.provider != nil {
+		fmt.sbprintf(&b, "provider: %s (%s)\ndefault model: %s\n", rt.provider.name, rt.provider.id, rt.provider.default_model)
+	}
+	if len(rt.main_model) > 0 {
+		fmt.sbprintf(&b, "session model: %s\n", rt.main_model)
+	}
+	strings.write_string(&b, subagent.policy_list_text(context.temp_allocator))
+	return strings.to_string(b), ""
+}
+
+tool_board_list :: proc(args_json: string, allocator := context.allocator) -> (result: string, err: string) {
+	group, _ := json_arg_string_optional(args_json, "group", "", allocator)
+	defer delete(group)
+	rt := subagent.runtime()
+	if rt == nil {
+		return strings.clone("(no runtime)", allocator), ""
+	}
+	return subagent.board_list_text(&rt.board, group, allocator), ""
 }
 
 tool_board_add :: proc(args_json: string, allocator := context.allocator) -> (result: string, err: string) {
@@ -233,11 +255,23 @@ tool_board_add :: proc(args_json: string, allocator := context.allocator) -> (re
 		return "", perr
 	}
 	defer delete(title)
+	deps, derr := json_arg_strings_optional(args_json, "blocked_on", allocator)
+	if derr != "" {
+		return "", derr
+	}
+	defer {
+		for d in deps {
+			delete(d)
+		}
+		delete(deps)
+	}
+	group, _ := json_arg_string_optional(args_json, "group", "", allocator)
+	defer delete(group)
 	rt := subagent.runtime()
 	if rt == nil {
 		return "", strings.clone("no runtime", allocator)
 	}
-	id, berr := subagent.board_add(&rt.board, title, allocator)
+	id, berr := subagent.board_add(&rt.board, title, deps, group, allocator)
 	if berr != "" {
 		return "", berr
 	}
@@ -257,6 +291,25 @@ tool_board_claim :: proc(args_json: string, allocator := context.allocator) -> (
 	aid := subagent.runtime_current_agent(rt, context.temp_allocator)
 	if cerr := subagent.board_claim(&rt.board, id, aid, allocator); cerr != "" {
 		return "", cerr
+	}
+	return strings.clone("ok", allocator), ""
+}
+
+tool_board_done :: proc(args_json: string, allocator := context.allocator) -> (result: string, err: string) {
+	id, perr := json_arg_string(args_json, "id", allocator)
+	if perr != "" {
+		return "", perr
+	}
+	defer delete(id)
+	res, _ := json_arg_string_optional(args_json, "result", "", allocator)
+	defer delete(res)
+	rt := subagent.runtime()
+	if rt == nil {
+		return "", strings.clone("no runtime", allocator)
+	}
+	aid := subagent.runtime_current_agent(rt, context.temp_allocator)
+	if derr := subagent.board_done(&rt.board, id, aid, res, allocator); derr != "" {
+		return "", derr
 	}
 	return strings.clone("ok", allocator), ""
 }

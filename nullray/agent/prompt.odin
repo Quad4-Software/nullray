@@ -48,9 +48,12 @@ build_system_prompt :: proc(
 	tools_reg: ^tools.Registry = nil,
 	retrieve_query: string = "",
 	provider_id := "",
+	model := "",
 	allocator := context.allocator,
 ) -> string {
-	tier := prompt_tier_for(provider_id)
+	// Model-aware so the catalog tier here matches the tools JSON tier,
+	// which resolves through prompt_tier_for_model at request build time.
+	tier := prompt_tier_for_model(provider_id, model)
 	lean := tier == .Lean
 	tiny := tier == .Tiny
 	b: strings.Builder
@@ -74,7 +77,7 @@ build_system_prompt :: proc(
 	}
 	strings.write_string(&b, "\n\n")
 	mode := mode_from_env()
-	mode_sec := mode_prompt_section(mode, policy_from_env(), context.temp_allocator)
+	mode_sec := mode_prompt_section(mode, policy_from_env(), tier != .Full, context.temp_allocator)
 	strings.write_string(&b, mode_sec)
 	auto_sec := autonomy_prompt_section(context.temp_allocator)
 	if len(auto_sec) > 0 {
@@ -95,13 +98,13 @@ build_system_prompt :: proc(
 	if reg == nil {
 		reg = tools.registry()
 	}
-	mode_s := ""
-	if lean || tiny {
-		mode_s = mode_string(mode)
-	}
+	// Pass the real mode to the full catalog too so mode-gated tools match
+	// the tools JSON instead of being described but not callable.
+	mode_s := mode_string(mode)
 	catalog := tools.describe_for_prompt(reg, context.temp_allocator, mode_s)
 	if lean || tiny {
-		// Names only under lean/tiny. Match the openai_tools_json filters.
+		// Names only under lean/tiny. Match the openai_tools_json filters:
+		// registered script tools (run_named) stay visible in lean.
 		b2: strings.Builder
 		strings.builder_init(&b2, context.temp_allocator)
 		first := true
@@ -116,7 +119,7 @@ build_system_prompt :: proc(
 			if tiny {
 				keep = tools.tiny_core_tool(t.name) || tools.deferred_active(t.name)
 			} else {
-				core := tools.lean_core_tool(t.name)
+				core := tools.lean_core_tool(t.name) || t.run_named != nil
 				sub := sub_on && tools.lean_subagent_tool(t.name)
 				hunt := tools.lean_hunt_tools_enabled() && tools.lean_hunt_tool(t.name)
 				deferred := tools.deferred_active(t.name)
@@ -210,7 +213,12 @@ build_system_prompt :: proc(
 	}
 
 	// Memory, RAG recall, and the skills catalog are dropped under tiny; a small
-	// local model cannot spend that budget well.
+	// local model cannot spend that budget well. Tail ordering is stable first,
+	// volatile last, so prefix cache hits survive a rebuild: the skills catalog
+	// is fixed per workspace, the memory digest changes only on a memory write
+	// or stale flip, and the retrieved block re-queries per user turn.
+	retrieved := ""
+	memory_digest := ""
 	if !tiny {
 		mem_cap := constants.MAX_MEMORY_PROMPT_CHARS
 		if lean {
@@ -220,28 +228,28 @@ build_system_prompt :: proc(
 		if lean {
 			rag_cap = rag_cap / 2
 		}
-		retrieved := ""
 		if len(strings.trim_space(retrieve_query)) > 0 {
 			retrieved = rag.Prompt_Block(retrieve_query, rag_cap, context.temp_allocator)
 		}
 		if len(retrieved) > 0 {
 			mem_cap = mem_cap / 2
-			strings.write_string(&b, "\n\n## Retrieved memory\n\n")
-			strings.write_string(&b, retrieved)
 		}
-		memory_digest := project_memory.Digest(mem_cap, context.temp_allocator)
-		if len(memory_digest) > 0 {
-			strings.write_string(&b, "\n\n## Project memory\n\n")
-			strings.write_string(&b, memory_digest)
-		}
+		memory_digest = project_memory.Digest(mem_cap, context.temp_allocator)
 	}
-
 	if len(extra_skills) > 0 && !tiny {
 		strings.write_string(&b, "\n\n## Skills catalog\n\n")
 		strings.write_string(&b, extra_skills)
 		if lean {
 			strings.write_string(&b, "\n\nBodies are on demand via load_skill. Do not assume skill text is already loaded.\n")
 		}
+	}
+	if len(memory_digest) > 0 {
+		strings.write_string(&b, "\n\n## Project memory\n\n")
+		strings.write_string(&b, memory_digest)
+	}
+	if len(retrieved) > 0 {
+		strings.write_string(&b, "\n\n## Retrieved memory\n\n")
+		strings.write_string(&b, retrieved)
 	}
 	return strings.to_string(b)
 }

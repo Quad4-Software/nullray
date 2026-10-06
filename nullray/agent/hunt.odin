@@ -191,7 +191,15 @@ hunt_reasoning_override :: proc(hunt: Hunt_Profile, current: string) -> string {
 	return "high"
 }
 
+// Public wrapper keeps the env-resolved tier for callers that have no
+// request model in scope; mode_prompt_section passes the resolved lean flag
+// through hunt_prompt_block_lean so hunt text agrees with the tools tier.
 hunt_prompt_block :: proc(p: Hunt_Profile, allocator := context.allocator) -> string {
+	return hunt_prompt_block_lean(p, prompt_lean_enabled(), allocator)
+}
+
+@(private)
+hunt_prompt_block_lean :: proc(p: Hunt_Profile, lean: bool, allocator := context.allocator) -> string {
 	if !hunt_enabled(p) {
 		return ""
 	}
@@ -204,7 +212,6 @@ hunt_prompt_block :: proc(p: Hunt_Profile, allocator := context.allocator) -> st
 		strings.write_string(&b, hunt_phase_string(hunt_phase_from_env()))
 	}
 	strings.write_string(&b, " (load_skill bug-hunting).\n")
-	lean := prompt_lean_enabled()
 	if lean {
 		strings.write_string(
 			&b,

@@ -20,12 +20,12 @@ import "nullray:tools"
 slash_cmd_mode :: proc(a: ^App, args: string) {
 	rest := strings.trim_space(args)
 	if len(rest) == 0 {
-		session.session_set_status(a.session, fmt.tprintf("mode %s (ask|plan|review|edit)", agent.mode_string(a.session.agent_mode)))
+		session.session_set_status(a.session, fmt.tprintf("mode %s (ask|plan|review|edit|orchestrate)", agent.mode_string(a.session.agent_mode)))
 		return
 	}
 	m, ok := agent.mode_from_string(rest)
 	if !ok {
-		session.session_set_status(a.session, "usage: /mode ask|plan|review|edit")
+		session.session_set_status(a.session, "usage: /mode ask|plan|review|edit|orchestrate")
 		return
 	}
 	session.session_set_mode(a.session, m)
@@ -213,12 +213,12 @@ slash_cmd_agents :: proc(a: ^App, args: string) {
 		if st := sandbox.state(); st != nil {
 			ws = st.workspace
 		}
-		merged, merr := subagent.roster_apply_worktrees(&a.subagents.roster, group, ws, context.temp_allocator)
+		merged, apply_rep, merr := subagent.roster_apply_worktrees(&a.subagents.roster, group, ws, context.temp_allocator)
 		if merr != "" {
 			session.session_set_status(a.session, merr)
 			return
 		}
-		session.session_set_status(a.session, fmt.tprintf("apply ok (merged %d) force=%v", merged, force))
+		session.session_set_status(a.session, fmt.tprintf("apply merged=%d force=%v\n%s", merged, force, apply_rep))
 	case:
 		session.session_set_status(a.session, "usage: /agents [list|on|off|knowledge|cancel ID|apply GROUP [--force]]")
 	}

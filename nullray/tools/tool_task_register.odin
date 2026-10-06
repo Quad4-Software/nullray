@@ -29,8 +29,8 @@ register_subagent_tools :: proc(r: ^Registry, enabled: bool) {
 	}
 	registry_register(r, Tool{
 		name = "task",
-		description = "Spawn a subagent (explore/locate/architect/review/edit). locate returns CITES. architect returns a Done Contract. Returns summary or background id.",
-		schema_json = `{"type":"object","properties":{"description":{"type":"string"},"prompt":{"type":"string"},"subagent_type":{"type":"string","description":"explore|locate|architect|review|edit"},"model":{"type":"string"},"isolation":{"type":"string"},"background":{"type":"string"},"group":{"type":"string"},"resume":{"type":"string"},"max_steps":{"type":"string"},"path_hints":{"type":"array","items":{"type":"string"}}},"required":["prompt"]}`,
+		description = "Spawn a subagent (explore/locate/architect/review/edit/orchestrate). locate returns CITES. architect returns a Done Contract. Returns summary or background id.",
+		schema_json = `{"type":"object","properties":{"description":{"type":"string"},"prompt":{"type":"string"},"subagent_type":{"type":"string","description":"explore|locate|architect|review|edit|orchestrate"},"model":{"type":"string"},"provider":{"type":"string","description":"route to a different provider id (e.g. ollama, openrouter); default inherits the parent provider"},"isolation":{"type":"string"},"background":{"type":"string"},"group":{"type":"string"},"resume":{"type":"string"},"max_steps":{"type":"string"},"path_hints":{"type":"array","items":{"type":"string"}}},"required":["prompt"]}`,
 		kind = .Read,
 		run = tool_task,
 	})
@@ -64,7 +64,7 @@ register_subagent_tools :: proc(r: ^Registry, enabled: bool) {
 	})
 	registry_register(r, Tool{
 		name = "agents_verify",
-		description = "Run verify-all on a finished spawn group before apply",
+		description = "Run adversarial verify on a finished spawn group (reviews worktree diffs) before apply",
 		schema_json = `{"type":"object","properties":{"group":{"type":"string"},"second_opinion":{"type":"string"}},"required":["group"]}`,
 		kind = .Read,
 		run = tool_agents_verify,
@@ -91,6 +91,13 @@ register_subagent_tools :: proc(r: ^Registry, enabled: bool) {
 		run = tool_knowledge_list,
 	})
 	registry_register(r, Tool{
+		name = "models_list",
+		description = "List active provider, default model, and approved-model policy (aliases, roles) for routing tasks",
+		schema_json = `{"type":"object","properties":{}}`,
+		kind = .Read,
+		run = tool_models_list,
+	})
+	registry_register(r, Tool{
 		name = "model_use",
 		description = "Switch session model to an approved model when unlocked",
 		schema_json = `{"type":"object","properties":{"model":{"type":"string"}},"required":["model"]}`,
@@ -99,24 +106,31 @@ register_subagent_tools :: proc(r: ^Registry, enabled: bool) {
 	})
 	registry_register(r, Tool{
 		name = "board_list",
-		description = "List shared task board items",
-		schema_json = `{"type":"object","properties":{}}`,
+		description = "List shared task board items; group filters to that group plus unscoped items. Shows blocked-by markers and done results",
+		schema_json = `{"type":"object","properties":{"group":{"type":"string"}}}`,
 		kind = .Read,
 		run = tool_board_list,
 	})
 	registry_register(r, Tool{
 		name = "board_add",
-		description = "Add a task board item",
-		schema_json = `{"type":"object","properties":{"title":{"type":"string"}},"required":["title"]}`,
+		description = "Add a task board item; blocked_on holds item ids that must be done before claim; group scopes the item",
+		schema_json = `{"type":"object","properties":{"title":{"type":"string"},"blocked_on":{"type":"array","items":{"type":"string"},"description":"item ids that must be done first; comma list also accepted"},"group":{"type":"string"}},"required":["title"]}`,
 		kind = .Read,
 		run = tool_board_add,
 	})
 	registry_register(r, Tool{
 		name = "board_claim",
-		description = "Claim a task board item",
+		description = "Claim a task board item; refused while its blocked_on deps are not done",
 		schema_json = `{"type":"object","properties":{"id":{"type":"string"}},"required":["id"]}`,
 		kind = .Read,
 		run = tool_board_claim,
+	})
+	registry_register(r, Tool{
+		name = "board_done",
+		description = "Mark a task board item done with a one-line result for the coordinator",
+		schema_json = `{"type":"object","properties":{"id":{"type":"string"},"result":{"type":"string","description":"one-line outcome for the coordinator"}},"required":["id"]}`,
+		kind = .Read,
+		run = tool_board_done,
 	})
 	registry_register(r, Tool{
 		name = "send_message",
