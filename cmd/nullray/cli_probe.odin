@@ -154,6 +154,5 @@ run_probe_tools :: proc(cli: ^Cli) -> int {
 	for canonical, alias in rep.aliases {
 		fmt.printf("  %s -> %s\n", canonical, alias)
 	}
-	delete(path)
 	return 0
 }

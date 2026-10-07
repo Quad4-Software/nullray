@@ -134,9 +134,14 @@ tool_alias_table :: proc(r: ^Registry, provider_id := "", model := "", allocator
 		return out
 	}
 	for canonical, alias in raw {
-		if _, ok := registry_find_exact(r, canonical); !ok {
-			tool_alias_warn_once(key, canonical, alias, "canonical is not a registered tool")
-			continue
+		// An empty registry means the table is being built before tools
+		// registered (early session prompt). Skip validation, never warn:
+		// the emit path only renames tools that actually exist anyway.
+		if len(r.tools) > 0 {
+			if _, ok := registry_find_exact(r, canonical); !ok {
+				tool_alias_warn_once(key, canonical, alias, "canonical is not a registered tool")
+				continue
+			}
 		}
 		if alias == canonical {
 			continue
