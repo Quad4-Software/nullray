@@ -106,7 +106,13 @@ tls-size: $(TLS_LIB) $(OUT)
 	@command -v strip >/dev/null && strip -o /tmp/nullray.stripped $(OUT) && \
 		echo "bin/nullray stripped: $$(wc -c < /tmp/nullray.stripped) bytes" || true
 
-$(OUT): $(TLS_LIB) $(shell find cmd/nullray nullray -name '*.odin' 2>/dev/null)
+# modules_gen.odin regenerates every build (writes only on change) so a
+# new or deleted module dir always updates the import list.
+MODULES_GEN := $(ROOT)/cmd/nullray/modules_gen.odin
+$(MODULES_GEN): modules-force
+	@$(ODIN) run $(ROOT)/scripts/gen_modules.odin -file
+
+$(OUT): $(TLS_LIB) $(MODULES_GEN) $(shell find cmd/nullray nullray -name '*.odin' 2>/dev/null)
 	@mkdir -p bin
 	$(ODIN) build $(ROOT)/cmd/nullray -out:$(OUT) $(COLLECTION) $(LINKER) $(DEFINES)
 
@@ -118,8 +124,11 @@ debug: $(TLS_LIB)
 run: $(OUT)
 	./$(OUT)
 
-modules:
-	@python3 $(ROOT)/scripts/gen_modules.py
+modules: $(MODULES_GEN)
+
+.PHONY: modules-force
+modules-force:
+
 
 test: $(TLS_LIB)
 	@for s in $(TEST_SUITES); do \

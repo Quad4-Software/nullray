@@ -2,7 +2,7 @@
 /*
 Module registry. A module is a directory under nullray/modules/<id>/ whose
 mod.odin calls modules_register from an @(init) proc. The build regenerates
-cmd/nullray/modules_gen.odin (scripts/gen_modules.py) with a side-effect
+cmd/nullray/modules_gen.odin (scripts/gen_modules.odin) with a side-effect
 import per directory, so adding or removing a module is just a folder plus
 make, with no core file edits.
 

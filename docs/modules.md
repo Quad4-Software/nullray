@@ -75,5 +75,5 @@ CSV allowlist. `NULLRAY_MODULES=all` (or unset) loads everything.
   build and slows init.
 - Struct fields are read straight into the registry: clone anything
   mutable, but string literals and static arrays are fine.
-- `scripts/gen_modules.py` only scans for `mod.odin` files; helper files
+- `scripts/gen_modules.odin` only scans for `mod.odin` files; helper files
   in the same directory are regular package code.

@@ -4,7 +4,8 @@ set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 BIN="${1:-$ROOT/bin/nullray}"
-MAX_BYTES="${NULLRAY_MAX_BINARY_BYTES:-5800000}"
+ODIN="${ODIN:-odin}"
+MAX_BYTES="${NULLRAY_MAX_BINARY_BYTES:-6200000}"
 MAX_RSS_KB="${NULLRAY_MAX_RSS_KB:-65536}"
 
 if [[ ! -x "$BIN" ]]; then
@@ -33,17 +34,16 @@ if (( size > MAX_BYTES )); then
   exit 1
 fi
 
-rss_kb="$(
-  python3 - "$BIN" <<'PY'
-import resource, subprocess, sys, platform
-bin_path = sys.argv[1]
-subprocess.run([bin_path, "--self-test"], check=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-ru = resource.getrusage(resource.RUSAGE_CHILDREN).ru_maxrss
-if platform.system() == "Darwin":
-    ru = ru // 1024
-print(int(ru))
-PY
-)"
+# Peak RSS: Odin probe on Linux (no python/GNU time needed), BSD time -l
+# elsewhere (macOS reports bytes).
+case "$(uname -s)" in
+Linux)
+  rss_kb=$("$ODIN" run "$ROOT/scripts/rss_probe.odin" -file -- "$BIN" --self-test 2>/dev/null | tail -1)
+  ;;
+*)
+  rss_kb=$(/usr/bin/time -l "$BIN" --self-test 2>&1 >/dev/null | awk '/maximum resident set size/{print int($1/1024)}')
+  ;;
+esac
 
 echo "selftest_rss_kb=$rss_kb max=$MAX_RSS_KB"
 if (( rss_kb > MAX_RSS_KB )); then

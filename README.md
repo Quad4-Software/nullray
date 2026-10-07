@@ -35,7 +35,6 @@ installs to `~/.local`. Re-run to pull and rebuild.
 
 - git, make, a C compiler (clang or gcc)
 - Odin on PATH (release or dev build)
-- python3 (module list generation, package scripts)
 - Optional: flatpak-builder for `make flatpak`; Landlock-capable Linux for
   the sandbox (soft-warns off elsewhere)
 

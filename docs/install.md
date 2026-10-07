@@ -1,6 +1,6 @@
 # Install
 
-There are no pre-built binaries. You need git, the Odin compiler, make, python3, and a C compiler (cc, clang, or gcc).
+There are no pre-built binaries. You need git, the Odin compiler, make, and a C compiler (cc, clang, or gcc).
 Linux, macOS, and Windows (Git Bash) are supported.
 
 ## Install script
