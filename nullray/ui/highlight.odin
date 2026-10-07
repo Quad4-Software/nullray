@@ -231,6 +231,18 @@ slice_contains :: proc(list: []string, word: string) -> bool {
 	return false
 }
 
+// True when lang maps to a real language word set, so code fences with
+// no or unknown tags skip keyword coloring instead of guessing.
+hl_known_lang :: proc(lang: string) -> bool {
+	n := strings.to_lower(strings.trim_space(lang), context.temp_allocator)
+	switch n {
+	case "odin", "go", "python", "py", "javascript", "js", "typescript", "ts",
+	     "c", "cpp", "rust", "sh", "bash", "json", "markdown", "md":
+		return true
+	}
+	return false
+}
+
 @(private)
 hl_words_for_lang :: proc(lang: string) -> (keywords: []string, types: []string) {
 	switch lang {

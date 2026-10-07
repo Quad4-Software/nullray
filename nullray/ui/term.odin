@@ -115,6 +115,12 @@ write_sgr :: proc(b: ^strings.Builder, mode: Color_Mode, fg, bg: Color, style: S
 	if .Reverse in style {
 		strings.write_string(b, ";7")
 	}
+	if .Italic in style {
+		strings.write_string(b, ";3")
+	}
+	if .Strikethrough in style {
+		strings.write_string(b, ";9")
+	}
 	switch mode {
 	case .None:
 		strings.write_string(b, "m")

@@ -11,6 +11,8 @@ Style_Bit :: enum {
 	Dim,
 	Underline,
 	Reverse,
+	Italic,
+	Strikethrough,
 }
 
 Cell :: struct {

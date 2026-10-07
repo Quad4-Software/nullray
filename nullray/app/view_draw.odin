@@ -22,6 +22,8 @@ app_draw_view_pane :: proc(buf: ^ui.Buffer, a: ^App, lay: View_Layout) {
 	code_bg := t.code_bg
 
 	ui.buffer_fill_rect(buf, x0, y0, w, h, ' ', t.fg, code_bg)
+	clear(&a.view_strip_hits)
+	a.view_strip_y = -1
 
 	if !lay.overlay && lay.split_x >= 0 {
 		ui.buffer_vline(buf, lay.split_x, y0, h, '│', t.border, t.bg)
@@ -30,6 +32,7 @@ app_draw_view_pane :: proc(buf: ^ui.Buffer, a: ^App, lay: View_Layout) {
 	row := y0
 	// Recent strip
 	if len(a.view_recent) > 0 && row < y0 + h {
+		a.view_strip_y = row
 		ui.buffer_fill_rect(buf, x0, row, w, 1, ' ', t.muted, t.status_bg)
 		cx := x0 + 1
 		x_max := x0 + w - 1
@@ -55,12 +58,13 @@ app_draw_view_pane :: proc(buf: ^ui.Buffer, a: ^App, lay: View_Layout) {
 				fg = t.accent
 				style = {.Bold}
 			}
-			if cx + ui.string_cols(label) > x_max {
-				ui.buffer_text_clip(buf, cx, row, x_max, label, fg, t.status_bg, style)
+			label_w := ui.string_cols(label)
+			ui.buffer_text_clip(buf, cx, row, x_max, label, fg, t.status_bg, style)
+			append(&a.view_strip_hits, View_Strip_Hit{i = i, x0 = cx, x1 = min(cx + label_w, x_max)})
+			if cx + label_w > x_max {
 				break
 			}
-			ui.buffer_text_clip(buf, cx, row, x_max, label, fg, t.status_bg, style)
-			cx += ui.string_cols(label)
+			cx += label_w
 		}
 		row += 1
 	}
@@ -97,13 +101,23 @@ app_draw_view_pane :: proc(buf: ^ui.Buffer, a: ^App, lay: View_Layout) {
 		x0 + 1,
 		foot_y,
 		x0 + w - 1,
-		"Tab focus · [ ] files · Esc close",
+		"Tab focus · Left/Right files · Esc close",
 		t.muted,
 		t.status_bg,
 		{.Dim},
 	)
 	body_h = foot_y - body_top
 	if body_h <= 0 {
+		return
+	}
+
+	if a.view_err {
+		msg := fmt.tprintf("cannot open: %s", a.view_path)
+		ui.buffer_text_clip(buf, x0 + 1, body_top, x0 + w - 1, msg, t.error, code_bg)
+		return
+	}
+	if len(a.view_body) == 0 {
+		ui.buffer_text_clip(buf, x0 + 1, body_top, x0 + w - 1, "(empty file)", t.muted, code_bg, {.Dim})
 		return
 	}
 
@@ -117,18 +131,10 @@ app_draw_view_pane :: proc(buf: ^ui.Buffer, a: ^App, lay: View_Layout) {
 		a.view_scroll = max_scroll
 	}
 	lang := app_view_lang_from_path(a.view_path)
-	gutter_w := 1
-	{
-		n := total
-		gutter_w = 1
-		for n > 0 {
-			gutter_w += 1
-			n /= 10
-		}
-		gutter_w = max(3, min(gutter_w, 5))
-	}
-	text_x := x0 + 1 + gutter_w + 1
-	text_w := max(1, x0 + w - 1 - text_x)
+	// Gutter: pad col, right aligned digits, gap, bar, gap, then text.
+	num_w := view_num_w(total)
+	sep_x := x0 + num_w + 2
+	text_x := sep_x + 2
 
 	for i in 0 ..< body_h {
 		li := a.view_scroll + i
@@ -137,8 +143,9 @@ app_draw_view_pane :: proc(buf: ^ui.Buffer, a: ^App, lay: View_Layout) {
 		if li >= total {
 			continue
 		}
-		num := fmt.tprintf("%*d", gutter_w, li + 1)
-		ui.buffer_text_clip(buf, x0 + 1, ry, text_x - 1, num, t.muted, code_bg, {.Dim})
+		num := fmt.tprintf("%*d", num_w, li + 1)
+		ui.buffer_text_clip(buf, x0 + 1, ry, sep_x - 1, num, t.muted, code_bg, {.Dim})
+		ui.buffer_put(buf, sep_x, ry, '│', t.border, code_bg, {.Dim})
 		line := ""
 		if li < len(all_lines) {
 			line = all_lines[li]
@@ -160,7 +167,6 @@ app_draw_view_pane :: proc(buf: ^ui.Buffer, a: ^App, lay: View_Layout) {
 					break
 				}
 			}
-			_ = text_w
 		}
 	}
 }

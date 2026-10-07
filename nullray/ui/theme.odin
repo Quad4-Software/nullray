@@ -28,6 +28,12 @@ Theme :: struct {
 	user_bg:      Color,
 	assistant_fg: Color,
 	code_bg:      Color,
+	code_fg:      Color,
+	link_fg:      Color,
+	quote_fg:     Color,
+	table_fg:     Color,
+	heading_fg:   Color,
+	bold_fg:      Color,
 }
 
 INK :: Theme{
@@ -36,14 +42,14 @@ INK :: Theme{
 	fg           = {214, 218, 224},
 	muted        = {104, 114, 126},
 	border       = {38, 48, 58},
-	accent       = {78, 176, 154},
-	accent_dim   = {44, 112, 100},
+	accent       = {88, 196, 168},
+	accent_dim   = {48, 122, 106},
 	highlight_bg = {22, 30, 38},
 	highlight_fg = {232, 236, 242},
 	warn         = {200, 156, 72},
 	ok           = {112, 176, 136},
 	error        = {210, 98, 98},
-	title        = {148, 208, 186},
+	title        = {140, 216, 192},
 	status_bg    = {14, 20, 26},
 	status_fg    = {148, 158, 170},
 	input_bg     = {12, 18, 24},
@@ -51,6 +57,12 @@ INK :: Theme{
 	user_bg      = {14, 20, 28},
 	assistant_fg = {214, 218, 224},
 	code_bg      = {16, 22, 30},
+	code_fg      = {232, 186, 110},
+	link_fg      = {122, 186, 240},
+	quote_fg     = {110, 190, 150},
+	table_fg     = {76, 102, 128},
+	heading_fg   = {126, 218, 190},
+	bold_fg      = {240, 244, 250},
 }
 
 EMBER :: Theme{
@@ -74,6 +86,12 @@ EMBER :: Theme{
 	user_bg      = {22, 16, 12},
 	assistant_fg = {224, 214, 200},
 	code_bg      = {20, 14, 10},
+	code_fg      = {240, 196, 110},
+	link_fg      = {150, 184, 226},
+	quote_fg     = {196, 146, 112},
+	table_fg     = {106, 84, 64},
+	heading_fg   = {242, 170, 96},
+	bold_fg      = {248, 238, 224},
 }
 
 MOSS :: Theme{
@@ -82,8 +100,8 @@ MOSS :: Theme{
 	fg           = {204, 218, 200},
 	muted        = {96, 114, 96},
 	border       = {42, 62, 46},
-	accent       = {114, 176, 94},
-	accent_dim   = {66, 116, 56},
+	accent       = {132, 200, 102},
+	accent_dim   = {72, 128, 58},
 	highlight_bg = {20, 30, 22},
 	highlight_fg = {224, 240, 214},
 	warn         = {194, 164, 72},
@@ -97,6 +115,12 @@ MOSS :: Theme{
 	user_bg      = {14, 22, 16},
 	assistant_fg = {204, 218, 200},
 	code_bg      = {14, 22, 16},
+	code_fg      = {226, 190, 102},
+	link_fg      = {122, 184, 224},
+	quote_fg     = {104, 188, 158},
+	table_fg     = {86, 118, 92},
+	heading_fg   = {172, 224, 142},
+	bold_fg      = {236, 246, 230},
 }
 
 SLATE :: Theme{
@@ -120,6 +144,12 @@ SLATE :: Theme{
 	user_bg      = {18, 22, 34},
 	assistant_fg = {214, 218, 228},
 	code_bg      = {18, 22, 32},
+	code_fg      = {230, 184, 114},
+	link_fg      = {138, 180, 240},
+	quote_fg     = {130, 182, 170},
+	table_fg     = {88, 104, 140},
+	heading_fg   = {162, 198, 246},
+	bold_fg      = {240, 244, 252},
 }
 
 ROSE :: Theme{
@@ -143,6 +173,12 @@ ROSE :: Theme{
 	user_bg      = {24, 14, 20},
 	assistant_fg = {234, 214, 224},
 	code_bg      = {22, 12, 18},
+	code_fg      = {234, 188, 118},
+	link_fg      = {172, 162, 232},
+	quote_fg     = {196, 142, 158},
+	table_fg     = {118, 80, 100},
+	heading_fg   = {242, 172, 202},
+	bold_fg      = {250, 236, 243},
 }
 
 MONO :: Theme{
@@ -166,6 +202,12 @@ MONO :: Theme{
 	user_bg      = {18, 18, 18},
 	assistant_fg = {224, 224, 224},
 	code_bg      = {16, 16, 16},
+	code_fg      = {192, 192, 192},
+	link_fg      = {214, 214, 214},
+	quote_fg     = {144, 144, 144},
+	table_fg     = {94, 94, 94},
+	heading_fg   = {246, 246, 246},
+	bold_fg      = {252, 252, 252},
 }
 
 DUSK :: Theme{
@@ -189,6 +231,12 @@ DUSK :: Theme{
 	user_bg      = {22, 16, 34},
 	assistant_fg = {224, 218, 234},
 	code_bg      = {20, 14, 32},
+	code_fg      = {232, 192, 122},
+	link_fg      = {152, 172, 242},
+	quote_fg     = {172, 152, 202},
+	table_fg     = {96, 80, 134},
+	heading_fg   = {206, 172, 246},
+	bold_fg      = {246, 241, 252},
 }
 
 @(private)

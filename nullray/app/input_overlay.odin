@@ -126,6 +126,27 @@ app_handle_view_event :: proc(a: ^App, ev: ui.Event, suggesting: bool) -> bool {
 		session.session_set_status(a.session, "view closed")
 		return true
 	}
+	// Left clicks inside the pane grab focus. A click on a strip label
+	// opens that file.
+	if ev.kind == .Mouse_Press && ev.ch == 0 {
+		lay := app_view_layout(a, a.loop.term.width, a.loop.term.height)
+		inside :=
+			lay.open &&
+			ev.my >= lay.pane_y &&
+			ev.my < lay.pane_y + lay.pane_h &&
+			ev.mx >= lay.pane_x &&
+			ev.mx < lay.pane_x + lay.pane_w
+		if inside {
+			if ev.my == a.view_strip_y {
+				if idx := view_strip_hit(a.view_strip_hits[:], ev.mx); idx >= 0 {
+					app_view_open_idx(a, idx)
+				}
+			}
+			a.view_focus = true
+			app_mark_dirty(a)
+			return true
+		}
+	}
 	if a.view_focus {
 		lay := app_view_layout(a, a.loop.term.width, a.loop.term.height)
 		#partial switch ev.kind {
@@ -165,7 +186,7 @@ app_handle_view_event :: proc(a: ^App, ev: ui.Event, suggesting: bool) -> bool {
 		}
 	} else if ev.kind == .Mouse_Wheel_Up || ev.kind == .Mouse_Wheel_Down {
 		lay := app_view_layout(a, a.loop.term.width, a.loop.term.height)
-		if lay.open && !lay.overlay && ev.mx >= lay.pane_x {
+		if lay.open && ev.mx >= lay.pane_x {
 			step := 3
 			if ev.kind == .Mouse_Wheel_Up {
 				app_view_scroll_by(a, -step, lay.pane_h)

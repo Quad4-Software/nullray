@@ -58,3 +58,59 @@ test_collect_turn_write_paths :: proc(t: ^testing.T) {
 	testing.expect(t, found_c)
 	testing.expect(t, found_d)
 }
+
+@(test)
+test_view_strip_hit :: proc(t: ^testing.T) {
+	hits := []View_Strip_Hit{
+		{i = 0, x0 = 1, x1 = 12},
+		{i = 1, x0 = 15, x1 = 27},
+		{i = 2, x0 = 30, x1 = 37},
+	}
+	testing.expect_value(t, view_strip_hit(hits, 0), -1)
+	testing.expect_value(t, view_strip_hit(hits, 1), 0)
+	testing.expect_value(t, view_strip_hit(hits, 11), 0)
+	testing.expect_value(t, view_strip_hit(hits, 12), -1)
+	testing.expect_value(t, view_strip_hit(hits, 14), -1)
+	testing.expect_value(t, view_strip_hit(hits, 20), 1)
+	testing.expect_value(t, view_strip_hit(hits, 37), -1)
+	testing.expect_value(t, view_strip_hit(hits, 200), -1)
+}
+
+@(test)
+test_view_num_w :: proc(t: ^testing.T) {
+	testing.expect_value(t, view_num_w(0), 1)
+	testing.expect_value(t, view_num_w(1), 1)
+	testing.expect_value(t, view_num_w(9), 1)
+	testing.expect_value(t, view_num_w(10), 2)
+	testing.expect_value(t, view_num_w(99), 2)
+	testing.expect_value(t, view_num_w(100), 3)
+	testing.expect_value(t, view_num_w(9999), 4)
+	testing.expect_value(t, view_num_w(10000), 5)
+}
+
+@(test)
+test_view_nav_idx :: proc(t: ^testing.T) {
+	testing.expect_value(t, view_nav_idx(0, 1, 3), 1)
+	testing.expect_value(t, view_nav_idx(2, 1, 3), 0)
+	testing.expect_value(t, view_nav_idx(0, -1, 3), 2)
+	testing.expect_value(t, view_nav_idx(1, 3, 3), 1)
+	testing.expect_value(t, view_nav_idx(2, 0, 3), 2)
+	testing.expect_value(t, view_nav_idx(0, 1, 0), -1)
+	testing.expect_value(t, view_nav_idx(7, 1, 3), 2)
+}
+
+@(test)
+test_view_open_missing_shows_error :: proc(t: ^testing.T) {
+	a, loop := test_app_minimal()
+	_ = loop
+	defer test_app_destroy_minimal(&a)
+	defer app_view_destroy(&a)
+	defer delete(a.session.status)
+	defer delete(a.session.pending_status)
+	ok := app_view_open(&a, "/nonexistent-nullray-view-test-9z7y")
+	testing.expect(t, !ok)
+	testing.expect(t, a.view_open)
+	testing.expect(t, a.view_err)
+	testing.expect_value(t, len(a.view_body), 0)
+	testing.expect(t, strings.has_suffix(a.view_path, "nonexistent-nullray-view-test-9z7y"))
+}

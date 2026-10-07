@@ -52,6 +52,14 @@ bury the conversation. Click a collapsed block to expand it, click again
 to fold it back. `/expand` toggles every block at once and
 `NULLRAY_COLLAPSE=0` turns folding off entirely.
 
+## Markdown
+
+Assistant messages render as markdown: headings, quotes, bullet and
+numbered lists, horizontal rules, fenced code blocks with syntax colors
+when the fence names a known language, and pipe tables drawn as boxed,
+aligned columns. Inline `code`, **bold**, *italic* and ~~strike~~ are
+styled, and links show as the underlined text followed by the target.
+
 ## History overlay
 
 `/history` opens a scrollable view of the entire session, including
@@ -65,6 +73,12 @@ After a turn writes a file, the view pane auto-opens on that path.
 `/view PATH` opens a file, `/artifact ID` opens an artifact from the LID
 store, `/close` closes the pane, and `/view auto off` or
 `NULLRAY_VIEW_AUTO=0` stops the auto-open.
+
+A strip at the top lists recently viewed files. Clicking a name opens it,
+and clicking anywhere else in the pane gives it focus (same as Tab).
+While focused, Up/Down or PgUp/PgDn scroll and Left/Right or `[` `]`
+cycle through the recent files. Esc closes the pane when the input box
+is empty.
 
 ## Keybinds
 

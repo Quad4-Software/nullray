@@ -19,6 +19,7 @@ Md_Kind :: enum {
 	List_Item,
 	Code,
 	Hr,
+	Table,
 	Blank,
 }
 
@@ -27,7 +28,9 @@ Md_Block :: struct {
 	level:    int,
 	lang:     string,
 	body:     string,
+	marker:   string,
 	fence_id: int,
+	table:    Md_Table,
 }
 
 md_plain_fallback :: proc(src: string, allocator := context.temp_allocator) -> []Md_Block {
@@ -151,13 +154,26 @@ md_parse :: proc(src: string, allocator := context.temp_allocator) -> []Md_Block
 			continue
 		}
 
-		if indent, body, ok := md_list_item(line); ok {
+		if indent, marker, body, ok := md_list_item(line); ok {
 			md_flush_para(&blocks, src, &para_start, &para_end, &para_has)
 			append(
 				&blocks,
-				Md_Block{kind = .List_Item, level = indent, body = body, fence_id = -1},
+				Md_Block{
+					kind = .List_Item,
+					level = indent,
+					marker = marker,
+					body = body,
+					fence_id = -1,
+				},
 			)
 			i += advance
+			continue
+		}
+
+		if tbl, next_i, ok := md_table_at(src, line_start, line_end, allocator); ok {
+			md_flush_para(&blocks, src, &para_start, &para_end, &para_has)
+			append(&blocks, Md_Block{kind = .Table, table = tbl, fence_id = -1})
+			i = next_i
 			continue
 		}
 
@@ -265,7 +281,7 @@ md_quote :: proc(line: string) -> (body: string, ok: bool) {
 }
 
 @(private)
-md_list_item :: proc(line: string) -> (indent: int, body: string, ok: bool) {
+md_list_item :: proc(line: string) -> (indent: int, marker: string, body: string, ok: bool) {
 	i := 0
 	spaces := 0
 	for i < len(line) {
@@ -286,17 +302,32 @@ md_list_item :: proc(line: string) -> (indent: int, body: string, ok: bool) {
 		break
 	}
 	if i >= len(line) {
-		return 0, "", false
+		return 0, "", "", false
 	}
-	marker := line[i]
-	if marker != '-' && marker != '*' && marker != '+' {
-		return 0, "", false
+	// Ordered list: digits followed by '.' or ')' then a space.
+	if line[i] >= '0' && line[i] <= '9' {
+		j := i
+		for j < len(line) && line[j] >= '0' && line[j] <= '9' {
+			j += 1
+		}
+		if j < len(line) && (line[j] == '.' || line[j] == ')') {
+			mark := line[i : j + 1]
+			j += 1
+			if j < len(line) && line[j] == ' ' {
+				return spaces, mark, line[j + 1:], true
+			}
+		}
+		return 0, "", "", false
+	}
+	ch := line[i]
+	if ch != '-' && ch != '*' && ch != '+' {
+		return 0, "", "", false
 	}
 	i += 1
 	if i < len(line) && line[i] == ' ' {
 		i += 1
 	} else if i < len(line) {
-		return 0, "", false
+		return 0, "", "", false
 	}
-	return spaces, line[i:], true
+	return spaces, "•", line[i:], true
 }

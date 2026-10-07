@@ -185,7 +185,7 @@ app_draw :: proc(buf: ^ui.Buffer, user: rawptr) {
 	}
 	help := "type / · ? help · ^q quit"
 	if a.view_open {
-		help = "Tab focus · [ ] files · Esc close"
+		help = "Tab focus · Left/Right files · Esc close"
 	} else if a.sel_has || a.sel_dragging {
 		help = "drag select · /copy · Esc clear"
 	}
