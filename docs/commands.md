@@ -44,8 +44,8 @@ this list in-app.
 |---------|--------|
 | `/provider [ID\|next\|prev\|setup]` | Show or switch provider |
 | `/providers` | List providers and readiness |
-| `/model [NAME\|lock\|unlock]` | Show or set the model |
-| `/models [policy]` | Live catalog, or policy view |
+| `/model [NAME\|lock\|unlock]` | Show or set the model (type `/model ` for catalog suggestions) |
+| `/models [policy]` | Live catalog (models.dev cache fallback), or policy view |
 | `/reasoning LEVEL` | Reasoning effort (alias `/think`) |
 | `/temp [0-2\|off]` | Temperature override |
 | `/top_p [0-1\|off]` | top_p override |
@@ -67,6 +67,7 @@ this list in-app.
 | `/drop N` | Drop the last N user turns (backup saved) |
 | `/compact` | Compact conversation history |
 | `/expand` | Expand or collapse all tool and think blocks |
+| `/history` | Scrollable full session history including thinking |
 
 ## Sandbox and ops
 

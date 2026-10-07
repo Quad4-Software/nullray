@@ -13,6 +13,7 @@ import "core:encoding/json"
 import "core:fmt"
 import "core:os"
 import "core:path/filepath"
+import "core:slice"
 import "core:strings"
 import "core:sync"
 import "core:time"
@@ -39,6 +40,10 @@ g_md_npm: map[string]string
 
 @(private)
 g_md_meta: map[string]Modelsdev_Meta
+
+// Every pid/mid key seen in the cache, including models with no meta.
+@(private)
+g_md_all: map[string]bool
 
 @(private)
 g_md_mu: sync.Mutex
@@ -76,8 +81,13 @@ modelsdev_clear_locked :: proc() {
 		delete(k, runtime.heap_allocator())
 	}
 	delete(g_md_meta)
+	for k in g_md_all {
+		delete(k, runtime.heap_allocator())
+	}
+	delete(g_md_all)
 	g_md_npm = nil
 	g_md_meta = nil
+	g_md_all = nil
 	g_md_loaded = false
 }
 
@@ -104,6 +114,7 @@ modelsdev_parse_locked :: proc(path: string, mtime: time.Time) {
 	}
 	npm_map := make(map[string]string, 0, runtime.heap_allocator())
 	meta_map := make(map[string]Modelsdev_Meta, 0, runtime.heap_allocator())
+	all_map := make(map[string]bool, 0, runtime.heap_allocator())
 	for pid, pv in root {
 		pobj, pok := pv.(json.Object)
 		if !pok {
@@ -120,6 +131,9 @@ modelsdev_parse_locked :: proc(path: string, mtime: time.Time) {
 				continue
 			}
 			key := modelsdev_key(pid, mid)
+			if key not_in all_map {
+				all_map[strings.clone(key, runtime.heap_allocator())] = true
+			}
 			if pv2, p2ok := mo["provider"]; p2ok {
 				if pobj2, ppok := pv2.(json.Object); ppok {
 					if nv, nok := pobj2["npm"]; nok {
@@ -159,6 +173,7 @@ modelsdev_parse_locked :: proc(path: string, mtime: time.Time) {
 	modelsdev_clear_locked()
 	g_md_npm = npm_map
 	g_md_meta = meta_map
+	g_md_all = all_map
 	g_md_mtime = mtime
 	g_md_loaded = true
 }
@@ -244,7 +259,7 @@ modelsdev_npm :: proc(provider_id, model: string) -> string {
 	sync.mutex_lock(&g_md_mu)
 	defer sync.mutex_unlock(&g_md_mu)
 	// Clone before unlocking: a refresh reload frees map strings.
-	if v, ok := g_md_npm[modelsdev_key(provider_id, model)]; ok {
+	if v, ok := g_md_npm[modelsdev_key(modelsdev_provider_id(provider_id), model)]; ok {
 		return strings.clone(v, context.temp_allocator)
 	}
 	return ""
@@ -254,7 +269,7 @@ modelsdev_model_meta :: proc(provider_id, model: string) -> (Modelsdev_Meta, boo
 	modelsdev_ensure()
 	sync.mutex_lock(&g_md_mu)
 	defer sync.mutex_unlock(&g_md_mu)
-	if v, ok := g_md_meta[modelsdev_key(provider_id, model)]; ok {
+	if v, ok := g_md_meta[modelsdev_key(modelsdev_provider_id(provider_id), model)]; ok {
 		return v, true
 	}
 	return {}, false
@@ -275,4 +290,58 @@ modelsdev_enrich :: proc(provider_id: string, models: []Model_Info) {
 			m.has_cost = meta.has_cost
 		}
 	}
+}
+
+// Registry ids that differ from their models.dev catalog key. Parse keys stay
+// as served; only lookups remap.
+modelsdev_provider_id :: proc(id: string) -> string {
+	switch id {
+	case "gemini":
+		return "google"
+	case "together":
+		return "togetherai"
+	case "fireworks":
+		return "fireworks-ai"
+	case "dashscope":
+		return "alibaba"
+	case "ollama":
+		return "ollama-cloud"
+	}
+	return id
+}
+
+// Every model id the cache knows for a provider, sorted. Empty when the cache
+// is absent or the provider is unknown to models.dev.
+modelsdev_ids :: proc(provider_id: string, allocator := context.allocator) -> []string {
+	modelsdev_ensure()
+	pid := modelsdev_provider_id(provider_id)
+	prefix := strings.concatenate({pid, "/"}, context.temp_allocator)
+	out := make([dynamic]string, 0, 32, allocator)
+	sync.mutex_lock(&g_md_mu)
+	for k in g_md_all {
+		if strings.has_prefix(k, prefix) {
+			append(&out, strings.clone(k[len(prefix):], allocator))
+		}
+	}
+	sync.mutex_unlock(&g_md_mu)
+	slice.sort_by(out[:], proc(a, b: string) -> bool { return strings.compare(a, b) < 0 })
+	return out[:]
+}
+
+// Full catalog list for a provider with limits and cost attached. Used as the
+// /models and --list-models fallback when no live listing endpoint answers.
+modelsdev_list :: proc(provider_id: string, allocator := context.allocator) -> []Model_Info {
+	ids := modelsdev_ids(provider_id, context.temp_allocator)
+	if len(ids) == 0 {
+		return nil
+	}
+	out := make([]Model_Info, len(ids), allocator)
+	for id, i in ids {
+		out[i] = Model_Info{
+			id = strings.clone(id, allocator),
+			name = strings.clone(id, allocator),
+		}
+	}
+	modelsdev_enrich(provider_id, out)
+	return out
 }

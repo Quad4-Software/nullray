@@ -122,7 +122,10 @@ slash_cmd_model :: proc(a: ^App, args: string) {
 	if len(rest) == 0 {
 		lock := subagent.policy_is_locked() || a.subagents.model_locked
 		model := p != nil ? p.default_model : a.session.model
-		session.session_set_status(a.session, fmt.tprintf("model %s lock=%s", model, lock ? "on" : "off"))
+		session.session_set_status(
+			a.session,
+			fmt.tprintf("model %s lock=%s · /model + space to pick · /models lists", model, lock ? "on" : "off"),
+		)
 		return
 	}
 	low := strings.to_lower(rest, context.temp_allocator)
@@ -146,7 +149,9 @@ slash_cmd_model :: proc(a: ^App, args: string) {
 		session.session_set_status(a.session, "model locked (use /model unlock)")
 		return
 	}
-	resolved, err := subagent.policy_resolve("main", rest, p != nil ? p.default_model : "", "", context.temp_allocator)
+	// Unique catalog prefixes resolve to the full id, anything else passes.
+	want := catalog_expand_unique(rest)
+	resolved, err := subagent.policy_resolve("main", want, p != nil ? p.default_model : "", "", context.temp_allocator)
 	if err != "" {
 		session.session_set_status(a.session, err)
 		return

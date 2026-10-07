@@ -25,20 +25,40 @@ run_list_models :: proc() -> int {
 	defer provider.registry_destroy(&reg)
 
 	p := provider.registry_active(&reg)
-	if p == nil || p.list_models == nil {
-		fmt.eprintln("nullray: no provider with list_models")
+	if p == nil {
+		fmt.eprintln("nullray: no provider")
 		return 1
 	}
 	fmt.printf("%s (%s) models via %s\n", p.name, p.id, p.base_url)
-	models, err := p.list_models(p)
+	models: []provider.Model_Info
+	err := ""
+	cached := false
+	if p.list_models != nil {
+		models, err = p.list_models(p)
+	}
+	if len(models) == 0 {
+		// No live listing: fall back to the models.dev catalog cache.
+		fallback := provider.modelsdev_list(p.id)
+		if len(fallback) > 0 {
+			provider.destroy_models(models)
+			delete(err)
+			err = ""
+			models = fallback
+			cached = true
+		}
+	}
+	defer provider.destroy_models(models)
+	defer delete(err)
 	if len(err) > 0 {
 		fmt.eprintln("nullray: list-models:", err)
 		return 1
 	}
-	defer provider.destroy_models(models)
 	if len(models) == 0 {
 		fmt.println("(none)")
 		return 0
+	}
+	if cached {
+		fmt.println("via models.dev cache")
 	}
 	for m in models {
 		fmt.println(m.id)

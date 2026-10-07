@@ -23,7 +23,7 @@ them by what they do.
 |------|---------|
 | `-p`, `--provider ID` | Provider id, see [providers](providers.md) |
 | `-m`, `--model NAME` | Override the model |
-| `--list-models` | Print catalog for the active provider |
+| `--list-models` | Print catalog for the active provider (falls back to the models.dev cache) |
 | `--theme NAME` | ink, ember, moss, slate, rose, mono, dusk |
 | `--keys PRESET` | default, neovim, emacs |
 
@@ -139,6 +139,12 @@ TCP listener. Remote access goes over `ssh -L` forwarding.
 | `--hide-sensitive` | Hide account and API key balances |
 | `--askpass` | sudo/doas askpass helper (internal) |
 | `--elevate-broker P` | Privilege broker path (internal) |
+
+## TUI
+
+`/history` inside the TUI opens a scrollable full session history that
+includes thinking and reasoning text (dimmed). Scroll with Up/Down,
+PageUp/PageDown, or the mouse wheel, Home/End jump, Esc closes.
 
 ## Exit notes
 

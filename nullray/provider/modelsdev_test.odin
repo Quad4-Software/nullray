@@ -95,3 +95,47 @@ test_modelsdev_enrich_models :: proc(t: ^testing.T) {
 	testing.expect_value(t, models[1].context_limit, 0)
 	testing.expect(t, !models[1].has_cost)
 }
+
+@(test)
+test_modelsdev_ids_and_list :: proc(t: ^testing.T) {
+	modelsdev_test_freeze()
+	defer os.unset_env(constants.ENV_MODELSDEV)
+	dir := os.get_env("TMPDIR", context.temp_allocator)
+	if len(dir) == 0 {
+		dir = "/tmp"
+	}
+	path, _ := filepath.join({dir, "nullray-modelsdev-test3.json"}, context.temp_allocator)
+	defer os.remove(path)
+	fixture := `{"google": {"models": {
+		"gemini-3-pro": {"limit": {"context": 1000000}, "cost": {"input": 2, "output": 12}},
+		"gemini-3-flash": {}
+	}}}`
+	testing.expect(t, os.write_entire_file(path, transmute([]u8)fixture) == nil)
+
+	sync.mutex_lock(&g_md_mu)
+	modelsdev_clear_locked()
+	modelsdev_parse_locked(path, time.now())
+	sync.mutex_unlock(&g_md_mu)
+	defer {
+		sync.mutex_lock(&g_md_mu)
+		modelsdev_clear_locked()
+		sync.mutex_unlock(&g_md_mu)
+	}
+
+	// gemini maps to the google catalog key.
+	testing.expect_value(t, modelsdev_provider_id("gemini"), "google")
+	testing.expect_value(t, modelsdev_provider_id("opencode"), "opencode")
+
+	ids := modelsdev_ids("gemini", context.temp_allocator)
+	testing.expect_value(t, len(ids), 2)
+	testing.expect_value(t, ids[0], "gemini-3-flash")
+	testing.expect_value(t, ids[1], "gemini-3-pro")
+
+	list := modelsdev_list("gemini", context.temp_allocator)
+	testing.expect_value(t, len(list), 2)
+	testing.expect_value(t, list[1].id, "gemini-3-pro")
+	testing.expect_value(t, list[1].context_limit, 1000000)
+	testing.expect(t, list[1].has_cost)
+
+	testing.expect(t, len(modelsdev_ids("llamacpp", context.temp_allocator)) == 0)
+}

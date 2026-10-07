@@ -76,7 +76,10 @@ registry_active :: proc(r: ^Registry) -> ^Provider {
 	if r.active < 0 || r.active >= len(r.providers) {
 		r.active = 0
 	}
-	return &r.providers[r.active]
+	p := &r.providers[r.active]
+	// Keep the /model suggestion catalog pointed at what this returns.
+	catalog_note_active(p)
+	return p
 }
 
 registry_set_active :: proc(r: ^Registry, id: string) -> bool {

@@ -37,8 +37,8 @@ slash_cmd_models :: proc(a: ^App, args: string) {
 		return
 	}
 	p := provider.registry_active(&a.registry)
-	if p == nil || p.list_models == nil {
-		session.session_set_status(a.session, "no provider model list")
+	if p == nil {
+		session.session_set_status(a.session, "no provider")
 		return
 	}
 	job := new(Models_Job)
@@ -76,7 +76,27 @@ models_job :: proc(data: rawptr) {
 		delete(job.current)
 		free(job)
 	}
-	models, err := job.prov.list_models(&job.prov)
+	models: []provider.Model_Info
+	err := ""
+	cached := false
+	if job.prov.list_models != nil {
+		models, err = job.prov.list_models(&job.prov)
+	}
+	if len(err) == 0 && len(models) > 0 {
+		// Feed the /model suggestion list while the result is fresh.
+		provider.catalog_store(job.prov.id, models)
+	}
+	if len(models) == 0 {
+		// No live listing: fall back to the models.dev catalog cache.
+		fallback := provider.modelsdev_list(job.prov.id)
+		if len(fallback) > 0 {
+			provider.destroy_models(models)
+			delete(err)
+			err = ""
+			models = fallback
+			cached = true
+		}
+	}
 	a := job.app
 	sync.mutex_lock(&a.models_pending_mu)
 	defer sync.mutex_unlock(&a.models_pending_mu)
@@ -89,7 +109,7 @@ models_job :: proc(data: rawptr) {
 		delete(err)
 		provider.destroy_models(models)
 	} else {
-		a.models_text = models_list_text(&job.prov, job.current, models)
+		a.models_text = models_list_text(&job.prov, job.current, models, cached)
 		provider.destroy_models(models)
 	}
 	a.models_pending = true
@@ -99,11 +119,20 @@ models_job :: proc(data: rawptr) {
 // Compose the transcript block for the fetched catalog. Runs on the worker,
 // owns its builder on the default allocator until the apply step frees it.
 @(private)
-models_list_text :: proc(p: ^provider.Provider, current: string, models: []provider.Model_Info) -> string {
+models_list_text :: proc(
+	p: ^provider.Provider,
+	current: string,
+	models: []provider.Model_Info,
+	cached: bool,
+) -> string {
 	b: strings.Builder
 	strings.builder_init(&b)
 	provider.modelsdev_enrich(p.id, models)
-	fmt.sbprintf(&b, "%s (%s) · %d models\n", p.name, p.id, len(models))
+	fmt.sbprintf(&b, "%s (%s) · %d models", p.name, p.id, len(models))
+	if cached {
+		strings.write_string(&b, " · models.dev cache")
+	}
+	strings.write_byte(&b, '\n')
 	if len(models) == 0 {
 		strings.write_string(&b, "(none returned)")
 	}

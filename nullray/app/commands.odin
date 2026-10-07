@@ -20,6 +20,10 @@ Slash_Command :: struct {
 
 PROVIDER_SLASH_EXTRA := []string{"next", "prev", "setup"}
 
+MODEL_SLASH_EXTRA := []string{"lock", "unlock"}
+
+MODEL_SLASH_ARG_LIMIT :: 12
+
 SLASH_COMMANDS := []Slash_Command{
 	{"help", "/help", "show commands and shortcuts", slash_cmd_help},
 	{"?", "/?", "alias for /help", slash_cmd_help},
@@ -28,6 +32,7 @@ SLASH_COMMANDS := []Slash_Command{
 	{"drop", "/drop N", "drop last N user turns (backup saved)", slash_cmd_drop},
 	{"tools", "/tools", "toggle agent tools", slash_cmd_tools},
 	{"expand", "/expand", "expand or collapse all tool calls", slash_cmd_expand},
+	{"history", "/history", "scrollable session history incl. thinking", slash_cmd_history},
 	{"reasoning", "/reasoning LEVEL", "set reasoning effort", slash_cmd_reasoning},
 	{"think", "/think LEVEL", "alias for /reasoning", slash_cmd_reasoning},
 	{"sessions", "/sessions", "list saved sessions", slash_cmd_sessions},
@@ -136,6 +141,85 @@ provider_slash_arg_matches :: proc(arg_prefix: string, allocator := context.temp
 	return out[:]
 }
 
+@(private)
+model_arg_push :: proc(out: ^[dynamic]Slash_Command, id, current: string) {
+	help := "switch model"
+	if id == current {
+		help = "current model"
+	}
+	append(out, Slash_Command{
+		name = id,
+		usage = fmt.tprintf("/model %s", id),
+		help = help,
+	})
+}
+
+// /model arg suggestions. Prefix hits rank above substring hits, the current
+// model surfaces first via catalog_view ordering, extras trail the list.
+model_slash_arg_matches :: proc(arg_prefix: string, allocator := context.temp_allocator) -> []Slash_Command {
+	pref := strings.to_lower(strings.trim_space(arg_prefix), context.temp_allocator)
+	view := provider.catalog_view(context.temp_allocator)
+	out := make([dynamic]Slash_Command, 0, MODEL_SLASH_ARG_LIMIT, allocator)
+	for id in view.ids {
+		if len(out) >= MODEL_SLASH_ARG_LIMIT {
+			break
+		}
+		if len(pref) == 0 || strings.has_prefix(strings.to_lower(id, context.temp_allocator), pref) {
+			model_arg_push(&out, id, view.current)
+		}
+	}
+	for id in view.ids {
+		if len(out) >= MODEL_SLASH_ARG_LIMIT {
+			break
+		}
+		low := strings.to_lower(id, context.temp_allocator)
+		if len(pref) > 0 && !strings.has_prefix(low, pref) && strings.contains(low, pref) {
+			model_arg_push(&out, id, view.current)
+		}
+	}
+	for extra in MODEL_SLASH_EXTRA {
+		if len(out) >= MODEL_SLASH_ARG_LIMIT {
+			break
+		}
+		if len(pref) == 0 || strings.has_prefix(extra, pref) {
+			help := "freeze model switches"
+			if extra == "unlock" {
+				help = "release the model lock"
+			}
+			append(&out, Slash_Command{
+				name = extra,
+				usage = fmt.tprintf("/model %s", extra),
+				help = help,
+			})
+		}
+	}
+	return out[:]
+}
+
+/*
+Expand a typed /model arg to the full catalog id when it is a unique prefix
+of exactly one known id. Exact ids and ambiguous or unknown args pass through.
+*/
+catalog_expand_unique :: proc(arg: string, allocator := context.temp_allocator) -> string {
+	view := provider.catalog_view(allocator)
+	found := ""
+	count := 0
+	pref := strings.to_lower(arg, allocator)
+	for id in view.ids {
+		if id == arg {
+			return arg
+		}
+		if strings.has_prefix(strings.to_lower(id, allocator), pref) {
+			count += 1
+			found = id
+		}
+	}
+	if count == 1 {
+		return found
+	}
+	return arg
+}
+
 slash_matches :: proc(prefix: string, allocator := context.temp_allocator) -> []Slash_Command {
 	p := strings.trim_left_space(prefix)
 	if !strings.has_prefix(p, "/") {
@@ -146,8 +230,13 @@ slash_matches :: proc(prefix: string, allocator := context.temp_allocator) -> []
 	if space >= 0 {
 		name := body[:space]
 		rest := strings.trim_left_space(body[space + 1:])
-		if name == "provider" && strings.index_byte(rest, ' ') < 0 {
-			return provider_slash_arg_matches(rest, allocator)
+		if strings.index_byte(rest, ' ') < 0 {
+			if name == "provider" {
+				return provider_slash_arg_matches(rest, allocator)
+			}
+			if name == "model" {
+				return model_slash_arg_matches(rest, allocator)
+			}
 		}
 		return {}
 	}
@@ -184,7 +273,7 @@ slash_arg_hint :: proc(prefix: string, allocator := context.temp_allocator) -> s
 		return ""
 	}
 	name := body[:space]
-	if name == "provider" {
+	if name == "provider" || name == "model" {
 		// Arg matches draw as a suggestion list instead of a one-line hint.
 		return ""
 	}
@@ -209,10 +298,13 @@ slash_complete :: proc(prefix: string, sel: int) -> (completed: string, ok: bool
 	}
 	cmd := matches[idx]
 	p := strings.trim_left_space(prefix)
-	if strings.has_prefix(p, "/provider") {
+	if strings.has_prefix(p, "/") {
 		body := p[1:]
-		if strings.index_byte(body, ' ') >= 0 {
-			return fmt.tprintf("/provider %s", cmd.name), true
+		if sp := strings.index_byte(body, ' '); sp >= 0 {
+			name := body[:sp]
+			if name == "provider" || name == "model" {
+				return fmt.tprintf("/%s %s", name, cmd.name), true
+			}
 		}
 	}
 	if strings.contains(cmd.usage, " ") {
