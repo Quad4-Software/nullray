@@ -22,6 +22,20 @@ package hello
 import "core:fmt"
 import "nullray:modules"
 
+HELLO_TOOLS: [1]modules.Tool_Spec = {{
+	name = "hello_tool",
+	description = "Say hello",
+	schema_json = `{"type":"object","properties":{},"required":[]}`,
+	kind = .Read,
+	run = hello_run,
+}}
+
+HELLO_COMMANDS: [1]modules.Command_Spec = {{
+	name = "hello",
+	help = "greet",
+	prompt = "Call hello_tool and answer plainly.",
+}}
+
 @(init)
 hello_init :: proc "contextless" () {
 	context = runtime.default_context()
@@ -30,18 +44,8 @@ hello_init :: proc "contextless" () {
 		name = "Hello",
 		version = "0.1.0",
 		description = "example",
-		tools = []modules.Tool_Spec{{
-			name = "hello_tool",
-			description = "Say hello",
-			schema_json = `{"type":"object","properties":{},"required":[]}`,
-			kind = .Read,
-			run = hello_run,
-		}},
-		commands = []modules.Command_Spec{{
-			name = "hello",
-			help = "greet",
-			prompt = "Call hello_tool and answer plainly.",
-		}},
+		tools = HELLO_TOOLS[:],
+		commands = HELLO_COMMANDS[:],
 	})
 }
 
@@ -112,8 +116,9 @@ CSV allowlist. `NULLRAY_MODULES=all` (or unset) loads everything.
 ## Notes for module authors
 
 - Registration runs inside `@(init)` procs, which are `contextless`:
-  set `context = runtime.default_context()` before constructing the
-  Module literal - slice literals allocate from `context.allocator`.
+  set `context = runtime.default_context()` first. Keep spec data in
+  package-level variables, not slice literals inside the init proc -
+  literal storage in init context is not stable and registers garbage.
   After that the init proc should only register. do real work inside `run`.
 - Keep module packages import-light. `nullray:modules` is a leaf by
   design. importing heavy packages from `mod.odin` drags them into every

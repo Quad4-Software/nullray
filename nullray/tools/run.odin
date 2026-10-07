@@ -268,13 +268,13 @@ openai_tools_json :: proc(
 				continue
 			}
 			if tier == .Tiny {
-				if !tiny_core_tool(t.name) && !deferred_active(t.name) {
+				if !tiny_core_tool(t.name) && !deferred_active(t.name) && !t.from_module && t.run_named == nil {
 					continue
 				}
 			} else if tier == .Lean {
 				// run_named marks a registered user script tool, scripts are
 				// trusted at registration so they stay visible in lean too.
-				core := lean_core_tool(t.name) || t.run_named != nil
+				core := lean_core_tool(t.name) || t.run_named != nil || t.from_module
 				sub := sub_on && lean_subagent_tool(t.name)
 				hunt := lean_hunt_tools_enabled() && lean_hunt_tool(t.name)
 				deferred := deferred_active(t.name)

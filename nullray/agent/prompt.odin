@@ -117,9 +117,9 @@ build_system_prompt :: proc(
 			}
 			keep := false
 			if tiny {
-				keep = tools.tiny_core_tool(t.name) || tools.deferred_active(t.name)
+				keep = tools.tiny_core_tool(t.name) || tools.deferred_active(t.name) || t.from_module || t.run_named != nil
 			} else {
-				core := tools.lean_core_tool(t.name) || t.run_named != nil
+				core := tools.lean_core_tool(t.name) || t.run_named != nil || t.from_module
 				sub := sub_on && tools.lean_subagent_tool(t.name)
 				hunt := tools.lean_hunt_tools_enabled() && tools.lean_hunt_tool(t.name)
 				deferred := tools.deferred_active(t.name)

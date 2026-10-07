@@ -38,6 +38,7 @@ Tool :: struct {
 	run:         Tool_Proc,
 	run_named:   Named_Tool_Proc,
 	user:        rawptr,
+	from_module: bool,
 }
 
 Registry :: struct {

@@ -1,9 +1,13 @@
 // SPDX-License-Identifier: LicenseRef-QSL-1.0-0BSD
 /*
 Example module. Dropping this directory under nullray/modules/ is enough:
-scripts/gen_modules.py adds a side-effect import at build time and the
+scripts/gen_modules.odin adds a side-effect import at build time and the
 @(init) registers the contribution. Remove the directory and rebuild to
 uninstall. See docs/modules.md.
+
+NOTE: keep registration data in package-level variables - slice literals
+allocated inside @(init) procs can be backed by storage that is not yet
+stable, so build the spec statically and register by reference.
 */
 
 package clock
@@ -14,28 +18,32 @@ import "core:strings"
 import "core:time"
 import "nullray:modules"
 
+@(private)
+CLOCK_TOOLS: [1]modules.Tool_Spec = {{
+	name = "get_time",
+	description = "Return the current UTC time",
+	schema_json = `{"type":"object","properties":{"format":{"type":"string","description":"rfc3339 or epoch"}},"required":[]}`,
+	kind = .Read,
+	run = tool_get_time,
+}}
+
+@(private)
+CLOCK_COMMANDS: [1]modules.Command_Spec = {{
+	name = "time",
+	help = "what time is it",
+	prompt = "Call get_time and answer plainly.",
+}}
+
 @(init)
 clock_init :: proc "contextless" () {
-	// Init procs are contextless, install a context before building any
-	// literals (slices allocate from context.allocator).
 	context = runtime.default_context()
 	modules.modules_register(modules.Module{
 		id = "clock",
 		name = "Clock",
 		version = "0.1.0",
 		description = "current time tool and /time command",
-		tools = []modules.Tool_Spec{{
-			name = "get_time",
-			description = "Return the current UTC time",
-			schema_json = `{"type":"object","properties":{"format":{"type":"string","description":"rfc3339 or epoch"}},"required":[]}`,
-			kind = .Read,
-			run = tool_get_time,
-		}},
-		commands = []modules.Command_Spec{{
-			name = "time",
-			help = "what time is it",
-			prompt = "Call get_time and answer plainly.",
-		}},
+		tools = CLOCK_TOOLS[:],
+		commands = CLOCK_COMMANDS[:],
 	})
 }
 

@@ -26,6 +26,7 @@ register_module_tools :: proc(r: ^Registry) {
 				kind = kind,
 				run = spec.run,
 			}
+			t.from_module = true
 			if t.run == nil && spec.run_c != nil {
 				// C modules carry a proc "c" pointer, dispatch through
 				// run_named so the pointer can ride in Tool.user.
