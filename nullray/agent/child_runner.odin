@@ -77,6 +77,7 @@ run_child_turn_impl :: proc(
 	delete(result.messages)
 	delete(result.err)
 	delete(result.stopped)
+	delete(result.escalate_model)
 	return out
 }
 

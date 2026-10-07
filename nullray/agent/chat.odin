@@ -103,7 +103,39 @@ single_chat :: proc(
 	harness: ^Harness_Metrics = nil,
 	allocator := context.allocator,
 ) -> provider.Chat_Response {
-	res := run_one_chat(p, msgs, model, tools_json, cfg, harness, allocator)
+	// AgentDiet pass: prune a cloned list per request. Session history in
+	// msgs is never mutated; the dieted copy dies with this call.
+	send := msgs
+	dieted: [dynamic]provider.Message
+	used_diet := false
+	if diet_enabled() {
+		d, st := diet_messages(msgs, allocator)
+		if (st.stubbed > 0 || st.truncated > 0) && diet_pairing_ok(d[:]) {
+			dieted = d
+			send = d[:]
+			used_diet = true
+			saved := st.chars_before - st.chars_after
+			if harness != nil {
+				harness.diet_saved_chars += saved
+			}
+			emit(cfg, .Status, fmt.tprintf("diet: %d stubbed %d truncated -%d chars", st.stubbed, st.truncated, saved))
+		} else {
+			provider.destroy_messages(d[:])
+			delete(d)
+		}
+	}
+	defer if used_diet {
+		provider.destroy_messages(dieted[:])
+		delete(dieted)
+	}
+	res := run_one_chat(p, send, model, tools_json, cfg, harness, allocator)
+	if !res.ok && used_diet && diet_err_looks_shape(res.err) {
+		// A shape rejection should not happen after pairing validation, but
+		// retry once with full history rather than lose the request.
+		provider.destroy_chat_response(&res)
+		emit(cfg, .Status, "diet: request rejected, retrying full history")
+		res = run_one_chat(p, msgs, model, tools_json, cfg, harness, allocator)
+	}
 	if res.ok || !provider.chat_is_failover_worthy(res.err) {
 		return res
 	}
@@ -137,7 +169,7 @@ single_chat :: proc(
 		cfg2 := cfg
 		cfg2.stream = false
 		cfg2.speculate_pool = nil
-		try := run_one_chat(&alt, msgs, alt_model, tools_json, cfg2, harness, allocator)
+		try := run_one_chat(&alt, send, alt_model, tools_json, cfg2, harness, allocator)
 		provider.provider_destroy(&alt)
 		if try.ok {
 			delete(primary_err)

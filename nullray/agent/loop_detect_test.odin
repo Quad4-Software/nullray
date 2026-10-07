@@ -298,6 +298,7 @@ free_run_result :: proc(res: ^Run_Result) {
 	}
 	delete(res.stopped)
 	delete(res.err)
+	delete(res.escalate_model)
 }
 
 @(test)

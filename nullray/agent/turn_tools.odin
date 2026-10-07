@@ -21,17 +21,19 @@ turn_exec_tool_calls :: proc(
 	reg: ^tools.Registry,
 	mode_s: string,
 	calls: []provider.Tool_Call,
-	loop_intervene: bool,
+	loop_tier: Loop_Tier,
 	loop_names: string,
 	malformed_left: ^int,
 	harness: ^Harness_Metrics,
 	allocator := context.allocator,
-) -> (elevate_stop: bool, had_writes: bool, result_head: u64, malformed: bool, mal_kind: Malformed_Kind) {
-	if !loop_intervene && cfg_local.speculate_pool != nil && len(calls) > 0 {
+) -> (elevate_stop: bool, had_writes: bool, result_head: u64, malformed: bool, mal_kind: Malformed_Kind, result_snip: string) {
+	if loop_tier == .None && cfg_local.speculate_pool != nil && len(calls) > 0 {
 		speculate_submit_prefix(cfg_local.speculate_pool, calls, harness, allocator)
 	}
 	head_hash := u64(0xcbf29ce484222325)
 	head_left := LOOP_RESULT_HEAD_BYTES
+	snip: strings.Builder
+	strings.builder_init(&snip, allocator)
 	for c, ci in calls {
 		if check_stop(cfg_local) == .Cancel {
 			tools.speculate_discard_all(cfg_local.speculate_pool)
@@ -39,7 +41,13 @@ turn_exec_tool_calls :: proc(
 		}
 		emit(cfg_local, .Tool_Start, c.arguments, c.name)
 		tool_result, tool_err := "", ""
-		if loop_intervene {
+		if loop_tier == .Steer {
+			tool_err = fmt.aprintf(
+				"Loop persists after a warning (%s). You are stuck: stop this approach entirely, pick a different strategy, or explain the blocker instead of calling tools.",
+				loop_names,
+				allocator = allocator,
+			)
+		} else if loop_tier == .Warn {
 			tool_err = fmt.aprintf(
 				"Loop detected: repeated tool call pattern (%s). Do NOT retry the same calls. Change approach or wrap up the answer without them.",
 				loop_names,
@@ -127,6 +135,14 @@ turn_exec_tool_calls :: proc(
 			}
 		}
 		head_hash = loop_result_head_update(head_hash, result_text, &head_left)
+		// Feed the detector a capped head of each result for the fuzzy and
+		// stagnation signals.
+		if strings.builder_len(snip) < LOOP_SNIP_CAP {
+			room := LOOP_SNIP_CAP - strings.builder_len(snip)
+			n := min(len(result_text), room)
+			strings.write_string(&snip, result_text[:n])
+			strings.write_byte(&snip, '\n')
+		}
 		delete(tool_result)
 		delete(tool_err)
 		store.audit_log_append("tool", c.name, "", "")
@@ -155,7 +171,7 @@ turn_exec_tool_calls :: proc(
 		}
 		delete(result_text)
 	}
-	return elevate_stop, had_writes, head_hash, malformed, mal_kind
+	return elevate_stop, had_writes, head_hash, malformed, mal_kind, strings.to_string(snip)
 }
 
 turn_mid_prepare :: proc(

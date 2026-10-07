@@ -56,6 +56,8 @@ Event :: struct {
 	harness_midturn:       int,
 	harness_writeback:     int,
 	harness_tools_json:    int,
+	escalations:           int,
+	escalate_model:        string,
 }
 
 session_enqueue :: proc(s: ^Session, ev: Event) {
@@ -69,6 +71,7 @@ session_enqueue :: proc(s: ^Session, ev: Event) {
 		delete(old.reasoning)
 		delete(old.stopped)
 		delete(old.agent_id)
+		delete(old.escalate_model)
 	}
 	append(&s.pending, ev)
 	sync.mutex_unlock(&s.pending_mu)
@@ -269,6 +272,7 @@ session_poll :: proc(s: ^Session) -> (changed: bool) {
 		delete(ev.reasoning)
 		delete(ev.stopped)
 		delete(ev.agent_id)
+		delete(ev.escalate_model)
 	}
 	if len(deferred) > 0 {
 		sync.mutex_lock(&s.pending_mu)
@@ -321,6 +325,8 @@ session_record_turn_usage :: proc(s: ^Session, ev: Event) {
 		harness_midturn = ev.harness_midturn,
 		harness_writeback = ev.harness_writeback,
 		harness_tools_json = ev.harness_tools_json,
+		escalations = ev.escalations,
+		escalate_model = ev.escalate_model,
 	})
 	session_save_meta(s)
 }

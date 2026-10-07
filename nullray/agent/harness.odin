@@ -28,6 +28,7 @@ Harness_Metrics :: struct {
 	speculate_miss:         int,
 	speculate_submit:       int,
 	speculate_saved_ms:     int,
+	diet_saved_chars:       int,
 }
 
 Prepare_Stats :: struct {

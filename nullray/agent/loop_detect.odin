@@ -243,15 +243,18 @@ loop_call_names :: proc(calls: []provider.Tool_Call, allocator := context.temp_a
 }
 
 /*
-Per-step anti-loop gate. Checks the incoming call set against the executed
-history. Stage 1 marks the signature(s) and asks for an intervene nudge,
-stage 2 stops the turn when a marked signature repeats. The stop result
-owns the appended assistant message, the caller returns it as-is.
+Per-step anti-loop gate. Runs the hybrid detector on the incoming call
+set against the observed window. The first fire marks the signature(s)
+and asks for an intervene nudge (warn), a repeat while warned steers with
+a stronger nudge and flags distress so the caller can escalate the next
+chat call, and a third fire stops the turn. Marked signatures keep the
+fire streak alive across clean repeats so a stubborn loop still climbs
+the ladder. The stop result owns the appended assistant message, the
+caller returns it as-is.
 */
 turn_loop_gate :: proc(
 	msgs: ^[dynamic]provider.Message,
-	hist: ^Loop_History,
-	marks: ^Loop_Marks,
+	det: ^Loop_Detector,
 	calls: []provider.Tool_Call,
 	sig: u64,
 	res: ^provider.Chat_Response,
@@ -260,15 +263,22 @@ turn_loop_gate :: proc(
 	usage: provider.Usage,
 	harness: Harness_Metrics,
 	allocator := context.allocator,
-) -> (stop: bool, intervene: bool, out: Run_Result) {
-	if hist == nil || marks == nil || res == nil {
-		return false, false, out
+) -> (stop: bool, tier: Loop_Tier, stall: bool, out: Run_Result) {
+	if det == nil || res == nil {
+		return false, .None, false, out
 	}
-	verdict, period := loop_check(hist.entries[:hist.len], sig)
-	if verdict == .None {
-		return false, false, out
+	signal := loop_detector_check(det, calls, sig)
+	if signal == .None {
+		// A clean step on a signature the detector never flagged resets
+		// the streak, a clean repeat of a flagged signature does not.
+		if !loop_marks_has(&det.marks, sig) {
+			det.fires = 0
+		}
+		return false, .None, false, out
 	}
-	if loop_marks_has(marks, sig) {
+	det.fires += 1
+	tier, stall = loop_verdict_for_fires(det.fires)
+	if tier == .Stop {
 		delete(res.content)
 		delete(res.reasoning)
 		delete(res.model)
@@ -285,7 +295,7 @@ turn_loop_gate :: proc(
 		)
 		emit(cfg, .Status, "anti-loop: repeated tools after intervene")
 		append(msgs, provider.Message{role = .Assistant, content = msg})
-		return true, false, Run_Result{
+		return true, .Stop, false, Run_Result{
 			ok = true,
 			messages = msgs^,
 			content = msg,
@@ -294,12 +304,20 @@ turn_loop_gate :: proc(
 			harness = harness,
 		}
 	}
-	loop_marks_add(marks, sig)
-	if verdict == .Cycle && period > 0 {
-		loop_marks_add_cycle(marks, hist.entries[:hist.len], sig, period)
+	loop_marks_add(&det.marks, sig)
+	if signal == .Cycle && det.last_period > 0 {
+		loop_marks_add_cycle(&det.marks, loop_entries_view(det), sig, det.last_period)
 	}
-	emit(cfg, .Status, "anti-loop: intervene")
-	return false, true, out
+	emit(
+		cfg,
+		.Status,
+		fmt.tprintf(
+			"anti-loop: %s (%s)",
+			"intervene" if tier == .Warn else "steer",
+			loop_signal_name(signal),
+		),
+	)
+	return false, tier, stall, out
 }
 
 /*

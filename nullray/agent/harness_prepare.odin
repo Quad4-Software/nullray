@@ -113,7 +113,7 @@ harness_log_metrics :: proc(m: Harness_Metrics) {
 		mean = m.total_prompt_chars / m.call_count
 	}
 	fmt.eprintf(
-		"nullray harness: calls=%d mean_chars=%d peak_chars=%d stubbed=%d retained=%d artifacts=%d clear=%d compact=%d writeback=%d midturn=%d tools_json=%d spec_hit=%d spec_miss=%d spec_submit=%d spec_saved_ms=%d\n",
+		"nullray harness: calls=%d mean_chars=%d peak_chars=%d stubbed=%d retained=%d artifacts=%d clear=%d compact=%d writeback=%d midturn=%d tools_json=%d spec_hit=%d spec_miss=%d spec_submit=%d spec_saved_ms=%d diet_saved=%d\n",
 		m.call_count,
 		mean,
 		m.peak_prompt_chars,
@@ -129,6 +129,7 @@ harness_log_metrics :: proc(m: Harness_Metrics) {
 		m.speculate_miss,
 		m.speculate_submit,
 		m.speculate_saved_ms,
+		m.diet_saved_chars,
 	)
 }
 

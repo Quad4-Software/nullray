@@ -40,6 +40,9 @@ Turn_Metrics :: struct {
 	harness_midturn:       int,
 	harness_writeback:     int,
 	harness_tools_json:    int,
+	// SWE-Protege escalations this turn and the last "provider/model" used.
+	escalations:        int,
+	escalate_model:     string,
 }
 
 Session_Metrics :: struct {
@@ -126,7 +129,7 @@ append_turn_metrics :: proc(session_jsonl_path: string, turn: Turn_Metrics) -> b
 		ts = time.time_to_unix(time.now())
 	}
 	line := fmt.tprintf(
-		`{{"ts":%d,"turn":%d,"model":%q,"agent_id":%q,"prompt_tokens":%d,"completion_tokens":%d,"total_tokens":%d,"reasoning_tokens":%d,"cache_read":%d,"cache_write":%d,"input_chars":%d,"cost_usd":%.6f,"cost_known":%v,"stopped":%q,"harness_calls":%d,"harness_peak_chars":%d,"harness_stubbed":%d,"harness_artifacts":%d,"harness_clear":%d,"harness_compact":%d,"harness_midturn":%d,"harness_writeback":%d,"harness_tools_json":%d}}`+"\n",
+		`{{"ts":%d,"turn":%d,"model":%q,"agent_id":%q,"prompt_tokens":%d,"completion_tokens":%d,"total_tokens":%d,"reasoning_tokens":%d,"cache_read":%d,"cache_write":%d,"input_chars":%d,"cost_usd":%.6f,"cost_known":%v,"stopped":%q,"harness_calls":%d,"harness_peak_chars":%d,"harness_stubbed":%d,"harness_artifacts":%d,"harness_clear":%d,"harness_compact":%d,"harness_midturn":%d,"harness_writeback":%d,"harness_tools_json":%d,"escalations":%d,"escalate_model":%q}}`+"\n",
 		ts,
 		turn.turn,
 		turn.model,
@@ -150,6 +153,8 @@ append_turn_metrics :: proc(session_jsonl_path: string, turn: Turn_Metrics) -> b
 		turn.harness_midturn,
 		turn.harness_writeback,
 		turn.harness_tools_json,
+		turn.escalations,
+		turn.escalate_model,
 	)
 	sync.mutex_lock(&g_usage_mu)
 	defer sync.mutex_unlock(&g_usage_mu)

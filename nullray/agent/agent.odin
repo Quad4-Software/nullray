@@ -134,6 +134,10 @@ Run_Result :: struct {
 	verify_fail_count: int,
 	verify_ran:        bool,
 	harness:           Harness_Metrics,
+	// SWE-Protege escalations that ran this turn and the last
+	// "provider/model" label used. escalate_model is owned like content.
+	escalations:       int,
+	escalate_model:    string,
 }
 
 emit :: proc(cfg: Config, kind: Event_Kind, text: string, name := "") {
@@ -167,6 +171,19 @@ result_prefix_had_writes :: proc(messages: []provider.Message) -> bool {
 
 owned_stop :: proc(kind: string, allocator := context.allocator) -> string {
 	return strings.clone(kind, allocator)
+}
+
+// Stamp escalation counters on a turn result. Every run_turn return wraps
+// with this so usage/diagnostics see the count regardless of exit path.
+finish_run :: proc(res: Run_Result, esc: ^Escalate_State, allocator := context.allocator) -> Run_Result {
+	out := res
+	if esc != nil && esc.fired > 0 {
+		out.escalations = esc.fired
+		if len(esc.label) > 0 {
+			out.escalate_model = strings.clone(esc.label, allocator)
+		}
+	}
+	return out
 }
 
 untrusted_tool_result :: proc(text: string, allocator := context.allocator) -> string {

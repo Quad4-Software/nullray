@@ -64,9 +64,19 @@ run_turn :: proc(req: Run_Request, cfg: Config, allocator := context.allocator) 
 	usage_sum: provider.Usage
 	cost_all_known := true
 	saw_cost := false
-	loop_hist: Loop_History
-	loop_marks: Loop_Marks
-	loop_intervene := false
+	loop_det := loop_detector_init(allocator)
+	defer loop_detector_destroy(&loop_det)
+	embed_ctx := Loop_Embed_Ctx{prov = req.prov, model = provider.resolve_embed_model(req.prov)}
+	if sem := loop_sem_mode_from_env(req.prov.embed != nil); sem != .Off {
+		embed_proc: Loop_Embed_Proc
+		if sem == .Embed {
+			embed_proc = loop_embed_bridge
+		}
+		loop_detector_set_semantic(&loop_det, sem, embed_proc, &embed_ctx)
+	}
+	esc := escalate_state_init(allocator)
+	defer escalate_state_destroy(&esc)
+	loop_tier := Loop_Tier.None
 	step_sig := u64(0)
 	malformed_left := tool_retry_budget()
 	prev_asst := ""
@@ -91,18 +101,18 @@ run_turn :: proc(req: Run_Request, cfg: Config, allocator := context.allocator) 
 	}
 
 	for step in 0 ..< max_steps {
-		loop_intervene = false
+		loop_tier = .None
 		switch check_stop(cfg_local) {
 		case .Cancel:
 			tools.speculate_discard_all(cfg_local.speculate_pool)
 			emit(cfg_local, .Status, "cancelled")
 			harness_log_metrics(harness)
-			return Run_Result{ok = true, messages = msgs, content = last_content, stopped = owned_stop("cancelled", allocator), usage = usage_sum, harness = harness}
+			return finish_run(Run_Result{ok = true, messages = msgs, content = last_content, stopped = owned_stop("cancelled", allocator), usage = usage_sum, harness = harness}, &esc, allocator)
 		case .Pause:
 			tools.speculate_stop_admit(cfg_local.speculate_pool)
 			emit(cfg_local, .Status, "paused")
 			harness_log_metrics(harness)
-			return Run_Result{ok = true, messages = msgs, content = last_content, stopped = owned_stop("paused", allocator), usage = usage_sum, harness = harness}
+			return finish_run(Run_Result{ok = true, messages = msgs, content = last_content, stopped = owned_stop("paused", allocator), usage = usage_sum, harness = harness}, &esc, allocator)
 		case .None:
 		}
 
@@ -115,12 +125,12 @@ run_turn :: proc(req: Run_Request, cfg: Config, allocator := context.allocator) 
 		if finalize_nudged {
 			step_tools = ""
 		}
-		res := single_chat(req.prov, msgs[:], model, step_tools, cfg_local, &harness, allocator)
+		res := escalate_chat_step(req.prov, msgs[:], model, step_tools, cfg_local, &esc, &harness, allocator)
 		if !res.ok {
 			provider.destroy_messages(msgs[:])
 			delete(msgs)
 			harness_log_metrics(harness)
-			return Run_Result{ok = false, err = res.err, usage = usage_sum, harness = harness}
+			return finish_run(Run_Result{ok = false, err = res.err, usage = usage_sum, harness = harness}, &esc, allocator)
 		}
 		usage_sum.prompt_tokens += res.usage.prompt_tokens
 		usage_sum.completion_tokens += res.usage.completion_tokens
@@ -175,21 +185,24 @@ run_turn :: proc(req: Run_Request, cfg: Config, allocator := context.allocator) 
 				emit(cfg, .Status, "anti-loop: repeated reply")
 				append(&msgs, provider.Message{role = .Assistant, content = res.content, reasoning = res.reasoning})
 				harness_log_metrics(harness)
-				return Run_Result{ok = true, messages = msgs, content = res.content, stopped = owned_stop("loop", allocator), usage = usage_sum, harness = harness}
+				return finish_run(Run_Result{ok = true, messages = msgs, content = res.content, stopped = owned_stop("loop", allocator), usage = usage_sum, harness = harness}, &esc, allocator)
 			}
 		}
 
 		if len(calls) > 0 {
 			step_sig = loop_sig_of_calls(calls)
-			stop, intervene, loop_res := turn_loop_gate(
-				&msgs, &loop_hist, &loop_marks, calls, step_sig,
+			stop, tier, stall, loop_res := turn_loop_gate(
+				&msgs, &loop_det, calls, step_sig,
 				&res, text_calls, cfg, usage_sum, harness, allocator,
 			)
 			if stop {
 				harness_log_metrics(harness)
-				return loop_res
+				return finish_run(loop_res, &esc, allocator)
 			}
-			loop_intervene = intervene
+			loop_tier = tier
+			if stall {
+				escalate_should(&esc, true, step_sig)
+			}
 		}
 
 		asst := provider.Message{
@@ -240,14 +253,14 @@ run_turn :: proc(req: Run_Request, cfg: Config, allocator := context.allocator) 
 				continue
 			case .Failed_Stop:
 				v_res.verify_ran = true
-				return v_res
+				return finish_run(v_res, &esc, allocator)
 			case .Ok:
 				verify_ran = true
 			case .Skipped:
 			}
 
 			harness_log_metrics(harness)
-			return Run_Result{
+			return finish_run(Run_Result{
 				ok = true,
 				messages = msgs,
 				content = last_content,
@@ -256,22 +269,23 @@ run_turn :: proc(req: Run_Request, cfg: Config, allocator := context.allocator) 
 				verify_fail_count = verify_fails,
 				verify_ran = verify_ran,
 				harness = harness,
-			}
+			}, &esc, allocator)
 		}
 
-		elevate_stop, step_writes, step_rh, malformed, mal_kind := turn_exec_tool_calls(
+		elevate_stop, step_writes, step_rh, malformed, mal_kind, step_snip := turn_exec_tool_calls(
 			&msgs,
 			cfg_local,
 			reg,
 			mode_s,
 			calls,
-			loop_intervene,
+			loop_tier,
 			loop_call_names(calls),
 			&malformed_left,
 			&harness,
 			allocator,
 		)
-		loop_history_push(&loop_hist, Loop_Entry{sig = step_sig, result_head = step_rh})
+		loop_detector_observe(&loop_det, step_sig, step_rh, step_snip, calls)
+		delete(step_snip)
 		tools.checkpoint_commit_step(step + 1)
 		if malformed {
 			turn_restart_malformed(&msgs, mal_kind, malformed_kind_name(mal_kind), malformed_left > 0, allocator)
@@ -294,14 +308,14 @@ run_turn :: proc(req: Run_Request, cfg: Config, allocator := context.allocator) 
 			emit(cfg, .Status, "elevate: non-retryable")
 			append(&msgs, provider.Message{role = .Assistant, content = msg})
 			harness_log_metrics(harness)
-			return Run_Result{
+			return finish_run(Run_Result{
 				ok = true,
 				messages = msgs,
 				content = msg,
 				stopped = owned_stop("elevate", allocator),
 				usage = usage_sum,
 				harness = harness,
-			}
+			}, &esc, allocator)
 		}
 
 		turn_mid_prepare(&msgs, cfg, req.prov, had_writes, &harness)
@@ -309,12 +323,12 @@ run_turn :: proc(req: Run_Request, cfg: Config, allocator := context.allocator) 
 
 		if check_stop(cfg) == .Cancel {
 			harness_log_metrics(harness)
-			return Run_Result{ok = true, messages = msgs, content = last_content, stopped = owned_stop("cancelled", allocator), usage = usage_sum, harness = harness}
+			return finish_run(Run_Result{ok = true, messages = msgs, content = last_content, stopped = owned_stop("cancelled", allocator), usage = usage_sum, harness = harness}, &esc, allocator)
 		}
 		if check_stop(cfg) == .Pause {
 			emit(cfg, .Status, "paused")
 			harness_log_metrics(harness)
-			return Run_Result{ok = true, messages = msgs, content = last_content, stopped = owned_stop("paused", allocator), usage = usage_sum, harness = harness}
+			return finish_run(Run_Result{ok = true, messages = msgs, content = last_content, stopped = owned_stop("paused", allocator), usage = usage_sum, harness = harness}, &esc, allocator)
 		}
 	}
 
@@ -332,7 +346,7 @@ run_turn :: proc(req: Run_Request, cfg: Config, allocator := context.allocator) 
 			allocator,
 		) {
 			harness_log_metrics(harness)
-			return Run_Result{
+			return finish_run(Run_Result{
 				ok = true,
 				messages = msgs,
 				content = last_content,
@@ -341,7 +355,7 @@ run_turn :: proc(req: Run_Request, cfg: Config, allocator := context.allocator) 
 				verify_fail_count = verify_fails,
 				verify_ran = verify_ran,
 				harness = harness,
-			}
+			}, &esc, allocator)
 		}
 	}
 
@@ -358,11 +372,11 @@ run_turn :: proc(req: Run_Request, cfg: Config, allocator := context.allocator) 
 		allocator,
 	); did {
 		v_res.verify_ran = true
-		return v_res
+		return finish_run(v_res, &esc, allocator)
 	}
 
 	harness_log_metrics(harness)
-	return Run_Result{
+	return finish_run(Run_Result{
 		ok = true,
 		messages = msgs,
 		content = last_content,
@@ -372,5 +386,5 @@ run_turn :: proc(req: Run_Request, cfg: Config, allocator := context.allocator) 
 		verify_fail_count = verify_fails,
 		verify_ran = verify_ran,
 		harness = harness,
-	}
+	}, &esc, allocator)
 }

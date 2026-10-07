@@ -17,7 +17,9 @@ import "nullray:agent"
 import "nullray:constants"
 import "nullray:http"
 import "nullray:mcp"
+import "nullray:notify"
 import "nullray:provider"
+import "nullray:schedule"
 import "nullray:session"
 import "nullray:subagent"
 import "nullray:tools"
@@ -327,6 +329,20 @@ prompt_worker :: proc(data: rawptr) {
 	// Wakeup turns are synthesized: there is no held-open request id, so
 	// no JSON-RPC result goes out. Client prompts get their response here.
 	if args.from_wakeup {
+		// Watch bookkeeping: fold this turn's token spend into the watch
+		// state, and surface a notification when the budget trips. Hit
+		// notifications already fired inside the watch_checkpoint tool.
+		if wid, wok := schedule.watch_id_from_tag(args.wake_tag); wok {
+			note := schedule.watch_record_run(
+				wid,
+				i64(result.usage.total_tokens),
+				schedule.unix_now(),
+				context.temp_allocator,
+			)
+			if len(note) > 0 {
+				notify.notify_send("nullray watch", note)
+			}
+		}
 		if !result.ok && !cancelled {
 			msg := result.err
 			if len(msg) == 0 {
@@ -362,6 +378,7 @@ prompt_worker :: proc(data: rawptr) {
 
 	delete(result.err)
 	delete(result.stopped)
+	delete(result.escalate_model)
 	provider.provider_destroy(&args.prov)
 	delete(args.id_json)
 	delete(args.wake_tag)

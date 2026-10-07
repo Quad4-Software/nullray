@@ -126,6 +126,7 @@ chat_job :: proc(data: rawptr) {
 			stopped = strings.clone(result.stopped),
 		})
 		delete(result.err)
+		delete(result.escalate_model)
 		if len(result.messages) > 0 {
 			provider.destroy_messages(result.messages[:])
 			delete(result.messages)
@@ -158,6 +159,8 @@ chat_job :: proc(data: rawptr) {
 		harness_midturn = result.harness.midturn_prepare_events,
 		harness_writeback = result.harness.writeback_events,
 		harness_tools_json = result.harness.tools_json_chars,
+		escalations = result.escalations,
+		escalate_model = strings.clone(result.escalate_model),
 	})
 
 	// Child turns write usage files but do not emit session events. Roll pending
@@ -311,6 +314,7 @@ chat_job :: proc(data: rawptr) {
 	}
 
 	delete(result.err)
+	delete(result.escalate_model)
 	prefix_n := len(args.messages)
 	if len(result.messages) > prefix_n {
 		session_queue_commit(args.session, args.turn_base, result.messages[prefix_n:])
