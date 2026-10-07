@@ -5,9 +5,6 @@ bin
 dist
 dist-all
 *.AppImage
-*.flatpak
-.flatpak-builder
-flatpak_app
 repo
 **/.DS_Store
 **/__pycache__
@@ -23,7 +20,6 @@ SECURITY.md
 .dockerignore
 docker-compose.yml
 packaging/appimage
-packaging/flatpak
 scripts/gen_splash_gif.py
 logo/nullray-ascii.txt
 logo/nullray-social.png

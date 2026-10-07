@@ -26,8 +26,8 @@ installs to `~/.local`. Re-run to pull and rebuild.
 
 - git, make, a C compiler (clang or gcc)
 - Odin on PATH (release or dev build)
-- Optional: flatpak-builder for `make flatpak`; Landlock-capable Linux for
-  the sandbox (soft-warns off elsewhere)
+- Optional: Landlock-capable Linux for the sandbox (soft-warns off
+  elsewhere)
 
 ## Build
 
@@ -143,7 +143,6 @@ export NULLRAY_VCS_FORCE=1
 Local packaging builds from the source tree:
 
 ```sh
-make flatpak    # dist/*.flatpak (needs flatpak-builder)
 make appimage   # dist/*.AppImage (needs curl or NULLRAY_APPIMAGE_TOOLS)
 ```
 

@@ -56,11 +56,6 @@ __pycache__/
 *.deb
 *.rpm
 *.AppImage
-*.flatpak
-packaging/flatpak/nullray
-packaging/flatpak/nullray.svg
-.flatpak-builder/
-flatpak_app/
 
 # Local logo scratch (committed assets live in logo/)
 .logo-preview/

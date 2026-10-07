@@ -46,9 +46,6 @@ make -C ~/.local/src/nullray install PREFIX="$HOME/.local"
 
 Build a local package from the checkout:
 
-    make flatpak    # dist/*.flatpak, needs flatpak-builder
-    flatpak install --user ./dist/nullray_*_linux_amd64.flatpak
-
     make appimage   # dist/*.AppImage, needs curl or NULLRAY_APPIMAGE_TOOLS
 
 === "AppImage"
