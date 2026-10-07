@@ -127,6 +127,8 @@ parse_cli :: proc(args: []string) -> Cli {
 			}
 		case "--list-skills":
 			cli.list_skills = true
+		case "--distill":
+			cli.distill = true
 		case "--skills":
 			v, ok := take_value(args, &i)
 			if !ok {

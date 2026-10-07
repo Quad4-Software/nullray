@@ -5,6 +5,7 @@ import "core:fmt"
 import "core:os"
 import "core:strings"
 import "nullray:constants"
+import "nullray:experience"
 import "nullray:http"
 import "nullray:provider"
 import "nullray:secure"
@@ -165,6 +166,18 @@ run_list_skills :: proc() -> int {
 	text := skills.skills_list_text()
 	defer delete(text)
 	fmt.println(text)
+	return 0
+}
+
+run_distill :: proc() -> int {
+	path, err := experience.exp_distill()
+	if len(err) > 0 {
+		fmt.eprintln("nullray:", err)
+		delete(err)
+		return 1
+	}
+	fmt.printf("wrote %s\n", path)
+	delete(path)
 	return 0
 }
 

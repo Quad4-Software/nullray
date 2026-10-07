@@ -9,6 +9,7 @@ import "core:os"
 import "core:path/filepath"
 import "core:strings"
 import "nullray:constants"
+import "nullray:experience"
 import project_memory "nullray:memory"
 import "nullray:rag"
 import "nullray:sandbox"
@@ -250,6 +251,13 @@ build_system_prompt :: proc(
 	if len(retrieved) > 0 {
 		strings.write_string(&b, "\n\n## Retrieved memory\n\n")
 		strings.write_string(&b, retrieved)
+	}
+	// Experience recall sits at the volatile tail, after the per-turn RAG
+	// block, so prefix cache hits survive a rebuild. Tiny drops it like
+	// memory and RAG, the budget cannot carry it.
+	if exp_block := !tiny ? experience.exp_prompt_block(retrieve_query, context.temp_allocator) : ""; len(exp_block) > 0 {
+		strings.write_string(&b, "\n\n## Experience\n\n")
+		strings.write_string(&b, exp_block)
 	}
 	return strings.to_string(b)
 }

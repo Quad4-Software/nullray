@@ -70,6 +70,7 @@ print_help :: proc() {
 	fmt.println("      --force             overwrite destination on --rename-session")
 	fmt.println("      --list-modules      list compiled-in modules and exit")
 	fmt.println("      --list-skills       list loaded skills and exit")
+	fmt.println("      --distill           write .nullray/experience.md digest and exit")
 	fmt.println("      --skills PATH       extra skill root(s), comma-separated (repeatable)")
 	fmt.println("      --keys PRESET       default | neovim | emacs")
 	fmt.println("      --message-file PATH prompt from file (print mode)")

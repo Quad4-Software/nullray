@@ -96,6 +96,7 @@ Cli :: struct {
 	import_session:   string,
 	as_name:          string,
 	list_skills:      bool,
+	distill:          bool,
 	list_modules:     bool,
 	probe_tools:      string,
 	skills_paths:     string,
@@ -191,6 +192,9 @@ main :: proc() {
 	}
 	if cli.list_skills {
 		os.exit(run_list_skills())
+	}
+	if cli.distill {
+		os.exit(run_distill())
 	}
 	if cli.list_modules {
 		os.exit(run_list_modules())

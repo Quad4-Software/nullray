@@ -44,6 +44,7 @@ complete -c nullray -l export-session -d 'Export session to --out dir' -r
 complete -c nullray -l import-session -d 'Import session from path' -r -F
 complete -c nullray -l as -d 'Name for import-session or rename-session' -r
 complete -c nullray -l list-skills -d 'List loaded skills'
+complete -c nullray -l distill -d 'Write experience.md digest'
 complete -c nullray -l skills -d 'Extra skill root dirs' -r -F
 complete -c nullray -l keys -d 'Keybind preset' -xa 'default neovim emacs'
 complete -c nullray -l message-file -d 'Prompt from file' -r -F
@@ -76,7 +77,7 @@ COMPLETIONS_POWERSHELL :: `Register-ArgumentCompleter -CommandName nullray -Scri
     '--provider','-p','--model','-m','--theme','--mode','--hunt','--perms','--gate','--sandbox',
     '--workspace','-w','--session','--list-sessions','--search-sessions',
     '--delete-session','--rename-session','--force','--export-session','--import-session','--as',
-    '--list-skills','--skills',
+    '--list-skills','--distill','--skills',
     '--keys','--message-file','--image','--audio','--video','--media','--out','--plan-out','--plan-in',
     '--output-format','--print-strict','--auto','--usage','--timeout','--no-splash','--no-subagents','--splash','--hide-sensitive','--list-models','--completions','--man'
   )
@@ -94,7 +95,7 @@ set edit:completion:arg-completer[nullray] = {|@args|
     --provider -p --model -m --theme --mode --hunt --perms --gate --sandbox
     --workspace -w --session --list-sessions --search-sessions
     --delete-session --rename-session --force --export-session --import-session --as
-    --list-skills --skills
+    --list-skills --distill --skills
     --keys --message-file --image --audio --video --media --out --plan-out --plan-in
     --output-format --print-strict --auto --usage --timeout --no-splash --no-subagents --splash --hide-sensitive --list-models --completions --man
   ]
@@ -109,7 +110,7 @@ COMPLETIONS_NUSHELL :: `def "nu-complete nullray flags" [] {
     --provider -p --model -m --theme --mode --perms --gate --sandbox
     --workspace -w --session --list-sessions --search-sessions
     --delete-session --rename-session --force --export-session --import-session --as
-    --list-skills --skills
+    --list-skills --distill --skills
     --keys --message-file --image --audio --video --media --out --plan-out --plan-in
     --output-format --print-strict --auto --usage --timeout --no-splash --no-subagents --splash --hide-sensitive --list-models --completions --man
   ]

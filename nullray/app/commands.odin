@@ -78,6 +78,7 @@ SLASH_COMMANDS := []Slash_Command{
 	{"gate", "/gate 0..3|ask|allow|yolo", "tool capability gate", slash_cmd_gate},
 	{"quirks", "/quirks", "list active model output quirks", slash_cmd_quirks},
 	{"hooks", "/hooks trust", "re-approve workspace hooks.json", slash_cmd_hooks},
+	{"distill", "/distill", "distill turn history into experience.md", slash_cmd_distill},
 	{"improve", "/improve", "rewrite draft prompt via model (opt-in)", slash_cmd_improve},
 	{"pause", "/pause", "pause running agent after current step", slash_cmd_pause},
 	{"stop", "/stop", "stop running agent", slash_cmd_stop},
