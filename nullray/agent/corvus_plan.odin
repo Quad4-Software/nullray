@@ -98,11 +98,12 @@ corvus_simulate :: proc(obs: []Corvus_Obs, muts: []Corvus_Mut, protected, done: 
 			}
 		}
 		// current delivered entries: kept, same kind and path, delivered
-		// after the last mutation that precedes this observation
+		// after the last mutation that precedes this observation. Superseded
+		// entries are excluded since their bytes are stubbed at emit.
 		cur := make([dynamic]int, context.temp_allocator)
 		for ej in 0 ..< oi {
 			e := &obs[ej]
-			if !e.kept || e.kind != o.kind || e.path != o.path {
+			if !e.kept || e.stub == .Superseded || e.kind != o.kind || e.path != o.path {
 				continue
 			}
 			if e.idx <= last_mut {
@@ -184,7 +185,7 @@ corvus_emit :: proc(
 			}
 			why := "stale, file modified"
 			for e in obs {
-				if e.kept && e.kind == o.kind && e.path == o.path && e.idx > last_mut_all {
+				if e.kept && e.stub == .None && e.kind == o.kind && e.path == o.path && e.idx > last_mut_all {
 					why = "stale, see newer read"
 					break
 				}

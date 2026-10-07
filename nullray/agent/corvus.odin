@@ -6,7 +6,7 @@ as (path, line range, content hash). A re-read whose bytes were already
 delivered collapses to a stub, a successful write or edit invalidates
 earlier reads of that path, and the outgoing request can carry a compact
 per-file state block at its last position. Pure functions over the
-cloned message list; real session history keeps full fidelity.
+cloned message list. Real session history keeps full fidelity.
 */
 
 package agent
@@ -101,7 +101,7 @@ corvus_mut_ok :: proc(m: provider.Message) -> bool {
 	return strings.has_prefix(c, "ok") || strings.contains(c, "status=ok")
 }
 
-// read_file results carry a "path ... lines= ..." header line; dedup compares
+// read_file results carry a "path ... lines= ..." header line. Dedup compares
 // the payload only so a rewritten header never hides a content change.
 corvus_body :: proc(kind: Corvus_Kind, content: string) -> string {
 	if kind == .List {
@@ -184,7 +184,8 @@ corvus_arg_paths :: proc(args_json: string, out: ^[dynamic]string) {
 		rest := args_json[i:]
 		colon := strings.index_byte(rest, ':')
 		if colon < 0 {
-			return
+			from = i
+			continue
 		}
 		vstart := i + colon + 1
 		for vstart < len(args_json) && args_json[vstart] <= ' ' {
