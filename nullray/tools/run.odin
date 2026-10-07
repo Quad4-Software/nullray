@@ -157,10 +157,10 @@ run :: proc(
 	allow: []string = nil,
 ) -> (result: string, err: string) {
 	if ok, reason := tool_kind_allowed(r, name, mode, allow); !ok {
-		return "", strings.clone(reason, allocator)
+		return "", run_fail(name, args_json, strings.clone(reason, allocator), allocator)
 	}
 	if ok, reason := gate_allows_tool(r, name); !ok {
-		return "", strings.clone(reason, allocator)
+		return "", run_fail(name, args_json, strings.clone(reason, allocator), allocator)
 	}
 	if strings.has_prefix(name, "mcp:") && r != nil && r.external_run != nil {
 		return r.external_run(r.external_user, name, args_json, allocator)
@@ -190,12 +190,24 @@ run :: proc(
 		return "", fmt.aprintf("unknown tool: %s", name, allocator = allocator)
 	}
 	if t.run_named != nil {
-		return t.run_named(t.user, resolved, args_json, allocator)
-	}
-	if t.run == nil {
+		result, err = t.run_named(t.user, resolved, args_json, allocator)
+	} else if t.run == nil {
 		return "", fmt.aprintf("tool not runnable: %s", name, allocator = allocator)
+	} else {
+		result, err = t.run(args_json, allocator)
 	}
-	return t.run(args_json, allocator)
+	if len(err) > 0 {
+		err = run_fail(resolved, args_json, err, allocator)
+	}
+	// MemEx scratchpad: oversized bodies leave the transcript here, the
+	// model sees a stub plus preview and pulls slices with peek.
+	if len(err) == 0 {
+		if stub, did := stash_result(r, resolved, result, allocator); did {
+			delete(result)
+			result = stub
+		}
+	}
+	return result, err
 }
 
 /*

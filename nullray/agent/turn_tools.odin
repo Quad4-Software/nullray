@@ -148,16 +148,28 @@ turn_exec_tool_calls :: proc(
 		store.audit_log_append("tool", c.name, "", "")
 		emit(cfg_local, .Tool_Done, result_text, c.name)
 		emit(cfg_local, .Tool_Message, result_text, c.name)
-		detail := cmd_or_path_from_args(c.name, c.arguments)
-		envelope := offload_tool_result(c.name, result_text, detail, is_err || looks_like_tool_error(result_text), harness, allocator)
-		trusted_boundary := untrusted_tool_result(envelope, allocator)
-		delete(envelope)
+		failed := is_err || looks_like_tool_error(result_text)
+		recorded: string
+		if failed && tools.failure_desc_enabled() {
+			// Failed calls are described, not echoed: scrub the recorded
+			// assistant arguments and record a structural summary so a
+			// replayed transcript cannot feed verbatim re-emission.
+			scrub_failed_call_args(msgs, c, allocator)
+			desc := tools.describe_tool_failure(c.name, c.arguments, result_text, allocator)
+			recorded = untrusted_tool_result(desc, allocator)
+			delete(desc)
+		} else {
+			detail := cmd_or_path_from_args(c.name, c.arguments)
+			envelope := offload_tool_result(c.name, result_text, detail, failed, harness, allocator)
+			recorded = untrusted_tool_result(envelope, allocator)
+			delete(envelope)
+		}
 		append(msgs, provider.Message{
 			role = .Tool,
-			content = trusted_boundary,
+			content = recorded,
 			tool_call_id = strings.clone(c.id, allocator),
 			name = strings.clone(c.name, allocator),
-			is_error = is_err || looks_like_tool_error(trusted_boundary),
+			is_error = failed || looks_like_tool_error(recorded),
 		})
 		if elevate.is_nonretryable_elevate_text(result_text) {
 			elevate_stop = true
