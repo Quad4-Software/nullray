@@ -1,11 +1,11 @@
 // SPDX-License-Identifier: LicenseRef-QSL-1.0-0BSD
 /*
 External harness tools. harness_list shows configured agent CLIs and whether
-their binary resolved on PATH; harness_run delegates a prompt to one of them.
+their binary resolved on PATH, harness_run delegates a prompt to one of them.
 
 harness_run spawns a subprocess, so it is kind .Shell: it shares the run_shell
 gate class and is blocked in ask/plan/review modes. Output is capped to
-HARNESS_MAX_OUTPUT head+tail by the harness package; it never goes through a
+HARNESS_MAX_OUTPUT head+tail by the harness package, it never goes through a
 shell and only defined harness ids can name a binary.
 */
 
@@ -70,7 +70,7 @@ tool_harness_run :: proc(args_json: string, allocator := context.allocator) -> (
 	// Same permission class as run_shell: the engine id is the probe string
 	// so NULLRAY_SHELL_ALLOW/DENY entries and the ask-mode /allow handoff
 	// select which external CLIs may run. The prompt is intentionally not
-	// scanned here; it is data for the child agent, not a shell command.
+	// scanned here, it is data for the child agent, not a shell command.
 	allowed, reason := shell_command_allowed(strings.trim_space(engine), allocator)
 	if !allowed {
 		return "", reason

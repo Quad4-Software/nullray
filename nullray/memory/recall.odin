@@ -114,7 +114,7 @@ recall_key_matches :: proc(key, tool_name, path_arg, cmd_arg: string) -> bool {
 		if len(path_arg) > 0 && recall_glob_match(pat, path_arg) {
 			return true
 		}
-		// Files also get written through run_shell heredocs and sed; match
+		// Files also get written through run_shell heredocs and sed, match
 		// path-like tokens in the command so those lessons still fire.
 		if len(cmd_arg) > 0 {
 			flat, _ := strings.replace_all(cmd_arg, "\t", " ", context.temp_allocator)
@@ -158,7 +158,7 @@ recall_glob_match :: proc(pattern, path: string) -> bool {
 			pos += idx + len(part)
 			_ = i
 		}
-		// A trailing ** accepts any suffix; a trailing literal must reach the end.
+		// A trailing ** accepts any suffix, a trailing literal must reach the end.
 		last := parts[len(parts) - 1]
 		if len(last) > 0 && !strings.has_suffix(pattern, "**") && !strings.has_suffix(path, last) {
 			return false

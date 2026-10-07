@@ -175,7 +175,7 @@ board_test_fresh :: proc(b: ^Task_Board) {
 }
 
 // Board rooted at a clean temp dir so save/load stay off the workspace.
-// Returned dir is temp-allocated; b.dir is an owned clone.
+// Returned dir is temp-allocated, b.dir is an owned clone.
 board_test_dir :: proc(b: ^Task_Board, tag: string) -> string {
 	base, _ := os.temp_dir(context.temp_allocator)
 	dir, _ := filepath.join({base, fmt.tprintf("nullray_board_%s", tag)}, context.temp_allocator)

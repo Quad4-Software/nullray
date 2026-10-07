@@ -259,7 +259,7 @@ run :: proc(
 	if strings.has_prefix(name, "mcp:") && r != nil && r.external_run != nil {
 		return r.external_run(r.external_user, name, args_json, allocator)
 	}
-	// Weak models emit name variants (read-file, readfile, default_api.read_file);
+	// Weak models emit name variants (read-file, readfile, default_api.read_file),
 	// normalize before rejecting.
 	resolved := name
 	if _, ok := registry_find(r, resolved); !ok {
@@ -347,7 +347,7 @@ openai_tools_json :: proc(
 					continue
 				}
 			} else if tier == .Lean {
-				// run_named marks a registered user script tool; scripts are
+				// run_named marks a registered user script tool, scripts are
 				// trusted at registration so they stay visible in lean too.
 				core := lean_core_tool(t.name) || t.run_named != nil
 				sub := sub_on && lean_subagent_tool(t.name)

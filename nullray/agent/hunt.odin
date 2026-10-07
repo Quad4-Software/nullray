@@ -192,7 +192,7 @@ hunt_reasoning_override :: proc(hunt: Hunt_Profile, current: string) -> string {
 }
 
 // Public wrapper keeps the env-resolved tier for callers that have no
-// request model in scope; mode_prompt_section passes the resolved lean flag
+// request model in scope, mode_prompt_section passes the resolved lean flag
 // through hunt_prompt_block_lean so hunt text agrees with the tools tier.
 hunt_prompt_block :: proc(p: Hunt_Profile, allocator := context.allocator) -> string {
 	return hunt_prompt_block_lean(p, prompt_lean_enabled(), allocator)

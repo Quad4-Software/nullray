@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: LicenseRef-QSL-1.0-0BSD
 #+build windows
 /*
-nullray serve needs unix domain sockets; stub for Windows builds.
+nullray serve needs unix domain sockets, stub for Windows builds.
 */
 
 package serve

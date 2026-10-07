@@ -3,7 +3,7 @@
 /*
 Unix process-group helpers for hook timeouts. Mirrors tools shell_proc: the
 /bin/sh child becomes a group leader so a timeout kill reaches grandchildren
-too; a survivor holding the stdin read end would otherwise wedge the writer
+too, a survivor holding the stdin read end would otherwise wedge the writer
 thread join.
 */
 

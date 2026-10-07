@@ -44,7 +44,7 @@ stream_print_from_env :: proc() -> bool {
 /*
 Trace line on tool start: "nullray: <activity line>". Start ticks live in a
 fixed slot table (a dynamic map would need careful key ownership across the
-worker thread; 32 parallel tool names is far above any fan-out we do).
+worker thread, 32 parallel tool names is far above any fan-out we do).
 */
 session_trace_start :: proc(s: ^Session, name, activity: string) {
 	if s == nil || !s.trace {
@@ -124,7 +124,7 @@ session_trace_destroy :: proc(s: ^Session) {
 }
 
 // Mirror an assistant delta to stdout for --stream. Runs on the chat
-// worker; writes are small enough to interleave harmlessly with stderr.
+// worker, writes are small enough to interleave harmlessly with stderr.
 session_stream_delta :: proc(s: ^Session, text: string) {
 	if s == nil || !s.stream_stdout || len(text) == 0 {
 		return

@@ -42,7 +42,7 @@ session_trim_memory :: proc(s: ^Session, max_chars: int) {
 		if len(s.messages) <= 2 {
 			return
 		}
-		// Prefer dropping older user/assistant pairs; keep recent tool rows longer.
+		// Prefer dropping older user/assistant pairs, keep recent tool rows longer.
 		drop_i := -1
 		for m, i in s.messages {
 			if m.role == .System {

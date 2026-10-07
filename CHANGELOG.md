@@ -55,7 +55,7 @@ Notable changes for nullray.
 - The sudo/doas password prompt works again instead of closing instantly.
 - Shell, man, elevate, and worktree commands report their real exit code instead of a fabricated one.
 - Long shell output keeps head and tail so errors at the end stay visible to the agent.
-- The agent can create .nullray directories and run git inside a sandboxed workspace again; both were broken by Landlock path rules.
+- The agent can create .nullray directories and run git inside a sandboxed workspace again. both were broken by Landlock path rules.
 - Hook files in a cloned repo no longer run without approval. Trust them once with /hooks trust.
 - Daemon fixes: shutdown no longer deadlocks mid-turn, cancel no longer kills another session's subagents, and connecting clients get the right working directory.
 - Timeouts now reach whole process groups, so flood output and detached grandchildren can no longer stall a tool call forever.
@@ -79,7 +79,7 @@ Notable changes for nullray.
 - NULLRAY_SANDBOX_PORTS allows extra TCP ports when sandbox net is local, and ports from configured provider host URLs are allowed automatically.
 - NULLRAY_JSON_MODE=1 and NULLRAY_JSON_SCHEMA=<schema> emit response_format json_object/json_schema on OpenAI-compatible providers, and llama.cpp enforces the shape with a grammar, for deterministic structured output.
 - NULLRAY_PROMPT=tiny ships a minimal prompt and core tool set for small local models, and auto resolves to it whenever the active provider is local.
-- NULLRAY_JUDGE optionally scores run completion through a decision backend: jev (System One compatible APIs like OpenCode Zen), laya (a local laya-serve instance), or chat (the active provider). NULLRAY_JUDGE_KEY sets the key and NULLRAY_JUDGE_CONFIDENCE the pass threshold; a failing score reports judge_fail and trips --print-strict. NULLRAY_JUDGE_RETRY=1 escalates a judged failure through NULLRAY_PROVIDER_FALLBACKS until the judge passes.
+- NULLRAY_JUDGE optionally scores run completion through a decision backend: jev (System One compatible APIs like OpenCode Zen), laya (a local laya-serve instance), or chat (the active provider). NULLRAY_JUDGE_KEY sets the key and NULLRAY_JUDGE_CONFIDENCE the pass threshold. a failing score reports judge_fail and trips --print-strict. NULLRAY_JUDGE_RETRY=1 escalates a judged failure through NULLRAY_PROVIDER_FALLBACKS until the judge passes.
 
 ### Fixed
 - LLAMA_CPP_API_KEY and LM_API_TOKEN reached providers only before the privacy scrub, so keyed llama.cpp and LM Studio servers always failed with 401.
@@ -88,7 +88,7 @@ Notable changes for nullray.
 - Errors from local providers now name the fix: which key to set on a 401, and --ctx-size or num_ctx when the prompt is too large.
 - Tool calls from weaker models that use name variants (read-file, run shell, default_api.read_file) now resolve to the right tool, and genuinely unknown names get a did-you-mean hint instead of a dead end.
 - Bare JSON tool-call objects emitted as text ({"name": ..., "arguments": ...}) are now dispatched like native tool calls.
-- Malformed tool-call arguments no longer poison llama.cpp sessions; invalid argument payloads are sanitized before they go back into request history.
+- Malformed tool-call arguments no longer poison llama.cpp sessions. invalid argument payloads are sanitized before they go back into request history.
 
 ## [0.5.1] - 2026-09-29
 
@@ -101,7 +101,7 @@ Notable changes for nullray.
 - Print-mode observability and scripting flags: --stream writes reply tokens live, --trace emits one stderr line per tool call with elapsed time and exit code, --patch-out writes a unified diff of run changes, --no-adopt skips foreign config adoption, print runs start with a backend identity line (provider, model, endpoint) and end with a stats line (tokens, tok/s, wall time) unless NULLRAY_PRINT_STATS=0.
 - Scheduled wakeups deliver inside the daemon: jobs created under nullray serve fire on the owning session even when no client is attached, with coalescing while a session is busy.
 - Session tabs like opencode: a strip under the title bar shows every open session. /new and /resume open new tabs, /tab list|new|open name|next|prev|close|N manages them, ctrl-x is a prefix (n new, w close, arrows switch), f4 and shift-tab cycle, and tabs are clickable including a + button. The strip scrolls with ‹ › overflow markers to keep the active tab visible (cap 16). Background tabs keep running and flag when done. The busy indicator now shows elapsed seconds and the live tool. Tab layout persists across restarts via open_tabs.
-- Image, audio, and video attachments. In the TUI, /attach on a media file queues it for the next message; /attach lists the queue and /attach clear empties it. Print mode adds repeatable --image, --audio, --video, and --media flags. Older turns keep a text marker and stop resending the payload after NULLRAY_MEDIA_TURNS (default 2). NULLRAY_MEDIA=0 disables, NULLRAY_MEDIA_MAX caps file size (default 15MB).
+- Image, audio, and video attachments. In the TUI, /attach on a media file queues it for the next message. /attach lists the queue and /attach clear empties it. Print mode adds repeatable --image, --audio, --video, and --media flags. Older turns keep a text marker and stop resending the payload after NULLRAY_MEDIA_TURNS (default 2). NULLRAY_MEDIA=0 disables, NULLRAY_MEDIA_MAX caps file size (default 15MB).
 - /models now lists the live catalog of the active provider, marks the current model, and tags OpenCode Zen entries that need the messages, responses, gemini, or systemone surface. Entries gain context-window and price details when the models.dev catalog cache is warm. /models policy keeps the old approved-model view.
 - Per-model surface routing now follows the models.dev catalog (cached under the config dir, 24h refresh), which also fixes opencode-go: qwen3.x stays on chat except qwen3.8-flash, and minimax-m3/m2.7 use messages. NULLRAY_MODELSDEV=0 disables the cache.
 - OpenCode Zen claude and qwen models work through the Anthropic Messages surface, streamed and non-streamed, with tool calls and thinking budgets.
@@ -113,10 +113,10 @@ Notable changes for nullray.
 - Cache usage reporting. Provider-reported cache hits land in usage.jsonl and /usage as cache_read so prefix-cache health is visible.
 
 ### Fixed
-- Esc in one tab no longer aborts other tabs. HTTP streams and shell commands are owned by the session that started them, so cancel now hits only that session; its subagent children still stop with it.
+- Esc in one tab no longer aborts other tabs. HTTP streams and shell commands are owned by the session that started them, so cancel now hits only that session. its subagent children still stop with it.
 - Elevated commands actually went through the privilege broker only when its response arrived within a few microseconds of the request file landing. The wait now lasts up to 30s, so askpass elevation works as designed instead of silently falling back to in-process exec.
-- Orphan elevate brokers no longer pile up after an unclean exit; the broker exits when its parent disappears.
-- OpenRouter /credits label is now lock-protected; the background fetch could race the draw path.
+- Orphan elevate brokers no longer pile up after an unclean exit. the broker exits when its parent disappears.
+- OpenRouter /credits label is now lock-protected. the background fetch could race the draw path.
 - RAG no longer tries to embed through OpenCode Zen, which has no embeddings endpoint.
 - OpenCode models on unsupported surfaces (gpt, grok, muse, gemini, jev) fail fast with a pointer to compatible picks instead of a cryptic protocol error.
 - MCP stdio servers that batch several JSON-RPC frames in one write no longer lose messages after the first newline, which used to stall tool calls until timeout.

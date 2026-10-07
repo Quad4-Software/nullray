@@ -2,7 +2,7 @@
 #+build !windows
 /*
 Socket fd write/read for serve conns. NOSIGNAL keeps a closed peer from
-raising SIGPIPE in the daemon. POSIX only; windows has a stub.
+raising SIGPIPE in the daemon. POSIX only, windows has a stub.
 */
 
 package acp

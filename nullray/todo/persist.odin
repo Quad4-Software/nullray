@@ -169,7 +169,7 @@ save_store :: proc(s: ^Store, session_id: string) {
 	strings.write_string(&b, "]}")
 	body := strings.to_string(b)
 	if !write_atomic(path, transmute([]u8)body) {
-		// Persistence is best effort; the in-memory list still works.
+		// Persistence is best effort, the in-memory list still works.
 		return
 	}
 }

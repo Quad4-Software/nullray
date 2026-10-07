@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: LicenseRef-QSL-1.0-0BSD
 /*
 Backend selection and rotation. NULLRAY_SEARCH_BACKEND picks an id, a CSV
-order, or "auto". 429s park a backend until Retry-After (60s fallback);
+order, or "auto". 429s park a backend until Retry-After (60s fallback),
 other errors just skip. SearXNG default URL is overridable through
 NULLRAY_SEARCH_URL so a LAN instance needs no config file.
 */

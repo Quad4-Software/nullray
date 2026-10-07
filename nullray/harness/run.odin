@@ -26,7 +26,7 @@ Cancel_Check :: proc() -> bool
 
 /*
 Load, detect, and run harness id with prompt in workspace. timeout_sec of 0
-or less falls back to the harness default (HARNESS_TIMEOUT_SEC); values are
+or less falls back to the harness default (HARNESS_TIMEOUT_SEC), values are
 clamped to [1, HARNESS_MAX_TIMEOUT_SEC]. cancel, when non-nil, is polled for
 caller interruption.
 */
@@ -154,7 +154,7 @@ substitute_arg :: proc(tpl: string, prompt: string, cwd: string, allocator := co
 	return strings.to_string(b)
 }
 
-// Head/tail bounded capture; keeps first HEAD and last TAIL bytes per stream.
+// Head/tail bounded capture, keeps first HEAD and last TAIL bytes per stream.
 HEAD_KEEP :: constants.HARNESS_MAX_OUTPUT / 2
 TAIL_KEEP :: constants.HARNESS_MAX_OUTPUT / 2
 
@@ -198,7 +198,7 @@ cap_buf_text :: proc(b: ^Cap_Buf, allocator := context.temp_allocator) -> string
 	}
 	tail := b.tail[:]
 	// When head and tail overlap (total <= HEAD+TAIL) drop the duplicated
-	// middle so the join is exact; the gap, if any, is the omitted count.
+	// middle so the join is exact, the gap, if any, is the omitted count.
 	overlap := len(b.head) + len(b.tail) - b.total
 	omitted := 0
 	if overlap > 0 {
@@ -331,7 +331,7 @@ exec_capture :: proc(
 		time.sleep(2 * time.Millisecond)
 	}
 	if !exited {
-		// Timeout and cancel already fired the kill; a pipes-EOF exit with
+		// Timeout and cancel already fired the kill, a pipes-EOF exit with
 		// the child still running leaves a blocking wait unbounded. Kill
 		// the tree first so the wait is bounded either way.
 		kill_process_tree(process)

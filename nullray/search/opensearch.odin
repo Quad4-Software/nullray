@@ -2,7 +2,7 @@
 /*
 Generic OpenSearch backend and RSS/Atom feed parsing. OpenSearch defines
 descriptors (Url templates with {searchTerms} style parameters) and XML
-result conventions (RSS 2.0 / Atom 1.0); JSON results are engine-specific,
+result conventions (RSS 2.0 / Atom 1.0), JSON results are engine-specific,
 so JSON providers live in the builtin registry instead.
 */
 

@@ -8,7 +8,7 @@ burn many turns re-reading dropped history. This file probes /api/show and
 /api/ps for model capabilities and the live window, then pins an explicit
 num_ctx on chat requests. llama.cpp exposes the same facts via GET /props.
 
-The caps record and pure parsers live in local_caps.odin; this file is the IO
+The caps record and pure parsers live in local_caps.odin, this file is the IO
 and resolution side.
 */
 
@@ -30,7 +30,7 @@ OLLAMA_NUM_CTX_CAP :: 32_768
 
 /*
 Probe /api/show and /api/ps once per (provider, model). Honors
-NULLRAY_LOCAL_PROBE=0 for offline posture; the endpoint is the configured
+NULLRAY_LOCAL_PROBE=0 for offline posture, the endpoint is the configured
 local server, same as the readiness probes in local.odin.
 */
 ollama_ensure_caps :: proc(p: ^Provider, model: string, timeout_sec := 3) {
@@ -153,7 +153,7 @@ ollama_caps_warn_small_ctx :: proc(p: ^Provider) {
 }
 
 /*
-num_ctx to send for an ollama chat request; <=0 means send nothing.
+num_ctx to send for an ollama chat request, <=0 means send nothing.
 NULLRAY_OLLAMA_NUM_CTX wins outright and <=0 opts out. Otherwise ensure the
 probe ran and resolve from caps.
 */
@@ -193,7 +193,7 @@ ollama_num_ctx_from_caps :: proc(caps: ^Local_Caps) -> int {
 Ollama drops conversation history past the server side window (default
 num_ctx 4096) with no error, so pin an explicit window on every chat request.
 Newer Ollama forwards a top level num_ctx into options on
-/v1/chat/completions (ollama PR 16825); options.num_ctx covers handlers that
+/v1/chat/completions (ollama PR 16825), options.num_ctx covers handlers that
 read the native shape. Both are ignored harmlessly by builds that support
 neither.
 */
@@ -202,7 +202,7 @@ write_ollama_num_ctx_json :: proc(b: ^strings.Builder, p: ^Provider, model: stri
 	if n <= 0 {
 		return
 	}
-	// Braces stay out of sbprintf format strings; fmt treats { as a directive.
+	// Braces stay out of sbprintf format strings, fmt treats { as a directive.
 	fmt.sbprintf(b, `,"num_ctx":%d`, n)
 	strings.write_string(b, `,"options":{"num_ctx":`)
 	fmt.sbprintf(b, `%d`, n)

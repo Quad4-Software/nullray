@@ -80,7 +80,7 @@ append_opencode_headers :: proc(headers: ^[dynamic]string, p: ^Provider, session
 Zen is multi-protocol: model families map to different endpoints
 (https://opencode.ai/docs/zen). The models.dev catalog (same schema the
 OpenCode v2 model list serves) carries the authoritative surface via each
-model's npm package; prefix rules below are the offline fallback. Zen and Go
+model's npm package, prefix rules below are the offline fallback. Zen and Go
 do differ: on Go, qwen3.x is chat/completions except qwen3.8-flash, and
 minimax-m3/m2.7 ride messages.
 */

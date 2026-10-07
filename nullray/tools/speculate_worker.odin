@@ -113,7 +113,7 @@ speculate_worker :: proc(data: rawptr) {
 		blocked_pre = true
 	} else {
 		exec_args := args
-		// PreToolUse rewrite swaps the executed args wholesale; the hit then
+		// PreToolUse rewrite swaps the executed args wholesale, the hit then
 		// carries the rewritten result, same as the serial path.
 		if len(pre.rewrite_args) > 0 {
 			exec_args = pre.rewrite_args

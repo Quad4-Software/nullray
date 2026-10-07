@@ -14,7 +14,7 @@ ignore_sigpipe :: proc "c" (sig: posix.Signal) {
 }
 
 // Tests that kill pipe readers need SIGPIPE ignored so the writer thread
-// sees EPIPE instead of taking down the test binary; the real binary
+// sees EPIPE instead of taking down the test binary, the real binary
 // installs the same ignore at startup.
 @(private)
 install_sigpipe_ignore :: proc() {
@@ -44,7 +44,7 @@ restore_hook_timeout :: proc(had: bool, prev: string) {
 	}
 }
 
-// Regression: sh exits 7 while a detached sleep still holds stdout open;
+// Regression: sh exits 7 while a detached sleep still holds stdout open,
 // the post-exit drain must stay non-blocking and the real code survive.
 @(test)
 test_run_command_detached_grandchild_exit :: proc(t: ^testing.T) {

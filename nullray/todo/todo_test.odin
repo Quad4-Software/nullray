@@ -80,7 +80,7 @@ test_write_sync_semantics :: proc(t: ^testing.T) {
 	err := sync_items(ctx.sid, items, context.temp_allocator)
 	testing.expect_value(t, err, "")
 
-	// Re-sync matching by exact text preserves ids; absent item is
+	// Re-sync matching by exact text preserves ids, absent item is
 	// cancelled, not deleted.
 	items2 := []Sync_Item{
 		{id = "t1", text = "first task", status = "done"},
@@ -255,7 +255,7 @@ test_sync_cap_counts_only_applied :: proc(t: ^testing.T) {
 	testing.expect_value(t, err, "")
 	view := list_view(ctx.sid, context.temp_allocator)
 	testing.expect(t, strings.contains(view, "real new task"))
-	// Now at the cap; another new item must be refused.
+	// Now at the cap, another new item must be refused.
 	items2 := []Sync_Item{{text = "overflow"}}
 	err = sync_items(ctx.sid, items2, context.temp_allocator)
 	testing.expect(t, strings.contains(err, "exceed"))

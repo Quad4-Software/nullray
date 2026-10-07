@@ -59,7 +59,7 @@ Chat_Request :: struct {
 	top_p_set:        bool,
 	repetition_penalty:     f64,
 	repetition_penalty_set: bool,
-	// OpenAI parallel_tool_calls opt-out; set only when a profile or caller
+	// OpenAI parallel_tool_calls opt-out, set only when a profile or caller
 	// pins it so servers that reject unknown fields never see it.
 	parallel_tool_calls:     bool,
 	parallel_tool_calls_set: bool,

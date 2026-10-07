@@ -273,7 +273,7 @@ handle_session_prompt :: proc(srv: ^Server, id_json: string, params: json.Object
 		s.worker = nil
 	}
 	sync.mutex_unlock(&s.control_mu)
-	// Clear the http cancel owner flag too; a stale one makes the next
+	// Clear the http cancel owner flag too, a stale one makes the next
 	// turn fail instantly with "cancelled" after a session/cancel.
 	session_clear_cancel(s)
 
@@ -374,7 +374,7 @@ handle_set_model :: proc(srv: ^Server, id_json: string, params: json.Object) {
 		send_error(srv, id_json, ERR_PARAMS, rerr)
 		return
 	}
-	// s.model is cloned for workers under control_mu; p.default_model is
+	// s.model is cloned for workers under control_mu, p.default_model is
 	// read by provider snapshots under prov_mu.
 	sync.mutex_lock(&s.control_mu)
 	delete(s.model)

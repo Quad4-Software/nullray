@@ -17,7 +17,7 @@ Two backend kinds, selected by NULLRAY_JUDGE:
                  (default http://127.0.0.1:8000/v1, model laya).
   chat[:MODEL[@URL]]
                  Any OpenAI-compatible chat endpoint used as a verdict
-                 model. Defaults to the active provider; @URL points it at a
+                 model. Defaults to the active provider, @URL points it at a
                  different server (for example a second llama.cpp running a
                  small judge-tuned model).
 
@@ -314,7 +314,7 @@ judge_chat_score :: proc(
 
 @(private)
 judge_parse_verdict :: proc(content: string, allocator: mem.Allocator) -> (f64, bool, string) {
-	// Models may wrap the JSON in prose or a code fence; find a done boolean
+	// Models may wrap the JSON in prose or a code fence, find a done boolean
 	// anywhere in the payload.
 	obj, perr := json.parse_string(content, .JSON, allocator = context.temp_allocator)
 	if perr == .None {

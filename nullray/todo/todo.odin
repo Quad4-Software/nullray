@@ -37,7 +37,7 @@ Item :: struct {
 
 Store :: struct {
 	// Heap clone of the session id used as the g_stores key so unload can
-	// free it; map delete_key does not release key strings.
+	// free it, map delete_key does not release key strings.
 	key:               string,
 	items:             [dynamic]Item,
 	next_seq:          int,
@@ -108,7 +108,7 @@ unbind :: proc(prev: Bind) {
 	tls_bind = prev
 }
 
-// Borrowed thread-local id; empty when unbound.
+// Borrowed thread-local id, empty when unbound.
 current_session :: proc() -> string {
 	if !tls_bind.set {
 		return ""
@@ -274,7 +274,7 @@ store_for :: proc(session_id: string) -> ^Store {
 }
 
 // Drop the in-memory store so the next access reloads from disk. The file
-// is left alone; tests use this for roundtrip checks.
+// is left alone, tests use this for roundtrip checks.
 unload :: proc(session_id: string) {
 	sync.mutex_lock(&g_mu)
 	defer sync.mutex_unlock(&g_mu)

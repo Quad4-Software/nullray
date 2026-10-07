@@ -59,7 +59,7 @@ test_loop_result_head_caps_at_budget :: proc(t: ^testing.T) {
 	testing.expect_value(t, left, 0)
 	left2 := LOOP_RESULT_HEAD_BYTES
 	h2 := loop_result_head_update(0xcbf29ce484222325, strings.repeat("a", 200, context.temp_allocator), &left2)
-	// Only the head matters; a long body hashes like its first 200 bytes.
+	// Only the head matters, a long body hashes like its first 200 bytes.
 	testing.expect(t, h1 == h2)
 	// Different head bytes change the hash.
 	left3 := LOOP_RESULT_HEAD_BYTES
@@ -148,7 +148,7 @@ test_loop_history_ring_evicts_oldest :: proc(t: ^testing.T) {
 		loop_history_push(&h, Loop_Entry{sig = u64(i), result_head = u64(i)})
 	}
 	testing.expect_value(t, h.len, LOOP_HISTORY_CAP)
-	// Oldest three were evicted; the tail holds the newest entries.
+	// Oldest three were evicted, the tail holds the newest entries.
 	testing.expect(t, h.entries[LOOP_HISTORY_CAP - 1].sig == u64(LOOP_HISTORY_CAP + 2))
 	testing.expect(t, h.entries[0].sig == u64(3))
 }
@@ -179,7 +179,7 @@ test_loop_marks_evict_oldest_at_cap :: proc(t: ^testing.T) {
 	for i in 0 ..< LOOP_MARK_CAP + 4 {
 		loop_marks_add(&m, u64(1000 + i))
 	}
-	// Full table keeps the newest marks; the oldest four were evicted
+	// Full table keeps the newest marks, the oldest four were evicted
 	// instead of freezing the table and never marking again.
 	testing.expect_value(t, m.len, LOOP_MARK_CAP)
 	testing.expect(t, !loop_marks_has(&m, 1000))

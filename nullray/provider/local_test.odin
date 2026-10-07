@@ -237,7 +237,7 @@ test_make_openai_compat_requires_base_shape :: proc(t: ^testing.T) {
 
 @(test)
 test_malformed_tool_arguments_are_sanitized :: proc(t: ^testing.T) {
-	// Small local models can emit runaway or unterminated tool arguments;
+	// Small local models can emit runaway or unterminated tool arguments,
 	// re-sending them verbatim makes llama.cpp's jinja renderer 500 the next
 	// request. The writer must substitute a valid JSON stub.
 	p := make_llamacpp()

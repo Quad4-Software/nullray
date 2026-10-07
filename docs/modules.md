@@ -114,11 +114,11 @@ CSV allowlist. `NULLRAY_MODULES=all` (or unset) loads everything.
 - Registration runs inside `@(init)` procs, which are `contextless`:
   set `context = runtime.default_context()` before constructing the
   Module literal - slice literals allocate from `context.allocator`.
-  After that the init proc should only register; do real work inside `run`.
+  After that the init proc should only register. do real work inside `run`.
 - Keep module packages import-light. `nullray:modules` is a leaf by
-  design; importing heavy packages from `mod.odin` drags them into every
+  design. importing heavy packages from `mod.odin` drags them into every
   build and slows init.
 - Struct fields are read straight into the registry: clone anything
   mutable, but string literals and static arrays are fine.
-- `scripts/gen_modules.odin` only scans for `mod.odin` files; helper files
+- `scripts/gen_modules.odin` only scans for `mod.odin` files. helper files
   in the same directory are regular package code.

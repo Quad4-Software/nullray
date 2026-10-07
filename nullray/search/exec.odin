@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: LicenseRef-QSL-1.0-0BSD
 /*
 Request execution and result parsing. Placeholders {query} {limit}
-{pageno} {lang} {url} {extra} substitute into url/body/headers; ${ENV}
+{pageno} {lang} {url} {extra} substitute into url/body/headers, ${ENV}
 reads a secret from the environment (empty when unset, so a missing
 ${FIRECRAWL_API_URL} collapses to the hosted URL). Results normalize to
 title/url/snippet triples either through a dotted results_path map or by
@@ -38,7 +38,7 @@ interp :: proc(tpl: string, args: ^Args, allocator := context.allocator) -> stri
 	q := net.percent_encode(args.query, context.temp_allocator)
 	u := net.percent_encode(args.url, context.temp_allocator)
 	// raw JSON-escaped forms for bodies: {query} inside a quoted JSON string
-	// must escape quotes; providers put {query} inside quotes, so substitute
+	// must escape quotes, providers put {query} inside quotes, so substitute
 	// the escaped text in body and the percent form in url.
 	b := strings.builder_make(context.temp_allocator)
 	i := 0
@@ -163,7 +163,7 @@ json_str_escape :: proc(s: string, allocator := context.allocator) -> string {
 	return strings.to_string(b)
 }
 
-// Run one provider. Returns results or an error message; rate_limited lets
+// Run one provider. Returns results or an error message, rate_limited lets
 // the caller rotate to the next backend honoring retry_after.
 exec_provider :: proc(
 	p: ^Provider,
@@ -207,7 +207,7 @@ constants_timeout :: proc() -> int {
 	return 15
 }
 
-// results_path selects the items array; empty path means parse RSS/Atom.
+// results_path selects the items array, empty path means parse RSS/Atom.
 @(private)
 parse_results :: proc(
 	p: ^Provider,
@@ -223,7 +223,7 @@ parse_results :: proc(
 	}
 	doc, perr := json.parse_string(body, .JSON, allocator = context.temp_allocator)
 	if perr != nil {
-		// Some providers can be coerced to emit feeds; try XML too.
+		// Some providers can be coerced to emit feeds, try XML too.
 		if looks_like_xml(body) {
 			return parse_feed(body, limit, p.id, allocator), ""
 		}

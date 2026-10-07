@@ -4,7 +4,7 @@
 nullray attach [SESSION]: minimal interactive client for a serve
 daemon. Picks the newest session (or the named one), subscribes for
 session/update notifications, and turns each stdin line into a
-session/prompt. Ctrl-D or "exit" detaches; the session stays alive in
+session/prompt. Ctrl-D or "exit" detaches, the session stays alive in
 the daemon.
 */
 
@@ -234,7 +234,7 @@ run_attach :: proc(target: string) -> int {
 		fmt.eprintln("nullray: no session to attach to")
 		return 1
 	}
-	// sid borrows temp memory that client_wait resets; pin a heap copy.
+	// sid borrows temp memory that client_wait resets, pin a heap copy.
 	session_id := strings.clone(sid)
 	defer delete(session_id)
 
@@ -264,7 +264,7 @@ run_attach :: proc(target: string) -> int {
 		fmt.eprintln("nullray: failed to start reader")
 		return 1
 	}
-	// The reader is left running for the process lifetime; exiting is a
+	// The reader is left running for the process lifetime, exiting is a
 	// return to os.exit, so no join is needed.
 	_ = reader
 

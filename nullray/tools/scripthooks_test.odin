@@ -185,7 +185,7 @@ test_script_drain_bounds_flood :: proc(t: ^testing.T) {
 	start := time.now()
 	eof := script_drain(r, &b, buf[:], 1 << 20)
 	elapsed := time.since(start)
-	// Not EOF (writer still alive); the call returned inside the byte
+	// Not EOF (writer still alive), the call returned inside the byte
 	// budget instead of chasing the flood.
 	testing.expect(t, !eof)
 	testing.expect(t, len(b) > 0)

@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: LicenseRef-QSL-1.0-0BSD
 /*
 session/update notification emitters. Assistant text and reasoning stream
-as chunks; tool calls open in_progress and close with a flat update.
+as chunks, tool calls open in_progress and close with a flat update.
 */
 
 package acp

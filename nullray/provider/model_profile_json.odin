@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: LicenseRef-QSL-1.0-0BSD
 /*
 model_profiles.json parse and serialize for Model_Profile. Unknown fields are
-ignored; numbers accept JSON number or string forms; booleans accept bool,
+ignored, numbers accept JSON number or string forms, booleans accept bool,
 "true"-style strings, or nonzero ints. Entries without a match glob are
 skipped.
 */
@@ -175,7 +175,7 @@ profile_json_bool :: proc(v: json.Value) -> bool {
 	return false
 }
 
-// Serialize back to the model_profiles.json shape; used by tests and dumps.
+// Serialize back to the model_profiles.json shape, used by tests and dumps.
 profile_serialize :: proc(profiles: []Model_Profile, allocator := context.allocator) -> string {
 	b: strings.Builder
 	strings.builder_init(&b, allocator)

@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: LicenseRef-QSL-1.0-0BSD
 /*
 Durable job persistence to .nullray/scheduled_tasks.json. Only durable jobs
-are written; session-scoped jobs die with the process. Writes go through a
+are written, session-scoped jobs die with the process. Writes go through a
 temp file plus rename so a crash never leaves a truncated store.
 */
 

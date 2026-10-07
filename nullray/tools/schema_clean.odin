@@ -9,7 +9,7 @@ minLength, pattern, format, uniqueItems, examples.
 $ref is deliberately kept even though stripping $defs can leave it dangling:
 dropping the ref would silently delete the parameter schema it points at,
 while a dangling ref is ignored by the servers this targets. Nothing else is
-removed; dropping properties would break real tool calls. Parse failures fail
+removed, dropping properties would break real tool calls. Parse failures fail
 open and return the input unchanged.
 
 Gate: NULLRAY_SCHEMA_CLEAN=1 forces on for any provider, =0 forces off, and

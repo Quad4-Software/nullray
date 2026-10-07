@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: LicenseRef-QSL-1.0-0BSD
 /*
-Owner-keyed HTTP cancel. Worker threads bind an owner (the Session pointer);
+Owner-keyed HTTP cancel. Worker threads bind an owner (the Session pointer),
 cancel_request(owner) aborts only that owner's sockets and flag, so cancelling
 one tab leaves background tabs streaming. Threads with no bound owner are
 never cancel targets.

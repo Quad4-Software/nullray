@@ -7,7 +7,7 @@ import posix "core:sys/posix"
 
 /*
 Ignore SIGPIPE process-wide. Hook and script-tool stdin writer threads can
-race a child that exited early; without this an EPIPE write terminates the
+race a child that exited early, without this an EPIPE write terminates the
 whole process instead of returning a write error.
 */
 ignore_sigpipe :: proc "c" (sig: posix.Signal) {

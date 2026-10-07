@@ -144,7 +144,7 @@ registry_auto_select_local :: proc(r: ^Registry) -> bool {
 		if len(base) == 0 {
 			continue
 		}
-		// Probing can discover the server on a non-default port; adopt it.
+		// Probing can discover the server on a non-default port, adopt it.
 		if p, ok := registry_find(r, id); ok && p.base_url != base {
 			delete(p.base_url)
 			p.base_url = strings.clone(base)

@@ -46,7 +46,7 @@ client_close :: proc(cli: ^Client) {
 	delete(cli.carry)
 }
 
-// Build and send a request; returns its id.
+// Build and send a request, returns its id.
 client_send :: proc(cli: ^Client, method: string, params_json: string) -> int {
 	sync.mutex_lock(&cli.mu)
 	defer sync.mutex_unlock(&cli.mu)
@@ -89,7 +89,7 @@ client_reject :: proc(cli: ^Client, id_json: string, message: string) {
 	client_write(cli, transmute([]u8)line)
 }
 
-// Read one ndjson line. Returned line is a heap clone; caller frees.
+// Read one ndjson line. Returned line is a heap clone, caller frees.
 client_read_line :: proc(cli: ^Client, timeout_ms: int) -> (line: string, ok: bool) {
 	for {
 		for b, i in cli.carry {
@@ -129,7 +129,7 @@ client_read_line :: proc(cli: ^Client, timeout_ms: int) -> (line: string, ok: bo
 Wait_Cb :: proc(obj: json.Object, user: rawptr)
 
 // Read until the response for want_id lands. Notifications go to
-// on_notify; inbound requests get a method-not-found reply. Returns the
+// on_notify, inbound requests get a method-not-found reply. Returns the
 // raw response line (allocator, caller frees) or an error string
 // (allocator). raw is "" when err is set.
 client_wait :: proc(

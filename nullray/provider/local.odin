@@ -13,7 +13,7 @@ import "nullray:http"
 
 LOCAL_PROBE_IDS :: []string{"ollama", "lmstudio", "llamacpp"}
 
-// llama-server is moving its default port to 9931; probe both.
+// llama-server is moving its default port to 9931, probe both.
 LLAMACPP_BASES :: []string{constants.DEFAULT_LLAMACPP_BASE, "http://127.0.0.1:9931/v1"}
 
 local_probe_enabled_from_env :: proc() -> bool {
@@ -161,7 +161,7 @@ probe_local_base :: proc(id: string, timeout_sec := 2, allocator := context.temp
 			p := make_llamacpp(base)
 			models, err := llamacpp_list_models_timeout(&p, timeout_sec)
 			live := err == "" && len(models) > 0
-			// A 401/403 still proves a server is there; adopt the base so chat
+			// A 401/403 still proves a server is there, adopt the base so chat
 			// surfaces a real auth error instead of a misleading refused.
 			blocked := strings.has_prefix(err, "HTTP 401") ||
 				strings.has_prefix(err, "HTTP 403")

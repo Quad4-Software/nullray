@@ -14,7 +14,7 @@ import "nullray:constants"
 import "nullray:provider"
 
 // Media payloads are re-billed every turn they ride along. Keep them only on
-// the newest media-bearing user turns; older turns keep their text markers.
+// the newest media-bearing user turns, older turns keep their text markers.
 media_turns_from_env :: proc() -> int {
 	if v, ok := os.lookup_env(constants.ENV_MEDIA_TURNS, context.temp_allocator); ok {
 		if n, nok := strconv.parse_int(v); nok && n >= 0 {

@@ -27,7 +27,7 @@ register_module_tools :: proc(r: ^Registry) {
 				run = spec.run,
 			}
 			if t.run == nil && spec.run_c != nil {
-				// C modules carry a proc "c" pointer; dispatch through
+				// C modules carry a proc "c" pointer, dispatch through
 				// run_named so the pointer can ride in Tool.user.
 				t.run_named = module_c_trampoline
 				t.user = rawptr(spec.run_c)
@@ -37,7 +37,7 @@ register_module_tools :: proc(r: ^Registry) {
 	}
 }
 
-// Invokes a C module run proc. args_json is borrowed for the call; the C
+// Invokes a C module run proc. args_json is borrowed for the call, the C
 // side returns a malloc'd cstring (or NULL) and may set err_out to a
 // malloc'd error string. Both are copied out then freed with free().
 module_c_trampoline :: proc(

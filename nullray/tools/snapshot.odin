@@ -64,7 +64,7 @@ snapshot_dir :: proc(allocator := context.allocator) -> string {
 
 /*
 NULLRAY_CHECKPOINT_AUTO gates automatic snapshots. Default on. A "0" (or
-false/no/off) disables recording; manual /checkpoint list/restore/diff still
+false/no/off) disables recording, manual /checkpoint list/restore/diff still
 works on entries already taken.
 */
 snapshot_auto_enabled :: proc() -> bool {
@@ -157,7 +157,7 @@ snapshot_entry_destroy :: proc(entry: ^Snap_Entry, remove_files := true) {
 
 /*
 Enforce NULLRAY_CHECKPOINT_KEEP on entry count. Ref deletion drops
-reachability; the periodic gc in snapshot_gc_maybe_locked reclaims objects so
+reachability, the periodic gc in snapshot_gc_maybe_locked reclaims objects so
 each prune does not pay for a full repack.
 */
 @(private)
@@ -251,7 +251,7 @@ snapshot_before_write :: proc(abs_path: string) {
 		return
 	}
 	if created {
-		// Nothing to capture; restore just removes the file.
+		// Nothing to capture, restore just removes the file.
 		append(&g_pending, Snap_File{
 			abs_path = strings.clone(abs_path, allocator),
 			created = true,

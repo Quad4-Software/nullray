@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: LicenseRef-QSL-1.0-0BSD
 /*
 ndjson framing for ACP. A shared line scanner feeds reader threads
-(stdin for --acp, one per socket conn for serve); writers serialize per
+(stdin for --acp, one per socket conn for serve), writers serialize per
 conn under conn.mu. No Content-Length headers.
 */
 
@@ -73,7 +73,7 @@ reader_main :: proc(data: rawptr) {
 }
 
 // Socket conn reader (serve). On EOF the conn is marked closed and
-// removed; the daemon stays up until srv.stop.
+// removed, the daemon stays up until srv.stop.
 conn_reader_main :: proc(data: rawptr) {
 	conn := cast(^Conn)data
 	srv := conn.srv

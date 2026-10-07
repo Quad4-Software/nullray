@@ -178,7 +178,7 @@ test_ollama_num_ctx_precedence :: proc(t: ^testing.T) {
 	p.caps.probed_model = strings.clone("m")
 	testing.expect_value(t, ollama_num_ctx(&p, "m"), constants.OLLAMA_MIN_AGENT_CTX)
 
-	// Env override wins outright; <=0 opts out of sending the field.
+	// Env override wins outright, <=0 opts out of sending the field.
 	os.set_env(constants.ENV_OLLAMA_NUM_CTX, "48000")
 	testing.expect_value(t, ollama_num_ctx(&p, "m"), 48000)
 	os.set_env(constants.ENV_OLLAMA_NUM_CTX, "0")

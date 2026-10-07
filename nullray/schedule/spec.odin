@@ -118,7 +118,7 @@ dur_parse :: proc(text: string) -> (sec: i64, ok: bool) {
 		case:
 			return 0, false
 		}
-		// n*mult can overflow i64 on absurd counts; reject instead of
+		// n*mult can overflow i64 on absurd counts, reject instead of
 		// wrapping into a negative or tiny duration.
 		if n > (max(i64) - total) / mult {
 			return 0, false
@@ -319,7 +319,7 @@ spec_next_fire :: proc(spec: string, now: i64) -> (i64, bool) {
 	return 0, false
 }
 
-// Interval in seconds for "in"/"every" specs; cron has no fixed interval.
+// Interval in seconds for "in"/"every" specs, cron has no fixed interval.
 spec_interval_sec :: proc(spec: string) -> (i64, bool) {
 	s := strings.trim_space(spec)
 	if rest, ok := spec_word(s, "in "); ok {

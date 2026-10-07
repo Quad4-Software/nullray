@@ -333,7 +333,7 @@ run_print_mode :: proc(cli: ^Cli) -> int {
 
 	// --connect / NULLRAY_CONNECT: reuse the warm daemon.
 	if cli.connect || env_truthy(constants.ENV_CONNECT) {
-		// cwd must outlive the whole RPC exchange; the temp arena can roll
+		// cwd must outlive the whole RPC exchange, the temp arena can roll
 		// over mid-connect, so take an owned copy on the default allocator.
 		cwd, _ := os.get_working_directory(context.allocator)
 		defer delete(cwd)

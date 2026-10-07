@@ -49,7 +49,7 @@ app_apply_suggestion :: proc(a: ^App) -> bool {
 	strings.builder_reset(&a.input)
 	strings.write_string(&a.input, completed)
 	if !strings.has_suffix(completed, " ") {
-		// leave bare command; user can add args or Enter to run
+		// leave bare command, user can add args or Enter to run
 	}
 	a.cursor = len(strings.to_string(a.input))
 	a.suggest_sel = 0

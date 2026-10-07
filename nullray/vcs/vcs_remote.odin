@@ -186,7 +186,7 @@ pr_checks :: proc(repo: Repo, allocator := context.allocator) -> (string, string
 Poll gh pr checks and PR comment/review endpoints until an actionable event
 or the deadline. The loop lives inside the tool so waiting costs no model
 steps. wait_for: any (checks to terminal state or new comments) | checks |
-comments (comments only; check state still reported). Returns a compact
+comments (comments only, check state still reported). Returns a compact
 report whose first line is status= checks_failed | checks_done |
 new_activity | timeout.
 */

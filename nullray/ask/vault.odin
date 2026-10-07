@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: LicenseRef-QSL-1.0-0BSD
 /*
 Named secret vault for values the model may need but must never read
-(api keys, tokens). Stored in-process only; zeroed on forget or clear.
+(api keys, tokens). Stored in-process only, zeroed on forget or clear.
 Values can be bound to process env so providers and shell children pick
 them up without entering tool results.
 */

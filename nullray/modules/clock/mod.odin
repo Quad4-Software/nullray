@@ -16,7 +16,7 @@ import "nullray:modules"
 
 @(init)
 clock_init :: proc "contextless" () {
-	// Init procs are contextless; install a context before building any
+	// Init procs are contextless, install a context before building any
 	// literals (slices allocate from context.allocator).
 	context = runtime.default_context()
 	modules.modules_register(modules.Module{

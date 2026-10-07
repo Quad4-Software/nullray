@@ -5,7 +5,7 @@ Local model capability data and pure parsers.
 Local_Caps records what a local server reports about a model: trained context
 window, Modelfile num_ctx, live window, and capability flags (tools, vision,
 thinking). The parse procs take fixture strings and do no IO so they are
-unit-testable; the network side lives in ollama_probe.odin.
+unit-testable, the network side lives in ollama_probe.odin.
 */
 
 package provider
@@ -58,7 +58,7 @@ json_bool_value :: proc(v: json.Value) -> (bool, bool) {
 	return false, false
 }
 
-// The parameters blob is rendered Modelfile PARAMETER lines, one per line;
+// The parameters blob is rendered Modelfile PARAMETER lines, one per line,
 // later entries override earlier ones.
 parse_modelfile_num_ctx :: proc(parameters: string) -> int {
 	n := 0
@@ -83,7 +83,7 @@ parse_modelfile_num_ctx :: proc(parameters: string) -> int {
 }
 
 // POST /api/show body. capabilities lists what the model can do (tools,
-// thinking, vision, insert, completion); model_info carries per-architecture
+// thinking, vision, insert, completion), model_info carries per-architecture
 // keys where the one ending in context_length is the trained window.
 parse_ollama_show_body :: proc(body: string, allocator := context.allocator) -> Local_Caps {
 	caps: Local_Caps
@@ -189,7 +189,7 @@ parse_ollama_ps_context :: proc(body, model: string) -> int {
 
 // GET /props body (llama-server). chat_template_tool_use and
 // chat_template_caps.supports_tool_calls both describe tool support across
-// server versions; n_ctx lives under default_generation_settings.
+// server versions, n_ctx lives under default_generation_settings.
 parse_llamacpp_props_body :: proc(body: string, allocator := context.allocator) -> Local_Caps {
 	_ = allocator
 	caps: Local_Caps

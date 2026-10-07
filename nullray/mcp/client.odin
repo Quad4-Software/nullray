@@ -65,7 +65,7 @@ client_initialize :: proc(session: ^Stdio_Session, allocator := context.allocato
 
 	last_err := ""
 	for version in MCP_PROTOCOL_VERSIONS {
-		// %q is not JSON escaping; build the params with a real escaper.
+		// %q is not JSON escaping, build the params with a real escaper.
 		pb: strings.Builder
 		strings.builder_init(&pb, context.temp_allocator)
 		strings.write_string(&pb, `{"protocolVersion":`)

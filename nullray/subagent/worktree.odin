@@ -140,7 +140,7 @@ run_cmd :: proc(argv: []string, cwd: string, allocator := context.allocator) -> 
 		wait_state, wait_err := os.process_wait(process, 0)
 		if wait_err == nil && wait_state.exited {
 			state = wait_state
-			// Child exited; drain only what is already buffered. A detached
+			// Child exited, drain only what is already buffered. A detached
 			// grandchild holding a write end must not turn this into a
 			// blocking read past the timeout.
 			run_cmd_drain(stdout_r, &stdout_b, buf[:])
@@ -154,7 +154,7 @@ run_cmd :: proc(argv: []string, cwd: string, allocator := context.allocator) -> 
 	}
 
 	if !state.exited {
-		// The timeout path already fired the kill; a pipes-EOF exit with
+		// The timeout path already fired the kill, a pipes-EOF exit with
 		// the child still running leaves a blocking wait unbounded. Kill
 		// the tree first so the wait is bounded either way.
 		sub_kill_process_tree(process)

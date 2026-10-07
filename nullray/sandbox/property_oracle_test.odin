@@ -112,7 +112,7 @@ test_path_allowed_oracle_rw_secret_outside :: proc(t: ^testing.T) {
 		child := fmt.tprintf("/tmp/ws/f%d.odin", int(sprop_lcg(&seed) % 500))
 		testing.expectf(t, path_allowed(&s, child, true), "rw child/%d", i)
 		sec := fmt.tprintf("/tmp/ws/.env.%d", int(sprop_lcg(&seed) % 9))
-		// .env.N may not match basename list; also try fixed secret.
+		// .env.N may not match basename list, also try fixed secret.
 		_ = sec
 		testing.expect(t, !path_allowed(&s, "/tmp/ws/.env", false))
 		out := fmt.tprintf("/tmp/other/%d", int(sprop_lcg(&seed) % 50))

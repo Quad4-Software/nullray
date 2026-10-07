@@ -52,7 +52,7 @@ list_view :: proc(session_id: string, allocator := context.allocator) -> string 
 	return strings.to_string(b)
 }
 
-// One line per open item; empty string when nothing is open.
+// One line per open item, empty string when nothing is open.
 summary_compact :: proc(session_id: string, allocator := context.allocator) -> string {
 	sync.mutex_lock(&g_mu)
 	defer sync.mutex_unlock(&g_mu)

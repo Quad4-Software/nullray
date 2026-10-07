@@ -100,7 +100,7 @@ loop_result_head_update :: proc(h: u64, text: string, left: ^int) -> u64 {
 
 /*
 Decide whether an incoming call-set signature repeats a loop. entries are
-the recorded history of executed sets (sig + result head); sig is the new
+the recorded history of executed sets (sig + result head), sig is the new
 set not yet run. Returns the verdict and, for .Cycle, the period length.
 
 Identical repeat: the tail of the history is a run of the same signature
@@ -244,9 +244,9 @@ loop_call_names :: proc(calls: []provider.Tool_Call, allocator := context.temp_a
 
 /*
 Per-step anti-loop gate. Checks the incoming call set against the executed
-history. Stage 1 marks the signature(s) and asks for an intervene nudge;
+history. Stage 1 marks the signature(s) and asks for an intervene nudge,
 stage 2 stops the turn when a marked signature repeats. The stop result
-owns the appended assistant message; the caller returns it as-is.
+owns the appended assistant message, the caller returns it as-is.
 */
 turn_loop_gate :: proc(
 	msgs: ^[dynamic]provider.Message,
@@ -360,7 +360,7 @@ tool_retry_budget :: proc() -> int {
 
 /*
 Tool-result text for a malformed call. While budget remains the model is
-told to retry with corrected JSON; once exhausted it is told to answer
+told to retry with corrected JSON, once exhausted it is told to answer
 without further tool calls.
 */
 malformed_result_text :: proc(kind: Malformed_Kind, err: string, retry_left: bool, allocator := context.allocator) -> string {

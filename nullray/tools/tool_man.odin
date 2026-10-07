@@ -91,7 +91,7 @@ tool_apropos :: proc(args_json: string, allocator := context.allocator) -> (resu
 		env := docs_man_env(context.temp_allocator)
 		out, oerr := run_capture_argv_env([]string{exe, "-l", kw}, env, allocator)
 		if oerr != "" {
-			// apropos exits nonzero with "nothing appropriate" on a miss;
+			// apropos exits nonzero with "nothing appropriate" on a miss,
 			// keep the friendly empty result for that case only.
 			if strings.contains(oerr, "nothing appropriate") {
 				delete(oerr, allocator)
@@ -132,7 +132,7 @@ run_capture_argv :: proc(argv: []string, allocator := context.allocator) -> (res
 /*
 Bounded non-blocking drain: pulls at most SHELL_DRAIN_BUDGET bytes per call
 so a flooding writer cannot keep the outer loop from re-checking timeout
-and cancel. Returns true on EOF or read error; sets truncated^ when bytes
+and cancel. Returns true on EOF or read error, sets truncated^ when bytes
 had to be dropped past max_out.
 */
 @(private)
@@ -249,7 +249,7 @@ run_capture_argv_env :: proc(argv: []string, env: []string, allocator := context
 		wait_state, wait_err := os.process_wait(process, 0)
 		if wait_err == nil && wait_state.exited {
 			state = wait_state
-			// Child exited; drain only what is already buffered. A detached
+			// Child exited, drain only what is already buffered. A detached
 			// grandchild holding a write end must not turn this into a
 			// blocking read past the timeout.
 			_ = docs_pipe_drain(stdout_r, &stdout_b, buf[:], max_out, &truncated)
@@ -259,7 +259,7 @@ run_capture_argv_env :: proc(argv: []string, env: []string, allocator := context
 		time.sleep(5 * time.Millisecond)
 	}
 	if !state.exited {
-		// Timeout and cancel already fired the kill; a pipes-EOF exit with
+		// Timeout and cancel already fired the kill, a pipes-EOF exit with
 		// the child still running leaves a blocking wait unbounded. Kill
 		// the tree first so the wait is bounded either way.
 		shell_kill_process_tree(process)

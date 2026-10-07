@@ -212,7 +212,7 @@ build_system_prompt :: proc(
 		}
 	}
 
-	// Memory, RAG recall, and the skills catalog are dropped under tiny; a small
+	// Memory, RAG recall, and the skills catalog are dropped under tiny, a small
 	// local model cannot spend that budget well. Tail ordering is stable first,
 	// volatile last, so prefix cache hits survive a rebuild: the skills catalog
 	// is fixed per workspace, the memory digest changes only on a memory write

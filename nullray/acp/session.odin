@@ -32,7 +32,7 @@ Acp_Session :: struct {
 	cancel_requested: bool,
 	busy:             bool,
 	worker:           ^thread.Thread,
-	// Finished worker threads awaiting join at session_destroy; reaping
+	// Finished worker threads awaiting join at session_destroy, reaping
 	// on the spot would deadlock against workers still emitting.
 	retired:          [dynamic]^thread.Thread,
 	owner:            ^Conn, // conn that ran session/new
@@ -63,13 +63,13 @@ Prompt_Args :: struct {
 	// Scheduled wakeup turns: no JSON-RPC result exists for a synthesized
 	// request, and the tag stays counted as queued until the turn ends.
 	from_wakeup: bool,
-	wake_tag:    string, // owned; "" for client prompts
+	wake_tag:    string, // owned, "" for client prompts
 	// Owned clone of the session model, taken under control_mu so a
 	// session/set_model swap cannot free it mid-turn.
 	model:       string,
 }
 
-// Serializes the ENV_MODE pin in session_rebuild_prompt; the mode env var
+// Serializes the ENV_MODE pin in session_rebuild_prompt, the mode env var
 // is process-global and other threads may read or write it.
 g_env_mu: sync.Mutex
 
@@ -99,7 +99,7 @@ session_rebuild_prompt :: proc(srv: ^Server, s: ^Acp_Session) {
 		delete(prompt)
 		return
 	}
-	// A turn worker clones s.messages at turn start; the swap takes the
+	// A turn worker clones s.messages at turn start, the swap takes the
 	// same lock so a mid-turn set_mode never races the clone.
 	sync.mutex_lock(&s.control_mu)
 	defer sync.mutex_unlock(&s.control_mu)
@@ -210,9 +210,9 @@ acp_event_cb :: proc(ev: agent.Event, user: rawptr) {
 			ctx.open_tool = 0
 		}
 	case .Tool_Message:
-		// Tool_Done already carries the result text; skip the duplicate.
+		// Tool_Done already carries the result text, skip the duplicate.
 	case .Assistant_Message:
-		// Non-streaming providers emit no Delta events; ship the whole
+		// Non-streaming providers emit no Delta events, ship the whole
 		// pre-tool assistant text here instead.
 		if !ctx.stream && len(ev.text) > 0 {
 			ctx.emitted_text = true
@@ -260,7 +260,7 @@ prompt_worker :: proc(data: rawptr) {
 
 	bind_prev := subagent.session_bind_set(s.id, false, args.model, args.prov.id)
 	defer subagent.session_bind_clear(bind_prev)
-	// Pin the spawn parent scope so children attribute to this session;
+	// Pin the spawn parent scope so children attribute to this session,
 	// session/cancel then kills only this subtree, not every session's.
 	scope_prev := subagent.agent_scope_set(s.id)
 	defer subagent.agent_scope_restore(scope_prev)
@@ -270,7 +270,7 @@ prompt_worker :: proc(data: rawptr) {
 
 	cfg := agent.default_config()
 	args.ctx.stream = cfg.stream
-	// set_mode writes s.mode on the dispatch thread; read it under the
+	// set_mode writes s.mode on the dispatch thread, read it under the
 	// same lock so a mid-turn swap cannot tear the value.
 	sync.mutex_lock(&s.control_mu)
 	cfg.mode = s.mode
@@ -304,7 +304,7 @@ prompt_worker :: proc(data: rawptr) {
 	result := agent.run_turn(req, cfg)
 
 	// Commit history. result.messages owns a full cloned transcript when
-	// present; content aliases into it, so never free content separately.
+	// present, content aliases into it, so never free content separately.
 	if len(result.messages) > 0 {
 		sync.mutex_lock(&s.control_mu)
 		provider.destroy_messages(s.messages[:])

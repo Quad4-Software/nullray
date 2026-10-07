@@ -185,7 +185,7 @@ board_done :: proc(
 	return fmt.aprintf("unknown board item: %s", id, allocator = allocator)
 }
 
-// group filters items: empty shows all; a set group shows that group plus
+// group filters items: empty shows all, a set group shows that group plus
 // unscoped items so group-less tasks stay visible to every caller.
 board_list_text :: proc(b: ^Task_Board, group: string = "", allocator := context.allocator) -> string {
 	if b == nil {
@@ -254,7 +254,7 @@ board_status_from_string :: proc(s: string) -> Board_Item_Status {
 	return .Open
 }
 
-// Caller holds b.mu. Rewrites items.jsonl; skipped for ephemeral sessions.
+// Caller holds b.mu. Rewrites items.jsonl, skipped for ephemeral sessions.
 board_save :: proc(b: ^Task_Board) -> bool {
 	if len(b.dir) == 0 || knowledge_ephemeral() {
 		return false

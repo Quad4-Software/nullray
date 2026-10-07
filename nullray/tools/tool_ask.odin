@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: LicenseRef-QSL-1.0-0BSD
 /*
 Interactive user-prompt tools. ask_question shows text, choice, or confirm
-prompts; ask_secret collects API keys and tokens out of band into a named
+prompts, ask_secret collects API keys and tokens out of band into a named
 vault so values never enter tool results or provider messages.
 */
 
@@ -106,7 +106,7 @@ tool_ask_secret :: proc(args_json: string, allocator := context.allocator) -> (r
 	ask.secret_put(trimmed, answer)
 	delete(answer)
 	if set_env {
-		// Providers and spawned tools read keys from env; bind without echoing.
+		// Providers and spawned tools read keys from env, bind without echoing.
 		_ = ask.secret_bind_env(trimmed)
 	}
 	return fmt.aprintf("secret stored under %s (value not shown)", trimmed, allocator = allocator), ""

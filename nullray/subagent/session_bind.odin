@@ -49,7 +49,7 @@ session_bind_clear :: proc(prev: Session_Bind) {
 	tls_session_bind = prev
 }
 
-// Active model and provider for this thread's session. Borrowed strings;
+// Active model and provider for this thread's session. Borrowed strings,
 // empty when unbound or when the caller did not pin identity.
 session_bind_identity :: proc() -> (model: string, provider_id: string, ok: bool) {
 	if !tls_session_bind.set {
@@ -68,12 +68,12 @@ session_bind :: proc() -> (path: string, persist: bool, ok: bool) {
 
 // Per-thread parent-agent override. rt.current_agent is a single shared
 // value, so on a multi-session host (serve) concurrent session workers
-// would clobber it for each other; a thread-local scope pins the parent id
+// would clobber it for each other, a thread-local scope pins the parent id
 // a worker's spawns attribute to without touching the shared field.
 @(thread_local)
 tls_agent_scope: string
 
-// Set this thread's spawn parent scope; returns the previous value so the
+// Set this thread's spawn parent scope, returns the previous value so the
 // caller can restore it. Owned internally.
 agent_scope_set :: proc(id: string) -> (prev: string) {
 	prev = tls_agent_scope
@@ -89,7 +89,7 @@ agent_scope_restore :: proc(prev: string) {
 	tls_agent_scope = prev
 }
 
-// Borrowed; "" when no scope is bound on this thread.
+// Borrowed, "" when no scope is bound on this thread.
 agent_scope :: proc() -> string {
 	return tls_agent_scope
 }

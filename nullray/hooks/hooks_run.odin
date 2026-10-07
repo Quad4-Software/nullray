@@ -98,7 +98,7 @@ Hook_Writer :: struct {
 @(private)
 hook_writer_proc :: proc(data: rawptr) {
 	w := cast(^Hook_Writer)data
-	// Loop short writes; any error (EPIPE once the read end is gone) just
+	// Loop short writes, any error (EPIPE once the read end is gone) just
 	// stops the feed.
 	rest := transmute([]u8)w.input
 	for len(rest) > 0 {
@@ -216,7 +216,7 @@ run_command :: proc(command, input: string) -> (exit_code: int, timed_out: bool,
 		}
 		start_err: os.Error
 		process, start_err = os.process_start(desc)
-		// The child holds its own dup of stdin_r; keeping the parent copy
+		// The child holds its own dup of stdin_r, keeping the parent copy
 		// open would leave the pipe readable forever, so a blocked stdin
 		// writer would never see EPIPE after the tree is killed.
 		os.close(stdin_r)
@@ -226,7 +226,7 @@ run_command :: proc(command, input: string) -> (exit_code: int, timed_out: bool,
 			os.close(stdin_w)
 			return 0, false, "", fmt.tprintf("hook exec failed: %v", start_err)
 		}
-		// Own process group so a timeout kill reaches grandchildren; a
+		// Own process group so a timeout kill reaches grandchildren, a
 		// survivor holding stdin would otherwise wedge the writer join.
 		hook_claim_process_group(process)
 		writer = Hook_Writer{w = stdin_w, input = input}

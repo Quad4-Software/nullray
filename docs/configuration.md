@@ -127,7 +127,7 @@ declared in `search_providers.json` under the config dir and (with hooks
 trust) `.nullray/search_providers.json` in the workspace. Keys interpolate
 with `${ENV}` only. Builtins: searxng, opensearch, tavily, brave, exa,
 kagi, kagi-enrich, parallel, tinyfish, mojeek, marginalia, firecrawl,
-grepapp. Any entry with `kind: search` adds a backend without code; a
+grepapp. Any entry with `kind: search` adds a backend without code. a
 `kind: fetch` entry (flaresolverr builtin, `FLARESOLVERR_URL`) becomes a
 `fetch_url` fallback on 403/503 and a `via=` override.
 

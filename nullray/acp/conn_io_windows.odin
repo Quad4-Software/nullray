@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: LicenseRef-QSL-1.0-0BSD
 #+build windows
 /*
-Socket conn I/O stub. nullray serve is unix-only; conn 0 writes to
+Socket conn I/O stub. nullray serve is unix-only, conn 0 writes to
 stdout and never reaches these.
 */
 

@@ -87,7 +87,7 @@ session_poll :: proc(s: ^Session) -> (changed: bool) {
 	deferred := make([dynamic]Event, 0, 4, context.temp_allocator)
 	for ev in batch {
 		if ev.kind == .Wakeup && s.busy {
-			// Keep queued; re-appended after the batch drains.
+			// Keep queued, re-appended after the batch drains.
 			append(&deferred, ev)
 			continue
 		}

@@ -6,7 +6,7 @@ the workspace. Shape is a flat object keyed by id:
   {"id":{"bin":"opencode","argv":["run","{prompt}"],"timeout_sec":300,
          "output":"text","name":"OpenCode"}}
 
-Every field is optional; a missing argv on a new id is skipped. User entries
+Every field is optional, a missing argv on a new id is skipped. User entries
 override builtins by id. The workspace file loads only while the hooks trust
 gate passes because it can ship an arbitrary executable path the same way
 .nullray/hooks.json ships hook commands.
@@ -26,7 +26,7 @@ import "nullray:sandbox"
 
 /*
 Ordered merge: builtins first, then config dir, then workspace. Returns the
-merged list; caller frees with harnesses_destroy.
+merged list, caller frees with harnesses_destroy.
 */
 load_harnesses :: proc(allocator := context.allocator) -> []Harness {
 	out := make([dynamic]Harness, 0, allocator)
@@ -97,7 +97,7 @@ workspace_dir :: proc(allocator := context.allocator) -> string {
 
 /*
 Merge one harnesses.json file into the list. Missing file is not an error.
-Malformed JSON returns a message; caller decides whether to surface it.
+Malformed JSON returns a message, caller decides whether to surface it.
 */
 merge_file :: proc(
 	out: ^[dynamic]Harness,
@@ -116,7 +116,7 @@ merge_file :: proc(
 
 /*
 Parse a flat {id: {...}} object and fold it into the list. Existing ids have
-their fields replaced field-wise; new ids append. Entries with a bin that
+their fields replaced field-wise, new ids append. Entries with a bin that
 names no argv and no existing entry are ignored.
 */
 merge_json :: proc(
@@ -253,7 +253,7 @@ json_int :: proc(v: json.Value) -> (int, bool) {
 }
 
 /*
-Ids name a harness for the tool call and become map keys; keep them a tight
+Ids name a harness for the tool call and become map keys, keep them a tight
 token set so they can never carry path or flag smuggling.
 */
 @(private)

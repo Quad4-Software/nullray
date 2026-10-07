@@ -181,7 +181,7 @@ test_profile_workspace_trust_gate :: proc(t: ^testing.T) {
 	sdir := filepath.dir(store)
 	derr := os.make_directory_all(sdir)
 	testing.expect(t, derr == nil || derr == .Exist)
-	// fmt treats { in the format string as a directive; build via concat.
+	// fmt treats { in the format string as a directive, build via concat.
 	rec := strings.concatenate({
 		`{"version":1,"files":{"`,
 		path,

@@ -71,7 +71,7 @@ arguments, `--message-file PATH`, or stdin when it is not a TTY.
 
 `--acp` runs the Agent Client Protocol v1 server over stdio (newline-delimited
 JSON-RPC) so editors such as Zed can drive nullray as their agent. stdout
-carries protocol messages only; logs go to stderr. Modes map to ACP session
+carries protocol messages only. logs go to stderr. Modes map to ACP session
 modes, including orchestrate.
 
 | Flag | Purpose |
@@ -82,10 +82,10 @@ modes, including orchestrate.
 
 `nullray serve` (or `--serve`) runs a shared agent daemon on a unix socket:
 `$XDG_RUNTIME_DIR/nullray/nullray.sock` by default, `NULLRAY_SERVE_SOCK` to
-override. Sessions live in the daemon and survive client disconnects;
+override. Sessions live in the daemon and survive client disconnects. 
 `--print --connect` (or `NULLRAY_CONNECT`) runs a prompt through the warm
 daemon instead of a cold process, and `nullray attach [SESSION]` attaches a
-streaming client that can send prompts. Socket perms are 0600; there is no
+streaming client that can send prompts. Socket perms are 0600. there is no
 TCP listener. Remote access goes over `ssh -L` forwarding.
 
 | Flag | Purpose |

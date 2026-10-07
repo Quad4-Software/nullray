@@ -113,7 +113,7 @@ DEFAULT_FETCH_MAX_BYTES :: 512_000
 MEDIA_MAX_BYTES_DEFAULT :: 15 * 1024 * 1024
 MEDIA_TURNS_DEFAULT :: 2
 MEDIA_MAX_PARTS :: 8
-// OpenRouter /models can exceed 512KiB; list-models uses this larger cap.
+// OpenRouter /models can exceed 512KiB, list-models uses this larger cap.
 DEFAULT_MODELS_MAX_BYTES :: 2_000_000
 // models.dev catalog (api.json) powers per-model surface routing and /models enrichment.
 MODELSDEV_URL :: "https://models.dev/api.json"

@@ -34,7 +34,7 @@ mkdir_all :: proc(path: string, perm := os.Permissions_Default_Directory) -> os.
 		}
 		cur = parent
 	}
-	// missing holds leaf-first; create deepest ancestor first.
+	// missing holds leaf-first, create deepest ancestor first.
 	for i := len(missing) - 1; i >= 0; i -= 1 {
 		err := os.make_directory(missing[i], perm)
 		if err != nil && err != .Exist {

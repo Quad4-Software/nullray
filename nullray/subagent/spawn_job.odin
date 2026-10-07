@@ -106,7 +106,7 @@ child_job_proc :: proc(data: rawptr) {
 	roster_finish(&job.rt.roster, job.handle_id, summary, escalate, failed)
 	lease_release_agent(&job.rt.leases, job.handle_id)
 
-	// SubagentStop is notification-only; a blocking exit code is ignored.
+	// SubagentStop is notification-only, a blocking exit code is ignored.
 	spayload := fmt.aprintf(
 		`{"id":%q,"type":%q,"description":%q,"stopped":%q,"failed":%v}`,
 		job.handle_id,

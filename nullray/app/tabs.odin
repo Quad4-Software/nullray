@@ -59,7 +59,7 @@ app_tab_bind_active :: proc(a: ^App) {
 	a.tabs[a.active_tab].done_pending = false
 	provider.set_session(a.session.name)
 	subagent.runtime_set_session(&a.subagents, a.session.session_path, a.session.persist)
-	// Queued attachments belong to the composer; do not smuggle them into
+	// Queued attachments belong to the composer, do not smuggle them into
 	// another session's next prompt.
 	app_media_clear(a)
 	a.scroll = 0
@@ -284,7 +284,7 @@ app_tabs_persist :: proc(a: ^App) {
 }
 
 // Restore open tabs from the last run. Names that no longer resolve are
-// skipped; the caller falls back to one fresh tab when nothing restored.
+// skipped, the caller falls back to one fresh tab when nothing restored.
 app_tabs_restore :: proc(a: ^App) {
 	if v, ok := os.lookup_env(constants.ENV_SESSION, context.temp_allocator); ok {
 		// An explicit session selection wins over the saved strip.

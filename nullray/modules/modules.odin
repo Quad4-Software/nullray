@@ -30,13 +30,13 @@ Tool_Spec :: struct {
 	schema_json: string,
 	kind:        Kind,
 	run:         Run_Proc,
-	run_c:       Run_C_Proc, // C module entry point; see c_api.odin
+	run_c:       Run_C_Proc, // C module entry point, see c_api.odin
 }
 
 Command_Spec :: struct {
 	name:   string,
 	help:   string,
-	prompt: string, // template; $ARGUMENTS and $1..$9 expand like custom commands
+	prompt: string, // template, $ARGUMENTS and $1..$9 expand like custom commands
 }
 
 Module :: struct {
@@ -53,7 +53,7 @@ g_modules: [dynamic]Module
 
 // Called from @(init) procs, which run contextless. The module literal is
 // evaluated in the caller's context, so the caller installs a context
-// first; this proc assumes nothing about context.
+// first, this proc assumes nothing about context.
 modules_register :: proc(m: Module) {
 	if !module_enabled(m.id) {
 		return

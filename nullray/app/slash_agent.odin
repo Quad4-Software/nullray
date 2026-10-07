@@ -247,7 +247,7 @@ slash_cmd_tools :: proc(a: ^App, args: string) {
 	session.session_set_status(a.session, mode)
 }
 
-// Flip every collapsible block at once; per-block clicks still override.
+// Flip every collapsible block at once, per-block clicks still override.
 slash_cmd_expand :: proc(a: ^App, args: string) {
 	_ = args
 	a.expand_all = !a.expand_all

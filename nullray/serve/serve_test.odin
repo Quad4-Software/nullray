@@ -79,7 +79,7 @@ test_framing_roundtrip_socketpair :: proc(t: ^testing.T) {
 	testing.expect(t, strings.contains(got, `"method":"initialize"`))
 	testing.expect(t, strings.contains(got, `"id":1`))
 
-	// Server writes a response; client_read_line splits it back out.
+	// Server writes a response, client_read_line splits it back out.
 	resp := `{"jsonrpc":"2.0","id":1,"result":{"protocolVersion":1}}` + "\n"
 	w := posix.write(fds[1], raw_data(resp), c.size_t(len(resp)))
 	testing.expect(t, w == c.ssize_t(len(resp)))
@@ -158,7 +158,7 @@ test_notify_targets_routing :: proc(t: ^testing.T) {
 	testing.expect(t, len(targets) == 1)
 	testing.expect(t, targets[0] == owner)
 
-	// A subscriber joins; the idle conn stays out.
+	// A subscriber joins, the idle conn stays out.
 	watcher.subs["acp-7"] = true
 	targets = acp.notify_targets(&srv, "acp-7")
 	testing.expect(t, len(targets) == 2)

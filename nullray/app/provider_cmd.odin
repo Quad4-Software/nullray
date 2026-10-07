@@ -24,7 +24,7 @@ app_activate_provider :: proc(a: ^App) {
 		return
 	}
 
-	// llama.cpp can sit on the newer 9931 port; adopt the discovered base
+	// llama.cpp can sit on the newer 9931 port, adopt the discovered base
 	// unless the user pinned a host.
 	if p.id == "llamacpp" && !provider.llamacpp_base_pinned() {
 		if base := provider.probe_local_base(p.id, 2); len(base) > 0 && p.base_url != base {

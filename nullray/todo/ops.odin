@@ -115,7 +115,7 @@ update :: proc(
 
 /*
 Full list sync. Each incoming entry matches an existing item by id first,
-then by exact text on open items; unmatched entries become new items with
+then by exact text on open items, unmatched entries become new items with
 fresh tN ids. Existing items absent from the payload are marked cancelled,
 not deleted, so history and ids stay stable.
 */
@@ -127,7 +127,7 @@ sync_items :: proc(session_id: string, incoming: []Sync_Item, allocator := conte
 	defer sync.mutex_unlock(&g_mu)
 	s := store_for(session_id)
 
-	// Keyed by id string (borrowed; map dies with temp_allocator) because
+	// Keyed by id string (borrowed, map dies with temp_allocator) because
 	// appends can reallocate s.items and dangle ^Item keys.
 	seen := make(map[string]bool, len(incoming), context.temp_allocator)
 
@@ -196,7 +196,7 @@ sync_items :: proc(session_id: string, incoming: []Sync_Item, allocator := conte
 			target.text = strings.clone(strings.trim_space(inc.text), store_alloc())
 		}
 		if len(inc.status) > 0 {
-			// Pre-validated above; the apply pass never fails mid-loop.
+			// Pre-validated above, the apply pass never fails mid-loop.
 			st, _ := status_from_string(inc.status)
 			target.status = st
 		}
@@ -209,7 +209,7 @@ sync_items :: proc(session_id: string, incoming: []Sync_Item, allocator := conte
 				delete(b, store_alloc())
 			}
 			delete(target.blocked_on)
-			// The pre-pass refuses self-deps on resolvable targets; a fresh
+			// The pre-pass refuses self-deps on resolvable targets, a fresh
 			// id landing inside blocked_on is dropped here instead.
 			deps := make([dynamic]string, 0, len(inc.blocked_on), store_alloc())
 			for b in inc.blocked_on {

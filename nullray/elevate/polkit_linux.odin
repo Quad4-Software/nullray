@@ -31,7 +31,7 @@ polkit_session_agent_present :: proc() -> bool {
 run_pkexec :: proc(cmd: string, cwd: string, allocator := context.allocator) -> Result {
 	if !polkit_session_agent_present() {
 		// TUI nullray polkit agent: reuse password modal as approval, then attempt pkexec.
-		// Without a session D-Bus agent pkexec cannot collect credentials; drive modal then fail clearly
+		// Without a session D-Bus agent pkexec cannot collect credentials, drive modal then fail clearly
 		// if still no agent, unless user already cancelled.
 		if secret_ui_enabled() && !headless() {
 			_, ok, cancelled := request_password(

@@ -33,9 +33,9 @@ Harness :: struct {
 	name:        string,
 	// Binary name or absolute path from the preset or config entry.
 	bin:         string,
-	// Resolved executable path; "" until detect finds it.
+	// Resolved executable path, "" until detect finds it.
 	binary:      string,
-	// Argument template; {prompt} and {cwd} are substituted per element.
+	// Argument template, {prompt} and {cwd} are substituted per element.
 	argv:        [dynamic]string,
 	output:      Output_Mode,
 	timeout_sec: int,
@@ -53,7 +53,7 @@ Preset :: struct {
 
 /*
 Non-interactive argv for the well-known agent CLIs. The prompt is always one
-argv element substituted for {prompt}; no shell ever sees it.
+argv element substituted for {prompt}, no shell ever sees it.
 */
 BUILTIN_PRESETS :: []Preset{
 	{id = "claude", name = "Claude Code", bin = "claude",
@@ -96,7 +96,7 @@ harness_enabled :: proc() -> bool {
 }
 
 /*
-Free every owned field and the slice. Only for lists built by load_harnesses;
+Free every owned field and the slice. Only for lists built by load_harnesses,
 all fields live on the passed allocator.
 */
 harnesses_destroy :: proc(list: []Harness, allocator := context.allocator) {
@@ -128,7 +128,7 @@ harness_find :: proc(list: []Harness, id: string) -> (^Harness, bool) {
 
 /*
 Resolve each configured bin to an absolute path. Absolute or relative paths
-with a slash are checked on disk; bare names scan PATH with system dirs first
+with a slash are checked on disk, bare names scan PATH with system dirs first
 so sandboxed exec resolves the same order children get (see hooks.hook_env).
 */
 detect :: proc(list: []Harness, allocator := context.allocator) {

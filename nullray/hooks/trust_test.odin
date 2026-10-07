@@ -72,7 +72,7 @@ test_trust_store_deny_grant_change :: proc(t: ^testing.T) {
 
 	// First sight: denied.
 	testing.expect(t, !hooks_file_trusted(path))
-	// Approval records the signature; the same stat passes.
+	// Approval records the signature, the same stat passes.
 	testing.expect(t, trust_grant_file(path))
 	testing.expect(t, hooks_file_trusted(path))
 	// The store file exists under the redirected config dir.

@@ -15,7 +15,7 @@ decode_csi :: proc() -> (ev: Event, ok: bool) {
 		return Event{kind = .Esc}, true
 	}
 
-	// SGR mouse: ESC [ < btn ; col ; row M/m
+	// SGR mouse: ESC [ < btn , col , row M/m
 	if b3 == '<' {
 		btn, col, row, final, parsed := read_sgr_mouse()
 		if !parsed {
@@ -82,7 +82,7 @@ decode_csi :: proc() -> (ev: Event, ok: bool) {
 		return Event{kind = .Backtab}, true
 	}
 
-	// Parameterized CSI: ESC [ n~ or ESC [ n ; m R etc.
+	// Parameterized CSI: ESC [ n~ or ESC [ n , m R etc.
 	if b3 >= '0' && b3 <= '9' {
 		n := int(b3 - '0')
 		for {

@@ -78,7 +78,7 @@ test_recurring_next_fire :: proc(t: ^testing.T) {
 	due = schedule_tick(now + 120)
 	testing.expect_value(t, len(due), 0)
 	due_list_destroy(due)
-	// Delivered; the pushed-forward fire time produces exactly one wakeup.
+	// Delivered, the pushed-forward fire time produces exactly one wakeup.
 	g_test_queued = 0
 	due = schedule_tick(now + 180)
 	testing.expect_value(t, len(due), 1)
@@ -194,7 +194,7 @@ test_store_roundtrip :: proc(t: ^testing.T) {
 	_, err = job_add("session only", "in 5s", "", false, true, 0, 0, .Prompt, now)
 	testing.expect_value(t, err, "")
 	jobs_save()
-	// Wipe and reload; only the durable job comes back.
+	// Wipe and reload, only the durable job comes back.
 	for i := len(g_jobs) - 1; i >= 0; i -= 1 {
 		job_free(&g_jobs[i])
 	}

@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: LicenseRef-QSL-1.0-0BSD
 /*
-Client connections. --acp uses one stdio conn (fd < 0 writes to stdout);
+Client connections. --acp uses one stdio conn (fd < 0 writes to stdout),
 nullray serve registers one conn per accepted unix socket. Writes are
 serialized per conn. Notifications for a session go to the owning conn
 (the one that ran session/new) plus every conn that sent
@@ -43,7 +43,7 @@ conn_close :: proc(srv: ^Server, conn: ^Conn) {
 }
 
 // Record a session subscription. notify_targets iterates subs under
-// conns_mu, so writes take the same lock; a repeat subscribe does not
+// conns_mu, so writes take the same lock, a repeat subscribe does not
 // leak a duplicate cloned key.
 conn_subscribe :: proc(srv: ^Server, conn: ^Conn, session_id: string) {
 	if conn == nil || len(session_id) == 0 {
@@ -71,7 +71,7 @@ conns_destroy :: proc(srv: ^Server) {
 		conn_destroy(c)
 	}
 	clear(&srv.conns)
-	// Owner pointers on live sessions dangle past this point; the server
+	// Owner pointers on live sessions dangle past this point, the server
 	// teardown destroys sessions before conns, so this runs last.
 	srv.stdin_conn = nil
 	sync.mutex_unlock(&srv.conns_mu)

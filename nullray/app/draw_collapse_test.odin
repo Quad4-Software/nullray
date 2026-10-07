@@ -32,7 +32,7 @@ test_block_toggle_and_expand_all :: proc(t: ^testing.T) {
 	app_block_toggle(a, "call-1")
 	testing.expect(t, !app_block_expanded(a, "call-1"))
 
-	// expand_all flips the default; a toggled id overrides back.
+	// expand_all flips the default, a toggled id overrides back.
 	a.expand_all = true
 	testing.expect(t, app_block_expanded(a, "call-9"))
 	app_block_toggle(a, "call-9")

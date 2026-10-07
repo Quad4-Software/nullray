@@ -41,7 +41,7 @@ test_commands_for_new_events :: proc(t: ^testing.T) {
 
 @(test)
 test_run_command_closes_stdin_eof :: proc(t: ^testing.T) {
-	// Commands reading stdin to EOF must finish inside the timeout; the
+	// Commands reading stdin to EOF must finish inside the timeout, the
 	// writer thread closes the pipe write end after delivering the input.
 	code, timed, _, _ := run_command("grep -q marker_xyz", `{"a":"marker_xyz"}`)
 	testing.expectf(t, !timed && code == 0, "grep match: code=%d timed=%v", code, timed)

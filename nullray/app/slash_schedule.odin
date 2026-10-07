@@ -3,7 +3,7 @@
 Slash commands for scheduled jobs (/schedule, /loop, /remind) plus the
 bridge between the schedule package and live sessions. The watcher thread
 emits due jobs through app_schedule_emit, which enqueues session Wakeup
-events; schedule_tick_poll (app tick) takes delivered wakeups and starts
+events, schedule_tick_poll (app tick) takes delivered wakeups and starts
 the chat turn on the UI thread.
 */
 
@@ -21,12 +21,12 @@ import "nullray:session"
 // Session that scheduled wakeups target. Rebound to the active session if
 // the bound tab is closed. The watcher thread reads this through the sink
 // procs while the UI thread frees sessions in app_tab_close, so every access
-// goes through g_sched_mu; the close path holds it across the free so a sink
+// goes through g_sched_mu, the close path holds it across the free so a sink
 // call can never hold a stale pointer.
 g_sched_mu:   sync.Mutex
 g_sched_sess: ^session.Session
 
-// Bound session for scheduled wakeups; nil when none is bound.
+// Bound session for scheduled wakeups, nil when none is bound.
 @(private)
 sched_session :: proc() -> ^session.Session {
 	sync.mutex_lock(&g_sched_mu)
@@ -43,7 +43,7 @@ sched_session_set :: proc(s: ^session.Session) {
 
 /*
 Rebind or clear the delivery target before the session is freed. Caller is
-app_tab_close on the UI thread; must NOT hold g_sched_mu.
+app_tab_close on the UI thread, must NOT hold g_sched_mu.
 */
 app_sched_unbind :: proc(dead, replacement: ^session.Session) {
 	sync.mutex_lock(&g_sched_mu)

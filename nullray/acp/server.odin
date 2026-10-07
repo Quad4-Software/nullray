@@ -63,7 +63,7 @@ server_runtime_destroy :: proc(srv: ^Server) {
 // fail pending elicitation waiters, drop conns, and uninstall the ask
 // responder.
 server_teardown :: proc(srv: ^Server) {
-	// The pump iterates srv.sessions; join it before sessions are freed.
+	// The pump iterates srv.sessions, join it before sessions are freed.
 	if srv.wake_pump != nil {
 		thread.join(srv.wake_pump)
 		thread.destroy(srv.wake_pump)
@@ -113,7 +113,7 @@ run_server :: proc(bare := false) -> int {
 	server_runtime_init(srv, bare)
 	defer server_runtime_destroy(srv)
 
-	// Scheduled jobs fire into sessions through the scoped wakeup sink;
+	// Scheduled jobs fire into sessions through the scoped wakeup sink,
 	// NULLRAY_SCHEDULE=0 disables the watcher entirely.
 	sched_on := false
 	if schedule.schedule_enabled() {

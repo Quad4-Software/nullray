@@ -176,7 +176,7 @@ profile_load :: proc() -> int {
 			g_profiles_ws_denied = false
 		} else if os.is_file(ws_path) {
 			// First sight of a workspace profile table is denied until the
-			// operator approves it via /hooks trust; a hostile repo could
+			// operator approves it via /hooks trust, a hostile repo could
 			// otherwise force temperature or prompt tier for free.
 			g_profiles_ws_denied = true
 			fmt.eprintf(
@@ -263,7 +263,7 @@ profile_glob_match :: proc(pattern, model: string) -> bool {
 	return p == len(pat)
 }
 
-// First matching profile wins; returns ok=false when nothing matches.
+// First matching profile wins, returns ok=false when nothing matches.
 profile_for :: proc(model_id: string) -> (Model_Profile, bool) {
 	profile_ensure_loaded()
 	sync.mutex_lock(&g_profiles_mu)
@@ -280,7 +280,7 @@ profile_for :: proc(model_id: string) -> (Model_Profile, bool) {
 Apply a matching profile to a request being built. Explicit request fields
 (temperature_set / top_p_set / parallel_tool_calls_set / reasoning_effort)
 always win over the profile. reasoning off maps to effort "none", on to
-"medium"; providers that cannot express either just ignore the field.
+"medium", providers that cannot express either just ignore the field.
 */
 profile_apply :: proc(provider_id: string, model: string, req: ^Chat_Request) {
 	if req == nil {
@@ -321,7 +321,7 @@ profile_apply :: proc(provider_id: string, model: string, req: ^Chat_Request) {
 
 /*
 Emit profile num_ctx for ollama when the env override is absent. Returns
-false when the profile has no say; the caller then falls back to
+false when the profile has no say, the caller then falls back to
 write_ollama_num_ctx_json, where NULLRAY_OLLAMA_NUM_CTX wins outright
 (including a <=0 opt-out) and caps-derived values come last.
 */
@@ -333,7 +333,7 @@ write_profile_num_ctx_json :: proc(b: ^strings.Builder, model: string) -> bool {
 	if !found || prof.num_ctx <= 0 {
 		return false
 	}
-	// Braces stay out of sbprintf format strings; fmt treats { as a directive.
+	// Braces stay out of sbprintf format strings, fmt treats { as a directive.
 	fmt.sbprintf(b, `,"num_ctx":%d`, prof.num_ctx)
 	strings.write_string(b, `,"options":{"num_ctx":`)
 	fmt.sbprintf(b, `%d`, prof.num_ctx)

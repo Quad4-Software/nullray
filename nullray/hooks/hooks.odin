@@ -5,7 +5,7 @@ User hook loading and bounded subprocess execution.
 Hook JSON protocol: each command in hooks.json runs as sh -c <cmd> with the
 hook context on stdin: {"event":"<Event>","tool":"<name>","payload":"..."}.
 Exit 2 blocks (PreToolUse, UserPromptSubmit, SubagentStart). Timeout is 5s
-(NULLRAY_HOOK_TIMEOUT_MS). Hook stdout is captured (64KB cap); JSON lines
+(NULLRAY_HOOK_TIMEOUT_MS). Hook stdout is captured (64KB cap), JSON lines
 there can answer:
   {"decision":"allow"}                       PermissionRequest allow
   {"decision":"deny","reason":"..."}         PermissionRequest deny (also
@@ -68,7 +68,7 @@ Result :: struct {
 	// Optional reason string a deny decision carried.
 	reason: string,
 	// PreToolUse: replacement args JSON object from a rewrite decision.
-	// Replaces the tool call args wholesale; no merge is performed.
+	// Replaces the tool call args wholesale, no merge is performed.
 	rewrite_args: string,
 }
 
@@ -111,7 +111,7 @@ hooks_workspace_files :: proc() -> []string {
 
 /*
 Approve every gated workspace file present under .nullray: records the live
-{mtime_ns, size} of each into <config dir>/hooks_trusted.json; absent files
+{mtime_ns, size} of each into <config dir>/hooks_trusted.json, absent files
 are skipped because there is nothing to approve. The persisted record
 survives restarts and also covers later sessions on the same workspace.
 */
@@ -177,7 +177,7 @@ run :: proc(event: Event, tool_name := "", payload := "", allocator := context.a
 			result_destroy(&out, allocator)
 			return res
 		}
-		// First answering hook wins; later files only run when nothing
+		// First answering hook wins, later files only run when nothing
 		// decided yet so one hook cannot silently undo a rewrite/deny.
 		if len(out.decision) == 0 && len(out.rewrite_args) == 0 {
 			result_destroy(&out, allocator)

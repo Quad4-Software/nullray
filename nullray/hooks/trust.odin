@@ -7,7 +7,7 @@ sampling and prompt tier, so a cloned hostile repo must not get either for
 free. First sight of a workspace-controlled file is denied until the
 operator approves it with /hooks trust (or a one-shot NULLRAY_HOOKS_TRUST=1).
 Approvals persist per absolute path as {mtime_ns, size} records in
-<config dir>/hooks_trusted.json; both fields must match the live stat.
+<config dir>/hooks_trusted.json, both fields must match the live stat.
 Script tools and harnesses.json reuse this gate through
 hooks_workspace_trusted in hooks.odin.
 */
@@ -39,7 +39,7 @@ Trust_Record :: struct {
 
 @(private)
 g_trust_mu: sync.Mutex
-// Approved signatures keyed by absolute path; heap keys, process lifetime.
+// Approved signatures keyed by absolute path, heap keys, process lifetime.
 @(private)
 g_trusted: map[string]Trust_Record
 // Paths already logged this session so crash.logf does not spam per event.
@@ -186,7 +186,7 @@ trust_store_save :: proc(entries: map[string]Trust_Record) -> bool {
 		}
 		first = false
 		write_json_string(&b, k)
-		// Braces stay out of sbprintf format strings; fmt treats { as a
+		// Braces stay out of sbprintf format strings, fmt treats { as a
 		// directive. mtime_ns/size are quoted because nanosecond epochs
 		// exceed f64's exact integer range and this JSON flavor parses bare
 		// numbers as floats.
@@ -237,7 +237,7 @@ trust_grant_file :: proc(path: string) -> bool {
 
 /*
 The trust gate. Absent files pass (nothing to run). A matching in-memory or
-persisted signature passes. Anything else is denied; the denial is logged
+persisted signature passes. Anything else is denied, the denial is logged
 once per session per path and the returned message names the remedy.
 */
 @(private)

@@ -3,7 +3,7 @@
 /*
 nullray serve: the ACP server over a unix socket so clients share one
 warm daemon (providers, MCP, rate limits). Each accepted conn gets a
-reader thread feeding the same acp dispatch machinery; notifications
+reader thread feeding the same acp dispatch machinery, notifications
 reach the owning conn plus subscribers. SIGTERM/SIGINT stop the accept
 loop, destroy sessions, and unlink the socket. A daemon crash drops
 live sessions (same as opencode).
@@ -85,7 +85,7 @@ install_serve_signals :: proc() {
 	_ = posix.sigaction(.SIGPIPE, &ign, nil)
 }
 
-// listen_fd < 0 binds here; a prebound fd (from prebind, before the
+// listen_fd < 0 binds here, a prebound fd (from prebind, before the
 // sandbox applied) is used as-is. Only a socket we bound ourselves is
 // unlinked at shutdown: a caller-supplied listen_fd may name a file the
 // caller owns (socket activation), so removing it would be wrong.
@@ -111,7 +111,7 @@ run_serve :: proc(listen_fd: int, path: string, bare: bool) -> int {
 	acp.server_runtime_init(srv, bare)
 	defer acp.server_runtime_destroy(srv)
 
-	// Durable jobs load at init; the watcher thread fires due work into
+	// Durable jobs load at init, the watcher thread fires due work into
 	// sessions via the scoped sink. NULLRAY_SCHEDULE=0 disables all of it.
 	sched_on := false
 	if schedule.schedule_enabled() {

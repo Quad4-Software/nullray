@@ -24,7 +24,7 @@ Result :: struct {
 }
 
 apply :: proc(cfg: Config) -> Result {
-	// Global state outlives the caller's allocator; keep it on the heap so a
+	// Global state outlives the caller's allocator, keep it on the heap so a
 	// test tracking arena teardown cannot leave stale pointers behind.
 	state_destroy_heap(&g_state)
 	if cfg.mode == .Off {

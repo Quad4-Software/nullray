@@ -21,13 +21,13 @@ POSIX requires the executable bit on the script file itself.
 
 Execution protocol:
   stdin + NULLRAY_TOOL_ARGS env carry the args JSON object.
-  stdout becomes the tool result (capped at MAX_SHELL_OUTPUT_BYTES; larger
+  stdout becomes the tool result (capped at MAX_SHELL_OUTPUT_BYTES, larger
   output flows through the normal artifact offload path).
   On nonzero exit or timeout a "exit_code=N" line is prepended and stderr is
   appended as a "stderr:" suffix.
   Timeout: 60s, killed via the shared process-tree helper (Esc cancels).
 
-Script tools are registered AFTER builtins; a name collision with an existing
+Script tools are registered AFTER builtins, a name collision with an existing
 tool is skipped with a stderr warn so a script can never silently shadow a
 builtin or an earlier-registered script (user dir wins over workspace).
 
@@ -214,7 +214,7 @@ script_tool_candidate :: proc(info: os.File_Info) -> (name: string, interp: stri
 	case strings.has_suffix(base, ".js"):
 		name, interp = base[:len(base) - 3], "node"
 	case:
-		// Extensionless must be directly executable; no exec bit on Windows
+		// Extensionless must be directly executable, no exec bit on Windows
 		// and no shebang runner, so extensionless is POSIX-only.
 		when ODIN_OS == .Windows {
 			return "", "", false
@@ -236,7 +236,7 @@ script_tool_candidate :: proc(info: os.File_Info) -> (name: string, interp: stri
 		return name, interp, true
 	}
 	// POSIX: the script file itself must carry the executable bit even when
-	// an interpreter would technically run it; that is the trust contract.
+	// an interpreter would technically run it, that is the trust contract.
 	return name, interp, info.mode & os.Permissions_Execute_All != {}
 }
 

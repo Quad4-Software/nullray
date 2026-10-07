@@ -4,7 +4,7 @@ elicitation/create bridge. When the client advertises
 capabilities.elicitation.form, tools that block on ask.request (the
 ask_question and ask_secret tools) are answered through an ACP form
 elicit instead of failing. The responder runs on the blocked worker
-thread; the dispatch thread fulfills the wait when the response lands.
+thread, the dispatch thread fulfills the wait when the response lands.
 */
 
 package acp
@@ -138,7 +138,7 @@ acp_ask_responder :: proc(
 // (has id, no method) to an outbound request. result_obj may be empty.
 // pending_mu stays held across the w.mu write: the responder only removes
 // the wait from pending_out under pending_mu, so holding it here keeps w
-// alive while we mark it (first response wins; later ones are dropped).
+// alive while we mark it (first response wins, later ones are dropped).
 elicit_handle_response :: proc(srv: ^Server, id: int, result: json.Object, err_text: string) {
 	sync.mutex_lock(&srv.pending_mu)
 	defer sync.mutex_unlock(&srv.pending_mu)

@@ -136,7 +136,7 @@ test_run_process_capture_detached_grandchild :: proc(t: ^testing.T) {
 }
 
 // Regression: a child that redirects its streams away and keeps running
-// used to hang the post-loop blocking wait; it is killed now.
+// used to hang the post-loop blocking wait, it is killed now.
 @(test)
 test_run_process_capture_pipes_eof_running_child :: proc(t: ^testing.T) {
 	when ODIN_OS == .Windows {

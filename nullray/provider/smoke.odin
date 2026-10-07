@@ -134,7 +134,7 @@ smoke_enabled :: proc(p: ^Provider = nil) -> bool {
 	return false
 }
 
-// Last cached verdict for provider_id+model; ok is false when that pair was
+// Last cached verdict for provider_id+model, ok is false when that pair was
 // never smoked.
 smoke_result :: proc(provider_id, model: string) -> (Smoke_Result, bool) {
 	sync.mutex_lock(&g_smoke_mu)

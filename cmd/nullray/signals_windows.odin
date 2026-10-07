@@ -3,6 +3,6 @@
 
 package main
 
-// Windows has no SIGPIPE; writes fail with an error instead.
+// Windows has no SIGPIPE, writes fail with an error instead.
 install_pipe_signals :: proc() {
 }

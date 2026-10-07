@@ -2,7 +2,7 @@
 /*
 Scheduled-wakeup plumbing. A Wakeup event carries the prompt in text and a
 coalescing tag in name. While the session is busy the event stays queued in
-s.pending; once drained it becomes a user message and its tag moves to the
+s.pending, once drained it becomes a user message and its tag moves to the
 delivered set until session_wakeup_take hands it to the app to start the
 turn. Session pointers are only map keys, so this never imports schedule.
 */

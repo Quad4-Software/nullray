@@ -147,7 +147,7 @@ starts run far faster than a cold prefill). No id_slot: a fixed slot would
 serialize concurrent agents onto one KV slot. Ollama honors a top-level
 keep_alive on /v1/chat/completions, so the model stays resident between
 turns instead of unloading after the server default.
-NULLRAY_OLLAMA_KEEP_ALIVE overrides the 30m duration; 0|off|false|no
+NULLRAY_OLLAMA_KEEP_ALIVE overrides the 30m duration, 0|off|false|no
 disables the field.
 */
 write_local_cache_hints_json :: proc(b: ^strings.Builder, p: ^Provider) {

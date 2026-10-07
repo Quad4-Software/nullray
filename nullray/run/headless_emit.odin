@@ -94,7 +94,7 @@ emit_result :: proc(cfg: Config, res: Result) {
 		}
 		if len(res.text) > 0 {
 			if res.streamed {
-				// Deltas already went to stdout; ensure a trailing newline.
+				// Deltas already went to stdout, ensure a trailing newline.
 				fmt.println()
 			} else {
 				fmt.println(res.text)
@@ -240,7 +240,7 @@ json_escape :: proc(s: string, allocator := context.allocator) -> string {
 
 /*
 --patch-out: unified diff of everything the run changed. Prefers git diff
-against HEAD in a repo; falls back to the shadow checkpoint diff when the
+against HEAD in a repo, falls back to the shadow checkpoint diff when the
 workspace is not versioned. Untracked files are listed as a comment footer
 since they have no HEAD blob to diff against.
 */
@@ -255,7 +255,7 @@ write_patch_out :: proc(path: string, res: ^Result) {
 			git_dir = ""
 		}
 	}
-	// Landlock blocks ~/.gitconfig and /etc/gitconfig; run with config reads
+	// Landlock blocks ~/.gitconfig and /etc/gitconfig, run with config reads
 	// off so diff/ls-files do not fail on "fatal: unable to read config".
 	git_env := []string{
 		"GIT_CONFIG_NOSYSTEM=1",
@@ -300,7 +300,7 @@ write_patch_out :: proc(path: string, res: ^Result) {
 	fmt.eprintf("nullray: patch written to %s\n", path)
 }
 
-// run_process_capture prefixes results with an exit_code=N line; patch
+// run_process_capture prefixes results with an exit_code=N line, patch
 // content must not carry it.
 @(private)
 strip_exit_code_line :: proc(text: string) -> string {

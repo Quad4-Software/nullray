@@ -277,7 +277,7 @@ run_process_capture :: proc(
 			// state: re-waiting below would hit ECHILD and fabricate
 			// exit_code=1 plus "process status unavailable".
 			state = wait_state
-			// Child exited; drain only what is already buffered. A detached
+			// Child exited, drain only what is already buffered. A detached
 			// grandchild holding a write end must not turn this into a
 			// blocking read past the timeout.
 			drain_ready(stdout_r, &stdout_s, buf[:])
@@ -293,10 +293,10 @@ run_process_capture :: proc(
 	}
 
 	if !state.exited {
-		// Timeout and cancel already fired the kill; a pipes-EOF exit with
+		// Timeout and cancel already fired the kill, a pipes-EOF exit with
 		// the child still running (it redirected its streams) leaves a
 		// blocking wait unbounded. Kill the tree first so the wait is
-		// bounded either way; a second kill is a harmless no-op.
+		// bounded either way, a second kill is a harmless no-op.
 		shell_kill_process_tree(process)
 		state, _ = os.process_wait(process)
 	}

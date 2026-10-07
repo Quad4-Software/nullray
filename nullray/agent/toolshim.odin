@@ -25,7 +25,7 @@ TOOLSHIM_MAX_TOKENS :: 512
 Read NULLRAY_TOOLSHIM fresh. Unset, 0, off, false, no, or disabled turns the
 shim off. 1, on, true, or yes enables it with the request model. Any other
 value is taken as the shim model id. The returned model borrows the env
-lookup or req_model; do not free it.
+lookup or req_model, do not free it.
 */
 toolshim_model :: proc(req_model: string) -> (model: string, enabled: bool) {
 	v, ok := os.lookup_env(constants.ENV_TOOLSHIM, context.temp_allocator)
@@ -235,7 +235,7 @@ toolshim_parse_call :: proc(
 
 /*
 One non-streamed side chat asking the shim model to convert toolish text
-into a call. Returns an owned Tool_Call on success; usage reports the shim
+into a call. Returns an owned Tool_Call on success, usage reports the shim
 call's token spend for fold-in by the caller.
 */
 toolshim_convert :: proc(

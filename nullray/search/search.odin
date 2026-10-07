@@ -45,7 +45,7 @@ Provider :: struct {
 	map_date:      string,
 	map_engine:    string,
 	env_required:  []string,
-	scopes:        []string, // general, code, news; empty = all
+	scopes:        []string, // general, code, news, empty = all
 	timeout_sec:   int,
 	disabled:      bool,
 }

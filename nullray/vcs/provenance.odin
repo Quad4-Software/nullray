@@ -34,7 +34,7 @@ provenance_active :: proc(repo: Repo) -> bool {
 	if v, ok := os.lookup_env("SKIP_AI_HOOK", context.temp_allocator); ok && env_value_truthy(v) {
 		return false
 	}
-	// A commit-msg hook that already stamps trailers owns provenance;
+	// A commit-msg hook that already stamps trailers owns provenance,
 	// defer to it so commits do not gain two trailer sets.
 	path_out, perr := run(
 		repo,

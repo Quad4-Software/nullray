@@ -96,7 +96,7 @@ media_kind_from_name :: proc(name: string) -> (Media_Kind, bool) {
 	return .Image, false
 }
 
-// input_audio format token. OpenAI accepts wav and mp3; gateways that pass
+// input_audio format token. OpenAI accepts wav and mp3, gateways that pass
 // parts through to Gemini-style backends accept the wider set.
 media_audio_format :: proc(mime: string) -> string {
 	switch mime {
@@ -231,7 +231,7 @@ media_audio_provider :: proc(id: string) -> bool {
 }
 
 // video_url parts are only routed for Gemini-family models and DashScope
-// qwen-vl; locals and other vendors have no documented video input.
+// qwen-vl, locals and other vendors have no documented video input.
 @(private)
 media_video_provider :: proc(id: string) -> bool {
 	switch id {

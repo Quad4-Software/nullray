@@ -2,7 +2,7 @@
 /*
 web_search and the fetch-side passthroughs (flaresolverr and friends).
 Results render as title | url | snippet lines capped by
-context_max_chars; the model fetches full text via fetch_url. Paid or
+context_max_chars, the model fetches full text via fetch_url. Paid or
 write-adjacent providers stay off the speculate list entirely.
 */
 

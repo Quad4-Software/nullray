@@ -2,7 +2,7 @@
 /*
 Agent Client Protocol (ACP) v1 server. nullray --acp speaks
 newline-delimited JSON-RPC 2.0 over stdio so editors (Zed and peers)
-can drive the agent. stdout carries only protocol messages; logs go to
+can drive the agent. stdout carries only protocol messages, logs go to
 stderr.
 */
 
@@ -33,7 +33,7 @@ Inbound :: struct {
 
 // One client transport connection. fd < 0 means the stdio transport
 // (conn 0 in --acp mode, writes go to stdout). Socket conns get a line
-// reader thread each; subs holds the session ids this conn receives
+// reader thread each, subs holds the session ids this conn receives
 // session/update notifications for.
 Conn :: struct {
 	srv:         ^Server,
@@ -77,7 +77,7 @@ Server :: struct {
 	cap_elicit_form: bool,
 	cap_elicit_url:  bool,
 
-	// Transport conns. stdin is conn 0 in --acp mode; the socket daemon
+	// Transport conns. stdin is conn 0 in --acp mode, the socket daemon
 	// (nullray serve) registers one conn per accepted client.
 	conns:         map[int]^Conn,
 	conns_mu:      sync.Mutex,

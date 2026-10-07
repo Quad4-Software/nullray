@@ -25,14 +25,14 @@ Acp_Wakeup :: struct {
 	tag:    string, // owned
 }
 
-// Cap on queued wakeups per session; oldest are dropped past this.
+// Cap on queued wakeups per session, oldest are dropped past this.
 WAKE_QUEUE_MAX :: 8
 // Drain cadence and the sleep slice that keeps shutdown responsive.
 WAKE_POLL_MS  :: 1000
 WAKE_SLICE_MS :: 50
 
 // The Server a bound sink routes to. One server per process (--acp or
-// serve), so a plain pointer suffices; set once by schedule_bind.
+// serve), so a plain pointer suffices, set once by schedule_bind.
 g_wake_srv: ^Server
 
 // Queue a wakeup on a session. Callers hold srv.sessions_mu so the
@@ -56,7 +56,7 @@ wake_push :: proc(s: ^Acp_Session, prompt, tag: string) {
 }
 
 // Queued plus in-flight wakeup turns for a tag (the schedule coalescing
-// probe; called under the schedule job lock).
+// probe, called under the schedule job lock).
 wake_queued :: proc(s: ^Acp_Session, tag: string) -> int {
 	if s == nil {
 		return 0
@@ -90,7 +90,7 @@ wake_take :: proc(s: ^Acp_Session) -> (prompt, tag: string, ok: bool) {
 	return w.prompt, w.tag, true
 }
 
-// Turn for a tag finished; the job may emit again on its next fire.
+// Turn for a tag finished, the job may emit again on its next fire.
 wake_done :: proc(s: ^Acp_Session, tag: string) {
 	if len(tag) == 0 {
 		return
@@ -144,7 +144,7 @@ acp_schedule_emit :: proc(prompt, tag, scope: string) {
 	wake_push(wake_target(srv, scope), prompt, tag)
 }
 
-// Scoped queued probe; runs under the schedule job lock during ticks.
+// Scoped queued probe, runs under the schedule job lock during ticks.
 acp_schedule_queued :: proc(tag, scope: string) -> int {
 	srv := g_wake_srv
 	if srv == nil {
@@ -207,7 +207,7 @@ wake_pump_drain :: proc(srv: ^Server) {
 
 // If the session is idle and has a queued wakeup, push it as a user
 // message and start a synthesized prompt_worker turn. Caller holds
-// sessions_mu; this takes control_mu then wake_mu (leaf order).
+// sessions_mu, this takes control_mu then wake_mu (leaf order).
 wake_start_turn :: proc(srv: ^Server, s: ^Acp_Session, p: ^provider.Provider) {
 	sync.mutex_lock(&s.control_mu)
 	defer sync.mutex_unlock(&s.control_mu)
@@ -221,7 +221,7 @@ wake_start_turn :: proc(srv: ^Server, s: ^Acp_Session, p: ^provider.Provider) {
 	defer delete(prompt)
 	s.busy = true
 	s.cancel_requested = false
-	// Clear the http cancel owner flag too; a stale session/cancel makes
+	// Clear the http cancel owner flag too, a stale session/cancel makes
 	// the wakeup turn fail instantly with "cancelled".
 	http.cancel_clear(rawptr(s))
 	if s.worker != nil {

@@ -117,7 +117,7 @@ test_toolshim_parse_call_rejects_unknown_and_junk :: proc(t: ^testing.T) {
 @(test)
 test_toolshim_parse_call_first_object_wins :: proc(t: ^testing.T) {
 	reg := shim_test_registry()
-	// Two JSON objects: the first balanced one is the call; the trailing
+	// Two JSON objects: the first balanced one is the call, the trailing
 	// object must not smear the slice across both.
 	text := `{"name":"read_file","arguments":{"path":"a"}} then {"name":"write_file"}`
 	call, ok := toolshim_parse_call(text, &reg, 1)

@@ -94,7 +94,7 @@ job_remove_at :: proc(i: int) {
 
 /*
 Add a job. now anchors first fire and auto-expiry. Errors are allocated on
-the caller allocator; delete them.
+the caller allocator, delete them.
 */
 job_add :: proc(
 	prompt, spec, scope: string,
@@ -295,7 +295,7 @@ fmt_delta :: proc(sec: i64, allocator := context.allocator) -> string {
 /*
 Housekeeping plus due-job resolution. Marks run_count, reschedules recurring
 jobs on their last fire time, and drops expired, exhausted, or failed jobs.
-A job whose wakeup is still queued on the target session is not re-emitted;
+A job whose wakeup is still queued on the target session is not re-emitted,
 its next fire is pushed forward so bursts coalesce into one wakeup.
 */
 schedule_tick :: proc(now: i64, allocator := context.allocator) -> []Due {

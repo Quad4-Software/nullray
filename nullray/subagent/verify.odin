@@ -5,7 +5,7 @@ Join barrier verify-all and optional second-opinion pass.
 verify_all is a Devin-Review-style adversarial pass: worktree children get
 their actual diff vs the merge base reviewed, shared-isolation children fall
 back to summary review (plus small file heads when they list touched files).
-At most VERIFY_REVIEW_MAX_CALLS chat calls run; children past the call budget
+At most VERIFY_REVIEW_MAX_CALLS chat calls run, children past the call budget
 are appended to the last call as summary-only sections.
 */
 
@@ -59,7 +59,7 @@ verify_all :: proc(
 	}
 
 	// Snapshot children. Worktree children first so the limited diff-review
-	// calls go to real diffs; summary-only review covers the rest.
+	// calls go to real diffs, summary-only review covers the rest.
 	ids := roster_group_ids(&rt.roster, group_id, context.temp_allocator)
 	handles := make([dynamic]Agent_Handle, context.temp_allocator)
 	for id in ids {
@@ -91,7 +91,7 @@ verify_all :: proc(
 	repo_root := workspace_dir(context.temp_allocator)
 	digest := knowledge_digest(&rt.knowledge, constants.MAX_KNOWLEDGE_DIGEST_CHARS, context.temp_allocator)
 
-	// One user blob per call; the first `calls` children get detailed
+	// One user blob per call, the first `calls` children get detailed
 	// sections, the rest are summarized into the last call.
 	bodies := make([]strings.Builder, calls, context.temp_allocator)
 	for &b in bodies {
@@ -162,7 +162,7 @@ verify_all :: proc(
 		return report, strings.clone(last_err, allocator)
 	}
 
-	// Every child gets a verdict row; uncovered ones get a warn placeholder.
+	// Every child gets a verdict row, uncovered ones get a warn placeholder.
 	for h in ordered {
 		covered := false
 		for c in report.children {

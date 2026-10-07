@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: LicenseRef-QSL-1.0-0BSD
 /*
 Scheduled-prompt tools. schedule_prompt registers one-shot, interval, or
-cron jobs that later wake the session as a user turn; schedule_list and
+cron jobs that later wake the session as a user turn, schedule_list and
 schedule_cancel inspect and drop them. State lives under .nullray so the
 kind is Read, matching the board tools.
 */

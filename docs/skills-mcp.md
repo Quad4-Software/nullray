@@ -89,9 +89,9 @@ system dirs first on PATH so sandboxed exec resolves predictably.
 Executable files in `~/.config/nullray/tools/` (user level, always
 trusted) and `.nullray/tools/` (workspace level, needs hooks trust or
 `NULLRAY_SCRIPT_TOOLS=1`) become agent tools named after the file.
-Extensions `.sh`, `.bash`, `.py`, `.js` pick the interpreter; any
+Extensions `.sh`, `.bash`, `.py`, `.js` pick the interpreter. any
 executable without an extension runs directly. Tool args arrive as
-JSON on stdin and in `NULLRAY_TOOL_ARGS`; stdout becomes the tool
+JSON on stdin and in `NULLRAY_TOOL_ARGS`. stdout becomes the tool
 result. Optional sidecars: `<name>.md` (description),
 `<name>.schema.json` (args schema), `<name>.meta` (`read`, `write`,
 or `shell` gating kind, default `shell`).

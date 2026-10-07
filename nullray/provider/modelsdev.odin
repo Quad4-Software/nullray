@@ -2,7 +2,7 @@
 /*
 models.dev catalog cache. api.json is the same model metadata schema the
 OpenCode v2 catalog serves (family, capabilities, npm package, limits, cost).
-Cached under the config dir with a TTL; refreshes from /models and friends.
+Cached under the config dir with a TTL, refreshes from /models and friends.
 Chat routing reads the cache only and never blocks on the network.
 */
 

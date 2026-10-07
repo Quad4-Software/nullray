@@ -19,7 +19,7 @@ import "core:sys/posix"
 import "nullray:constants"
 import "nullray:sandbox"
 
-SUN_PATH_MAX :: 108 // posix.sockaddr_un.sun_path on Linux; BSD is 104.
+SUN_PATH_MAX :: 108 // posix.sockaddr_un.sun_path on Linux, BSD is 104.
 
 // Directory the socket lives in. Used by cmd for sandbox grants.
 sock_dir :: proc(allocator := context.allocator) -> string {
@@ -128,7 +128,7 @@ unix_listen :: proc(path: string) -> (fd: posix.FD, err: string) {
 		posix.close(fd)
 		return -1, fmt.tprintf("bind %s failed", path)
 	}
-	// fchmod rejects sockets on Linux; chmod the bound path instead.
+	// fchmod rejects sockets on Linux, chmod the bound path instead.
 	_ = posix.chmod(strings.clone_to_cstring(path, context.temp_allocator), posix.mode_t{.IRUSR, .IWUSR})
 	if posix.listen(fd, 16) != .OK {
 		e := posix.errno()
@@ -141,7 +141,7 @@ unix_listen :: proc(path: string) -> (fd: posix.FD, err: string) {
 Prebind :: struct {
 	fd:   int,    // <0 when failed (posix.FD)
 	path: string, // owned
-	err:  string, // owned; set when fd < 0
+	err:  string, // owned, set when fd < 0
 }
 
 // Resolve the socket path, mkdir the parent 0700, and bind+listen. Runs

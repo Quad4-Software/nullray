@@ -211,7 +211,7 @@ slash_cmd_stop :: proc(a: ^App, args: string) {
 
 slash_cmd_continue :: proc(a: ^App, args: string) {
 	extra := strings.trim_space(args)
-	// /continue text is a user prompt entering a turn; honor the same hook.
+	// /continue text is a user prompt entering a turn, honor the same hook.
 	if len(extra) > 0 {
 		prompt_hook := hooks.run(.UserPromptSubmit, "", extra, context.temp_allocator)
 		if prompt_hook.blocked {

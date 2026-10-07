@@ -76,7 +76,7 @@ test_openai_tools_json_lean_and_subagent_omit :: proc(t: ^testing.T) {
 	defer delete(lean)
 
 	testing.expect(t, len(lean) < len(full))
-	// Coordination + schedule + harness tools ship in lean by design; the
+	// Coordination + schedule + harness tools ship in lean by design, the
 	// bound guards against runaway growth, not a fixed byte count.
 	testing.expect(t, len(lean) < 14000)
 	testing.expect(t, strings.contains(lean, `"read_file"`))

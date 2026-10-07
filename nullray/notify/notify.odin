@@ -53,7 +53,7 @@ notify_backend :: proc() -> Backend {
 	return .Auto
 }
 
-// Fire a notification. Returns immediately; helper processes run detached.
+// Fire a notification. Returns immediately, helper processes run detached.
 notify_send :: proc(title, body: string) {
 	mode := notify_backend()
 	if mode == .Off {
@@ -62,7 +62,7 @@ notify_send :: proc(title, body: string) {
 	title := notify_sanitize(title, 80, context.temp_allocator)
 	body := notify_sanitize(body, 200, context.temp_allocator)
 	// The Notification hook observes the same title/body the desktop
-	// notification would carry; a hook can reroute (webhook, log) instead.
+	// notification would carry, a hook can reroute (webhook, log) instead.
 	nres := hooks.run(.Notification, title, body, context.temp_allocator)
 	hooks.result_destroy(&nres, context.temp_allocator)
 	if mode == .Auto || mode == .Desktop {
@@ -215,7 +215,7 @@ notify_applescript_quote :: proc(s: string, allocator := context.allocator) -> s
 }
 
 // Run the helper with a bounded wait so a wedged D-Bus or PowerShell cannot
-// stall the UI. stderr is discarded; a failed helper is not worth reporting.
+// stall the UI. stderr is discarded, a failed helper is not worth reporting.
 @(private)
 notify_run_helper :: proc(command: []string) {
 	if len(command) == 0 {

@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: LicenseRef-QSL-1.0-0BSD
 /*
 Plan-step rewind checkpoints. FS undo stays on existing snapshots.
-Leave RAG index as-is; store a short lesson for the next attempt.
+Leave RAG index as-is, store a short lesson for the next attempt.
 */
 
 package agent

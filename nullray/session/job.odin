@@ -150,7 +150,7 @@ session_start_chat :: proc(s: ^Session, p: ^provider.Provider) {
 			sys_count += 1
 		}
 	}
-	// LID projection: model sees a short structured window; session keeps full fidelity until write-back.
+	// LID projection: model sees a short structured window, session keeps full fidelity until write-back.
 	projected := session_project_messages(s)
 	flat := make([dynamic]provider.Message, 0, len(projected) + sys_count + 4)
 	if len(s.system_prompt) > 0 {

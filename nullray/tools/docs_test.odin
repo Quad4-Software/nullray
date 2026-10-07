@@ -75,7 +75,7 @@ test_lang_doc_python :: proc(t: ^testing.T) {
 }
 
 // Regression: the apropos keyword went through /bin/sh -c so $(...) and
-// friends executed; argv exec must treat them as literal search text.
+// friends executed, argv exec must treat them as literal search text.
 @(test)
 test_apropos_no_shell_injection :: proc(t: ^testing.T) {
 	when ODIN_OS == .Windows {

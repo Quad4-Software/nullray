@@ -103,11 +103,11 @@ Script_Stdin :: struct {
 }
 
 // Feeds args JSON on a thread so a script that never reads stdin cannot
-// deadlock the caller; killing the child breaks the pipe.
+// deadlock the caller, killing the child breaks the pipe.
 @(private)
 script_stdin_proc :: proc(data: rawptr) {
 	w := cast(^Script_Stdin)data
-	// Loop short writes; any error (EPIPE once the read end is gone) just
+	// Loop short writes, any error (EPIPE once the read end is gone) just
 	// stops the feed.
 	rest := transmute([]u8)w.input
 	for len(rest) > 0 {
@@ -173,7 +173,7 @@ script_tool_run_capture :: proc(
 		}
 		start_err: os.Error
 		process, start_err = os.process_start(desc)
-		// The child holds its own dup of stdin_r; keeping the parent copy
+		// The child holds its own dup of stdin_r, keeping the parent copy
 		// open would leave the pipe readable forever, so a blocked stdin
 		// writer would never see EPIPE after the tree is killed.
 		os.close(stdin_r)
@@ -225,7 +225,7 @@ script_tool_run_capture :: proc(
 		if werr == nil && state.exited {
 			exited = true
 			exit_code = state.exit_code
-			// Child is dead so all its bytes are already kernel-buffered;
+			// Child is dead so all its bytes are already kernel-buffered,
 			// drain what is ready and stop instead of blocking on EOF that a
 			// detached grandchild holding the write end could postpone.
 			_ = script_drain(stdout_r, &stdout_b, buf[:], max_out)
@@ -235,7 +235,7 @@ script_tool_run_capture :: proc(
 		time.sleep(2 * time.Millisecond)
 	}
 	if !exited {
-		// The timeout path already fired the kill; a pipes-EOF exit with
+		// The timeout path already fired the kill, a pipes-EOF exit with
 		// the child still running leaves a blocking wait unbounded. Kill
 		// the tree first so the wait is bounded either way.
 		shell_kill_process_tree(process)
@@ -278,7 +278,7 @@ script_tool_run_capture :: proc(
 /*
 Drain currently buffered pipe bytes, at most SHELL_DRAIN_BUDGET per call so
 a flooding writer cannot starve the outer loop's timeout check. Returns
-true only on EOF or error; false just means the pipe is momentarily empty
+true only on EOF or error, false just means the pipe is momentarily empty
 or the budget ran out.
 */
 @(private)

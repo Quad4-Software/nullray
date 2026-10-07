@@ -14,7 +14,7 @@ import "core:time"
 /*
 A git config file that exists on disk but cannot be opened is fatal to every
 git invocation, and the sandbox keeps $HOME out. When the user-level config is
-unreachable, fall back to the repo's own config so commands still run; a
+unreachable, fall back to the repo's own config so commands still run, a
 missing file is fine because git treats it as absent.
 */
 @(private)
