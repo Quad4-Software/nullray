@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="logo/nullray-pixel.svg" alt="nullray" height="40">
+  <img src="logo/nullray-pixel.webp" alt="nullray" height="40">
 </p>
 
 <p align="center">Terminal coding agent in Odin built for local models first.</p>
