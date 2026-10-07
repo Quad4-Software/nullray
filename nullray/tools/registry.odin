@@ -47,6 +47,8 @@ Registry :: struct {
 	external_user:  rawptr,
 	// Owned Script_Tool bindings for tools registered from script dirs.
 	script_tools:   [dynamic]^Script_Tool,
+	// MemEx-style tool output scratchpad (stash.odin), owned per registry.
+	stash:          Stash,
 }
 
 g_registry: Registry
@@ -59,10 +61,14 @@ registry_init :: proc(r: ^Registry) {
 	r^ = {}
 	r.tools = make([dynamic]Tool)
 	r.script_tools = make([dynamic]^Script_Tool)
+	stash_init(&r.stash)
 	registry_register_builtins(r)
 	register_todo_tools(r)
 	register_schedule_tools(r)
 	register_checkpoint_tools(r)
+	// Stash readers register before script tools so a user script can
+	// never shadow peek/stash_take/stash_list (see scripthooks.odin).
+	register_stash_tools(r)
 	// Script tools come after builtins so a same-name script can only warn,
 	// never silently shadow a builtin (see scripthooks.odin).
 	register_script_tools(r)
@@ -75,6 +81,7 @@ registry_destroy :: proc(r: ^Registry) {
 	snapshots_destroy()
 	deferred_clear()
 	script_tools_destroy(r)
+	stash_destroy(&r.stash)
 	delete(r.tools)
 	r^ = {}
 }

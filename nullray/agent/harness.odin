@@ -30,6 +30,7 @@ Harness_Metrics :: struct {
 	speculate_saved_ms:     int,
 	diet_saved_chars:       int,
 	corvus_saved_chars:     int,
+	stash_saved_chars:      int,
 }
 
 Prepare_Stats :: struct {

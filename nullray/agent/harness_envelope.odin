@@ -12,6 +12,7 @@ import "nullray:provider"
 import "nullray:rag"
 import "nullray:sandbox"
 import "nullray:store"
+import "nullray:tools"
 
 REDACTED_EXCERPT :: "[redacted excerpt; use grep_artifact/read_artifact]"
 
@@ -162,6 +163,11 @@ offload_tool_result :: proc(
 	if is_err {
 		status = "error"
 		exit_code = 1
+	}
+	// MemEx stubs replaced the body in tools.run already; count the
+	// diverted bytes next to diet_saved/corvus_saved.
+	if n, sok := tools.stash_saved_bytes(raw); sok && metrics != nil {
+		metrics.stash_saved_chars += n
 	}
 	detail := sandbox.redact_secrets(cmd_or_path, context.temp_allocator)
 	threshold := store.artifact_chars_threshold()

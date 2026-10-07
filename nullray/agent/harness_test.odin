@@ -114,6 +114,16 @@ test_offload_lid_off_skips_artifact_store :: proc(t: ^testing.T) {
 }
 
 @(test)
+test_offload_stash_stub_counts_saved :: proc(t: ^testing.T) {
+	m: Harness_Metrics
+	stub := "stashed as stash-2, 4321 bytes, 99 lines total; lines 1-3 preview (peek for slices, stash_take for full)\nhead"
+	out := offload_tool_result("run_shell", stub, "echo", false, &m)
+	defer delete(out)
+	testing.expect_value(t, m.stash_saved_chars, 4321)
+	testing.expect(t, strings.contains(out, "stashed as stash-2"))
+}
+
+@(test)
 test_prepare_clear_writeback_style :: proc(t: ^testing.T) {
 	msgs := make([dynamic]provider.Message)
 	defer {
