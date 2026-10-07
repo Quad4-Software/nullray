@@ -141,32 +141,27 @@ export NULLRAY_VCS_FORCE=1
 
 ## Research
 
-Nullray implements published techniques where they map to measured wins:
+Techniques behind shipped features:
 
-- AgentDiet, deterministic trajectory reduction before summarization
-  (arxiv 2509.23586): re-read and superseded tool outputs get stubbed in
-  place, cutting input tokens roughly 40-60% on long sessions.
-- PA-Tool, per-model tool-name adaptation (arxiv 2510.07248): models get
-  tool names they emit most reliably, measured via `--probe-tools`.
-- Constrained decoding for tool calls (ToolDec, arxiv 2310.07075;
-  XGrammar, arxiv 2411.15100): GBNF/JSON-schema constraints on local
-  backends eliminate tool-call syntax errors.
-- Hybrid loop detection (arxiv 2511.10650 plus agent-loop-guard):
-  exact, fuzzy, cycle, stagnation, and semantic signals with warn,
-  steer, and stop tiers.
-- Stall-triggered escalation (SWE-Protege, arxiv 2602.22124): the local
-  model drives and a stronger model takes over only on detected stalls.
+| Feature | Basis |
+| --- | --- |
+| Trajectory diet | [AgentDiet](https://arxiv.org/abs/2509.23586) |
+| Tool-name adaptation | [PA-Tool](https://arxiv.org/abs/2510.07248) |
+| Constrained tool decoding | [ToolDec](https://arxiv.org/abs/2310.07075), [XGrammar](https://arxiv.org/abs/2411.15100) |
+| Hybrid loop detection | [arxiv 2511.10650](https://arxiv.org/abs/2511.10650), [agent-loop-guard](https://github.com/ArkNill/agent-loop-guard) |
+| Stall escalation | [SWE-Protege](https://arxiv.org/html/2602.22124) |
 
-Ongoing work tracks CORVUS (arxiv 2607.22711) for synchronized file
-state instead of frozen read snapshots, cross-read dedup (sqz,
-lean-ctx), SEER trajectory recall (arxiv 2508.15214), adaptive
-self-consistency (arxiv 2305.11860) and CISC confidence voting,
-BoN-MAV aspect verifiers (arxiv 2502.20379), convolve stopping rules
-(arxiv 2606.28733), Progent privilege narrowing (arxiv 2504.11703),
-MinionS remote-plan/local-exec (arxiv 2502.15964), ReSum periodic
-summarization (arxiv 2509.13313), ExpeRepair (arxiv 2506.10484),
-Training-Free GRPO (arxiv 2510.08191), and CapSeal brokered secrets
-(arxiv 2604.16762).
+On the roadmap: [CORVUS](https://arxiv.org/abs/2607.22711),
+[SEER](https://arxiv.org/abs/2508.15214),
+[adaptive self-consistency](https://arxiv.org/abs/2305.11860),
+[BoN-MAV](https://arxiv.org/abs/2502.20379),
+[convolve](https://arxiv.org/abs/2606.28733),
+[Progent](https://arxiv.org/abs/2504.11703),
+[MinionS](https://arxiv.org/abs/2502.15964),
+[ReSum](https://arxiv.org/abs/2509.13313),
+[ExpeRepair](https://arxiv.org/abs/2506.10484),
+[TF-GRPO](https://arxiv.org/abs/2510.08191),
+[CapSeal](https://arxiv.org/abs/2604.16762).
 
 ## License
 
