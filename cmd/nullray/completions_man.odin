@@ -93,20 +93,6 @@ roots still load.
 .B \-\-list\-skills
 List loaded skills (id, description, source) and exit.
 .TP
-.B \-\-install\-skill \fIPATH\fR
-Copy a skill
-.I .md
-file or package directory (with
-.IR SKILL.md )
-into
-.IR ~/.config/nullray/skills/ .
-Optional
-.B \-\-as \fIID\fR
-sets the destination id.
-.TP
-.B \-\-uninstall\-skill \fIID\fR
-Remove a skill installed under the config skills directory.
-.TP
 .B \-\-skills \fIPATH\fR
 Add extra skill root directories (comma-separated, flag repeatable).
 Same as
@@ -238,7 +224,7 @@ LLAMA_CPP_API_KEY, NULLRAY_HTTP_TIMEOUT, NULLRAY_SANDBOX_PORTS, NULLRAY_PROMPT, 
 Key=value environment overrides.
 .TP
 .I ~/.config/nullray/skills/
-User-installed skills (flat .md or name/SKILL.md packages).
+User skill files (flat .md or name/SKILL.md packages). Drop them here yourself.
 .TP
 .I ~/.config/nullray/keys.ini
 Key bindings and optional preset= line.
@@ -260,7 +246,6 @@ git diff | nullray --print --mode review --bare "Review this PR diff"
 nullray --list-models
 nullray --list-sessions
 nullray --list-skills
-nullray --install-skill ./pack/my-skill --as demo
 nullray --skills ~/extra-skills --print "hello"
 nullray --export-session mywork --out ./backup
 nullray --import-session ./backup/mywork.jsonl --as restored

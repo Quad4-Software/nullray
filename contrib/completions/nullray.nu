@@ -1,12 +1,12 @@
 def "nu-complete nullray flags" [] {
   [
     --help -h --version -V --ephemeral -e --self-test -t
-    --audit --doctor --debug --print -P --bare --fail-on-findings
-    --provider -p --model -m --theme --mode --perms --sandbox
+    --audit --doctor --debug --print -P --acp --serve --connect --attach --bare --fail-on-findings
+    --provider -p --model -m --theme --mode --perms --gate --sandbox
     --workspace -w --session --list-sessions --search-sessions
-    --delete-session --export-session --import-session --as
-    --list-skills --install-skill --uninstall-skill --skills
-    --keys --message-file --out --plan-out --plan-in
+    --delete-session --rename-session --force --export-session --import-session --as
+    --list-skills --skills
+    --keys --message-file --image --audio --video --media --out --plan-out --plan-in
     --output-format --print-strict --auto --usage --timeout --no-splash --no-subagents --splash --hide-sensitive --list-models --completions --man
   ]
 }

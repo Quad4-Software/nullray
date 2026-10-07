@@ -1,4 +1,4 @@
-.TH NULLRAY 1 "2026" "nullray 0.1.0" "User Commands"
+.TH NULLRAY 1 "2026" "nullray 0.1.1" "User Commands"
 .SH NAME
 nullray \- Odin coding agent with sandboxed tools
 .SH SYNOPSIS
@@ -42,39 +42,33 @@ Run the Agent Client Protocol v1 server over stdio (ndjson JSON-RPC)
 for editor integrations. stdout carries protocol messages only.
 .TP
 .B \-\-serve
-Run the shared agent daemon on a unix socket
-(default $XDG_RUNTIME_DIR/nullray/nullray.sock, override with
-.B NULLRAY_SERVE_SOCK
-).
-Also: nullray serve. Clients attach with
-.B \-\-connect
-or nullray attach.
+Run the shared agent daemon on a unix socket (same ACP protocol). Also
+available as the positional command
+.BR "nullray serve" .
+Socket path:
+.B NULLRAY_SERVE_SOCK,
+else
+.IR $XDG_RUNTIME_DIR /nullray/nullray.sock,
+else
+.IR ~/.config/nullray/nullray.sock .
+A daemon crash drops live sessions.
 .TP
 .B \-\-connect
-With \-\-print, run the prompt on a running daemon instead of a cold
-process. Exits 2 when no daemon is serving.
+With
+.BR \-\-print ,
+run the prompt through a running
+.B nullray serve
+daemon instead of a cold start. Also enabled by
+.BR NULLRAY_CONNECT .
 .TP
 .BR attach " [" SESSION ]
-Attach to a daemon session and stream updates; lines typed become
-session/prompt calls. Ctrl-D detaches; the session keeps running.
+Attach to a daemon session and stream updates. Ctrl-D or
+.B exit
+detaches; the session stays alive in the daemon.
 .TP
 .BR \-q ", " \-\-ask
 Run one ephemeral read-only question without the TUI. This never enables
 write or shell tools.
-.TP
-.B \-\-stream
-Stream reply tokens to stdout as they arrive in print mode.
-.TP
-.B \-\-trace
-Emit one stderr line per tool call (start, done with elapsed time and
-exit code) in print mode.
-.TP
-.B \-\-patch\-out " " PATH
-After a print run, write a unified diff of everything changed
-(git diff against HEAD, or the shadow checkpoint diff outside a repo).
-.TP
-.B \-\-no\-adopt
-Do not import API keys or provider settings from other AI CLI configs.
 .TP
 .B \-\-bare
 Skip home MCP autoload and non-workspace skills (CI reproducibility).
@@ -87,20 +81,6 @@ roots still load.
 .B \-\-list\-skills
 List loaded skills (id, description, source) and exit.
 .TP
-.B \-\-install\-skill \fIPATH\fR
-Copy a skill
-.I .md
-file or package directory (with
-.IR SKILL.md )
-into
-.IR ~/.config/nullray/skills/ .
-Optional
-.B \-\-as \fIID\fR
-sets the destination id.
-.TP
-.B \-\-uninstall\-skill \fIID\fR
-Remove a skill installed under the config skills directory.
-.TP
 .B \-\-skills \fIPATH\fR
 Add extra skill root directories (comma-separated, flag repeatable).
 Same as
@@ -110,7 +90,7 @@ Same as
 In review mode, exit 1 when the reply ends with FINDINGS: N and N > 0.
 .TP
 .BR \-p ", " \-\-provider " " \fIID\fR
-Select provider: ollama, lmstudio, openai, openai-compat, openrouter, opencode,
+Select provider: ollama, lmstudio, llamacpp, openai, openai-compat, openrouter, opencode,
 opencode-go, anthropic, gemini, groq, deepseek, mistral, together, fireworks, xai, azure.
 .TP
 .BR \-m ", " \-\-model " " \fINAME\fR
@@ -120,7 +100,7 @@ Override the default model for the active provider.
 UI theme (ink, dusk, mono, ...).
 .TP
 .B \-\-mode \fIMODE\fR
-Agent mode: ask, plan, review, edit, or orchestrate.
+Agent mode: ask, plan, review, or edit.
 .TP
 .B \-\-perms \fIPOLICY\fR
 Shell permission policy: ask, allow, or yolo.
@@ -184,7 +164,17 @@ Exit 1 on incomplete plan, verify failure, max_steps, loop, timeout,
 living subagents, or tool-only writes with verify enabled.
 .TP
 .B \-\-auto
-Autonomous edit mode (sets NULLRAY_AUTO=1, bumps steps to 40 when unset).
+Autonomous edit mode (sets NULLRAY_AUTO=1, bumps steps to 80 when unset).
+.TP
+.B \-\-samples \fIN\fR
+Best-of-N print runs in git worktrees. The verifier picks the winner.
+Also
+.B NULLRAY_SAMPLES.
+.TP
+.B \-\-architect
+Architect model writes a Done Contract, then the editor model executes it.
+Also
+.B NULLRAY_ARCHITECT.
 .TP
 .B \-\-timeout \fISEC\fR
 Print mode wall-clock timeout in seconds (default 600).
@@ -198,21 +188,6 @@ Force the startup splash animation.
 .B \-\-list\-models
 List models from the active provider and exit.
 .TP
-.B \-\-list\-sessions
-List saved sessions and exit.
-.TP
-.B \-\-rename\-session \fINAME\fR
-Rename a saved session (needs
-.B \-\-as
-for the new name, optional
-.B \-\-force
-).
-.TP
-.B \-\-inspect\-session [\fINAME\fR]
-Print session summary. Add
-.B \-\-follow
-to watch for updates.
-.TP
 .B \-\-completions \fISHELL\fR
 Print completion script for bash, zsh, fish, powershell, elvish, or nushell.
 .TP
@@ -225,32 +200,25 @@ Config file:
 Common variables: NULLRAY_PROVIDER, NULLRAY_MODEL, NULLRAY_THEME, NULLRAY_MODE, NULLRAY_PERMS,
 NULLRAY_SANDBOX, NULLRAY_WORKSPACE, NULLRAY_SESSION, NULLRAY_EPHEMERAL, NULLRAY_SPLASH,
 NULLRAY_KEYS, NULLRAY_STREAM, NULLRAY_HTTP_RETRIES, NULLRAY_FALLBACK_MODELS,
-NULLRAY_OPENROUTER_IGNORE, NULLRAY_OPENROUTER_ZDR, NULLRAY_LOCAL_PROBE, NULLRAY_QUIRKS,
-NULLRAY_BARE, NULLRAY_SKILLS, NULLRAY_PRINT_TIMEOUT, NULLRAY_OUT, NULLRAY_PLAN_OUT, NULLRAY_PLAN_IN,
+NULLRAY_OPENROUTER_IGNORE, NULLRAY_BARE, NULLRAY_SKILLS, NULLRAY_PRINT_TIMEOUT, NULLRAY_OUT, NULLRAY_PLAN_OUT, NULLRAY_PLAN_IN,
+NULLRAY_SAMPLES, NULLRAY_ARCHITECT, NULLRAY_LINT, NULLRAY_GGUF_SAMPLE, NULLRAY_COMMANDS,
 NULLRAY_COLOR, NULLRAY_ALT_SCREEN, NULLRAY_MOUSE, NULLRAY_DEBUG,
-OPENROUTER_API_KEY, OLLAMA_HOST, LM_STUDIO_HOST, LM_API_TOKEN, LLAMA_CPP_HOST.
-.PP
-At startup nullray adopts provider keys, base URLs, and the chosen model from
-other AI CLI configs it finds (Claude Code, OpenCode, pi, Codex, Gemini CLI,
-Qwen Code, Crush, goose, aider, aichat, llm). Only unset variables are filled
-and helper commands are never run. Set
-.B NULLRAY_ADOPT=0
-to disable; see
-.B --doctor
-for what was detected.
+NULLRAY_CONNECT, NULLRAY_SERVE_SOCK,
+OPENROUTER_API_KEY, OLLAMA_HOST, LM_STUDIO_HOST, LM_API_TOKEN, LLAMA_CPP_HOST,
+LLAMA_CPP_API_KEY, NULLRAY_HTTP_TIMEOUT, NULLRAY_SANDBOX_PORTS, NULLRAY_PROMPT, NULLRAY_JUDGE, NULLRAY_JSON_MODE.
 .SH FILES
 .TP
 .I ~/.config/nullray/env
 Key=value environment overrides.
 .TP
 .I ~/.config/nullray/skills/
-User-installed skills (flat .md or name/SKILL.md packages).
+User skill files (flat .md or name/SKILL.md packages). Drop them here yourself.
 .TP
 .I ~/.config/nullray/keys.ini
 Key bindings and optional preset= line.
 .TP
 .I ~/.config/nullray/sessions/
-Session transcripts (.msgpack default, .jsonl fallback) and metadata.
+Session transcripts and metadata.
 .TP
 .I ~/.config/nullray/mcp.json
 MCP server autoload config.
@@ -265,10 +233,7 @@ nullray --print --mode review --fail-on-findings "Review the staged diff"
 git diff | nullray --print --mode review --bare "Review this PR diff"
 nullray --list-models
 nullray --list-sessions
-nullray --rename-session oldname --as newname
-nullray --inspect-session mywork
 nullray --list-skills
-nullray --install-skill ./pack/my-skill --as demo
 nullray --skills ~/extra-skills --print "hello"
 nullray --export-session mywork --out ./backup
 nullray --import-session ./backup/mywork.jsonl --as restored

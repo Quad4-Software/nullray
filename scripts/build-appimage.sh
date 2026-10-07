@@ -25,7 +25,6 @@ trap 'rm -rf "${TOOL_DIR}" "${STAGE}"' EXIT
 
 mkdir -p "${APPDIR}/usr/bin" "${APPDIR}/usr/share/applications" \
 	"${APPDIR}/usr/share/icons/hicolor/scalable/apps" \
-	"${APPDIR}/usr/share/nullray/skills" \
 	"${OUT_DIR}"
 
 install -m 755 "${BINARY}" "${APPDIR}/usr/bin/nullray"
@@ -34,9 +33,6 @@ install -m 644 "${ROOT}/packaging/appimage/nullray.desktop" \
 	"${APPDIR}/usr/share/applications/nullray.desktop"
 install -m 644 "${ROOT}/logo/nullray.svg" \
 	"${APPDIR}/usr/share/icons/hicolor/scalable/apps/nullray.svg"
-if [[ -d "${ROOT}/.agents/skills" ]]; then
-	cp -a "${ROOT}/.agents/skills/." "${APPDIR}/usr/share/nullray/skills/"
-fi
 
 ICON_FILE="${APPDIR}/usr/share/icons/hicolor/scalable/apps/nullray.svg"
 if command -v rsvg-convert >/dev/null 2>&1; then

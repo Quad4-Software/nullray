@@ -127,8 +127,6 @@ TCP listener. Remote access goes over `ssh -L` forwarding.
 | Flag | Purpose |
 |------|---------|
 | `--list-skills` | Loaded skills: id, description, source |
-| `--install-skill PATH` | Install a .md or package dir |
-| `--uninstall-skill ID` | Remove an installed skill |
 | `--skills PATH` | Extra skill roots, comma-separated, repeatable |
 | `--bare` | Skip home MCP and non-workspace skills |
 

@@ -1,8 +1,9 @@
 // SPDX-License-Identifier: LicenseRef-QSL-1.0-0BSD
 /*
-Skill markdown files loaded from config, workspace, packaged share/nullray/skills,
-and ~/.agents. Progressive disclosure: catalog (name+description) in the system
-prefix, full bodies via load_skill into the transcript.
+Skill markdown files loaded from user dirs: workspace .agents, config skills,
+~/.agents, optional share/nullray/skills beside the binary, and NULLRAY_SKILLS.
+Progressive disclosure: catalog (name+description) in the system prefix, full
+bodies via load_skill into the transcript.
 */
 
 package skills

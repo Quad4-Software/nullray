@@ -13,19 +13,17 @@ In precedence order:
 1. Workspace `.agents/skills/` and `.agents/`
 2. Config `~/.config/nullray/skills/`
 3. Home `~/.agents/`
-4. Packaged `share/nullray/skills/` beside the binary
+4. Packaged `share/nullray/skills/` beside the binary, if you put files there
 5. Extra roots via `--skills PATH` or `NULLRAY_SKILLS` (comma-separated)
 
 `--bare` or `NULLRAY_BARE=1` skips home MCP and non-workspace skills.
 Explicit `--skills` roots still load under `--bare`.
 
-### Managing
+nullray does not ship skills and has no install-skill command. Copy a
+flat `.md` or a `name/SKILL.md` directory into one of the roots above.
 
 ```sh
-nullray --list-skills                          # id, description, source
-nullray --install-skill ./pack/my-skill        # copies into config skills
-nullray --install-skill ./x.md --as review2    # rename on install
-nullray --uninstall-skill review2
+nullray --list-skills
 ```
 
 In the TUI, `/skills` lists them and `/skills ID` shows one.
