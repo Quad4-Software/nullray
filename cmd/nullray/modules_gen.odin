@@ -3,7 +3,11 @@ package main
 
 import _ "nullray:modules/clock"
 
-foreign import cmod_hello_c "../../nullray/modules/hello_c/mod.o"
+when ODIN_OS == .Windows {
+	foreign import cmod_hello_c "../../nullray/modules/hello_c/mod.obj"
+} else {
+	foreign import cmod_hello_c "../../nullray/modules/hello_c/mod.o"
+}
 foreign cmod_hello_c {
 	nullray_hello_c_module_init :: proc() ---
 }

@@ -78,9 +78,9 @@ main :: proc() {
 	// point from @(init). mod.c is compiled by the Makefile before odin
 	// build links.
 	for id in c_ids {
-		fmt.sbprintf(&b,
-			"foreign import cmod_%s \"../../nullray/modules/%s/mod%s\"\n",
-			id, id, OBJ_EXT)
+		// Foreign import paths are compile-time literals, so emit one per OS
+		// instead of baking in the generator host's extension.
+		fmt.sbprintf(&b, "when ODIN_OS == .Windows {{\n\tforeign import cmod_%s \"../../nullray/modules/%s/mod.obj\"\n}} else {{\n\tforeign import cmod_%s \"../../nullray/modules/%s/mod.o\"\n}}\n", id, id, id, id)
 		fmt.sbprintf(&b, "foreign cmod_%s {{\n\tnullray_%s_module_init :: proc() ---\n}}\n\n", id, id)
 		fmt.sbprintf(&b,
 			"@(init)\ncmod_%s_boot :: proc \"contextless\" () {{\n\tnullray_%s_module_init()\n}}\n\n",

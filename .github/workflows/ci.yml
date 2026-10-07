@@ -89,6 +89,9 @@ jobs:
       - name: Build TLS static lib
         run: make tls-lib
 
+      - name: Build module objects
+        run: make modules
+
       - name: Package tests
         env:
           SUITE_PATH: ${{ matrix.path }}
@@ -290,6 +293,16 @@ jobs:
       - name: Build TLS static lib
         shell: pwsh
         run: .\scripts\build-tls-lib.ps1
+
+      - name: Build C modules
+        shell: pwsh
+        run: |
+          odin run scripts\gen_modules.odin -file
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          Get-ChildItem -Recurse -Filter mod.c nullray\modules | ForEach-Object {
+            clang -O2 -c $_.FullName -o (Join-Path $_.DirectoryName "mod.obj")
+            if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          }
 
       - name: Build and smoke
         shell: pwsh
