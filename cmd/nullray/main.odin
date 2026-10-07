@@ -94,8 +94,7 @@ Cli :: struct {
 	import_session:   string,
 	as_name:          string,
 	list_skills:      bool,
-	install_skill:    string,
-	uninstall_skill:  string,
+	list_modules:     bool,
 	skills_paths:     string,
 	prompt:           string,
 	askpass:          bool,
@@ -187,11 +186,8 @@ main :: proc() {
 	if cli.list_skills {
 		os.exit(run_list_skills())
 	}
-	if len(cli.install_skill) > 0 {
-		os.exit(run_install_skill(cli.install_skill, cli.as_name))
-	}
-	if len(cli.uninstall_skill) > 0 {
-		os.exit(run_uninstall_skill(cli.uninstall_skill))
+	if cli.list_modules {
+		os.exit(run_list_modules())
 	}
 
 	if cli.list_models {

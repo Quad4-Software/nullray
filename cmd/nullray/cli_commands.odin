@@ -9,6 +9,7 @@ import "nullray:http"
 import "nullray:provider"
 import "nullray:secure"
 import "nullray:session"
+import "nullray:modules"
 import "nullray:skills"
 import "nullray:store"
 
@@ -122,34 +123,28 @@ run_import_session :: proc(src: string, as_name: string) -> int {
 	return 0
 }
 
+run_list_modules :: proc() -> int {
+	// Side-effect imports in modules_gen.odin registered every module at
+	// @(init). Print what loaded.
+	mods := modules.modules_list()
+	if len(mods) == 0 {
+		fmt.println("no modules loaded (drop a dir under nullray/modules/ and rebuild)")
+		return 0
+	}
+	for m in mods {
+		fmt.printf("%s v%s - %s", m.id, m.version, m.description)
+		if len(m.tools) > 0 || len(m.commands) > 0 {
+			fmt.printf("  tools=%d commands=%d", len(m.tools), len(m.commands))
+		}
+		fmt.println()
+	}
+	return 0
+}
+
 run_list_skills :: proc() -> int {
 	text := skills.skills_list_text()
 	defer delete(text)
 	fmt.println(text)
-	return 0
-}
-
-run_install_skill :: proc(src: string, as_name: string) -> int {
-	id, dest, err := skills.install_skill(src, as_name)
-	if len(err) > 0 {
-		fmt.eprintln("nullray:", err)
-		delete(err)
-		return 1
-	}
-	defer delete(id)
-	defer delete(dest)
-	fmt.printf("installed skill %s -> %s\n", id, dest)
-	return 0
-}
-
-run_uninstall_skill :: proc(id: string) -> int {
-	ok, err := skills.uninstall_skill(id)
-	if !ok {
-		fmt.eprintln("nullray:", err)
-		delete(err)
-		return 1
-	}
-	fmt.printf("uninstalled skill %s\n", skills.sanitize_skill_id(id, context.temp_allocator))
 	return 0
 }
 

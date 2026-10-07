@@ -65,6 +65,7 @@ registry_init :: proc(r: ^Registry) {
 	// Script tools come after builtins so a same-name script can only warn,
 	// never silently shadow a builtin (see scripthooks.odin).
 	register_script_tools(r)
+	register_module_tools(r)
 }
 registry_destroy :: proc(r: ^Registry) {
 	if r == nil {

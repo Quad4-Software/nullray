@@ -40,7 +40,7 @@ _nullray() {
   COMPREPLY=()
   cur="${COMP_WORDS[COMP_CWORD]}"
   prev="${COMP_WORDS[COMP_CWORD-1]}"
-  opts="--help -h --version -V --ephemeral -e --self-test -t --audit --review --review-scope --base --staged --unstaged --include-untracked --paths --doctor --debug --print -P --stream --trace --patch-out --no-adopt --ask -q --acp --serve --connect --attach --bare --fail-on-findings --provider -p --model -m --theme --mode --hunt --perms --gate --sandbox --workspace -w --session --list-sessions --inspect-session --follow --search-sessions --delete-session --rename-session --force --export-session --import-session --as --list-skills --install-skill --uninstall-skill --skills --keys --message-file --image --audio --video --media --out --plan-out --plan-in --output-format --print-strict --auto --usage --samples --architect --timeout --no-splash --no-subagents --splash --hide-sensitive --list-models --completions --man"
+  opts="--help -h --version -V --ephemeral -e --self-test -t --audit --review --review-scope --base --staged --unstaged --include-untracked --paths --doctor --debug --print -P --stream --trace --patch-out --no-adopt --ask -q --acp --serve --connect --attach --bare --fail-on-findings --provider -p --model -m --theme --mode --hunt --perms --gate --sandbox --workspace -w --session --list-sessions --inspect-session --follow --search-sessions --delete-session --rename-session --force --export-session --import-session --as --list-skills --skills --keys --message-file --image --audio --video --media --out --plan-out --plan-in --output-format --print-strict --auto --usage --samples --architect --timeout --no-splash --no-subagents --splash --hide-sensitive --list-models --list-modules --completions --man"
   cmds="serve attach"
   providers="ollama lmstudio llamacpp openai openai-compat openrouter opencode opencode-go anthropic gemini groq deepseek mistral together fireworks xai azure cerebras cohere nvidia dashscope"
   modes="ask plan review edit orchestrate"
@@ -61,7 +61,7 @@ _nullray() {
     --output-format) COMPREPLY=( $(compgen -W "text json" -- "$cur") ); return ;;
     --completions) COMPREPLY=( $(compgen -W "bash zsh fish powershell elvish nushell" -- "$cur") ); return ;;
     --theme) COMPREPLY=( $(compgen -W "ink ember moss slate rose mono dusk" -- "$cur") ); return ;;
-    --workspace|-w|--session|--search-sessions|--delete-session|--rename-session|--export-session|--import-session|--as|--model|-m|--message-file|--image|--audio|--video|--media|--out|--plan-out|--plan-in|--install-skill|--uninstall-skill|--skills|--base|--paths) COMPREPLY=( $(compgen -f -- "$cur") ); return ;;
+    --workspace|-w|--session|--search-sessions|--delete-session|--rename-session|--export-session|--import-session|--as|--model|-m|--message-file|--image|--audio|--video|--media|--out|--plan-out|--plan-in|--skills|--base|--paths) COMPREPLY=( $(compgen -f -- "$cur") ); return ;;
   esac
   if [[ "$cur" == -* ]]; then
     COMPREPLY=( $(compgen -W "$opts" -- "$cur") )
@@ -124,8 +124,6 @@ _nullray() {
     '--import-session[import session from path]:path:_files'
     '--as[import or install destination name]:name:'
     '--list-skills[list loaded skills]'
-    '--install-skill[install skill .md or package]:path:_files'
-    '--uninstall-skill[uninstall config skill]:id:'
     '--skills[extra skill root dirs]:path:_files -/'
     '--keys[keybind preset]:keys:(default neovim emacs)'
     '--message-file[prompt file]:file:_files'
@@ -146,6 +144,7 @@ _nullray() {
     '--splash[force startup splash]'
     '--hide-sensitive[hide account and API key balances]'
     '--list-models[list models for active provider]'
+    '--list-modules[list compiled-in modules]'
     '--completions[print shell completions]:shell:(bash zsh fish powershell elvish nushell)'
     '--man[print man page source]'
   )

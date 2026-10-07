@@ -13,6 +13,7 @@ import "core:strings"
 import "core:sync"
 import "nullray:constants"
 import "nullray:provider"
+import "nullray:modules"
 import "nullray:sandbox"
 import "nullray:session"
 import "nullray:skills"
@@ -73,6 +74,23 @@ custom_commands_reload :: proc() {
 	if len(cfg) > 0 {
 		dir, _ := filepath.join({cfg, constants.COMMANDS_DIR}, context.temp_allocator)
 		custom_load_dir(dir)
+	}
+	// Compiled modules contribute prompt-template commands too.
+	for m in modules.modules_list() {
+		for c in m.commands {
+			if len(c.name) == 0 || len(c.prompt) == 0 {
+				continue
+			}
+			help := c.help
+			if len(help) == 0 {
+				help = "module command"
+			}
+			append(&g_custom, Custom_Command{
+				name = strings.clone(c.name),
+				help = strings.clone(help),
+				body = strings.clone(c.prompt),
+			})
+		}
 	}
 }
 

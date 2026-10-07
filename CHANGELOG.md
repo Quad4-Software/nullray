@@ -28,6 +28,8 @@ Notable changes for nullray.
 
 ### Removed
 - GitHub release archives for Linux, macOS, and Windows.
+- Bundled .agents skills. Drop your own into workspace .agents, ~/.agents, or ~/.config/nullray/skills.
+- --install-skill and --uninstall-skill. Copy skill files into those dirs yourself.
 
 ## [0.7.0] - 2026-10-06
 

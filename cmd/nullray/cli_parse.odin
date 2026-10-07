@@ -111,26 +111,14 @@ parse_cli :: proc(args: []string) -> Cli {
 		case "--as":
 			v, ok := take_value(args, &i)
 			if !ok {
-				cli.err = "--as needs a session or skill name"
+				cli.err = "--as needs a session name"
 				return cli
 			}
 			cli.as_name = v
+		case "--list-modules":
+			cli.list_modules = true
 		case "--list-skills":
 			cli.list_skills = true
-		case "--install-skill":
-			v, ok := take_value(args, &i)
-			if !ok {
-				cli.err = "--install-skill needs a path"
-				return cli
-			}
-			cli.install_skill = v
-		case "--uninstall-skill":
-			v, ok := take_value(args, &i)
-			if !ok {
-				cli.err = "--uninstall-skill needs a skill id"
-				return cli
-			}
-			cli.uninstall_skill = v
 		case "--skills":
 			v, ok := take_value(args, &i)
 			if !ok {

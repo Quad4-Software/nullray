@@ -65,7 +65,7 @@ NGHTTP2_OBJS := $(addprefix $(TLS_BUILD)/nghttp2_,$(NGHTTP2_SRCS:.c=.o))
 H2_SHIM_OBJ  := $(TLS_BUILD)/nullray_h2_shim.o
 
 .PHONY: all clean install uninstall run test selftest chat-smoke print-smoke rag-live coverage help completions man \
-	appimage appimage-sdk sdk-smoke flatpak docker-build debug tls-lib tls-size
+	appimage appimage-sdk sdk-smoke flatpak docker-build debug tls-lib tls-size modules
 
 TEST_SUITES := ui agent tools skills session store sandbox memory rag mcp provider app config subagent elevate structure secure hooks harness vcs run patch http ask acp schedule todo serve search
 TEST_FLAGS  := $(COLLECTION) -define:ODIN_TEST_THREADS=1 -debug
@@ -117,6 +117,9 @@ debug: $(TLS_LIB)
 
 run: $(OUT)
 	./$(OUT)
+
+modules:
+	@python3 $(ROOT)/scripts/gen_modules.py
 
 test: $(TLS_LIB)
 	@for s in $(TEST_SUITES); do \
@@ -197,10 +200,6 @@ install: $(OUT) man completions
 	install -m 644 contrib/completions/nullray.zsh $(DESTDIR)$(ZSHCOMPDIR)/_nullray
 	install -d $(DESTDIR)$(FISHCOMPDIR)
 	install -m 644 contrib/completions/nullray.fish $(DESTDIR)$(FISHCOMPDIR)/nullray.fish
-	install -d $(DESTDIR)$(SKILLDIR)
-	if [ -d "$(ROOT)/.agents/skills" ]; then \
-		cp -a $(ROOT)/.agents/skills/. $(DESTDIR)$(SKILLDIR)/; \
-	fi
 
 uninstall:
 	rm -f $(DESTDIR)$(BINDIR)/nullray
