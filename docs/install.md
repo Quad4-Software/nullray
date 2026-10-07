@@ -1,6 +1,6 @@
 # Install
 
-There are no pre-built binaries. You need git, the Odin compiler, make, and a C compiler (cc, clang, or gcc).
+There are no pre-built binaries. You need git, the Odin compiler, make, python3, and a C compiler (cc, clang, or gcc).
 Linux, macOS, and Windows (Git Bash) are supported.
 
 ## Install script
@@ -44,35 +44,12 @@ make -C ~/.local/src/nullray install PREFIX="$HOME/.local"
 
 ## Packages
 
-=== "Docker"
+Build a local package from the checkout:
 
-    ```sh
-    docker pull ghcr.io/quad4-software/nullray:latest
-    docker run --rm -it \
-      --user 1000:1000 \
-      -v "$PWD:/workspace" \
-      -v nullray-config:/home/nullray/.config/nullray \
-      --cap-drop ALL \
-      --security-opt no-new-privileges:true \
-      --add-host host.docker.internal:host-gateway \
-      -e NULLRAY_PROVIDER=ollama \
-      -e OLLAMA_HOST=http://host.docker.internal:11434 \
-      ghcr.io/quad4-software/nullray:latest
-    ```
-
-    The image is rootless and drops all capabilities. Mount the project
-    at `/workspace` and give it a provider through `-e` or a config
-    volume.
-
-=== "Flatpak"
-
-    Build a bundle from this tree, then:
-
-    ```sh
-    make flatpak
+    make flatpak    # dist/*.flatpak, needs flatpak-builder
     flatpak install --user ./dist/nullray_*_linux_amd64.flatpak
-    flatpak run xyz.nullray.code
-    ```
+
+    make appimage   # dist/*.AppImage, needs curl or NULLRAY_APPIMAGE_TOOLS
 
 === "AppImage"
 

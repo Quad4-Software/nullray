@@ -29,8 +29,15 @@ curl -fsSL https://nullray.xyz/install | sh
 ```
 
 The script clones into `~/.local/src/nullray`, builds from source, and
-installs to `~/.local`. It warns and stops if git or Odin is missing.
-Needs make and a C compiler too. Re-run to pull and rebuild.
+installs to `~/.local`. Re-run to pull and rebuild.
+
+## Requirements
+
+- git, make, a C compiler (clang or gcc)
+- Odin on PATH (release or dev build)
+- python3 (module list generation, package scripts)
+- Optional: flatpak-builder for `make flatpak`; Landlock-capable Linux for
+  the sandbox (soft-warns off elsewhere)
 
 ## Build
 
@@ -143,27 +150,11 @@ export NULLRAY_VCS_FORCE=1
 
 ## Packages
 
-### Docker
+Local packaging builds from the source tree:
 
 ```sh
-docker pull ghcr.io/quad4-software/nullray:latest
-docker run --rm -it \
-  --user 1000:1000 \
-  -v "$PWD:/workspace" \
-  -v nullray-config:/home/nullray/.config/nullray \
-  --cap-drop ALL \
-  --security-opt no-new-privileges:true \
-  --add-host host.docker.internal:host-gateway \
-  -e NULLRAY_PROVIDER=ollama \
-  -e OLLAMA_HOST=http://host.docker.internal:11434 \
-  ghcr.io/quad4-software/nullray:latest
-```
-
-### Flatpak
-
-```sh
-flatpak install --user ./nullray_*_linux_amd64.flatpak
-flatpak run xyz.nullray.code
+make flatpak    # dist/*.flatpak (needs flatpak-builder)
+make appimage   # dist/*.AppImage (needs curl or NULLRAY_APPIMAGE_TOOLS)
 ```
 
 ## License

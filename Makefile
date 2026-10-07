@@ -65,7 +65,7 @@ NGHTTP2_OBJS := $(addprefix $(TLS_BUILD)/nghttp2_,$(NGHTTP2_SRCS:.c=.o))
 H2_SHIM_OBJ  := $(TLS_BUILD)/nullray_h2_shim.o
 
 .PHONY: all clean install uninstall run test selftest chat-smoke print-smoke rag-live coverage help completions man \
-	appimage appimage-sdk sdk-smoke flatpak docker-build debug tls-lib tls-size modules
+	appimage appimage-sdk sdk-smoke flatpak debug tls-lib tls-size modules
 
 TEST_SUITES := ui agent tools skills session store sandbox memory rag mcp provider app config subagent elevate structure secure hooks harness vcs run patch http ask acp schedule todo serve search
 TEST_FLAGS  := $(COLLECTION) -define:ODIN_TEST_THREADS=1 -debug
@@ -230,9 +230,6 @@ flatpak: $(OUT)
 	@mkdir -p dist
 	bash scripts/build-flatpak.sh $(OUT) dist
 
-docker-build:
-	docker build -t nullray:local .
-
 help:
 	@printf '%s\n' \
 		'Targets:' \
@@ -250,7 +247,6 @@ help:
 		'  appimage-sdk airgap SDK AppImage (odin + src + pack tools)' \
 		'  sdk-smoke    /tmp extract, rebuild, pack slim from SDK image' \
 		'  flatpak      build dist/*.flatpak (needs flatpak-builder)' \
-		'  docker-build build local Docker image nullray:local' \
 		'  tls-lib      build lib/libnullray_tls.a from vendored Mbed TLS + nghttp2' \
 		'  tls-size     print TLS archive and binary sizes' \
 		'  clean        remove bin/, dist/, and lib/'
