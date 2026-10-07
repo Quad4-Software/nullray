@@ -39,20 +39,33 @@ openai_chat :: proc(p: ^Provider, req: Chat_Request, allocator := context.alloca
 	temp_epoch := runtime.default_temp_allocator_temp_begin()
 	defer runtime.default_temp_allocator_temp_end(temp_epoch)
 
+	// Mutable copy: late mode may flip constrained_retry for a resend.
+	req_v := req
 	for attempt in 0 ..= retries {
 		if http.cancel_requested() {
 			return Chat_Response{ok = false, err = strings.clone("cancelled", allocator)}
 		}
-		sent_constrained := constrained_tools_sent(p, model, req)
-		body := build_openai_chat_body(p, req, model, false, ignore[:])
+		sent_constrained := constrained_tools_sent(p, model, req_v)
+		body := build_openai_chat_body(p, req_v, model, false, ignore[:])
 		last = http.post_json(url, headers[:], body, http_timeout_sec_for(p.id), context.temp_allocator)
 		if last.ok {
-			return parse_openai_chat_response(last.body, allocator)
+			res := parse_openai_chat_response(last.body, allocator)
+			// Late mode phase 2: phase 1 ran unconstrained and returned
+			// malformed tool calls, so resend once under the strict
+			// constraint. cache_prompt/keep_alive reuse the prompt KV.
+			// Needs an attempt left, otherwise the malformed response goes
+			// to the agent resample path instead.
+			if res.ok && attempt < retries && constrained_late_resend(p, model, req_v, tool_call_args_malformed(res.tool_calls)) {
+				destroy_chat_response(&res)
+				req_v.constrained_retry = true
+				continue
+			}
+			return res
 		}
 		// A server that rejects the constraint field once gets it dropped for
 		// the session, retry immediately with a clean body.
 		if sent_constrained && constrained_rejected(last) {
-			constrained_disable(p, last)
+			constrained_disable(p, last, model)
 			continue
 		}
 		if !http_status_retryable(last.status) || attempt >= retries {

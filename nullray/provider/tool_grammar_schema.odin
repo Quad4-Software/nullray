@@ -80,6 +80,11 @@ gbnf_emit_schema :: proc(g: ^Gbnf, name: string, schema: json.Value) {
 	}
 	if v, has := obj["enum"]; has {
 		if arr, aok := v.(json.Array); aok && len(arr) > 0 {
+			if g.shape {
+				// Shape mode frees the value, keeps the JSON type.
+				gbnf_rule(g, name, gbnf_shape_values_rule(arr))
+				return
+			}
 			b: strings.Builder
 			strings.builder_init(&b, context.temp_allocator)
 			strings.write_byte(&b, '(')
@@ -95,6 +100,10 @@ gbnf_emit_schema :: proc(g: ^Gbnf, name: string, schema: json.Value) {
 		}
 	}
 	if v, has := obj["const"]; has {
+		if g.shape {
+			gbnf_rule(g, name, strings.concatenate({gbnf_shape_type_name(v), " ws"}, context.temp_allocator))
+			return
+		}
 		gbnf_rule(g, name, strings.concatenate({gbnf_lit_json(v), " ws"}, context.temp_allocator))
 		return
 	}
@@ -161,6 +170,48 @@ gbnf_emit_schema :: proc(g: ^Gbnf, name: string, schema: json.Value) {
 	} else {
 		gbnf_rule(g, name, "val")
 	}
+}
+
+// Type-rule name for one JSON value: shape mode drops a const or enum lock
+// and keeps only the value's JSON type.
+@(private)
+gbnf_shape_type_name :: proc(v: json.Value) -> string {
+	#partial switch x in v {
+	case json.String:  return "str"
+	case json.Integer: return "int"
+	case json.Float:   return "num"
+	case json.Boolean: return "bool"
+	case json.Null:    return `"null"`
+	case json.Object:  return "any-obj"
+	case json.Array:   return "any-arr"
+	}
+	return "val"
+}
+
+// One permissive rule covering every enum member's type: same type keeps
+// that rule, int inside a number enum widens to num, mixed kinds go free.
+@(private)
+gbnf_shape_values_rule :: proc(arr: json.Array) -> string {
+	kind := ""
+	for item in arr {
+		t := gbnf_shape_type_name(item)
+		if len(kind) == 0 {
+			kind = t
+			continue
+		}
+		if t == kind {
+			continue
+		}
+		if (kind == "num" && t == "int") || (kind == "int" && t == "num") {
+			kind = "num"
+			continue
+		}
+		return "val"
+	}
+	if len(kind) == 0 {
+		return "val"
+	}
+	return strings.concatenate({kind, " ws"}, context.temp_allocator)
 }
 
 // Alternative body for a single named JSON type under schema obj.

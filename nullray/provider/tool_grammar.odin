@@ -20,8 +20,12 @@ import "core:strings"
 
 @(private)
 Gbnf :: struct {
-	b:    strings.Builder,
-	next: int,
+	b:     strings.Builder,
+	next:  int,
+	// Shape mode: the schema walk in tool_grammar_schema.odin weakens
+	// value locks (enum, const) to type-level rules while envelope,
+	// tool names, required keys, and types stay constrained.
+	shape: bool,
 }
 
 @(private)
@@ -93,6 +97,17 @@ parallel=false collapses the call list to a single call. Caller uses the
 returned string immediately, it may live on the temp allocator.
 */
 tool_grammar_build :: proc(tools_json: string, parallel: bool, allocator := context.allocator) -> (string, bool) {
+	return tool_grammar_build_mode(tools_json, parallel, false, allocator)
+}
+
+// Shape mode: same envelope, tool names, key names, and types, but enum and
+// const locks inside arguments degrade to their JSON type so values are free.
+tool_grammar_build_shape :: proc(tools_json: string, parallel: bool, allocator := context.allocator) -> (string, bool) {
+	return tool_grammar_build_mode(tools_json, parallel, true, allocator)
+}
+
+@(private)
+tool_grammar_build_mode :: proc(tools_json: string, parallel, shape: bool, allocator := context.allocator) -> (string, bool) {
 	doc, perr := json.parse_string(tools_json, .JSON, allocator = context.temp_allocator)
 	if perr != .None {
 		return "", false
@@ -103,6 +118,7 @@ tool_grammar_build :: proc(tools_json: string, parallel: bool, allocator := cont
 	}
 	g: Gbnf
 	strings.builder_init(&g.b, allocator)
+	g.shape = shape
 
 	calls := make([dynamic]string, context.temp_allocator)
 	for item, i in arr {

@@ -66,6 +66,8 @@ openai_chat_stream :: proc(
 	temp_epoch := runtime.default_temp_allocator_temp_begin()
 	defer runtime.default_temp_allocator_temp_end(temp_epoch)
 
+	// Mutable copy: late mode may flip constrained_retry for a resend.
+	req_v := req
 	for attempt in 0 ..= retries {
 		if http.cancel_requested() {
 			return Chat_Response{ok = false, err = strings.clone("cancelled", allocator)}
@@ -82,8 +84,8 @@ openai_chat_stream :: proc(
 		accum.seal_user = req.seal_user
 		accum.ok = true
 
-		sent_constrained := constrained_tools_sent(p, model, req)
-		body := build_openai_chat_body(p, req, model, true, ignore[:])
+		sent_constrained := constrained_tools_sent(p, model, req_v)
+		body := build_openai_chat_body(p, req_v, model, true, ignore[:])
 		last = http.post_json_stream(url, headers[:], body, sse_line_cb, &accum, http_timeout_sec_for(p.id))
 		if last.ok {
 			if len(accum.err) > 0 {
@@ -98,6 +100,16 @@ openai_chat_stream :: proc(
 				out_err := strings.clone(accum.err, allocator)
 				stream_accum_reset(&accum)
 				return Chat_Response{ok = false, err = out_err}
+			}
+
+			// Late mode phase 2: malformed streamed args resend once under
+			// the strict constraint, before the seal fan-out sees them.
+			// Needs an attempt left, otherwise the malformed response goes
+			// to the agent resample path instead.
+			if attempt < retries && constrained_late_resend(p, model, req_v, tool_call_args_malformed(accum.tool_calls[:])) {
+				stream_accum_reset(&accum)
+				req_v.constrained_retry = true
+				continue
 			}
 
 			// Seal remaining tool indices before handing calls to the agent.
@@ -158,7 +170,7 @@ openai_chat_stream :: proc(
 		// A server that rejects the constraint field once gets it dropped for
 		// the session, retry immediately with a clean body.
 		if sent_constrained && constrained_rejected(last) {
-			constrained_disable(p, last)
+			constrained_disable(p, last, model)
 			if len(last.body) > 0 {
 				delete(last.body)
 				last.body = ""

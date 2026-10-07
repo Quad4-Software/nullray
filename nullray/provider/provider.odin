@@ -63,6 +63,10 @@ Chat_Request :: struct {
 	// pins it so servers that reject unknown fields never see it.
 	parallel_tool_calls:     bool,
 	parallel_tool_calls_set: bool,
+	// Late-constraint phase 2 signal: the first ask ran unconstrained and
+	// produced malformed tool calls, so this resend pins the strict
+	// grammar/schema. See constrained_late_resend in tool_constrain_mode.odin.
+	constrained_retry: bool,
 	on_tool_seal:     Tool_Seal_Proc,
 	seal_user:        rawptr,
 	session_id:       string,
@@ -149,6 +153,10 @@ Provider :: struct {
 	// session (400/500 naming grammar or response_format); later requests
 	// skip it. See tool_constrain.odin.
 	constrained_off: bool,
+	// Set when a shape-mode constraint was rejected once this session;
+	// later requests degrade to late mode instead of dropping constraints
+	// outright. See tool_constrain_mode.odin.
+	constrained_late: bool,
 }
 
 Chat_Proc :: #type proc(p: ^Provider, req: Chat_Request, allocator := context.allocator) -> Chat_Response
