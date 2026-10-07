@@ -84,7 +84,7 @@ openai_chat_stream :: proc(
 
 		sent_constrained := constrained_tools_sent(p, model, req)
 		body := build_openai_chat_body(p, req, model, true, ignore[:])
-		last = http.post_json_stream(url, headers[:], body, sse_line_cb, &accum, http_timeout_sec())
+		last = http.post_json_stream(url, headers[:], body, sse_line_cb, &accum, http_timeout_sec_for(p.id))
 		if last.ok {
 			if len(accum.err) > 0 {
 				// SSE error chunk (HTTP 200). Retry transient upstream

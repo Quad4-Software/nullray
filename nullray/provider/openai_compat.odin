@@ -45,7 +45,7 @@ openai_chat :: proc(p: ^Provider, req: Chat_Request, allocator := context.alloca
 		}
 		sent_constrained := constrained_tools_sent(p, model, req)
 		body := build_openai_chat_body(p, req, model, false, ignore[:])
-		last = http.post_json(url, headers[:], body, http_timeout_sec(), context.temp_allocator)
+		last = http.post_json(url, headers[:], body, http_timeout_sec_for(p.id), context.temp_allocator)
 		if last.ok {
 			return parse_openai_chat_response(last.body, allocator)
 		}

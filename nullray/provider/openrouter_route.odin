@@ -91,14 +91,22 @@ http_retry_limit :: proc() -> int {
 	return constants.HTTP_RETRIES_DEFAULT
 }
 
-// NULLRAY_HTTP_TIMEOUT (seconds) overrides the default, local servers on CPU
-// can exceed 120s on long prompts.
+// NULLRAY_HTTP_TIMEOUT (seconds) overrides outright. Local servers on CPU can
+// exceed 120s on long prompts, so provider_is_local callers get a higher
+// floor through http_timeout_sec_for.
 http_timeout_sec :: proc() -> int {
+	return http_timeout_sec_for("")
+}
+
+http_timeout_sec_for :: proc(provider_id: string) -> int {
 	if v, ok := os.lookup_env(constants.ENV_HTTP_TIMEOUT, context.temp_allocator); ok {
 		n, nok := strconv.parse_int(strings.trim_space(v))
 		if nok && n > 0 {
 			return n
 		}
+	}
+	if len(provider_id) > 0 && provider_is_local(provider_id) {
+		return constants.HTTP_TIMEOUT_SEC_LOCAL
 	}
 	return constants.HTTP_TIMEOUT_SEC
 }

@@ -12,6 +12,7 @@ stays counted as queued for the whole turn so recurring jobs coalesce.
 
 package acp
 
+import "core:os"
 import "core:strings"
 import "core:sync"
 import "core:thread"
@@ -134,6 +135,9 @@ wake_target :: proc(srv: ^Server, scope: string) -> ^Acp_Session {
 }
 
 // Scoped emit sink for the schedule watcher. Runs on the watcher thread.
+// When no session exists yet (fresh daemon, no client ever prompted) a
+// daemon-owned "daemon" session is created so durable watches and one-shots
+// still run headless.
 acp_schedule_emit :: proc(prompt, tag, scope: string) {
 	srv := g_wake_srv
 	if srv == nil {
@@ -141,7 +145,14 @@ acp_schedule_emit :: proc(prompt, tag, scope: string) {
 	}
 	sync.mutex_lock(&srv.sessions_mu)
 	defer sync.mutex_unlock(&srv.sessions_mu)
-	wake_push(wake_target(srv, scope), prompt, tag)
+	target := wake_target(srv, scope)
+	if target == nil {
+		cwd, _ := os.get_working_directory(context.temp_allocator)
+		target = session_new(srv, "daemon", cwd)
+		srv.sessions[target.id] = target
+		srv.wake_fallback = target
+	}
+	wake_push(target, prompt, tag)
 }
 
 // Scoped queued probe, runs under the schedule job lock during ticks.
