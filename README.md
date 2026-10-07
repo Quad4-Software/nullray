@@ -139,6 +139,24 @@ export NULLRAY_VCS_FORCE=1
 
 `NULLRAY_VCS_NETWORK=1` enables `vcs_push` / pull / fetch / PR tools. `NULLRAY_VCS_FORCE=1` allows force-push to main/master. `fetch_url` fetches public http(s) text in edit mode (size-capped, no browser).
 
+## Research
+
+Nullray implements published techniques where they map to measured wins:
+
+- AgentDiet, deterministic trajectory reduction before summarization
+  (arxiv 2509.23586): re-read and superseded tool outputs get stubbed in
+  place, cutting input tokens roughly 40-60% on long sessions.
+- PA-Tool, per-model tool-name adaptation (arxiv 2510.07248): models get
+  tool names they emit most reliably, measured via `--probe-tools`.
+- Constrained decoding for tool calls (ToolDec, arxiv 2310.07075;
+  XGrammar, arxiv 2411.15100): GBNF/JSON-schema constraints on local
+  backends eliminate tool-call syntax errors.
+- Hybrid loop detection (arxiv 2511.10650 plus agent-loop-guard):
+  exact, fuzzy, cycle, stagnation, and semantic signals with warn,
+  steer, and stop tiers.
+- Stall-triggered escalation (SWE-Protege, arxiv 2602.22124): the local
+  model drives and a stronger model takes over only on detected stalls.
+
 ## License
 
 QSL-1.0-0BSD ([LICENSE](LICENSE)). Source-available, free for almost all uses except competing commercial offerings, and each tag/version converts to 0BSD two years after release.
