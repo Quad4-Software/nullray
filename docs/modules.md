@@ -58,6 +58,9 @@ Then `make`. `nullray --list-modules` shows it loaded.
 
 ### C modules
 
+C modules currently build on Linux and macOS only. The generated import
+glue is POSIX-gated so Windows builds skip them cleanly.
+
 `nullray/modules/mymod/mod.c`:
 
 ```c

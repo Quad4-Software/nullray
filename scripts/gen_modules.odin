@@ -77,13 +77,17 @@ main :: proc() {
 	// C modules: foreign-import the compiled object and call the entry
 	// point from @(init). mod.c is compiled by the Makefile before odin
 	// build links.
+	// C modules link compiled objects per OS. Windows module linking needs
+	// real verification (object format, entry calling convention) so the
+	// foreign block is POSIX-only for now and the header documents it.
 	for id in c_ids {
-		// Foreign import paths are compile-time literals, so emit one per OS
-		// instead of baking in the generator host's extension.
-		fmt.sbprintf(&b, "when ODIN_OS == .Windows {{\n\tforeign import cmod_%s \"../../nullray/modules/%s/mod.obj\"\n}} else {{\n\tforeign import cmod_%s \"../../nullray/modules/%s/mod.o\"\n}}\n", id, id, id, id)
-		fmt.sbprintf(&b, "foreign cmod_%s {{\n\tnullray_%s_module_init :: proc() ---\n}}\n\n", id, id)
+		fmt.sbprintf(&b, "when ODIN_OS != .Windows {{\n")
 		fmt.sbprintf(&b,
-			"@(init)\ncmod_%s_boot :: proc \"contextless\" () {{\n\tnullray_%s_module_init()\n}}\n\n",
+			"\tforeign import cmod_%s \"../../nullray/modules/%s/mod.o\"\n",
+			id, id)
+		fmt.sbprintf(&b, "\tforeign cmod_%s {{\n\t\tnullray_%s_module_init :: proc() ---\n\t}}\n\n", id, id)
+		fmt.sbprintf(&b,
+			"\t@(init)\n\tcmod_%s_boot :: proc \"contextless\" () {{\n\t\tnullray_%s_module_init()\n\t}}\n}}\n\n",
 			id, id)
 	}
 
