@@ -8,6 +8,7 @@ uninstall. See docs/modules.md.
 
 package clock
 
+import "base:runtime"
 import "core:fmt"
 import "core:strings"
 import "core:time"
@@ -15,6 +16,9 @@ import "nullray:modules"
 
 @(init)
 clock_init :: proc "contextless" () {
+	// Init procs are contextless; install a context before building any
+	// literals (slices allocate from context.allocator).
+	context = runtime.default_context()
 	modules.modules_register(modules.Module{
 		id = "clock",
 		name = "Clock",

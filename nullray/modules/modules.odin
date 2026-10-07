@@ -50,9 +50,10 @@ Module :: struct {
 @(private)
 g_modules: [dynamic]Module
 
-// Called from @(init) procs, which run contextless.
-modules_register :: proc "c" (m: Module) {
-	context = runtime.default_context()
+// Called from @(init) procs, which run contextless. The module literal is
+// evaluated in the caller's context, so the caller installs a context
+// first; this proc assumes nothing about context.
+modules_register :: proc(m: Module) {
 	if !module_enabled(m.id) {
 		return
 	}

@@ -18,6 +18,7 @@ import "nullray:modules"
 
 @(init)
 hello_init :: proc "contextless" () {
+	context = runtime.default_context()
 	modules.modules_register(modules.Module{
 		id = "hello",
 		name = "Hello",
@@ -65,9 +66,10 @@ CSV allowlist. `NULLRAY_MODULES=all` (or unset) loads everything.
 
 ## Notes for module authors
 
-- Registration runs inside `@(init)` procs, which are `contextless` -
-  `modules_register` installs a default context itself, so module code in
-  the init proc should only register; do real work inside `run`.
+- Registration runs inside `@(init)` procs, which are `contextless`:
+  set `context = runtime.default_context()` before constructing the
+  Module literal - slice literals allocate from `context.allocator`.
+  After that the init proc should only register; do real work inside `run`.
 - Keep module packages import-light. `nullray:modules` is a leaf by
   design; importing heavy packages from `mod.odin` drags them into every
   build and slows init.
