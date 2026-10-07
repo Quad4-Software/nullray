@@ -10,11 +10,14 @@
 - Harness does not eat your RAM
 - Native OS sandboxing and privacy scrubbing
 - Reads man pages, `--help`, and language docs
-- Extensible and Modular 
+- Extensible and Modular via Odin or C
+- Very token effeicent harness. 
 
 Docs: [nullray.xyz/docs](https://nullray.xyz/docs)
 
 ## Install
+
+There are no prebuilt binaries and wont be, you build from source. 
 
 ```sh
 curl -fsSL https://nullray.xyz/install | sh
