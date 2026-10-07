@@ -5,7 +5,6 @@ TUI masked password modal for elevate askpass challenges.
 
 package app
 
-import "core:fmt"
 import "core:strings"
 import "core:unicode/utf8"
 import "nullray:elevate"
@@ -103,17 +102,18 @@ app_draw_elevate_modal :: proc(buf: ^ui.Buffer, a: ^App) {
 		return
 	}
 	t := ui.theme()
-	w := min(64, max(40, buf.width - 4))
-	h := 8
+	w := min(64, buf.width - 4)
+	if w < 8 {
+		w = max(2, buf.width - 2)
+	}
+	h := min(8, buf.height)
 	x := max(0, (buf.width - w) / 2)
-	y := max(1, (buf.height - h) / 2)
+	y := max(0, (buf.height - h) / 2)
 	ui.draw_box(buf, x, y, w, h, t.accent, t.bg, "Elevated command")
 	cmd := a.elevate_command
 	max_cmd := max(1, w - 4)
 	if ui.string_cols(cmd) > max_cmd {
-		// byte truncate for display only
-		cut := min(len(cmd), max_cmd - 1)
-		cmd = fmt.tprintf("%s…", cmd[:cut])
+		cmd = ui.ellipsize_cols(cmd, max_cmd, context.temp_allocator)
 	}
 	ui.buffer_text_clip(buf, x + 2, y + 2, x + w - 2, cmd, t.muted, t.bg)
 	prompt := a.elevate_prompt

@@ -72,6 +72,42 @@ app_handle_help_status_event :: proc(a: ^App, ev: ui.Event) -> (quit: bool, hand
 		return false, true
 	}
 
+	if a.show_history {
+		if ev.kind == .Esc {
+			a.show_history = false
+			app_mark_dirty(a)
+			return false, true
+		}
+		if ev.kind == .Ctrl_Q || ev.kind == .Ctrl_C {
+			return true, true
+		}
+		#partial switch ev.kind {
+		case .Page_Up, .Up, .Mouse_Wheel_Up:
+			step := 1
+			if ev.kind == .Page_Up {
+				step = max(8, a.loop.term.height / 2)
+			}
+			a.history_scroll = max(0, a.history_scroll - step)
+			app_mark_dirty(a)
+		case .Page_Down, .Down, .Mouse_Wheel_Down:
+			step := 1
+			if ev.kind == .Page_Down {
+				step = max(8, a.loop.term.height / 2)
+			}
+			a.history_scroll += step
+			app_mark_dirty(a)
+		case .Home:
+			a.history_scroll = 0
+			app_mark_dirty(a)
+		case .End:
+			width := a.loop.term.width
+			view_h := max(1, a.loop.term.height - 5)
+			a.history_scroll = max(0, app_history_line_count(a, width) - view_h)
+			app_mark_dirty(a)
+		}
+		return false, true
+	}
+
 	return false, false
 }
 

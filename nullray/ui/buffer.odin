@@ -78,7 +78,13 @@ buffer_put :: proc(b: ^Buffer, x, y: int, ch: rune, fg, bg: Color, style: Style 
 	if cell == nil {
 		return
 	}
-	cell.ch = sanitize_cell_rune(ch)
+	out := sanitize_cell_rune(ch)
+	// A wide glyph in the last column wraps to the next row on real
+	// terminals and bleeds over whatever is drawn there. Drop it.
+	if x + rune_cols(out) > b.width {
+		out = ' '
+	}
+	cell.ch = out
 	cell.fg = fg
 	cell.bg = bg
 	cell.style = style

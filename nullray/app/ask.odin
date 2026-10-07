@@ -210,11 +210,14 @@ app_draw_ask_modal :: proc(buf: ^ui.Buffer, a: ^App) {
 		return
 	}
 	t := ui.theme()
-	w := min(72, max(44, buf.width - 4))
-	rows := app_ask_rows(a)
-	h := 8 + min(rows, 9)
-	x := max(0, (buf.width - w) / 2)
-	y := max(1, (buf.height - h) / 2)
+	// Never wider than the screen. On narrow terminals the box hugs the
+	// edges instead of running off the right side.
+	w := min(72, buf.width - 4)
+	if w < 8 {
+		w = max(2, buf.width - 2)
+	}
+	inner_w := max(1, w - 4)
+
 	title := "Question"
 	if a.ask_kind == .Secret {
 		title = "Secret input"
@@ -223,51 +226,93 @@ app_draw_ask_modal :: proc(buf: ^ui.Buffer, a: ^App) {
 	} else if a.ask_kind == .Choice {
 		title = "Choose an option"
 	}
-	ui.draw_box(buf, x, y, w, h, t.accent, t.bg, title)
-	ui.buffer_text_clip(buf, x + 2, y + 2, x + w - 2, a.ask_prompt, t.fg, t.bg)
 
-	row_y := y + 4
-	if a.ask_kind == .Choice && !a.ask_editing {
-		max_opts := min(rows, 9)
-		top := 0
-		if a.ask_sel >= max_opts {
-			top = a.ask_sel - max_opts + 1
+	// Wrap the question text to the box width and grow the box down.
+	// On short screens the prompt gets an ellipsis tail and the option
+	// list keeps its own scroll window.
+	prompt := a.ask_prompt
+	if len(prompt) == 0 {
+		prompt = "(empty question)"
+	}
+	prompt_lines := ui.word_wrap_lines(prompt, inner_w, context.temp_allocator)
+
+	rows := app_ask_rows(a)
+	list_mode := a.ask_kind == .Choice && !a.ask_editing
+	o_show := 1
+	if list_mode {
+		o_show = min(rows, 7)
+	}
+
+	// Layout: border + prompt lines + gap + options or entry + gap +
+	// hint + border, so h = p_show + o_show + 5.
+	max_h := buf.height - 2
+	if max_h < 6 {
+		max_h = buf.height
+	}
+	p_cap := max(1, max_h - o_show - 5)
+	p_show := min(len(prompt_lines), p_cap)
+	p_trunc := p_show < len(prompt_lines)
+
+	h := p_show + o_show + 5
+	if h > buf.height {
+		h = buf.height
+	}
+	x := max(0, (buf.width - w) / 2)
+	y := max(0, (buf.height - h) / 2)
+	ui.draw_box(buf, x, y, w, h, t.accent, t.bg, title)
+
+	py := y + 1
+	for i in 0 ..< p_show {
+		line := prompt_lines[i]
+		if p_trunc && i == p_show - 1 {
+			line = fmt.tprintf("%s …", line)
 		}
-		for i in top ..< top + max_opts {
+		ui.buffer_text_clip(buf, x + 2, py + i, x + w - 2, line, t.fg, t.bg)
+	}
+
+	row_y := y + 1 + p_show + 1
+	hint := "Enter submit · Esc cancel"
+	if list_mode {
+		top := 0
+		if a.ask_sel >= o_show {
+			top = a.ask_sel - o_show + 1
+		}
+		for i in top ..< top + o_show {
+			if row_y >= y + h - 2 {
+				break
+			}
 			is_custom := i >= len(a.ask_options)
-			label := ""
-			if is_custom {
-				label = "Other (type answer)"
-			} else {
+			label := "Other (type answer)"
+			if !is_custom {
 				label = a.ask_options[i]
 			}
 			line := fmt.tprintf("%d. %s", i + 1, label)
+			fg := t.fg
+			mark := "  "
 			if i == a.ask_sel {
-				ui.buffer_text_clip(buf, x + 2, row_y, x + w - 2, fmt.tprintf("> %s", line), t.accent, t.bg)
-			} else {
-				ui.buffer_text_clip(buf, x + 2, row_y, x + w - 2, fmt.tprintf("  %s", line), t.fg, t.bg)
+				mark = "> "
+				fg = t.accent
 			}
+			ui.buffer_text_clip(buf, x + 2, row_y, x + w - 2, fmt.tprintf("%s%s", mark, line), fg, t.bg)
 			row_y += 1
 		}
-		hint := "Up/Down move · Enter select · 1-9 jump · Esc cancel"
-		ui.buffer_text_clip(buf, x + 2, y + h - 2, x + w - 2, hint, t.muted, t.bg)
-		return
-	}
-
-	shown := a.ask_buf
-	masked := ""
-	if a.ask_kind == .Secret {
-		n := utf8.rune_count_in_string(a.ask_buf)
-		masked, _ = strings.repeat("*", min(n, max(0, w - 4)), context.temp_allocator)
-		shown = masked
-	}
-	caret := fmt.tprintf("%s_", shown)
-	ui.buffer_text_clip(buf, x + 2, row_y + 1, x + w - 2, caret, t.accent, t.bg)
-	hint := "Enter submit · Esc cancel"
-	if a.ask_kind == .Confirm {
-		hint = "y yes · n no · Esc cancel"
-	} else if a.ask_kind == .Choice {
-		hint = "Enter submit · Esc back to options"
+		hint = "Up/Down move · Enter select · 1-9 jump · Esc cancel"
+	} else {
+		shown := a.ask_buf
+		if a.ask_kind == .Secret {
+			n := utf8.rune_count_in_string(a.ask_buf)
+			masked, _ := strings.repeat("*", min(n, max(0, inner_w)), context.temp_allocator)
+			shown = masked
+		}
+		caret := fmt.tprintf("%s_", shown)
+		if row_y < y + h - 2 {
+			ui.buffer_text_clip(buf, x + 2, row_y, x + w - 2, caret, t.accent, t.bg)
+		}
+		if a.ask_kind == .Confirm {
+			hint = "y yes · n no · Esc cancel"
+		} else if a.ask_kind == .Choice {
+			hint = "Enter submit · Esc back to options"
+		}
 	}
 	ui.buffer_text_clip(buf, x + 2, y + h - 2, x + w - 2, hint, t.muted, t.bg)
 }

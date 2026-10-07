@@ -138,6 +138,8 @@ App :: struct {
 	show_status:        bool,
 	status_scroll:      int,
 	status_body:        string,
+	show_history:       bool,
+	history_scroll:     int,
 	layout_cache:       Layout_Cache,
 	expand_hits:        [dynamic]Expand_Hit,
 	expanded:           map[string]bool,

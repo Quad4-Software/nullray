@@ -12,6 +12,9 @@ draw_box :: proc(b: ^Buffer, x, y, w, h: int, fg, bg: Color, title := "") {
 	if w < 2 || h < 2 {
 		return
 	}
+	// Opaque interior so whatever was painted under the box cannot
+	// bleed through between the text runs inside the modal.
+	buffer_fill_rect(b, x + 1, y + 1, w - 2, h - 2, ' ', fg, bg)
 	buffer_put(b, x, y, '┌', fg, bg)
 	buffer_put(b, x + w - 1, y, '┐', fg, bg)
 	buffer_put(b, x, y + h - 1, '└', fg, bg)
@@ -32,10 +35,16 @@ draw_status_bar :: proc(b: ^Buffer, y: int, left, right: string, fg, bg: Color) 
 
 draw_status_bar_ex :: proc(b: ^Buffer, y: int, left, right: string, left_fg, right_fg, bg: Color) {
 	buffer_fill_rect(b, 0, y, b.width, 1, ' ', left_fg, bg)
-	rw := string_cols(right)
+	// Ellipsize the right label instead of letting it run over the left
+	// side when the bar is narrower than the label.
+	right_fit := right
+	if string_cols(right_fit) > b.width - 2 {
+		right_fit = ellipsize_cols(right_fit, max(1, b.width - 2), context.temp_allocator)
+	}
+	rw := string_cols(right_fit)
 	right_x := max(1, b.width - rw - 1)
 	buffer_text_clip(b, 1, y, right_x - 1, left, left_fg, bg)
-	buffer_text(b, right_x, y, right, right_fg, bg)
+	buffer_text_clip(b, right_x, y, b.width, right_fit, right_fg, bg)
 }
 
 draw_input_line :: proc(b: ^Buffer, y: int, prompt, text: string, cursor: int, fg, bg, prompt_fg: Color) {

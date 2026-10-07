@@ -88,6 +88,11 @@ app_draw :: proc(buf: ^ui.Buffer, user: rawptr) {
 		a.dirty = false
 		return
 	}
+	if a.show_history {
+		app_draw_history(buf, a)
+		a.dirty = false
+		return
+	}
 
 	input_rows := app_input_rows(a, buf.width)
 	msg_top := 3

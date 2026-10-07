@@ -15,7 +15,7 @@ tab_label :: proc(name: string) -> string {
 		return "default"
 	}
 	if ui.string_cols(name) > TAB_LABEL_MAX {
-		return fmt.tprintf("%.*s…", TAB_LABEL_MAX - 1, name)
+		return ui.ellipsize_cols(name, TAB_LABEL_MAX, context.temp_allocator)
 	}
 	return name
 }

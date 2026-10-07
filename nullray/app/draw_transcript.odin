@@ -250,7 +250,7 @@ app_draw_blocks :: proc(
 				ui.buffer_put(buf, area_x, y, '▏', block.prefix_fg, bg)
 			}
 			if len(block.prefix) > 0 {
-				ui.buffer_text(buf, area_x + CONTENT_X, y, block.prefix, block.prefix_fg, bg, block.prefix_style)
+				ui.buffer_text_clip(buf, area_x + CONTENT_X, y, px, block.prefix, block.prefix_fg, bg, block.prefix_style)
 			}
 		}
 
@@ -275,7 +275,7 @@ app_draw_blocks :: proc(
 		if used <= 0 {
 			used = 1
 			if local_skip == 0 {
-				ui.buffer_text(buf, px, y, body, block.body_fg, bg, block.body_style)
+				ui.buffer_text_clip(buf, px, y, px + bw, body, block.body_fg, bg, block.body_style)
 			}
 		}
 		if block.caret && local_skip + used >= h {
@@ -308,7 +308,7 @@ app_draw_code_block :: proc(
 	}
 	x0 := area_x + 1
 	inner_w := max(1, content_w - 4)
-	total := max(1, ui.wrap_line_count(block.body, inner_w))
+	total := max(1, len(ui.word_wrap_lines(block.body, inner_w, context.temp_allocator)))
 	lines := ui.word_wrap_lines(block.body, inner_w, context.temp_allocator, CODE_PREVIEW_LINES)
 	shown_body := min(total, CODE_PREVIEW_LINES)
 	code_bg := t.code_bg

@@ -36,7 +36,7 @@ slash_name_of :: proc(text: string) -> string {
 @(private)
 slash_busy_exempt :: proc(text: string) -> bool {
 	name := slash_name_of(text)
-	return name == "allow" || name == "deny"
+	return name == "allow" || name == "deny" || name == "history"
 }
 
 @(private)

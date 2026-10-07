@@ -130,7 +130,10 @@ block_height :: proc(block: Transcript_Block, buf_width: int) -> int {
 	}
 	bw := block_body_width(buf_width, block.prefix)
 	if block.is_code {
-		lines := ui.wrap_line_count(block.body, max(1, buf_width - 5))
+		// Keep in sync with app_draw_code_block: inner_w = content_w - 4
+		// and the painter uses word_wrap_lines, not char wrapping.
+		inner_w := max(1, buf_width - 4)
+		lines := len(ui.word_wrap_lines(block.body, inner_w, context.temp_allocator, CODE_PREVIEW_LINES))
 		if lines <= 0 {
 			lines = 1
 		}

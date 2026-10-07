@@ -52,6 +52,13 @@ bury the conversation. Click a collapsed block to expand it, click again
 to fold it back. `/expand` toggles every block at once and
 `NULLRAY_COLLAPSE=0` turns folding off entirely.
 
+## History overlay
+
+`/history` opens a scrollable view of the entire session, including
+thinking and reasoning text rendered dim under a `think:` label. It
+works while a turn is running, scrolls with the usual keys or the mouse
+wheel, and Esc closes it.
+
 ## View pane
 
 After a turn writes a file, the view pane auto-opens on that path.
