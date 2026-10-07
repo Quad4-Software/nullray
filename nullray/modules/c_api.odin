@@ -15,11 +15,6 @@ package modules
 import "base:runtime"
 import "core:strings"
 
-foreign import libc "system:c"
-foreign libc {
-	free :: proc "c" (p: rawptr) ---
-}
-
 Run_C_Proc :: #type proc "c" (args_json: cstring, err_out: ^cstring) -> cstring
 
 c_free :: proc "c" (p: cstring) {
