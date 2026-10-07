@@ -189,6 +189,7 @@
 /* Wordmark replaces the icon + text brand. Header: hide the site-name
    ellipsis (first topic) while leaving the page title (second topic).
    Drawer: the site name is a bare text node, so zero the font. */
+.md-header__ellipsis .md-header__topic:first-child,
 .md-header__ellipsis .md-header__topic:first-child .md-ellipsis {
   display: none;
 }
