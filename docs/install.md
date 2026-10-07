@@ -42,18 +42,6 @@ git -C ~/.local/src/nullray pull
 make -C ~/.local/src/nullray install PREFIX="$HOME/.local"
 ```
 
-## Packages
-
-Build a local package from the checkout:
-
-    make appimage   # dist/*.AppImage, needs curl or NULLRAY_APPIMAGE_TOOLS
-
-=== "AppImage"
-
-    Slim and SDK AppImages build with `make appimage` and
-    `make appimage-sdk`. The SDK variant can bundle the pinned Odin
-    toolchain so a workspace builds with the same compiler as CI.
-
 ## Verify
 
 ```sh

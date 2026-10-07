@@ -138,14 +138,6 @@ export NULLRAY_VCS_FORCE=1
 
 `NULLRAY_VCS_NETWORK=1` enables `vcs_push` / pull / fetch / PR tools. `NULLRAY_VCS_FORCE=1` allows force-push to main/master. `fetch_url` fetches public http(s) text in edit mode (size-capped, no browser).
 
-## Packages
-
-Local packaging builds from the source tree:
-
-```sh
-make appimage   # dist/*.AppImage (needs curl or NULLRAY_APPIMAGE_TOOLS)
-```
-
 ## License
 
 QSL-1.0-0BSD ([LICENSE](LICENSE)). Source-available, free for almost all uses except competing commercial offerings, and each tag/version converts to 0BSD two years after release.

@@ -292,7 +292,7 @@ skill_roots :: proc(allocator := context.temp_allocator) -> []string {
 		add(&roots, &seen, {cwd, "share", "nullray", "skills"})
 	}
 
-	// Packaged skills beside the binary (make install / AppImage / Flatpak).
+	// Packaged skills beside the binary (make install).
 	if exe, eerr := os.get_executable_path(context.temp_allocator); eerr == nil {
 		exe_dir := filepath.dir(exe)
 		add_path(&roots, &seen, fmt.tprintf("%s/../share/nullray/skills", exe_dir))

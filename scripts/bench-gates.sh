@@ -13,7 +13,7 @@ if [[ ! -x "$BIN" ]]; then
   exit 1
 fi
 
-# Size gate matches release/AppImage claims (stripped). Keep the built binary intact.
+# Size gate matches the stripped-binary claim. Keep the built binary intact.
 size_bin="$BIN"
 strip_tmp=""
 cleanup() {

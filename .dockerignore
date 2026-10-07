@@ -4,7 +4,6 @@
 bin
 dist
 dist-all
-*.AppImage
 repo
 **/.DS_Store
 **/__pycache__
@@ -19,7 +18,6 @@ SECURITY.md
 .gitignore
 .dockerignore
 docker-compose.yml
-packaging/appimage
 scripts/gen_splash_gif.py
 logo/nullray-ascii.txt
 logo/nullray-social.png

@@ -55,7 +55,6 @@ __pycache__/
 *.zip
 *.deb
 *.rpm
-*.AppImage
 
 # Local logo scratch (committed assets live in logo/)
 .logo-preview/
