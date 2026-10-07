@@ -6,6 +6,19 @@ Notable changes for nullray.
 
 ### Added
 - Anthropic tool results now set is_error so the model can self-correct failed calls.
+- Constrained tool decoding: NULLRAY_CONSTRAINED_TOOLS emits a GBNF grammar or JSON-schema tool-call envelope on llama.cpp, Ollama, LM Studio, and compatible endpoints, with strict, shape, and late modes (NULLRAY_CONSTRAINED_MODE) so weak models reason freely and only the packaging step is constrained. Rejected constraints latch off and retry clean.
+- Per-model tool-name adaptation: model_profiles.json tool_names aliases canonical tools to the spelling a model prefers, and --probe-tools provider/model samples the model to write the winners automatically.
+- Hybrid loop detection: exact repeats, A-B-C cycles, fuzzy call similarity, output stagnation, and an optional semantic signal (NULLRAY_LOOP_SEM) on a warn, steer, stop ladder.
+- Stall escalation: when the loop detector fires, NULLRAY_ESCALATE_MODEL hands the turn to a stronger provider or model for one recovery step, capped by NULLRAY_ESCALATE_MAX, with dedup by loop signature.
+- AgentDiet trajectory reduction: the request-side pass stubs re-read files, superseded searches and fetches, and repeated shell output, truncates stale long results, and protects pairing, todos, and referenced paths. NULLRAY_DIET=0 disables.
+- CORVUS synchronized file state: delivered reads are hashed per path and byte-verified, unchanged re-reads stub to a line, writes invalidate stale observations, and a compact state block keeps current file truth in context. NULLRAY_CORVUS=0 disables.
+- Experience index: completed turns distill to a capped JSONL store (task signature, tools, outcome) and similar past runs inject a small Experience block, including stop guidance from prior looped trajectories. nullray --distill or /distill rolls entries into experience.md. NULLRAY_EXPERIENCE=0 disables.
+- nullray watch: durable standing agents that run a check on a schedule, checkpoint seen-item fingerprints, and only digest and notify on new items, with per-watch token and run budgets.
+- Tool-output scratchpad: successful results over NULLRAY_STASH_MIN_CHARS (default 800) stash to a bounded registry, the transcript keeps a stub plus preview, and peek, stash_take, and stash_list pull slices on demand. NULLRAY_STASH=0 disables.
+- Failure reshaping: failed tool calls record a structural description instead of verbatim arguments, and errors carry observed values and suggested alternatives so small models pick a next step instead of re-emitting the failure. NULLRAY_FAILURE_DESC=0 disables.
+- Family-aware quantization clamps: profiles gain quant_family and quant_tier, sniffed from model ids and GGUF names, so Llama-family models get the stricter tool-turn temperature clamp at low quant where it measurably matters while Qwen stays loose.
+- Compiled modules: Odin modules (clock ships in the tree) and C modules link real typed tools and commands through a generated import. C modules build on Linux and macOS.
+- TUI upgrades: the file strip is clickable and keyboard navigable, markdown covers tables, bold, italic, strike, links, escapes, and language-aware fences, themes gain dedicated code, link, quote, table, and heading colors, and the code gutter is tight.
 - Provider failover after rate limits, timeouts, and context-overflow errors, not only dead keys.
 - Optional post-edit lint from lint.json, findings come back as tool errors.
 - Custom slash commands from .nullray/commands markdown templates.
@@ -52,6 +65,10 @@ Notable changes for nullray.
 - Per-model smoke check and better prefix caching: optional canned tool-call probe shown in /providers, stable prompt byte order, sorted tools JSON, llama.cpp cache_prompt, and Ollama keep_alive.
 
 ### Fixed
+- Module tool specs no longer register garbage fields when built from init-time slice literals, and module tools pass the lean and tiny prompt tiers.
+- Daemon wakeups no longer drop silently on a fresh serve with no sessions, and local providers get a 600 second HTTP timeout floor for slow models.
+- --probe-tools no longer crashes on exit, and the tool-alias validator no longer warns against an empty early registry.
+- Windows builds link again: the libc import is per-OS now and C-module glue is POSIX-gated.
 - The sudo/doas password prompt works again instead of closing instantly.
 - Shell, man, elevate, and worktree commands report their real exit code instead of a fabricated one.
 - Long shell output keeps head and tail so errors at the end stay visible to the agent.

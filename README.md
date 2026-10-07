@@ -150,18 +150,23 @@ Techniques behind shipped features:
 | Constrained tool decoding | [ToolDec](https://arxiv.org/abs/2310.07075), [XGrammar](https://arxiv.org/abs/2411.15100) |
 | Hybrid loop detection | [arxiv 2511.10650](https://arxiv.org/abs/2511.10650), [agent-loop-guard](https://github.com/ArkNill/agent-loop-guard) |
 | Stall escalation | [SWE-Protege](https://arxiv.org/html/2602.22124) |
+| Synced file state | [CORVUS](https://arxiv.org/abs/2607.22711) |
+| Trajectory recall | [SEER](https://arxiv.org/abs/2508.15214), [ExpeRepair](https://arxiv.org/abs/2506.10484), [TF-GRPO](https://arxiv.org/abs/2510.08191) |
+| Output scratchpad | MemEx-style stash and peek |
+| Failure reshaping | [Feedback That Backfires](https://arxiv.org/abs/2608.23651), [error payloads](https://arxiv.org/abs/2606.05037) |
+| Constrain-late modes | [Constraint Tax](https://arxiv.org/html/2605.26128), [Format Tax](https://arxiv.org/pdf/2604.03616) |
 
-On the roadmap: [CORVUS](https://arxiv.org/abs/2607.22711),
-[SEER](https://arxiv.org/abs/2508.15214),
-[adaptive self-consistency](https://arxiv.org/abs/2305.11860),
+On the roadmap: [adaptive self-consistency](https://arxiv.org/abs/2305.11860),
 [BoN-MAV](https://arxiv.org/abs/2502.20379),
 [convolve](https://arxiv.org/abs/2606.28733),
 [Progent](https://arxiv.org/abs/2504.11703),
 [MinionS](https://arxiv.org/abs/2502.15964),
 [ReSum](https://arxiv.org/abs/2509.13313),
-[ExpeRepair](https://arxiv.org/abs/2506.10484),
-[TF-GRPO](https://arxiv.org/abs/2510.08191),
-[CapSeal](https://arxiv.org/abs/2604.16762).
+[CapSeal](https://arxiv.org/abs/2604.16762),
+[retrieval over subagents](https://arxiv.org/abs/2608.01507),
+[InfiAgent](https://export.arxiv.org/pdf/2601.03204),
+[BAGEN](https://arxiv.org/html/2606.00198),
+[ContextBudget](https://arxiv.org/html/2604.01664).
 
 ## License
 
