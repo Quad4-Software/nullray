@@ -2,22 +2,13 @@
   <img src="logo/nullray-pixel.svg" alt="nullray" height="40">
 </p>
 
-<p align="center">Terminal coding agent in Odin. Local models first.</p>
-
-Custom TUI, no curses. Linux Landlock and seccomp when you want a sandbox. Git and Fossil. About 5.3 MB stripped on Linux amd64.
-
-Local: Ollama, LM Studio, llama.cpp, any OpenAI-compatible `/v1`. Cloud: OpenCode, OpenAI, Anthropic, Gemini, Groq, DeepSeek, Mistral, Together, Fireworks, xAI, Azure OpenAI, OpenRouter.
-
-Platforms: Linux (amd64, arm64), macOS (arm64), Windows (amd64).
-
-A smaller harness lives at [Humanity's Last Command](https://github.com/markqvist/lc).
+<p align="center">Terminal coding agent in Odin built for local models first.</p>
 
 ## Features
 
 - Local models are first class
-- Does not eat your RAM
-- Coding, bug hunting, and sysadmin work
-- Native OS sandbox plus privacy scrubbing for cloud keys
+- Harness does not eat your RAM
+- Native OS sandboxing and privacy scrubbing
 - Reads man pages, `--help`, and language docs
 
 Docs: [nullray.xyz/docs](https://nullray.xyz/docs)
@@ -158,4 +149,4 @@ make appimage   # dist/*.AppImage (needs curl or NULLRAY_APPIMAGE_TOOLS)
 
 ## License
 
-QSL-1.0-0BSD ([LICENSE](LICENSE)). Source-available, free for almost all uses except competing commercial offerings, and each version converts to 0BSD two years after release.
+QSL-1.0-0BSD ([LICENSE](LICENSE)). Source-available, free for almost all uses except competing commercial offerings, and each tag/version converts to 0BSD two years after release.
