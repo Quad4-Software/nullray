@@ -56,6 +56,8 @@ Cli :: struct {
 	serve:            bool,
 	connect:          bool,
 	attach:           bool,
+	watch:            bool,
+	watch_args:       [dynamic]string,
 	ask_simple:       bool,
 	auto:             bool,
 	bare:             bool,
@@ -95,6 +97,7 @@ Cli :: struct {
 	as_name:          string,
 	list_skills:      bool,
 	list_modules:     bool,
+	probe_tools:      string,
 	skills_paths:     string,
 	prompt:           string,
 	askpass:          bool,
@@ -183,6 +186,9 @@ main :: proc() {
 	if len(cli.import_session) > 0 {
 		os.exit(run_import_session(cli.import_session, cli.as_name))
 	}
+	if cli.watch {
+		os.exit(run_watch(cli.watch_args[:]))
+	}
 	if cli.list_skills {
 		os.exit(run_list_skills())
 	}
@@ -192,6 +198,9 @@ main :: proc() {
 
 	if cli.list_models {
 		os.exit(run_list_models())
+	}
+	if len(cli.probe_tools) > 0 {
+		os.exit(run_probe_tools(&cli))
 	}
 
 	if cli.askpass {

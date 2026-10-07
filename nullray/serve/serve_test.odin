@@ -12,6 +12,7 @@ import "core:os"
 import "core:strings"
 import "core:sys/posix"
 import "core:testing"
+import "core:thread"
 import "nullray:acp"
 import "nullray:constants"
 
@@ -170,6 +171,52 @@ test_notify_targets_routing :: proc(t: ^testing.T) {
 	targets = acp.notify_targets(&srv, "acp-9")
 	testing.expect(t, len(targets) == 1)
 	testing.expect(t, targets[0] == other)
+}
+
+@test
+test_wakeup_routing_and_pump :: proc(t: ^testing.T) {
+	// The scoped emit sink (what the schedule watcher calls) must land a
+	// wakeup on the target session's queue, and the pump must not start a
+	// turn while no provider is registered.
+	srv: acp.Server
+	srv.conns = make(map[int]^acp.Conn)
+	defer delete(srv.conns)
+	srv.sessions = make(map[string]^acp.Acp_Session)
+	defer delete(srv.sessions)
+
+	s := new(acp.Acp_Session)
+	s.id = strings.clone("acp-1")
+	s.wake_q = make([dynamic]acp.Acp_Wakeup)
+	s.wake_inflight = make(map[string]int)
+	srv.sessions[s.id] = s
+	defer {
+		acp.wake_clear(s)
+		delete(s.id)
+		free(s)
+	}
+
+	acp.schedule_bind(&srv)
+	defer {
+		acp.server_request_stop(&srv)
+		if srv.wake_pump != nil {
+			thread.join(srv.wake_pump)
+			thread.destroy(srv.wake_pump)
+			srv.wake_pump = nil
+		}
+	}
+
+	// Scoped emit lands on the named session.
+	acp.acp_schedule_emit("[scheduled] watch hit", "job:5", "acp-1")
+	testing.expect_value(t, acp.wake_queued(s, "job:5"), 1)
+	// Scopeless and unknown scopes fall back to any live session.
+	acp.acp_schedule_emit("[scheduled] scopeless", "job:6", "")
+	acp.acp_schedule_emit("[scheduled] gone", "job:7", "acp-99")
+	testing.expect_value(t, acp.wake_queued(s, "job:6"), 1)
+	testing.expect_value(t, acp.wake_queued(s, "job:7"), 1)
+
+	// No provider registered: drain leaves the queue intact.
+	acp.wake_pump_drain(&srv)
+	testing.expect_value(t, len(s.wake_q), 3)
 }
 
 @test

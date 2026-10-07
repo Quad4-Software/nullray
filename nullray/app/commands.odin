@@ -65,6 +65,7 @@ SLASH_COMMANDS := []Slash_Command{
 	{"agents", "/agents [off|on|list|knowledge|apply ...]", "subagent roster and controls", slash_cmd_agents},
 	{"todo", "/todo", "show session task list", slash_cmd_todo},
 	{"schedule", "/schedule [list|cancel ID|cancel all]", "scheduled prompts", slash_cmd_schedule},
+	{"watch", "/watch [list|add <spec> <task>|show ID|rm ID]", "standing watches that notify on new hits", slash_cmd_watch},
 	{"loop", "/loop <every> <prompt>", "recurring prompt in this session", slash_cmd_loop},
 	{"remind", "/remind <in> <text>", "one-shot reminder prompt", slash_cmd_remind},
 	{"approve", "/approve", "approve plan contract and switch to edit", slash_cmd_approve},

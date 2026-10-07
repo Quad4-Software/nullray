@@ -91,6 +91,7 @@ this list in-app.
 | `/loop <every> <prompt>` | Recurring prompt in this session |
 | `/remind <in> <text>` | One-shot reminder prompt |
 | `/schedule [list\|cancel]` | Manage scheduled prompts |
+| `/watch [list\|add\|show\|rm]` | Standing watches that digest and notify only on new hits |
 | `/status` | Mode, plan, verify, tokens |
 | `/context` | Per-category context size (system, tools, messages, memory) |
 | `/copy` | Copy selection or last reply |

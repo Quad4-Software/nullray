@@ -94,6 +94,25 @@ TCP listener. Remote access goes over `ssh -L` forwarding.
 | `--connect` | Route `--print` through the daemon |
 | `attach [SESSION]` | Attach to a daemon session |
 
+## Watches
+
+`nullray watch` manages standing watches: durable scheduled jobs that run a
+check, diff the result set against `.nullray/watch/<id>/state.json`, append to
+`digest.md`, and send a desktop notification only on new hits. A running daemon
+picks up adds and removals on its next tick; recurring watches auto-expire
+after 7 days unless `--expires` overrides.
+
+| Command | Purpose |
+|---------|---------|
+| `watch add <spec> <instruction>` | Add a watch. Spec: `2h`, `every 2h`, `at 09:00`, or 5-field cron |
+| `watch list` / `watch status` | List watches with next fire, expiry, run counts, tokens |
+| `watch show <id>` | Watch state plus the digest tail |
+| `watch rm <id>` | Remove a watch and its state |
+
+`watch add` flags: `--max-runs N` caps firings, `--max-tokens N` cancels the
+watch once cumulative daemon turn tokens pass the cap, `--expires DUR` sets a
+lifetime like `7d`.
+
 ## Review bot
 
 `--review` reviews a local diff and exits. No forge needed.

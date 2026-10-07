@@ -180,6 +180,9 @@ schedule_watch_main :: proc(_: rawptr) {
 			}
 			time.sleep(time.Duration(WATCH_SLICE_MS) * time.Millisecond)
 		}
+		// External durable-store edits (watch add/rm from another nullray
+		// process) merge before the tick so due resolution sees them.
+		jobs_reload_if_changed()
 		due := schedule_tick(unix_now())
 		for d in due {
 			emit_due(d)

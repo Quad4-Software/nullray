@@ -78,6 +78,12 @@ Attach to a daemon session and stream updates. Ctrl-D or
 .B exit
 detaches; the session stays alive in the daemon.
 .TP
+.BR watch " " add | list | rm | show
+Manage standing watches: durable scheduled jobs that run a check, diff
+the result set against .I .nullray/watch/<id>/state.json, append to
+digest.md, and notify only on new hits. Example:
+.BR "nullray watch add" " " \(aqevery 2h\(aq " " \(aqcheck CVE feeds\(aq
+.TP
 .BR \-q ", " \-\-ask
 Run one ephemeral read-only question without the TUI. This never enables
 write or shell tools.
@@ -237,6 +243,12 @@ MCP server autoload config.
 .TP
 .I .nullray/plans/
 Default plan-mode markdown artifacts under the workspace.
+.TP
+.I .nullray/watch/
+Per-watch state.json and digest.md written by standing watches.
+.TP
+.I .nullray/scheduled_tasks.json
+Durable scheduled jobs, including watches.
 .SH EXAMPLES
 .nf
 nullray --provider ollama --model gemma3:4b
