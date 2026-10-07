@@ -27,7 +27,7 @@ const CORE = [
   "manifest.webmanifest",
   "assets/icon-512.png",
   "assets/favicon.svg",
-  "assets/logo.svg",
+  "assets/wordmark.svg",
 ].map(rel);
 
 self.addEventListener("install", (event) => {

@@ -43,7 +43,7 @@ features = [
 ]
 font.text = "Space Grotesk"
 font.code = "Space Mono"
-logo = "assets/logo.svg"
+logo = "assets/wordmark.svg"
 favicon = "assets/favicon.svg"
 
 # Dark "void" first so the no-JS default matches nullray.xyz

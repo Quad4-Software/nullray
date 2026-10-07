@@ -185,3 +185,18 @@
 .md-header__option[data-md-component="palette"] {
   order: 2;
 }
+
+/* Wordmark replaces the icon + text brand. Header: hide the site-name
+   ellipsis (first topic) while leaving the page title (second topic).
+   Drawer: the site name is a bare text node, so zero the font. */
+.md-header__ellipsis .md-header__topic:first-child .md-ellipsis {
+  display: none;
+}
+.md-nav--primary > .md-nav__title {
+  font-size: 0;
+}
+.md-header__button.md-logo img,
+.md-nav--primary > .md-nav__title img {
+  height: 1.4rem;
+  width: auto;
+}
