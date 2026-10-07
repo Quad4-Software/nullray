@@ -75,6 +75,7 @@ SCHEDULE_MAX_JOBS :: 50
 SCHEDULE_RECURRING_EXPIRE_DAYS :: 7
 SCHEDULE_DEFAULT_MAX_FAILURES :: 3
 SCHEDULED_FILE :: ".nullray/scheduled_tasks.json"
+WATCH_DIR :: ".nullray/watch"
 HEARTBEAT_FILE :: ".nullray/HEARTBEAT.md"
 HEARTBEAT_DEFAULT_SEC :: 1800
 TODO_DIR :: ".nullray/todos"
@@ -251,6 +252,20 @@ HARNESS_MAX_TIMEOUT_SEC :: 1800
 // Malformed tool call retry budget before the model is told to give up tools.
 TOOL_RETRY_DEFAULT :: 2
 TOOL_RETRY_MAX :: 5
+
+// Hybrid loop detection sliding window and thresholds.
+LOOP_WINDOW_DEFAULT :: 8
+LOOP_WINDOW_MAX :: 32
+LOOP_FUZZY_DEFAULT :: 0.80
+LOOP_STAGNATION_DEFAULT :: 3
+LOOP_SEM_THRESHOLD_DEFAULT :: 0.80
+// Warn count before the detector steers, then stops the turn.
+LOOP_STEER_FIRES :: 2
+LOOP_STOP_FIRES :: 3
+
+// SWE-Protege escalation: cap escalated chat calls per turn.
+ESCALATE_MAX_DEFAULT :: 3
+ESCALATE_MAX_CAP :: 8
 
 // Per-model smoke probe: single canned tool-call chat.
 MODEL_SMOKE_MAX_TOKENS :: 256

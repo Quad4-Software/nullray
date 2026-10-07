@@ -43,10 +43,17 @@ openai_chat :: proc(p: ^Provider, req: Chat_Request, allocator := context.alloca
 		if http.cancel_requested() {
 			return Chat_Response{ok = false, err = strings.clone("cancelled", allocator)}
 		}
+		sent_constrained := constrained_tools_sent(p, model, req)
 		body := build_openai_chat_body(p, req, model, false, ignore[:])
 		last = http.post_json(url, headers[:], body, http_timeout_sec(), context.temp_allocator)
 		if last.ok {
 			return parse_openai_chat_response(last.body, allocator)
+		}
+		// A server that rejects the constraint field once gets it dropped for
+		// the session, retry immediately with a clean body.
+		if sent_constrained && constrained_rejected(last) {
+			constrained_disable(p, last)
+			continue
 		}
 		if !http_status_retryable(last.status) || attempt >= retries {
 			break
@@ -126,6 +133,9 @@ build_openai_chat_body :: proc(
 			strings.write_string(&b, `,"parallel_tool_calls":`)
 			strings.write_string(&b, req_p.parallel_tool_calls ? "true" : "false")
 		}
+		// Server-side constrained decoding for local providers, gated by
+		// NULLRAY_CONSTRAINED_TOOLS or the profile constrained_tools flag.
+		write_constrained_tools_json(&b, p, &req_p, model)
 	} else {
 		write_response_format_json(&b)
 	}

@@ -38,6 +38,9 @@ register_schedule_tools :: proc(r: ^Registry) {
 		kind = .Read,
 		run = tool_schedule_cancel,
 	})
+	// Watch tools ride the same registration point so registry.odin (a
+	// shared core path) stays untouched.
+	register_watch_tools(r)
 }
 
 @(private)

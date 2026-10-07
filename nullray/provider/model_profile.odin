@@ -10,7 +10,7 @@ Shape:
   {"profiles":[
     {"match":"qwen*","ctx":128000,"num_ctx":32768,"temperature":0.6,
      "reasoning":"off","one_tool_per_turn":true,"prompt_tier":"lean",
-     "parallel_tool_calls":false}
+     "parallel_tool_calls":false,"constrained_tools":true}
   ]}
 
 Profiles only fill fields the request did not pin down (the *_set flags on
@@ -60,6 +60,14 @@ Model_Profile :: struct {
 	prompt_tier:             Profile_Prompt_Tier,
 	parallel_tool_calls:     bool,
 	parallel_tool_calls_set: bool,
+	// constrained_tools opts the model into server-side output constraints
+	// (llama.cpp grammar, ollama/lmstudio json_schema) when tools are sent.
+	constrained_tools:       bool,
+	constrained_tools_set:   bool,
+	// PA-Tool style per-model renames: canonical tool name -> the alias the
+	// request path should advertise. Read-only after load, callers must not
+	// free or mutate the map.
+	tool_names:              map[string]string,
 }
 
 @(private)
@@ -72,6 +80,12 @@ g_profiles_loaded: bool
 g_profiles_ws_denied: bool
 @(private)
 g_profiles_mu: sync.Mutex
+// Last non-empty model id that went through profile_for. The tools alias
+// layer reads it to key per-model renames when a caller cannot pass the
+// model explicitly (the agent turn resolves prompt_tier_for_model with the
+// request model immediately before building tools JSON).
+@(private)
+g_last_profile_model: string
 
 /*
 Read-only view of the hooks trust store for the workspace
@@ -223,6 +237,11 @@ profile_load_file_into :: proc(list: ^[dynamic]Model_Profile, path: string) {
 profiles_destroy_locked :: proc() {
 	for p in g_profiles {
 		delete(p.match, runtime.heap_allocator())
+		for k, v in p.tool_names {
+			delete(k, runtime.heap_allocator())
+			delete(v, runtime.heap_allocator())
+		}
+		delete(p.tool_names)
 	}
 	delete(g_profiles, runtime.heap_allocator())
 	g_profiles = nil
@@ -233,48 +252,7 @@ Glob match for model ids. * matches any run of characters including
 separators (openrouter ids carry provider/model slashes), ? matches exactly
 one. Case-insensitive because model tags drift in case across servers.
 */
-profile_glob_match :: proc(pattern, model: string) -> bool {
-	if len(pattern) == 0 {
-		return false
-	}
-	pat := strings.to_lower(pattern, context.temp_allocator)
-	str := strings.to_lower(model, context.temp_allocator)
-	p, s := 0, 0
-	star_p, star_s := -1, 0
-	for s < len(str) {
-		if p < len(pat) && (pat[p] == '?' || pat[p] == str[s]) {
-			p += 1
-			s += 1
-		} else if p < len(pat) && pat[p] == '*' {
-			star_p = p
-			star_s = s
-			p += 1
-		} else if star_p >= 0 {
-			p = star_p + 1
-			star_s += 1
-			s = star_s
-		} else {
-			return false
-		}
-	}
-	for p < len(pat) && pat[p] == '*' {
-		p += 1
-	}
-	return p == len(pat)
-}
 
-// First matching profile wins, returns ok=false when nothing matches.
-profile_for :: proc(model_id: string) -> (Model_Profile, bool) {
-	profile_ensure_loaded()
-	sync.mutex_lock(&g_profiles_mu)
-	defer sync.mutex_unlock(&g_profiles_mu)
-	for p in g_profiles {
-		if profile_glob_match(p.match, model_id) {
-			return p, true
-		}
-	}
-	return {}, false
-}
 
 /*
 Apply a matching profile to a request being built. Explicit request fields
@@ -348,6 +326,10 @@ profile_install_for_test :: proc(json_text: string) {
 	profiles_destroy_locked()
 	g_profiles = profile_parse(json_text, runtime.heap_allocator())
 	g_profiles_loaded = true
+	if len(g_last_profile_model) > 0 {
+		delete(g_last_profile_model, runtime.heap_allocator())
+	}
+	g_last_profile_model = ""
 }
 
 profile_reset_for_test :: proc() {
@@ -356,4 +338,8 @@ profile_reset_for_test :: proc() {
 	profiles_destroy_locked()
 	g_profiles_loaded = false
 	g_profiles_ws_denied = false
+	if len(g_last_profile_model) > 0 {
+		delete(g_last_profile_model, runtime.heap_allocator())
+	}
+	g_last_profile_model = ""
 }

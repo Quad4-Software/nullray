@@ -82,6 +82,7 @@ openai_chat_stream :: proc(
 		accum.seal_user = req.seal_user
 		accum.ok = true
 
+		sent_constrained := constrained_tools_sent(p, model, req)
 		body := build_openai_chat_body(p, req, model, true, ignore[:])
 		last = http.post_json_stream(url, headers[:], body, sse_line_cb, &accum, http_timeout_sec())
 		if last.ok {
@@ -154,6 +155,16 @@ openai_chat_stream :: proc(
 
 		stream_accum_reset(&accum)
 
+		// A server that rejects the constraint field once gets it dropped for
+		// the session, retry immediately with a clean body.
+		if sent_constrained && constrained_rejected(last) {
+			constrained_disable(p, last)
+			if len(last.body) > 0 {
+				delete(last.body)
+				last.body = ""
+			}
+			continue
+		}
 		if !http_status_retryable(last.status) || attempt >= retries {
 			break
 		}

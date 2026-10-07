@@ -10,8 +10,13 @@ package provider
 
 import "core:encoding/json"
 import "core:fmt"
+import "core:os"
+import "core:path/filepath"
+import "core:slice"
 import "core:strconv"
 import "core:strings"
+import "nullray:constants"
+import "nullray:sandbox"
 
 // Parse one model_profiles.json body. Caller owns the slice and each match
 // string under the passed allocator.
@@ -85,6 +90,21 @@ profile_from_object :: proc(o: json.Object, allocator := context.allocator) -> M
 	if v, ok := o["parallel_tool_calls"]; ok {
 		p.parallel_tool_calls = profile_json_bool(v)
 		p.parallel_tool_calls_set = true
+	}
+	if v, ok := o["constrained_tools"]; ok {
+		p.constrained_tools = profile_json_bool(v)
+		p.constrained_tools_set = true
+	}
+	if v, ok := o["tool_names"]; ok {
+		if obj, is_obj := v.(json.Object); is_obj {
+			p.tool_names = make(map[string]string, allocator)
+			for k, val in obj {
+				if s, is_str := val.(json.String); is_str {
+					key := strings.clone(k, allocator)
+					p.tool_names[key] = strings.clone(string(s), allocator)
+				}
+			}
+		}
 	}
 	return p
 }
@@ -212,8 +232,107 @@ profile_serialize :: proc(profiles: []Model_Profile, allocator := context.alloca
 		if p.parallel_tool_calls_set {
 			strings.write_string(&b, p.parallel_tool_calls ? `,"parallel_tool_calls":true` : `,"parallel_tool_calls":false`)
 		}
+		if p.constrained_tools_set {
+			strings.write_string(&b, p.constrained_tools ? `,"constrained_tools":true` : `,"constrained_tools":false`)
+		}
+		if len(p.tool_names) > 0 {
+			write_tool_names_json(&b, p.tool_names)
+		}
 		strings.write_byte(&b, '}')
 	}
 	strings.write_string(&b, `]}`)
 	return strings.to_string(b)
+}
+
+// Emit a tool_names object with sorted keys so serialize output is stable.
+@(private)
+write_tool_names_json :: proc(b: ^strings.Builder, names: map[string]string) {
+	keys := make([dynamic]string, 0, len(names), context.temp_allocator)
+	for k in names {
+		append(&keys, k)
+	}
+	slice.sort(keys[:])
+	strings.write_string(b, `,"tool_names":{`)
+	for k, i in keys {
+		if i > 0 {
+			strings.write_byte(b, ',')
+		}
+		write_json_string(b, k)
+		strings.write_byte(b, ':')
+		write_json_string(b, names[k])
+	}
+	strings.write_byte(b, '}')
+}
+
+/*
+Write or update one profile's tool_names table in
+<config dir>/model_profiles.json, preserving every other field and profile.
+match is the profile glob (the probe writes the exact model id). Returns the
+file path on success.
+*/
+profile_save_tool_names :: proc(match: string, tool_names: map[string]string, allocator := context.allocator) -> (path: string, err: string) {
+	if len(strings.trim_space(match)) == 0 {
+		return "", "empty match glob"
+	}
+	cfg_dir := sandbox.resolve_config_dir(context.temp_allocator)
+	if len(cfg_dir) == 0 {
+		return "", "cannot resolve config dir"
+	}
+	p, jerr := filepath.join({cfg_dir, constants.MODEL_PROFILES_FILE}, allocator)
+	if jerr != nil {
+		return "", "cannot build profile path"
+	}
+	root: json.Object
+	if data, rerr := os.read_entire_file(p, context.temp_allocator); rerr == nil && len(data) > 0 {
+		if doc, perr := json.parse_string(string(data), .JSON, allocator = context.temp_allocator); perr == .None {
+			if obj, ok := doc.(json.Object); ok {
+				root = obj
+			}
+		}
+	}
+	if root == nil {
+		root = make(json.Object, context.temp_allocator)
+	}
+	profiles: json.Array
+	if pv, ok := root["profiles"].(json.Array); ok {
+		profiles = pv
+	} else {
+		profiles = make(json.Array, 0, 1, context.temp_allocator)
+	}
+	tn := make(json.Object, context.temp_allocator)
+	for k, v in tool_names {
+		tn[k] = json.String(strings.clone(v, context.temp_allocator))
+	}
+	found := false
+	for item in profiles {
+		io, is_obj := item.(json.Object)
+		if !is_obj {
+			continue
+		}
+		if m, is_str := io["match"].(json.String); is_str && string(m) == match {
+			io["tool_names"] = tn
+			found = true
+		}
+	}
+	if !found {
+		entry := make(json.Object, context.temp_allocator)
+		entry["match"] = json.String(strings.clone(match, context.temp_allocator))
+		entry["tool_names"] = tn
+		append(&profiles, entry)
+	}
+	root["profiles"] = profiles
+	out, merr := json.marshal(root, allocator = context.temp_allocator)
+	if merr != nil {
+		return "", "cannot encode model_profiles.json"
+	}
+	// make_directory_all errors on an already-existing dir, that is fine here.
+	if !os.is_dir(cfg_dir) {
+		if derr := os.make_directory_all(cfg_dir); derr != nil {
+			return "", "cannot create config dir"
+		}
+	}
+	if werr := os.write_entire_file(p, out); werr != nil {
+		return "", "cannot write model_profiles.json"
+	}
+	return p, ""
 }

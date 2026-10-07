@@ -145,6 +145,10 @@ Provider :: struct {
 	// Local server capability probe (ollama /api/show, llama.cpp /props).
 	// Owned strings freed by provider_destroy.
 	caps:          Local_Caps,
+	// Set when the server rejected the constrained-tools field once this
+	// session (400/500 naming grammar or response_format); later requests
+	// skip it. See tool_constrain.odin.
+	constrained_off: bool,
 }
 
 Chat_Proc :: #type proc(p: ^Provider, req: Chat_Request, allocator := context.allocator) -> Chat_Response
