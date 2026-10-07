@@ -10,6 +10,7 @@
 - Harness does not eat your RAM
 - Native OS sandboxing and privacy scrubbing
 - Reads man pages, `--help`, and language docs
+- Extensible and Modular 
 
 Docs: [nullray.xyz/docs](https://nullray.xyz/docs)
 
