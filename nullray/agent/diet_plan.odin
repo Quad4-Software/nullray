@@ -10,12 +10,14 @@ import "core:strings"
 import "nullray:provider"
 
 // Compute stub and truncation decisions on the unmodified list. Returned
-// texts live in the temp allocator.
-diet_plan :: proc(msgs: []provider.Message, stats: ^Diet_Stats) -> [dynamic]Diet_Replacement {
+// texts live in the temp allocator. The second result is the optional
+// CORVUS file-state block for the last position of the outgoing request.
+diet_plan :: proc(msgs: []provider.Message, stats: ^Diet_Stats) -> ([dynamic]Diet_Replacement, string) {
 	repl := make([dynamic]Diet_Replacement, context.temp_allocator)
+	state := ""
 	n := len(msgs)
 	if n == 0 {
-		return repl
+		return repl, state
 	}
 	call_map := make(map[string]provider.Tool_Call, context.temp_allocator)
 	protected := make([]bool, n, context.temp_allocator)
@@ -100,8 +102,20 @@ diet_plan :: proc(msgs: []provider.Message, stats: ^Diet_Stats) -> [dynamic]Diet
 		}
 	}
 
+	// CORVUS pass first: it owns read_file and list_dir dedup, stale-read
+	// invalidation, and the state block. Shared protected and done flags
+	// keep every later rule from touching the same message.
+	corvus_on := corvus_enabled()
+	if corvus_on {
+		state = corvus_scan(msgs, call_map, is_tool, names, targets, protected, done, stats, &repl)
+	}
+	if !diet_enabled() {
+		return repl, state
+	}
+
 	// Re-reads and write or patch outcomes for the same path: keep latest.
-	// Repeated identical shell commands: keep latest.
+	// Repeated identical shell commands: keep latest. When CORVUS is on it
+	// already stubs prior reads, so a corvus-tracked prev is left to it.
 	supersede := make(map[string]int, context.temp_allocator)
 	for i in 0 ..< n {
 		if !is_tool[i] || len(targets[i]) == 0 {
@@ -117,7 +131,7 @@ diet_plan :: proc(msgs: []provider.Message, stats: ^Diet_Stats) -> [dynamic]Diet
 			continue
 		}
 		if prev, seen := supersede[key]; seen {
-			if !protected[prev] && !done[prev] {
+			if !protected[prev] && !done[prev] && !(corvus_on && corvus_tracks(names[prev])) {
 				append(&repl, Diet_Replacement{idx = prev, text = diet_stub_text(names[prev], targets[prev], "superseded, latest kept")})
 				done[prev] = true
 				stats.stubbed += 1
@@ -185,5 +199,5 @@ diet_plan :: proc(msgs: []provider.Message, stats: ^Diet_Stats) -> [dynamic]Diet
 		done[i] = true
 		stats.truncated += 1
 	}
-	return repl
+	return repl, state
 }

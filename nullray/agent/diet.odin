@@ -26,13 +26,16 @@ DIET_TAIL_CHARS :: 200
 Diet_Stats :: struct {
 	stubbed:      int,
 	truncated:    int,
+	diet_saved:   int,
 	chars_before: int,
 	chars_after:  int,
+	corvus:       Corvus_Stats,
 }
 
 Diet_Replacement :: struct {
-	idx:  int,
-	text: string,
+	idx:    int,
+	text:   string,
+	corvus: bool,
 }
 
 // NULLRAY_DIET=0 disables. Default on.
@@ -213,18 +216,31 @@ diet_err_looks_shape :: proc(err: string) -> bool {
 	return false
 }
 
-// Clone msgs and apply the diet. Empty result means nothing to prune.
+// Clone msgs and apply the diet plus the CORVUS file-state pass. Empty
+// result means nothing to prune and no state block to inject.
 diet_messages :: proc(msgs: []provider.Message, allocator := context.allocator) -> ([dynamic]provider.Message, Diet_Stats) {
 	stats := Diet_Stats{chars_before = messages_content_chars(msgs)}
-	repl := diet_plan(msgs, &stats)
-	if len(repl) == 0 {
+	repl, state := diet_plan(msgs, &stats)
+	if len(repl) == 0 && len(state) == 0 {
 		stats.chars_after = stats.chars_before
 		return make([dynamic]provider.Message, 0, 0, allocator), stats
 	}
 	out := clone_messages(msgs, allocator)
 	for r in repl {
+		saved := len(out[r.idx].content) - len(r.text)
+		if r.corvus {
+			stats.corvus.saved_chars += saved
+		} else {
+			stats.diet_saved += saved
+		}
 		delete(out[r.idx].content)
 		out[r.idx].content = strings.clone(r.text, allocator)
+	}
+	if len(state) > 0 && len(out) > 0 {
+		last := len(out) - 1
+		next := strings.concatenate({out[last].content, state}, allocator)
+		delete(out[last].content)
+		out[last].content = next
 	}
 	stats.chars_after = messages_content_chars(out[:])
 	return out, stats

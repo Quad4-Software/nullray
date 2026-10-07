@@ -395,13 +395,3 @@ Turn-end seam: distill each completed session turn into the experience
 index. session_id is only set for real session workers (TUI, print, ACP),
 so scripted run_turn tests never touch the store.
 */
-run_turn :: proc(req: Run_Request, cfg: Config, allocator := context.allocator) -> Run_Result {
-	res := run_turn_inner(req, cfg, allocator)
-	if len(cfg.session_id) > 0 {
-		experience.exp_record_turn(
-			req.messages, res.messages[:],
-			res.ok, res.stopped, res.err, res.content, res.escalations,
-		)
-	}
-	return res
-}

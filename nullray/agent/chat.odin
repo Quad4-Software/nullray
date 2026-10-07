@@ -103,22 +103,30 @@ single_chat :: proc(
 	harness: ^Harness_Metrics = nil,
 	allocator := context.allocator,
 ) -> provider.Chat_Response {
-	// AgentDiet pass: prune a cloned list per request. Session history in
-	// msgs is never mutated; the dieted copy dies with this call.
+	// AgentDiet plus CORVUS pass: prune a cloned list per request. Session
+	// history in msgs is never mutated; the dieted copy dies with this call.
 	send := msgs
 	dieted: [dynamic]provider.Message
 	used_diet := false
-	if diet_enabled() {
+	if diet_enabled() || corvus_enabled() {
 		d, st := diet_messages(msgs, allocator)
-		if (st.stubbed > 0 || st.truncated > 0) && diet_pairing_ok(d[:]) {
+		changed := st.stubbed > 0 || st.truncated > 0 || st.corvus.stubbed > 0 || st.corvus.state_entries > 0
+		if changed && len(d) > 0 && diet_pairing_ok(d[:]) {
 			dieted = d
 			send = d[:]
 			used_diet = true
 			saved := st.chars_before - st.chars_after
 			if harness != nil {
-				harness.diet_saved_chars += saved
+				harness.diet_saved_chars += st.diet_saved
+				harness.corvus_saved_chars += st.corvus.saved_chars
 			}
-			emit(cfg, .Status, fmt.tprintf("diet: %d stubbed %d truncated -%d chars", st.stubbed, st.truncated, saved))
+			if st.corvus.stubbed > 0 || st.corvus.state_entries > 0 {
+				emit(cfg, .Status, fmt.tprintf(
+					"diet: %d stubbed %d truncated, corvus: %d stubbed state:%d files, -%d chars",
+					st.stubbed, st.truncated, st.corvus.stubbed, st.corvus.state_entries, saved))
+			} else {
+				emit(cfg, .Status, fmt.tprintf("diet: %d stubbed %d truncated -%d chars", st.stubbed, st.truncated, saved))
+			}
 		} else {
 			provider.destroy_messages(d[:])
 			delete(d)

@@ -7,6 +7,7 @@ exact duplicates, stale truncation, never-diet guards, pairing.
 package agent
 
 import "core:fmt"
+import "core:os"
 import "core:strings"
 import "core:testing"
 import "nullray:provider"
@@ -53,6 +54,8 @@ diet_destroy :: proc(msgs: [dynamic]provider.Message) {
 
 @(test)
 test_diet_reread_keeps_latest :: proc(t: ^testing.T) {
+	os.set_env("NULLRAY_CORVUS", "0")
+	defer os.unset_env("NULLRAY_CORVUS")
 	msgs := make([dynamic]provider.Message)
 	defer diet_destroy(msgs)
 	append(&msgs, provider.Message{role = .System, content = strings.clone("sys")})
@@ -178,6 +181,8 @@ test_diet_stale_truncates_old_long_output :: proc(t: ^testing.T) {
 
 @(test)
 test_diet_never_guards :: proc(t: ^testing.T) {
+	os.set_env("NULLRAY_CORVUS", "0")
+	defer os.unset_env("NULLRAY_CORVUS")
 	msgs := make([dynamic]provider.Message)
 	defer diet_destroy(msgs)
 	append(&msgs, provider.Message{role = .System, content = strings.clone("sys")})
@@ -257,6 +262,8 @@ test_diet_pairing_ok :: proc(t: ^testing.T) {
 
 @(test)
 test_diet_transcript_shrinks_and_pairs :: proc(t: ^testing.T) {
+	os.set_env("NULLRAY_CORVUS", "0")
+	defer os.unset_env("NULLRAY_CORVUS")
 	msgs := make([dynamic]provider.Message)
 	defer diet_destroy(msgs)
 	append(&msgs, provider.Message{role = .System, content = strings.clone("sys prompt")})
