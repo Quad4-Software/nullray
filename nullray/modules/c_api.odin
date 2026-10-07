@@ -15,6 +15,17 @@ package modules
 import "base:runtime"
 import "core:strings"
 
+when ODIN_OS == .Windows {
+	foreign import libc "system:libucrt.lib"
+} else when ODIN_OS == .Darwin {
+	foreign import libc "system:System"
+} else {
+	foreign import libc "system:c"
+}
+foreign libc {
+	free :: proc "c" (p: rawptr) ---
+}
+
 Run_C_Proc :: #type proc "c" (args_json: cstring, err_out: ^cstring) -> cstring
 
 c_free :: proc "c" (p: cstring) {
