@@ -157,6 +157,17 @@ Nullray implements published techniques where they map to measured wins:
 - Stall-triggered escalation (SWE-Protege, arxiv 2602.22124): the local
   model drives and a stronger model takes over only on detected stalls.
 
+Ongoing work tracks CORVUS (arxiv 2607.22711) for synchronized file
+state instead of frozen read snapshots, cross-read dedup (sqz,
+lean-ctx), SEER trajectory recall (arxiv 2508.15214), adaptive
+self-consistency (arxiv 2305.11860) and CISC confidence voting,
+BoN-MAV aspect verifiers (arxiv 2502.20379), convolve stopping rules
+(arxiv 2606.28733), Progent privilege narrowing (arxiv 2504.11703),
+MinionS remote-plan/local-exec (arxiv 2502.15964), ReSum periodic
+summarization (arxiv 2509.13313), ExpeRepair (arxiv 2506.10484),
+Training-Free GRPO (arxiv 2510.08191), and CapSeal brokered secrets
+(arxiv 2604.16762).
+
 ## License
 
 QSL-1.0-0BSD ([LICENSE](LICENSE)). Source-available, free for almost all uses except competing commercial offerings, and each tag/version converts to 0BSD two years after release.
