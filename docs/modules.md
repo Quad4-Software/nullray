@@ -8,6 +8,12 @@ core file edits, no registration table to patch.
 
 ## Writing a module
 
+A module is `nullray/modules/<id>/` containing `mod.odin`, `mod.c`, or
+both. `make` regenerates the import list, compiles `mod.c` to `mod.o`, and
+relinks. Removing the directory uninstalls the module.
+
+### Odin modules
+
 `nullray/modules/hello/mod.odin`:
 
 ```odin
@@ -45,6 +51,45 @@ hello_run :: proc(args_json: string, allocator := context.allocator) -> (string,
 ```
 
 Then `make`. `nullray --list-modules` shows it loaded.
+
+### C modules
+
+`nullray/modules/mymod/mod.c`:
+
+```c
+#include "../nullray_module.h"
+#include <stdlib.h>
+#include <string.h>
+
+static char *my_tool_run(const char *args_json, char **err_out)
+{
+	(void)args_json; (void)err_out;
+	return strdup("ok");
+}
+
+NULLRAY_MODULE_ENTRY(mymod)
+{
+	nullray_module_begin("mymod", "My Module", "0.1.0", "example");
+	nullray_module_add_tool("my_tool", "Do a thing",
+		"{\"type\":\"object\",\"properties\":{},\"required\":[]}",
+		NULLRAY_TOOL_READ, my_tool_run);
+	nullray_module_end();
+}
+```
+
+Contract:
+
+- The directory name is the C identifier: `nullray_<id>_module_init` is
+  the entry point, made by `NULLRAY_MODULE_ENTRY(<id>)`. Ids are
+  `[a-z0-9_]` only.
+- Run procs get `args_json` as a borrowed cstring, valid for the call.
+- Return a `malloc`'d result string or NULL. Write a `malloc`'d error
+  through `err_out` on failure. Nullray copies both then `free()`s them.
+- `NULLRAY_TOOL_READ` / `WRITE` / `SHELL` map to the same permission
+  gates as Odin modules.
+- Commands use `nullray_module_add_command(name, help, prompt)`.
+- The C API is `nullray/modules/nullray_module.h` - include it as
+  `../nullray_module.h` from a module dir.
 
 ## What a module can contribute
 

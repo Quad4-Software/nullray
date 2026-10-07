@@ -30,6 +30,7 @@ Tool_Spec :: struct {
 	schema_json: string,
 	kind:        Kind,
 	run:         Run_Proc,
+	run_c:       Run_C_Proc, // C module entry point; see c_api.odin
 }
 
 Command_Spec :: struct {
@@ -62,6 +63,11 @@ modules_register :: proc(m: Module) {
 
 modules_list :: proc() -> []Module {
 	return g_modules[:]
+}
+
+// Test support: clears all registered modules.
+modules_reset :: proc() {
+	clear(&g_modules)
 }
 
 // NULLRAY_MODULES: unset or "all" loads every module, "off"/"none" loads

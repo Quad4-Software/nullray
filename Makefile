@@ -109,8 +109,13 @@ tls-size: $(TLS_LIB) $(OUT)
 # modules_gen.odin regenerates every build (writes only on change) so a
 # new or deleted module dir always updates the import list.
 MODULES_GEN := $(ROOT)/cmd/nullray/modules_gen.odin
-$(MODULES_GEN): modules-force
+MODULE_C_SRCS := $(shell find nullray/modules -mindepth 2 -maxdepth 2 -name 'mod.c' 2>/dev/null)
+MODULE_C_OBJS := $(MODULE_C_SRCS:.c=.o)
+$(MODULES_GEN): modules-force $(MODULE_C_OBJS)
 	@$(ODIN) run $(ROOT)/scripts/gen_modules.odin -file
+
+nullray/modules/%.o: nullray/modules/%.c
+	$(CC) -O2 -fPIC -o $@ -c $<
 
 $(OUT): $(TLS_LIB) $(MODULES_GEN) $(shell find cmd/nullray nullray -name '*.odin' 2>/dev/null)
 	@mkdir -p bin
