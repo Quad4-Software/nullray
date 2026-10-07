@@ -29,7 +29,7 @@ register_subagent_tools :: proc(r: ^Registry, enabled: bool) {
 	}
 	registry_register(r, Tool{
 		name = "task",
-		description = "Spawn a subagent (explore/locate/architect/review/edit/orchestrate). locate returns CITES. architect returns a Done Contract. Returns summary or background id.",
+		description = "Spawn a subagent (explore/locate/architect/review/edit/orchestrate). locate returns CITES. architect returns a Done Contract. Returns summary or background id. For read-only questions prefer direct retrieval (grep_files, read_file, rag_query) and delegate only for write isolation or parallel independent investigation, not to protect context.",
 		schema_json = `{"type":"object","properties":{"description":{"type":"string"},"prompt":{"type":"string"},"subagent_type":{"type":"string","description":"explore|locate|architect|review|edit|orchestrate"},"model":{"type":"string"},"provider":{"type":"string","description":"route to a different provider id (e.g. ollama, openrouter); default inherits the parent provider"},"isolation":{"type":"string"},"background":{"type":"string"},"group":{"type":"string"},"resume":{"type":"string"},"max_steps":{"type":"string"},"path_hints":{"type":"array","items":{"type":"string"}}},"required":["prompt"]}`,
 		kind = .Read,
 		run = tool_task,

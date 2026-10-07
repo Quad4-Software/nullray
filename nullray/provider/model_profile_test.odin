@@ -125,6 +125,30 @@ test_profile_body_wiring :: proc(t: ^testing.T) {
 }
 
 @(test)
+test_profile_parse_quant_fields :: proc(t: ^testing.T) {
+	text := `{"profiles":[
+		{"match":"llama*","quant_family":"llama","quant_tier":"low"},
+		{"match":"qwen*","quant_family":"qwen","quant_tier":"q4_k_m"},
+		{"match":"mistral*"}
+	]}`
+	profiles := profile_parse(text, context.allocator)
+	defer profiles_free(profiles)
+	testing.expect_value(t, len(profiles), 3)
+	testing.expect(t, profiles[0].quant_family == .Llama)
+	testing.expect(t, profiles[0].quant_tier == .Low)
+	testing.expect(t, profiles[1].quant_family == .Qwen)
+	// Raw tags map through quant_rank into tiers.
+	testing.expect(t, profiles[1].quant_tier == .Low)
+	testing.expect(t, profiles[2].quant_family == .Unset)
+	testing.expect(t, profiles[2].quant_tier == .Unset)
+
+	out := profile_serialize(profiles, context.allocator)
+	defer delete(out)
+	testing.expect(t, strings.contains(out, `"quant_family":"llama"`))
+	testing.expect(t, strings.contains(out, `"quant_tier":"low"`))
+}
+
+@(test)
 test_profile_serialize_round_trip :: proc(t: ^testing.T) {
 	text := `{"profiles":[{"match":"qwen*","num_ctx":32768,"temperature":0.6,
 		"reasoning":"on","one_tool_per_turn":true,"prompt_tier":"tiny",

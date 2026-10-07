@@ -95,6 +95,21 @@ profile_from_object :: proc(o: json.Object, allocator := context.allocator) -> M
 		p.constrained_tools = profile_json_bool(v)
 		p.constrained_tools_set = true
 	}
+	if v, ok := o["constrained_mode"]; ok {
+		if s, is_str := v.(json.String); is_str {
+			p.constrained_mode = constrained_mode_parse(string(s))
+		}
+	}
+	if v, ok := o["quant_family"]; ok {
+		if s, is_str := v.(json.String); is_str {
+			p.quant_family = quant_family_from_string(string(s))
+		}
+	}
+	if v, ok := o["quant_tier"]; ok {
+		if s, is_str := v.(json.String); is_str {
+			p.quant_tier = quant_tier_from_string(string(s))
+		}
+	}
 	if v, ok := o["tool_names"]; ok {
 		if obj, is_obj := v.(json.Object); is_obj {
 			p.tool_names = make(map[string]string, allocator)
@@ -234,6 +249,16 @@ profile_serialize :: proc(profiles: []Model_Profile, allocator := context.alloca
 		}
 		if p.constrained_tools_set {
 			strings.write_string(&b, p.constrained_tools ? `,"constrained_tools":true` : `,"constrained_tools":false`)
+		}
+		if p.constrained_mode != .Unset {
+			strings.write_string(&b, `,"constrained_mode":`)
+			write_json_string(&b, constrained_mode_name(p.constrained_mode))
+		}
+		if p.quant_family != .Unset {
+			fmt.sbprintf(&b, `,"quant_family":"%s"`, quant_family_name(p.quant_family))
+		}
+		if p.quant_tier != .Unset {
+			fmt.sbprintf(&b, `,"quant_tier":"%s"`, quant_tier_name(p.quant_tier))
 		}
 		if len(p.tool_names) > 0 {
 			write_tool_names_json(&b, p.tool_names)

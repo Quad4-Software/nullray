@@ -10,7 +10,8 @@ Shape:
   {"profiles":[
     {"match":"qwen*","ctx":128000,"num_ctx":32768,"temperature":0.6,
      "reasoning":"off","one_tool_per_turn":true,"prompt_tier":"lean",
-     "parallel_tool_calls":false,"constrained_tools":true}
+     "parallel_tool_calls":false,"constrained_tools":true,
+     "constrained_mode":"shape"}
   ]}
 
 Profiles only fill fields the request did not pin down (the *_set flags on
@@ -18,6 +19,10 @@ Chat_Request mark explicit CLI/env values). num_ctx flows through the ollama
 write path in openai_compat.odin with NULLRAY_OLLAMA_NUM_CTX still winning
 outright, including a <=0 opt-out. JSON parse/serialize live in
 model_profile_json.odin.
+
+quant_family ("llama"|"qwen") and quant_tier ("low"|"mid"|"high" or a raw
+tag like "q4_k_m") override the values sniffed from the model id or GGUF
+filename by the tool-turn temperature clamp in sampling_gguf.odin.
 */
 
 package provider
@@ -47,6 +52,22 @@ Profile_Prompt_Tier :: enum {
 	Full,
 }
 
+// Model family for the family-aware quant clamp in sampling_gguf.odin.
+// .Unset means the profile did not pin it and the id gets sniffed instead.
+Quant_Family :: enum {
+	Unset,
+	Llama,
+	Qwen,
+}
+
+// Coarse GGUF quant quality tier. .Unset sniffs the tag from the filename.
+Quant_Tier :: enum {
+	Unset,
+	Low,  // Q4 and below, the lossy tier where llama-family drops
+	Mid,  // Q5 to Q6
+	High, // Q8 and up plus f16/f32
+}
+
 Model_Profile :: struct {
 	match:                   string, // glob on the model id, eg "qwen*"
 	ctx:                     int,    // advertised context window, 0 = unset
@@ -64,6 +85,14 @@ Model_Profile :: struct {
 	// (llama.cpp grammar, ollama/lmstudio json_schema) when tools are sent.
 	constrained_tools:       bool,
 	constrained_tools_set:   bool,
+	// constrained_mode picks the decode constraint strength: strict (full
+	// grammar), shape (envelope and key/type locks, free values), or late
+	// (constrain only the malformed resample). See tool_constrain_mode.odin.
+	constrained_mode:        Constrained_Mode,
+	// quant_family / quant_tier override the sniffed model family and GGUF
+	// quant tier for the tool-turn temperature clamp (sampling_gguf.odin).
+	quant_family:            Quant_Family,
+	quant_tier:              Quant_Tier,
 	// PA-Tool style per-model renames: canonical tool name -> the alias the
 	// request path should advertise. Read-only after load, callers must not
 	// free or mutate the map.
