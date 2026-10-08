@@ -32,7 +32,8 @@ Notable changes for nullray.
   persist/canvas_id), `skill_write` + `/learn`, worktree janitor
   (`/agents worktree`).
 - Programmatic terminal art: `show_art` + `/art` with figlet, shapes,
-  bars/sparks, math plots, scatter, and safe ANSI SGR blit (no freehand).
+  bars/sparks, math plots, scatter, safe ANSI SGR blit, and fps animation
+  (marquee, bounce, spinner, wave, orbit, pulse) in the side pane.
 - Provider set trimmed to locals (ollama, lmstudio, llamacpp), openai-compat,
   openrouter, opencode, opencode-go, and fireworks. Dropped first-class
   openai, anthropic, gemini, azure, and other cloud vendor aliases.

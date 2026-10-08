@@ -49,6 +49,7 @@ app_is_dirty :: proc(user: rawptr) -> bool {
 	// Keep dirty sources minimal: avoid full redraws when nothing moved.
 	return a.dirty ||
 		splash_active(a) ||
+		a.art_scene_on ||
 		a.show_setup ||
 		a.elevate_active ||
 		a.ask_active ||
@@ -73,6 +74,10 @@ app_on_tick :: proc(user: rawptr) -> bool {
 		changed = true
 	}
 	if splash_active(a) {
+		changed = true
+		app_mark_dirty(a)
+	}
+	if app_art_scene_tick(a) {
 		changed = true
 		app_mark_dirty(a)
 	}

@@ -27,6 +27,21 @@ test_render_plot_and_bars :: proc(t: ^testing.T) {
 }
 
 @(test)
+test_anim_frames_differ :: proc(t: ^testing.T) {
+	prog := `{"width":30,"height":4,"fps":10,"ops":[{"op":"marquee","text":"hello world!!","y":1,"speed":20},{"op":"spinner","x":0,"y":2}]}`
+	a, _, e1 := art_render_json_ex(prog, 0.1, context.allocator)
+	defer delete(a)
+	b, _, e2 := art_render_json_ex(prog, 0.6, context.allocator)
+	defer delete(b)
+	testing.expect_value(t, e1, "")
+	testing.expect_value(t, e2, "")
+	testing.expect(t, a != b)
+	meta := art_parse_meta(prog)
+	testing.expect(t, meta.animated)
+	testing.expect(t, meta.fps >= 10)
+}
+
+@(test)
 test_ansi_blit_green :: proc(t: ^testing.T) {
 	prog := "{\"width\":10,\"height\":3,\"ops\":[{\"op\":\"ansi\",\"text\":\"\\u001b[32mHI\\u001b[0m\",\"x\":0,\"y\":0\"}]}"
 	// hand escape

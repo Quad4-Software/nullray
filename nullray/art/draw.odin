@@ -186,6 +186,18 @@ canvas_spark :: proc(c: ^Canvas, x, y: int, values: []f64, fg: ui.Color = {}, ha
 }
 
 canvas_plot_fn :: proc(c: ^Canvas, x, y, w, h: int, name: string, samples: int, fg: ui.Color = {}, has_fg := false) {
+	canvas_plot_fn_phase(c, x, y, w, h, name, samples, 0, fg, has_fg)
+}
+
+canvas_plot_fn_phase :: proc(
+	c: ^Canvas,
+	x, y, w, h: int,
+	name: string,
+	samples: int,
+	phase: f64,
+	fg: ui.Color = {},
+	has_fg := false,
+) {
 	if w < 3 || h < 3 {
 		return
 	}
@@ -200,8 +212,8 @@ canvas_plot_fn :: proc(c: ^Canvas, x, y, w, h: int, name: string, samples: int, 
 	pts := make([]struct{px, py: int}, n, context.temp_allocator)
 	nm := strings.to_lower(strings.trim_space(name), context.temp_allocator)
 	for i in 0 ..< n {
-		t := f64(i) / f64(max(n - 1, 1))
-		xv := t * 2.0 * math.PI
+		tt := f64(i) / f64(max(n - 1, 1))
+		xv := tt * 2.0 * math.PI + phase
 		yv: f64
 		switch nm {
 		case "sin", "sine":
@@ -211,10 +223,10 @@ canvas_plot_fn :: proc(c: ^Canvas, x, y, w, h: int, name: string, samples: int, 
 		case "abs_sin", "absin":
 			yv = math.abs(math.sin(xv))
 		case "quad", "x2":
-			u := t * 2 - 1
+			u := tt * 2 - 1
 			yv = u * u
 		case "noise", "rand":
-			yv = math.sin(xv * 3.1 + f64(i) * 0.7) * 0.5 + math.sin(xv * 0.9)
+			yv = math.sin(xv * 3.1 + f64(i) * 0.7) * 0.5 + math.sin(xv * 0.9 + phase)
 		case:
 			yv = math.sin(xv)
 		}

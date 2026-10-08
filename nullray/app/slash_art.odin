@@ -17,10 +17,12 @@ slash_cmd_art :: proc(a: ^App, args: string) {
 		session.session_push_assistant(
 			a.session,
 			`/art figlet TEXT
-/art demo
-/art show {json program}
+/art demo   (animated)
+/art anim
+/art stop
+/art show {json program with optional fps}
 
-Agent tool: show_art with ops figlet, rect, line, circle, bars, spark, plot, scatter, ansi.
+Agent tool show_art: figlet, marquee, bounce, spinner, wave, plot+speed, bars animate, orbit lines.
 Prefer show_art over freehand ASCII.`,
 		)
 		session.session_set_status(a.session, "art help")
@@ -39,64 +41,57 @@ Prefer show_art over freehand ASCII.`,
 		session.session_set_status(a.session, "art figlet")
 		return
 	}
-	if low == "demo" {
+	if low == "demo" || low == "anim" || low == "demo anim" {
 		prog := `{
-  "width": 56, "height": 18, "unicode": true,
+  "width": 56, "height": 18, "unicode": true, "fps": 14, "loop": true,
   "ops": [
-    {"op":"figlet","text":"NULL","x":1,"y":0,"color":"#5ad2ff"},
-    {"op":"rect","x":0,"y":6,"w":56,"h":11,"color":"#556677"},
-    {"op":"plot","fn":"sin","x":2,"y":7,"w":32,"h":9,"color":"#00ffcc"},
-    {"op":"bars","x":36,"y":8,"h":8,"values":[2,5,3,8,6,4,7],"color":"#ffaa44"},
-    {"op":"text","x":2,"y":16,"text":"plot=sin  bars=load","color":"#8899aa"}
+    {"op":"figlet","text":"LIVE","x":1,"y":0,"color":"#5ad2ff","pulse":true,"speed":3},
+    {"op":"spinner","x":52,"y":1,"color":"#ffaa44"},
+    {"op":"marquee","text":"nullray art engine · no freehand ascii · ","y":5,"speed":16,"color":"#88aacc"},
+    {"op":"rect","x":0,"y":6,"w":56,"h":11,"color":"#445566"},
+    {"op":"plot","fn":"sin","x":2,"y":7,"w":32,"h":9,"speed":2.5,"color":"#00ffcc"},
+    {"op":"bars","x":36,"y":8,"h":8,"values":[2,5,3,8,6,4,7,3,5],"animate":true,"speed":3,"color":"#ffaa44"},
+    {"op":"bounce","x":1,"y":16,"w":54,"text":">>","speed":22,"color":"#ff6688"},
+    {"op":"clock","x":44,"y":16,"color":"#8899aa"}
   ]
 }`
-		plain, _, err := art.art_render_json(prog, context.allocator)
-		if err != "" {
-			session.session_set_status(a.session, err)
-			delete(err)
-			return
-		}
-		_ = app_view_open_text(a, "art demo", plain)
-		delete(plain)
-		session.session_set_status(a.session, "art demo")
+		app_art_scene_start(a, "art demo", prog)
+		return
+	}
+	if low == "stop" {
+		app_art_scene_stop(a)
+		session.session_set_status(a.session, "art stop")
 		return
 	}
 	if strings.has_prefix(low, "show ") {
 		js := strings.trim_space(rest[5:])
-		plain, _, err := art.art_render_json(js, context.allocator)
-		if err != "" {
-			session.session_set_status(a.session, err)
-			delete(err)
-			return
-		}
-		_ = app_view_open_text(a, "art", plain)
-		delete(plain)
-		session.session_set_status(a.session, "art show")
+		app_art_scene_start(a, "art", js)
 		return
 	}
 	// bare text -> figlet
 	if !strings.has_prefix(rest, "{") {
 		body := art.art_figlet(rest, true, context.allocator)
+		app_art_scene_stop(a)
 		_ = app_view_open_text(a, "figlet", body)
 		delete(body)
 		session.session_set_status(a.session, "art figlet")
 		return
 	}
-	plain, _, err := art.art_render_json(rest, context.allocator)
-	if err != "" {
-		session.session_set_status(a.session, err)
-		delete(err)
-		return
-	}
-	_ = app_view_open_text(a, "art", plain)
-	delete(plain)
-	session.session_set_status(a.session, "art")
+	app_art_scene_start(a, "art", rest)
 }
 
+// Tool callback: title + schema (or still body).
 app_art_show_cb :: proc(title, body: string, user: rawptr) {
 	a := cast(^App)user
 	if a == nil {
 		return
 	}
+	// If body looks like a program, play it (animates when fps/ops need time).
+	trim := strings.trim_space(body)
+	if strings.has_prefix(trim, "{") && (strings.contains(trim, `"ops"`) || strings.contains(trim, `"figlet"`) || strings.contains(trim, `"fps"`)) {
+		app_art_scene_start(a, title, trim)
+		return
+	}
+	app_art_scene_stop(a)
 	_ = app_view_open_text(a, title, body)
 }

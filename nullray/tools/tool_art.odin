@@ -26,8 +26,8 @@ register_art_show :: proc(cb: Art_Show_Proc, user: rawptr = nil) {
 register_art_tools :: proc(r: ^Registry) {
 	registry_register(r, Tool{
 		name = "show_art",
-		description = "Draw terminal art programmatically. Do not freehand ASCII. Pass schema JSON with width/height and ops: figlet, text, rect, line, circle, bars, spark, plot (fn=sin|cos|quad|noise), scatter, ansi. Or pass figlet=\"TEXT\" alone. Returns the raster. Prefer this for banners, charts, boxes.",
-		schema_json = `{"type":"object","properties":{"schema":{"type":"string","description":"full art program JSON"},"figlet":{"type":"string","description":"shortcut banner text"},"title":{"type":"string"},"width":{"type":"string"},"height":{"type":"string"},"open":{"type":"string","description":"1 to open side pane"}},"required":[]}`,
+		description = "Draw terminal art programmatically (static or animated). Do not freehand ASCII. Pass schema JSON: width/height, optional fps/loop/duration_ms, ops figlet, marquee, bounce, spinner, wave, rain, clock, text, rect, line (orbit), circle (breathe), bars/spark (animate), plot (speed phase), scatter, ansi. Returns first frame. Animation plays in the side pane.",
+		schema_json = `{"type":"object","properties":{"schema":{"type":"string","description":"full art program JSON"},"figlet":{"type":"string","description":"shortcut banner text"},"title":{"type":"string"},"width":{"type":"string"},"height":{"type":"string"},"fps":{"type":"string"},"open":{"type":"string","description":"1 to open side pane"}},"required":[]}`,
 		kind = .Read,
 		run = tool_show_art,
 	})
@@ -54,13 +54,14 @@ tool_show_art :: proc(args_json: string, allocator := context.allocator) -> (res
 	if len(strings.trim_space(src)) == 0 {
 		return "", strings.clone(`usage: show_art with schema JSON or figlet="TEXT"`, allocator)
 	}
+	meta := art.art_parse_meta(src)
 	plain, ansi_s, rerr := art.art_render_json(src, allocator)
 	if rerr != "" {
 		delete(plain)
 		delete(ansi_s)
 		return "", rerr
 	}
-	delete(ansi_s) // plain goes to model and pane; ansi reserved for later export
+	delete(ansi_s)
 	title, _ := json_arg_string_optional(args_json, "title", "art", context.temp_allocator)
 	if len(title) == 0 {
 		title = "art"
@@ -73,12 +74,19 @@ tool_show_art :: proc(args_json: string, allocator := context.allocator) -> (res
 		}
 	}
 	if open_pane && g_art_show != nil {
-		g_art_show(title, plain, g_art_show_user)
+		// Prefer full program for animation; callback owns opening.
+		g_art_show(title, src, g_art_show_user)
 	}
-	// Cap model-facing body so huge canvases stay cheap.
+	note := ""
+	if meta.animated {
+		note = fmt.tprintf("\n[anim %dfps loop=%v]", meta.fps, meta.loop)
+	}
 	out := plain
 	if len(out) > 8000 {
-		out = strings.clone(fmt.tprintf("%s\n… (%d bytes total)", plain[:8000], len(plain)), allocator)
+		out = strings.clone(fmt.tprintf("%s\n… (%d bytes total)%s", plain[:8000], len(plain), note), allocator)
+		delete(plain)
+	} else if len(note) > 0 {
+		out = strings.clone(fmt.tprintf("%s%s", plain, note), allocator)
 		delete(plain)
 	}
 	return out, ""
