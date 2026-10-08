@@ -315,7 +315,7 @@ main :: proc() {
 	crash.set_note("tui")
 	crash.logf("app ready session=%s", a.session.name)
 
-	ui.loop_run(&loop, app.app_draw, app.app_on_event, &a, app.app_is_dirty, app.app_on_tick)
+	ui.loop_run(&loop, app.app_draw, app.app_on_event, &a, app.app_is_dirty, app.app_on_tick, app.app_after_present)
 	if a.session.persist && len(a.session.name) > 0 {
 		resume_name = strings.clone(a.session.name)
 	}

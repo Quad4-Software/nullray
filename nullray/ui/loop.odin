@@ -16,6 +16,7 @@ Loop :: struct {
 }
 
 Draw_Proc :: #type proc(buf: ^Buffer, user: rawptr)
+After_Present_Proc :: #type proc(user: rawptr)
 Event_Proc :: #type proc(ev: Event, user: rawptr) -> (quit: bool)
 Dirty_Proc :: #type proc(user: rawptr) -> bool
 Tick_Proc :: #type proc(user: rawptr) -> (dirty: bool)
@@ -47,6 +48,7 @@ loop_run :: proc(
 	user: rawptr,
 	is_dirty: Dirty_Proc = nil,
 	on_tick: Tick_Proc = nil,
+	after_present: After_Present_Proc = nil,
 ) {
 	force := true
 	for !l.quit {
@@ -75,6 +77,9 @@ loop_run :: proc(
 				draw(&l.buf, user)
 			}
 			term_present(&l.term, &l.buf)
+			if after_present != nil {
+				after_present(user)
+			}
 			force = false
 		}
 

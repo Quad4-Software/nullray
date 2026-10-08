@@ -127,38 +127,7 @@ app_media_clear :: proc(a: ^App) {
 	a.pending_media = nil
 }
 
-slash_cmd_attach :: proc(a: ^App, args: string) {
-	path := strings.trim_space(args)
-	if len(path) == 0 {
-		if len(a.pending_media) > 0 {
-			names := make([dynamic]string, context.temp_allocator)
-			for mp in a.pending_media {
-				append(
-					&names,
-					fmt.tprintf(
-						"%s:%s",
-						provider.media_kind_string(mp.kind),
-						mp.label,
-					),
-				)
-			}
-			session.session_set_status(
-				a.session,
-				fmt.tprintf(
-					"queued: %s",
-					strings.join(names[:], ", ", context.temp_allocator),
-				),
-			)
-		} else {
-			session.session_set_status(a.session, "usage: /attach path|clear")
-		}
-		return
-	}
-	if strings.to_lower(path, context.temp_allocator) == "clear" {
-		app_media_clear(a)
-		session.session_set_status(a.session, "media queue cleared")
-		return
-	}
+app_attach_path :: proc(a: ^App, path: string) {
 	abs := tools.resolve_path(path, context.temp_allocator)
 	if sandbox.path_is_secret_blocked(abs) {
 		session.session_set_status(a.session, "secret file blocked")
@@ -207,6 +176,50 @@ slash_cmd_attach :: proc(a: ^App, args: string) {
 	chunk := fmt.tprintf("\n\n[attached:%s]\n%s\n", path, body)
 	app_insert_text(a, chunk)
 	session.session_set_status(a.session, fmt.tprintf("attached %s", path))
+}
+
+slash_cmd_attach :: proc(a: ^App, args: string) {
+	path := strings.trim_space(args)
+	if len(path) == 0 {
+		if len(a.pending_media) > 0 {
+			names := make([dynamic]string, context.temp_allocator)
+			for mp in a.pending_media {
+				append(
+					&names,
+					fmt.tprintf(
+						"%s:%s",
+						provider.media_kind_string(mp.kind),
+						mp.label,
+					),
+				)
+			}
+			session.session_set_status(
+				a.session,
+				fmt.tprintf(
+					"queued: %s",
+					strings.join(names[:], ", ", context.temp_allocator),
+				),
+			)
+		} else {
+			session.session_set_status(a.session, "usage: /attach path|clear")
+		}
+		return
+	}
+	if strings.to_lower(path, context.temp_allocator) == "clear" {
+		app_media_clear(a)
+		session.session_set_status(a.session, "media queue cleared")
+		return
+	}
+	abs := tools.resolve_path(path, context.temp_allocator)
+	if sandbox.path_is_secret_blocked(abs) {
+		session.session_set_status(a.session, "secret file blocked")
+		return
+	}
+	kind, _, is_media := provider.media_detect(abs)
+	app_attach_path(a, path)
+	if is_media && kind == .Image {
+		_ = app_view_open(a, abs)
+	}
 }
 
 slash_cmd_view :: proc(a: ^App, args: string) {

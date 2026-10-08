@@ -87,7 +87,7 @@ test_view_form_tab_and_checkbox :: proc(t: ^testing.T) {
 			idx := 0
 			for f in a.view_form.fields {
 				#partial switch f.kind {
-				case .Label, .Markdown, .Separator:
+				case .Label, .Markdown, .Separator, .Image:
 				case:
 					idx += 1
 				}

@@ -25,7 +25,11 @@ VIEW_MAX_PLACEHOLDER :: 80
 VIEW_MAX_DEFAULT :: 500
 VIEW_MAX_ID :: 40
 VIEW_MAX_VALUE :: 2000
+VIEW_MAX_IMAGE_PATH :: 512
+VIEW_MAX_SCRIPT :: 240
 VIEW_DEFAULT_TIMEOUT_SEC :: 600
+VIEW_SCRIPT_TIMEOUT_MS :: 8_000
+VIEW_SCRIPT_MAX_OUTPUT :: 8_000
 
 Field_Kind :: enum {
 	Text,
@@ -38,12 +42,19 @@ Field_Kind :: enum {
 	Label,
 	Markdown,
 	Separator,
+	Image,
 }
 
 Action_Kind :: enum {
 	Submit,
 	Cancel,
 	Secondary,
+	Script, // runs a workspace-relative command and refreshes field values
+}
+
+View_Placement :: enum {
+	Modal,
+	Panel,
 }
 
 View_Field :: struct {
@@ -62,6 +73,9 @@ View_Field :: struct {
 	value:       string, // live edit buffer (owned when in App)
 	checked:     bool,
 	sel:         int, // select/radio index
+	src:         string, // image path or URL label
+	cols:        int,
+	rows:        int,
 }
 
 View_Action :: struct {
@@ -69,13 +83,16 @@ View_Action :: struct {
 	label:   string,
 	kind:    Action_Kind,
 	primary: bool,
+	script:  string, // workspace-relative command for Script actions
 }
 
 View_Def :: struct {
-	title:   string,
-	body:    string,
-	fields:  [dynamic]View_Field,
-	actions: [dynamic]View_Action,
+	title:     string,
+	body:      string,
+	fields:    [dynamic]View_Field,
+	actions:   [dynamic]View_Action,
+	placement: View_Placement,
+	image:     string, // optional banner image path for the whole view
 }
 
 view_field_destroy :: proc(f: ^View_Field) {
@@ -88,6 +105,7 @@ view_field_destroy :: proc(f: ^View_Field) {
 	delete(f.default)
 	delete(f.pattern)
 	delete(f.value)
+	delete(f.src)
 	for o in f.options {
 		delete(o)
 	}
@@ -101,6 +119,7 @@ view_def_destroy :: proc(v: ^View_Def) {
 	}
 	delete(v.title)
 	delete(v.body)
+	delete(v.image)
 	for &f in v.fields {
 		view_field_destroy(&f)
 	}
@@ -108,6 +127,7 @@ view_def_destroy :: proc(v: ^View_Def) {
 	for a in v.actions {
 		delete(a.id)
 		delete(a.label)
+		delete(a.script)
 	}
 	delete(v.actions)
 	v^ = {}
@@ -136,8 +156,18 @@ view_field_kind_parse :: proc(s: string) -> (Field_Kind, bool) {
 		return .Markdown, true
 	case "separator", "hr", "divider":
 		return .Separator, true
+	case "image", "img", "picture":
+		return .Image, true
 	}
 	return .Text, false
+}
+
+view_placement_parse :: proc(s: string) -> View_Placement {
+	switch strings.to_lower(strings.trim_space(s), context.temp_allocator) {
+	case "panel", "side", "pane", "sidebar", "dock":
+		return .Panel
+	}
+	return .Modal
 }
 
 view_sanitize_id :: proc(raw: string, allocator := context.allocator) -> string {
@@ -209,6 +239,22 @@ view_parse :: proc(raw: string, allocator := context.allocator) -> (def: View_De
 
 	def.title = view_clip(title, VIEW_MAX_TITLE, allocator)
 	def.body = view_clip(body, VIEW_MAX_BODY, allocator)
+	place_s := json_string_field(obj, "placement")
+	if len(place_s) == 0 {
+		place_s = json_string_field(obj, "place")
+	}
+	if len(place_s) == 0 {
+		place_s = json_string_field(obj, "target")
+	}
+	def.placement = view_placement_parse(place_s)
+	if json_bool_field(obj, "panel") || json_bool_field(obj, "side") {
+		def.placement = .Panel
+	}
+	img := json_string_field(obj, "image")
+	if len(img) == 0 {
+		img = json_string_field(obj, "banner")
+	}
+	def.image = view_clip(img, VIEW_MAX_IMAGE_PATH, allocator)
 	def.fields = make([dynamic]View_Field, 0, 8, allocator)
 	def.actions = make([dynamic]View_Action, 0, 4, allocator)
 
@@ -259,6 +305,10 @@ view_parse :: proc(raw: string, allocator := context.allocator) -> (def: View_De
 				if len(f.options) > 0 {
 					f.value = strings.clone(f.options[f.sel], allocator)
 				}
+			} else if f.kind == .Image {
+				if len(f.src) == 0 {
+					f.src = strings.clone(f.default, allocator)
+				}
 			} else if f.kind != .Separator && f.kind != .Label && f.kind != .Markdown {
 				f.value = strings.clone(f.default, allocator)
 			}
@@ -286,6 +336,7 @@ view_parse :: proc(raw: string, allocator := context.allocator) -> (def: View_De
 				view_def_destroy(&def)
 				delete(act.id)
 				delete(act.label)
+				delete(act.script)
 				return {}, aerr
 			}
 			append(&def.actions, act)
@@ -358,6 +409,24 @@ view_parse_field :: proc(obj: json.Object, idx: int, allocator := context.alloca
 	f.placeholder = view_clip(json_string_field(obj, "placeholder"), VIEW_MAX_PLACEHOLDER, allocator)
 	f.default = view_clip(json_string_field(obj, "default"), VIEW_MAX_DEFAULT, allocator)
 	f.pattern = view_clip(json_string_field(obj, "pattern"), VIEW_MAX_PLACEHOLDER, allocator)
+	src := json_string_field(obj, "src")
+	if len(src) == 0 {
+		src = json_string_field(obj, "path")
+	}
+	if len(src) == 0 {
+		src = json_string_field(obj, "url")
+	}
+	f.src = view_clip(src, VIEW_MAX_IMAGE_PATH, allocator)
+	if cv, has := obj["cols"]; has {
+		if n, nok := json_number_value(cv); nok {
+			f.cols = int(n)
+		}
+	}
+	if rv, has := obj["rows"]; has {
+		if n, nok := json_number_value(rv); nok {
+			f.rows = int(n)
+		}
+	}
 	f.required = json_bool_field(obj, "required")
 	if mv, has := obj["min"]; has {
 		if n, nok := json_number_value(mv); nok {
@@ -400,6 +469,9 @@ view_parse_field :: proc(obj: json.Object, idx: int, allocator := context.alloca
 	if (kind == .Select || kind == .Radio) && len(f.options) == 0 {
 		return f, fmt.aprintf("fields[%d] (%s) needs options", idx, f.id, allocator = allocator)
 	}
+	if kind == .Image && len(f.src) == 0 && len(f.default) == 0 {
+		return f, fmt.aprintf("fields[%d] (%s) image needs src or default path", idx, f.id, allocator = allocator)
+	}
 	return f, ""
 }
 
@@ -426,6 +498,8 @@ view_parse_action :: proc(obj: json.Object, idx: int, allocator := context.alloc
 		a.kind = .Cancel
 	case "secondary", "alt", "other":
 		a.kind = .Secondary
+	case "script", "run", "exec", "command":
+		a.kind = .Script
 	case "submit", "ok", "primary", "":
 		a.kind = .Submit
 	case:
@@ -441,8 +515,21 @@ view_parse_action :: proc(obj: json.Object, idx: int, allocator := context.alloc
 			a.kind = .Submit
 		}
 	}
+	script := json_string_field(obj, "script")
+	if len(script) == 0 {
+		script = json_string_field(obj, "command")
+	}
+	if len(script) == 0 {
+		script = json_string_field(obj, "run")
+	}
+	a.script = view_clip(strings.trim_space(script), VIEW_MAX_SCRIPT, allocator)
+	if a.kind == .Script && len(a.script) == 0 {
+		return a, fmt.aprintf("actions[%d] script requires script/command", idx, allocator = allocator)
+	}
+	// A submit action with a script field still runs the script first style
+	// is available via explicit type=script.
 	if len(id_raw) == 0 {
-		id_raw = a.kind == .Cancel ? "cancel" : "submit"
+		id_raw = a.kind == .Cancel ? "cancel" : (a.kind == .Script ? "run" : "submit")
 	}
 	a.id = view_sanitize_id(id_raw, allocator)
 	a.label = view_clip(label, VIEW_MAX_LABEL, allocator)
@@ -501,7 +588,7 @@ view_validate :: proc(def: ^View_Def, allocator := context.allocator) -> string 
 	}
 	for f in def.fields {
 		switch f.kind {
-		case .Separator, .Label, .Markdown:
+		case .Separator, .Label, .Markdown, .Image:
 			continue
 		case .Checkbox:
 			// always valid
@@ -547,7 +634,7 @@ view_result_json :: proc(def: ^View_Def, action_id: string, allocator := context
 	first := true
 	for f in def.fields {
 		#partial switch f.kind {
-		case .Separator, .Label, .Markdown:
+		case .Separator, .Label, .Markdown, .Image:
 			continue
 		}
 		if !first {
@@ -613,6 +700,8 @@ view_def_clone :: proc(src: View_Def, allocator := context.allocator) -> View_De
 	out: View_Def
 	out.title = strings.clone(src.title, allocator)
 	out.body = strings.clone(src.body, allocator)
+	out.image = strings.clone(src.image, allocator)
+	out.placement = src.placement
 	out.fields = make([dynamic]View_Field, 0, len(src.fields), allocator)
 	for f in src.fields {
 		nf: View_Field
@@ -630,6 +719,9 @@ view_def_clone :: proc(src: View_Def, allocator := context.allocator) -> View_De
 		nf.value = strings.clone(f.value, allocator)
 		nf.checked = f.checked
 		nf.sel = f.sel
+		nf.src = strings.clone(f.src, allocator)
+		nf.cols = f.cols
+		nf.rows = f.rows
 		nf.options = make([dynamic]string, 0, len(f.options), allocator)
 		for o in f.options {
 			append(&nf.options, strings.clone(o, allocator))
@@ -643,6 +735,7 @@ view_def_clone :: proc(src: View_Def, allocator := context.allocator) -> View_De
 			label = strings.clone(a.label, allocator),
 			kind = a.kind,
 			primary = a.primary,
+			script = strings.clone(a.script, allocator),
 		})
 	}
 	return out
@@ -655,7 +748,7 @@ view_focusable_count :: proc(def: ^View_Def) -> int {
 	n := 0
 	for f in def.fields {
 		#partial switch f.kind {
-		case .Label, .Markdown, .Separator:
+		case .Label, .Markdown, .Separator, .Image:
 		case:
 			n += 1
 		}
@@ -673,7 +766,7 @@ view_focus_resolve :: proc(def: ^View_Def, focus: int) -> (field_i: int, action_
 	idx := 0
 	for f, i in def.fields {
 		#partial switch f.kind {
-		case .Label, .Markdown, .Separator:
+		case .Label, .Markdown, .Separator, .Image:
 			continue
 		case:
 			if idx == focus {

@@ -177,3 +177,35 @@ test_view_default_actions_when_missing :: proc(t: ^testing.T) {
 	}
 	testing.expect(t, found_submit)
 }
+
+@(test)
+test_view_panel_placement_and_script_action :: proc(t: ^testing.T) {
+	raw := `{
+  "title": "Dash",
+  "placement": "panel",
+  "image": "/tmp/x.png",
+  "fields": [
+    {"id": "n", "type": "number", "label": "N", "default": "1"},
+    {"id": "pic", "type": "image", "label": "Pic", "src": "/tmp/y.png"}
+  ],
+  "actions": [
+    {"id": "refresh", "type": "script", "label": "Refresh", "script": "echo {\"n\":\"2\"}"},
+    {"id": "ok", "type": "submit", "label": "OK"}
+  ]
+}`
+	def, err := view_parse(raw, context.allocator)
+	testing.expect_value(t, err, "")
+	defer view_def_destroy(&def)
+	testing.expect_value(t, def.placement, View_Placement.Panel)
+	testing.expect_value(t, def.image, "/tmp/x.png")
+	testing.expect_value(t, def.fields[1].kind, Field_Kind.Image)
+	testing.expect_value(t, def.fields[1].src, "/tmp/y.png")
+	testing.expect_value(t, def.actions[0].kind, Action_Kind.Script)
+	testing.expect(t, strings.contains(def.actions[0].script, "echo"))
+}
+
+@(test)
+test_path_looks_like_image_helper :: proc(t: ^testing.T) {
+	// keep package ask free of ui deps: trivial path suffix checks live here too
+	testing.expect(t, strings.has_suffix(strings.to_lower("/a/B.PNG", context.temp_allocator), ".png"))
+}

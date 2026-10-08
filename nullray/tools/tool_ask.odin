@@ -31,8 +31,8 @@ register_ask_tools :: proc(r: ^Registry) {
 	})
 	registry_register(r, Tool{
 		name = "show_view",
-		description = "Show a custom TUI form modal you design. Pass schema JSON with title, body, fields (text|textarea|number|checkbox|select|radio|password|label|markdown|separator), and optional actions (submit|cancel|secondary). Blocks until the user submits or cancels. Returns JSON {action, values}. Use for multi-input questions, checklists, plans, weather/news cards, math, or any small interactive panel. Prefer this over ask_question when more than one field is needed.",
-		schema_json = `{"type":"object","properties":{"schema":{"type":"string","description":"JSON object: title, body, fields[{id,type,label,required,options,default,min,max,placeholder}], actions[{id,label,type}]"},"title":{"type":"string","description":"shortcut when schema omitted"},"body":{"type":"string"},"fields":{"type":"array","items":{"type":"object"},"description":"array of field objects when not embedding schema"},"timeout_sec":{"type":"string"}},"required":[]}`,
+		description = "Show a custom interactive TUI form you design. schema JSON: title, body, placement (modal|panel), image (banner path), fields (text|textarea|number|checkbox|select|radio|password|label|markdown|separator|image), actions (submit|cancel|secondary|script with script/command). Panel opens in the side code pane for larger UIs. Script actions run a workspace command and can refresh the form. Returns JSON {action, values}. Prefer over ask_question for multi-field UI, checklists, plans, weather/news/math, or dashboards.",
+		schema_json = `{"type":"object","properties":{"schema":{"type":"string","description":"JSON object: title, body, placement, image, fields[{id,type,label,required,options,default,min,max,placeholder,src,cols,rows}], actions[{id,label,type,script}]"},"title":{"type":"string"},"body":{"type":"string"},"placement":{"type":"string","description":"modal (default) or panel"},"image":{"type":"string","description":"optional banner image path"},"fields":{"type":"array","items":{"type":"object"}},"timeout_sec":{"type":"string"}},"required":[]}`,
 		kind = .Read,
 		run = tool_show_view,
 	})
@@ -48,6 +48,8 @@ tool_show_view :: proc(args_json: string, allocator := context.allocator) -> (re
 		// Compose from top-level keys so models can pass structured args.
 		title, _ := json_arg_string_optional(args_json, "title", "View", context.temp_allocator)
 		body, _ := json_arg_string_optional(args_json, "body", "", context.temp_allocator)
+		placement, _ := json_arg_string_optional(args_json, "placement", "", context.temp_allocator)
+		image, _ := json_arg_string_optional(args_json, "image", "", context.temp_allocator)
 		fields_raw := ""
 		if fr, ferr := json_arg_raw_object_slice(args_json, "fields"); ferr == "" {
 			fields_raw = fr
@@ -62,6 +64,14 @@ tool_show_view :: proc(args_json: string, allocator := context.allocator) -> (re
 		write_json_string_tool(&b, title)
 		strings.write_string(&b, `,"body":`)
 		write_json_string_tool(&b, body)
+		if len(placement) > 0 {
+			strings.write_string(&b, `,"placement":`)
+			write_json_string_tool(&b, placement)
+		}
+		if len(image) > 0 {
+			strings.write_string(&b, `,"image":`)
+			write_json_string_tool(&b, image)
+		}
 		if len(fields_raw) > 0 {
 			strings.write_string(&b, `,"fields":`)
 			strings.write_string(&b, fields_raw)

@@ -72,12 +72,17 @@ app_draw_view_pane :: proc(buf: ^ui.Buffer, a: ^App, lay: View_Layout) {
 	// Header
 	if row < y0 + h {
 		base := filepath.base(a.view_path)
-		lines_n := app_view_line_count(a.view_body)
 		focus := ""
 		if a.view_focus {
 			focus = " · focus"
 		}
-		hdr := fmt.tprintf("%s · %d lines%s", base, lines_n, focus)
+		hdr := ""
+		if a.view_is_image {
+			hdr = fmt.tprintf("%s · image%s", base, focus)
+		} else {
+			lines_n := app_view_line_count(a.view_body)
+			hdr = fmt.tprintf("%s · %d lines%s", base, lines_n, focus)
+		}
 		ui.buffer_fill_rect(buf, x0, row, w, 1, ' ', t.title, t.highlight_bg)
 		ui.buffer_text_clip(buf, x0 + 1, row, x0 + w - 1, hdr, t.title, t.highlight_bg, {.Bold})
 		row += 1
@@ -86,10 +91,6 @@ app_draw_view_pane :: proc(buf: ^ui.Buffer, a: ^App, lay: View_Layout) {
 	body_top := row
 	body_bot := y0 + h - 1
 	if body_bot < body_top {
-		return
-	}
-	body_h := body_bot - body_top
-	if body_h <= 0 {
 		return
 	}
 
@@ -101,12 +102,12 @@ app_draw_view_pane :: proc(buf: ^ui.Buffer, a: ^App, lay: View_Layout) {
 		x0 + 1,
 		foot_y,
 		x0 + w - 1,
-		"Tab focus · Left/Right files · Esc close",
+		a.view_is_image ? "image pane · Esc close" : "Tab focus · Left/Right files · Esc close",
 		t.muted,
 		t.status_bg,
 		{.Dim},
 	)
-	body_h = foot_y - body_top
+	body_h := foot_y - body_top
 	if body_h <= 0 {
 		return
 	}
@@ -116,6 +117,31 @@ app_draw_view_pane :: proc(buf: ^ui.Buffer, a: ^App, lay: View_Layout) {
 		ui.buffer_text_clip(buf, x0 + 1, body_top, x0 + w - 1, msg, t.error, code_bg)
 		return
 	}
+
+	// Image pane: reserve cells; Kitty paint happens after present.
+	if a.view_is_image {
+		img_cols, img_rows := ui.kitty_fit_cells(max(4, w - 2), max(2, body_h), w - 2, body_h)
+		a.view_image_cols = img_cols
+		a.view_image_rows = img_rows
+		for yy in 0 ..< img_rows {
+			ui.buffer_fill_rect(buf, x0 + 1, body_top + yy, img_cols, 1, ' ', t.muted, code_bg)
+		}
+		label := fmt.tprintf("[image %s]", filepath.base(a.view_path))
+		ui.buffer_text_clip(buf, x0 + 1, body_top, x0 + w - 1, label, t.muted, code_bg)
+		if !ui.kitty_graphics_enabled() {
+			ui.buffer_text_clip(
+				buf,
+				x0 + 1,
+				min(body_top + 1, foot_y - 1),
+				x0 + w - 1,
+				"set NULLRAY_KITTY_GRAPHICS=1 in kitty/ghostty/wezterm",
+				t.muted,
+				code_bg,
+			)
+		}
+		return
+	}
+
 	if len(a.view_body) == 0 {
 		ui.buffer_text_clip(buf, x0 + 1, body_top, x0 + w - 1, "(empty file)", t.muted, code_bg, {.Dim})
 		return

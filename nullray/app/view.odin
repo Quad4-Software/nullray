@@ -13,6 +13,7 @@ import "nullray:constants"
 import "nullray:sandbox"
 import "nullray:session"
 import "nullray:tools"
+import "nullray:ui"
 
 VIEW_RECENT_MAX :: 16
 VIEW_MIN_PANE :: 22
@@ -76,6 +77,10 @@ app_view_clear_recent :: proc(a: ^App) {
 }
 
 app_view_close :: proc(a: ^App) {
+	if a.view_kitty_id != 0 {
+		ui.kitty_delete_image(a.view_kitty_id)
+		a.view_kitty_id = 0
+	}
 	delete(a.view_path)
 	delete(a.view_body)
 	a.view_path = ""
@@ -84,6 +89,9 @@ app_view_close :: proc(a: ^App) {
 	a.view_focus = false
 	a.view_scroll = 0
 	a.view_err = false
+	a.view_is_image = false
+	a.view_image_cols = 0
+	a.view_image_rows = 0
 	a.view_strip_y = -1
 	clear(&a.view_strip_hits)
 	app_view_clear_recent(a)
@@ -91,10 +99,15 @@ app_view_close :: proc(a: ^App) {
 }
 
 app_view_destroy :: proc(a: ^App) {
+	if a.view_kitty_id != 0 {
+		ui.kitty_delete_image(a.view_kitty_id)
+		a.view_kitty_id = 0
+	}
 	delete(a.view_path)
 	delete(a.view_body)
 	a.view_path = ""
 	a.view_body = ""
+	a.view_is_image = false
 	app_view_clear_recent(a)
 	delete(a.view_strip_hits)
 	a.view_open = false
@@ -174,12 +187,36 @@ app_view_load_body :: proc(a: ^App, abs_path: string) -> bool {
 		app_view_fail(a, abs_path)
 		return false
 	}
+	// Image path: keep pane open and render via Kitty when available.
+	if ui.path_looks_like_image(abs_path) {
+		if a.view_kitty_id != 0 {
+			ui.kitty_delete_image(a.view_kitty_id)
+			a.view_kitty_id = 0
+		}
+		delete(a.view_body)
+		a.view_body = ""
+		delete(a.view_path)
+		a.view_path = strings.clone(abs_path)
+		a.view_err = false
+		a.view_scroll = 0
+		a.view_open = true
+		a.view_is_image = true
+		a.view_kitty_id = ui.kitty_next_id()
+		a.view_image_cols = 0
+		a.view_image_rows = 0
+		return true
+	}
 	data, err := os.read_entire_file(abs_path, context.allocator)
 	if err != nil {
 		session.session_set_status(a.session, "view read failed")
 		app_view_fail(a, abs_path)
 		return false
 	}
+	if a.view_kitty_id != 0 {
+		ui.kitty_delete_image(a.view_kitty_id)
+		a.view_kitty_id = 0
+	}
+	a.view_is_image = false
 	text := string(data)
 	if len(text) > constants.MAX_READ_FILE_CHARS {
 		trimmed := strings.clone(text[:constants.MAX_READ_FILE_CHARS])

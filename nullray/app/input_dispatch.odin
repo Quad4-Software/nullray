@@ -174,6 +174,18 @@ app_handle_default_event :: proc(a: ^App, ev: ui.Event) -> bool {
 		app_insert_text(a, "\n")
 		return true
 	case .Ctrl_V, .Ctrl_Y:
+		// Prefer an image from the clipboard when one is available.
+		if path, mime, iok := ui.clipboard_image_paste_file(); iok {
+			_ = mime
+			app_attach_path(a, path)
+			// Also open the side pane when Kitty graphics can show it.
+			if ui.path_looks_like_image(path) {
+				_ = app_view_open(a, path)
+			}
+			app_toast_ok(a, "pasted image")
+			delete(path)
+			return true
+		}
 		if text, ok := ui.clipboard_paste(); ok {
 			app_insert_text(a, text)
 			delete(text)

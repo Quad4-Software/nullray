@@ -63,6 +63,7 @@ process only, so nothing silently persists a borrowed credential.
 | `NULLRAY_COLOR` | none, 16, 256, true |
 | `NULLRAY_ALT_SCREEN` | Alternate screen buffer |
 | `NULLRAY_MOUSE` | Mouse input |
+| `NULLRAY_KITTY_GRAPHICS` | Force Kitty image graphics on/off (auto detects kitty/ghostty/wezterm) |
 | `NULLRAY_VIEW_AUTO` | Auto-open view pane on writes |
 | `NULLRAY_NOTIFY` | auto, desktop, osc, bell, off |
 | `NULLRAY_BARE` | Skip home MCP and non-workspace skills |

@@ -5,10 +5,12 @@ TUI renderer and input handler for Kind.View custom forms.
 
 package app
 
+import "core:encoding/json"
 import "core:fmt"
 import "core:strings"
 import "core:unicode/utf8"
 import "nullray:ask"
+import "nullray:tools"
 import "nullray:ui"
 
 app_view_form_clear :: proc(a: ^App) {
@@ -66,6 +68,21 @@ app_ask_poll_views :: proc(a: ^App) -> bool {
 				})
 			} else {
 				a.view_form = def
+				// Larger UIs can dock in the side pane like the code viewer.
+				if a.view_form.placement == .Panel {
+					title := a.view_form.title
+					if len(title) == 0 {
+						title = "View"
+					}
+					body := a.view_form.body
+					// Seed pane text; the modal still drives interaction on top.
+					_ = app_view_open_text(a, title, len(body) > 0 ? body : "(interactive panel)")
+					if len(a.view_form.image) > 0 {
+						_ = app_view_open(a, a.view_form.image)
+					}
+				} else if len(a.view_form.image) > 0 {
+					_ = app_view_open(a, a.view_form.image)
+				}
 			}
 			a.view_form_focus = 0
 			a.view_form_scroll = 0
@@ -124,6 +141,10 @@ app_view_form_submit :: proc(a: ^App, action_i: int) {
 		app_mark_dirty(a)
 		return
 	}
+	if act.kind == .Script {
+		app_view_form_run_script(a, act.script)
+		return
+	}
 	if msg := ask.view_validate(&a.view_form, context.allocator); len(msg) > 0 {
 		delete(a.view_form_err)
 		a.view_form_err = msg
@@ -135,6 +156,103 @@ app_view_form_submit :: proc(a: ^App, action_i: int) {
 	delete(payload)
 	app_ask_clear_full(a)
 	app_mark_dirty(a)
+}
+
+// Run a script action: workspace-relative shell with a tight timeout.
+// stdout is shown as the form error/status line so the agent-authored script
+// can feed feedback without leaving the UI.
+app_view_form_run_script :: proc(a: ^App, script: string) {
+	cmd := strings.trim_space(script)
+	if len(cmd) == 0 {
+		delete(a.view_form_err)
+		a.view_form_err = strings.clone("empty script")
+		app_mark_dirty(a)
+		return
+	}
+	// Hard guard: block obvious network/destructive tokens.
+	low := strings.to_lower(cmd, context.temp_allocator)
+	blocked := []string{"curl ", "wget ", "nc ", "ncat ", "rm -rf", "mkfs", "dd if=", ":(){"}
+	for bad in blocked {
+		if strings.contains(low, bad) {
+			delete(a.view_form_err)
+			a.view_form_err = strings.clone("script blocked by safety guard")
+			app_mark_dirty(a)
+			return
+		}
+	}
+	// Prefer sh -c so simple agent scripts work without a full shell tool.
+	out, err := tools.run_capture_argv([]string{"sh", "-c", cmd}, context.temp_allocator)
+	msg := ""
+	if len(err) > 0 {
+		msg = err
+	} else {
+		msg = strings.trim_space(out)
+		if len(msg) == 0 {
+			msg = "ok"
+		}
+	}
+	if len(msg) > ask.VIEW_SCRIPT_MAX_OUTPUT {
+		msg = msg[:ask.VIEW_SCRIPT_MAX_OUTPUT]
+	}
+	// Best-effort: if stdout is JSON object of field id -> value, apply it.
+	if strings.has_prefix(msg, "{") {
+		app_view_form_apply_json_values(a, msg)
+	}
+	delete(a.view_form_err)
+	a.view_form_err = strings.clone(msg)
+	if len(a.view_form_err) > 240 {
+		trimmed := strings.clone(a.view_form_err[:240])
+		delete(a.view_form_err)
+		a.view_form_err = trimmed
+	}
+	app_mark_dirty(a)
+}
+
+app_view_form_apply_json_values :: proc(a: ^App, raw: string) {
+	// Lightweight id:value apply for script feedback. Uses the same parse path
+	// fields expect: set text values and checkbox bools when keys match.
+	doc, perr := json.parse_string(raw, .JSON, allocator = context.temp_allocator)
+	if perr != .None {
+		return
+	}
+	obj, ok := doc.(json.Object)
+	if !ok {
+		return
+	}
+	for &f in a.view_form.fields {
+		v, has := obj[f.id]
+		if !has {
+			continue
+		}
+		#partial switch f.kind {
+		case .Checkbox:
+			if b, bok := v.(json.Boolean); bok {
+				f.checked = bool(b)
+			}
+		case .Text, .Textarea, .Number, .Password:
+			s := ""
+			if js, jok := v.(json.String); jok {
+				s = string(js)
+			} else if n, nok := ask.json_number_value(v); nok {
+				s = fmt.tprintf("%v", n)
+			}
+			delete(f.value)
+			f.value = strings.clone(s)
+		case .Select, .Radio:
+			s := ""
+			if js, jok := v.(json.String); jok {
+				s = string(js)
+			}
+			for o, oi in f.options {
+				if o == s {
+					f.sel = oi
+					delete(f.value)
+					f.value = strings.clone(o)
+					break
+				}
+			}
+		}
+	}
 }
 
 app_view_form_on_event :: proc(a: ^App, ev: ui.Event) -> bool {
@@ -356,6 +474,15 @@ app_draw_view_form_modal :: proc(buf: ^ui.Buffer, a: ^App) {
 			ui.buffer_hline(buf, x + 2, row, inner_w, '─', t.border, t.bg)
 			row += 1
 			continue
+		case .Image:
+			src := f.src
+			if len(src) == 0 {
+				src = f.default
+			}
+			line := fmt.tprintf("  [img] %s", len(src) > 0 ? src : f.label)
+			ui.buffer_text_clip(buf, x + 2, row, x + w - 2, line, t.muted, t.bg)
+			row += 1
+			continue
 		case .Label, .Markdown:
 			lines := ui.word_wrap_lines(f.label, inner_w, context.temp_allocator)
 			if len(f.value) > 0 {
@@ -386,7 +513,7 @@ app_draw_view_form_modal :: proc(buf: ^ui.Buffer, a: ^App) {
 		mark := is_focus ? "> " : "  "
 		fg := is_focus ? t.accent : t.fg
 		line := ""
-		switch f.kind {
+		#partial switch f.kind {
 		case .Checkbox:
 			box := f.checked ? "[x]" : "[ ]"
 			line = fmt.tprintf("%s%s %s", mark, box, label)
@@ -408,6 +535,12 @@ app_draw_view_form_modal :: proc(buf: ^ui.Buffer, a: ^App) {
 			}
 			suffix := is_focus ? "_" : ""
 			line = fmt.tprintf("%s%s: %s%s", mark, label, shown, suffix)
+		case .Image:
+			src := f.src
+			if len(src) == 0 {
+				src = f.default
+			}
+			line = fmt.tprintf("%s[img] %s", mark, len(src) > 0 ? src : label)
 		case .Label, .Markdown, .Separator:
 			line = fmt.tprintf("%s%s", mark, label)
 		}
