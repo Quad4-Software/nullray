@@ -179,6 +179,24 @@ test_view_default_actions_when_missing :: proc(t: ^testing.T) {
 }
 
 @(test)
+test_view_password_vaulted_not_in_result :: proc(t: ^testing.T) {
+	raw := `{"fields":[{"id":"token","type":"password","default":"super-secret-value"},{"id":"name","type":"text","default":"dev"}]}`
+	def, err := view_parse(raw, context.allocator)
+	testing.expect_value(t, err, "")
+	defer view_def_destroy(&def)
+	out := view_result_json(&def, "submit", context.allocator)
+	defer delete(out)
+	testing.expect(t, strings.contains(out, `"token":"[redacted]"`))
+	testing.expect(t, !strings.contains(out, "super-secret-value"))
+	testing.expect(t, strings.contains(out, `"name":"dev"`))
+	testing.expect(t, secret_has("view.token"))
+	v := secret_get("view.token")
+	testing.expect_value(t, v, "super-secret-value")
+	delete(v)
+	_ = secret_forget("view.token")
+}
+
+@(test)
 test_view_modal_size_and_colors :: proc(t: ^testing.T) {
 	raw := `{
   "title": "Big",

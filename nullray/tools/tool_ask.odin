@@ -31,7 +31,7 @@ register_ask_tools :: proc(r: ^Registry) {
 	})
 	registry_register(r, Tool{
 		name = "show_view",
-		description = "Show a custom interactive TUI form. schema: title, body, width, height, fg/bg/accent/border colors (#hex or names), emoji bool, placement modal|panel, image, fields, actions (submit|cancel|secondary|script). Panel docks in the side pane. Returns JSON {action,values}. Disabled when NULLRAY_UI_MALLEABLE=0.",
+		description = "Show a custom interactive TUI form. schema: title, body, width, height, fg/bg/accent/border colors (#hex or names), emoji bool, placement modal|panel, image, fields, actions (submit|cancel|secondary|script). Password fields vault server-side and return [redacted]. Prefer ask_secret for API keys. Panel docks in the side pane. Returns JSON {action,values}. Disabled when NULLRAY_UI_MALLEABLE=0.",
 		schema_json = `{"type":"object","properties":{"schema":{"type":"string"},"title":{"type":"string"},"body":{"type":"string"},"width":{"type":"string"},"height":{"type":"string"},"fg":{"type":"string"},"bg":{"type":"string"},"accent":{"type":"string"},"placement":{"type":"string"},"image":{"type":"string"},"emoji":{"type":"string"},"fields":{"type":"array","items":{"type":"object"}},"timeout_sec":{"type":"string"}},"required":[]}`,
 		kind = .Read,
 		run = tool_show_view,

@@ -108,10 +108,16 @@ redact_secret_tokens :: proc(text: string, allocator := context.allocator) -> st
 		if matched {
 			continue
 		}
-		// Standalone token prefixes: sk-, ghp_, github_pat_, xoxb-, xoxp-
+		// Standalone token prefixes: sk-, ghp_, github_pat_, xoxb-, xoxp-, oc_sk_
 		if secret_token_at(text, i) {
 			strings.write_string(&b, REDACTED_SECRET)
 			i = secret_token_end(text, i)
+			continue
+		}
+		// Payment card digit runs (13-19). Prefer scrub over storing PAN shapes.
+		if pan_at(text, i) {
+			strings.write_string(&b, REDACTED_SECRET)
+			i = pan_end(text, i)
 			continue
 		}
 		// Proxy URLs with userinfo
@@ -146,7 +152,7 @@ is_secret_value_end :: proc(c: u8) -> bool {
 @(private)
 secret_token_at :: proc(text: string, i: int) -> bool {
 	rest := text[i:]
-	prefixes := []string{"sk-", "ghp_", "github_pat_", "xoxb-", "xoxp-", "gho_", "ghu_", "ghs_"}
+	prefixes := []string{"sk-", "ghp_", "github_pat_", "xoxb-", "xoxp-", "gho_", "ghu_", "ghs_", "oc_sk_"}
 	for p in prefixes {
 		if has_prefix_fold(rest, p) {
 			if i > 0 {
@@ -159,6 +165,61 @@ secret_token_at :: proc(text: string, i: int) -> bool {
 		}
 	}
 	return false
+}
+
+@(private)
+pan_at :: proc(text: string, i: int) -> bool {
+	if i > 0 {
+		prev := text[i - 1]
+		if unicode.is_digit(rune(prev)) {
+			return false
+		}
+	}
+	n := 0
+	j := i
+	for j < len(text) {
+		c := text[j]
+		if unicode.is_digit(rune(c)) {
+			n += 1
+			j += 1
+			continue
+		}
+		if (c == ' ' || c == '-') && n > 0 {
+			j += 1
+			continue
+		}
+		break
+	}
+	if n < 13 || n > 19 {
+		return false
+	}
+	if j < len(text) && unicode.is_digit(rune(text[j])) {
+		return false
+	}
+	return true
+}
+
+@(private)
+pan_end :: proc(text: string, start: int) -> int {
+	n := 0
+	j := start
+	for j < len(text) {
+		c := text[j]
+		if unicode.is_digit(rune(c)) {
+			n += 1
+			j += 1
+			if n >= 19 {
+				// keep consuming only pure digits/separators until boundary
+			}
+			continue
+		}
+		if (c == ' ' || c == '-') && n > 0 && n < 19 {
+			j += 1
+			continue
+		}
+		break
+	}
+	return j
 }
 
 @(private)

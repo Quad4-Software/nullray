@@ -13,10 +13,19 @@ secrets differently from that stream.
   `OPENAI_API_KEY` even though the provider still works.
 - Passwords on the elevate path go through askpass and never reach a
   tool result or a provider message.
+- `ask_secret` stores values in an in-process vault and returns only the
+  name. `show_view` password fields vault under `view.<id>` and return
+  `[redacted]` so values do not enter tool results or transcripts.
+- Session push (user/assistant/tool) runs the same secret redaction before
+  msgpack/jsonl persist: key prefixes, password= markers, and card-shaped
+  digit runs become `[redacted]`.
 - `NULLRAY_SECRETS_ALLOW` or `/secrets PATH` is the explicit escape
   hatch for paths the agent legitimately needs, like a kubeconfig.
 - `--hide-sensitive` or `NULLRAY_HIDE_SENSITIVE` blanks balances and
   credit labels in the UI.
+- Plain chat still is not a vault: unstructured addresses or free text
+  PII may remain unless they match a scrub pattern. Prefer ephemeral
+  sessions or `/delete` after sensitive one-offs.
 
 ## Foreign config adoption
 

@@ -6,9 +6,16 @@ import "core:strings"
 import "nullray:agent"
 import "nullray:constants"
 import "nullray:provider"
+import "nullray:sandbox"
 
 session_push_user :: proc(s: ^Session, text: string) {
 	session_push_user_media(s, text, nil)
+}
+
+// Persist-safe clone: scrub secret-shaped tokens before they hit msgpack.
+@(private)
+session_safe_text :: proc(text: string) -> string {
+	return sandbox.redact_secrets(text, context.allocator)
 }
 
 /*
@@ -37,15 +44,17 @@ session_push_user_media :: proc(s: ^Session, text: string, media: []provider.Med
 		}
 		body = strings.to_string(b)
 	}
-	msg := provider.Message{role = .User, content = strings.clone(body)}
+	// Scrub before owning the content so disk transcripts stay privacy-safe.
+	safe := session_safe_text(body)
+	if len(media) > 0 {
+		delete(body)
+	}
+	msg := provider.Message{role = .User, content = safe}
 	if len(media) > 0 {
 		msg.media = make([]provider.Media_Part, len(media))
 		for mp, i in media {
 			msg.media[i] = provider.clone_media_part(mp)
 		}
-	}
-	if len(media) > 0 {
-		delete(body)
 	}
 	append(&s.messages, msg)
 	session_maybe_persist(s)
@@ -55,8 +64,8 @@ session_push_assistant :: proc(s: ^Session, text: string, reasoning := "") {
 	cap_messages(s)
 	append(&s.messages, provider.Message{
 		role = .Assistant,
-		content = strings.clone(text),
-		reasoning = strings.clone(reasoning),
+		content = session_safe_text(text),
+		reasoning = session_safe_text(reasoning),
 	})
 	session_maybe_persist(s)
 }
@@ -98,7 +107,7 @@ session_push_tool :: proc(s: ^Session, name, text: string) {
 	cap_messages(s)
 	append(&s.messages, provider.Message{
 		role = .Tool,
-		content = strings.clone(text),
+		content = session_safe_text(text),
 		name = strings.clone(name),
 	})
 	session_maybe_persist(s)

@@ -67,6 +67,12 @@ SECRET_VALUE_MARKERS :: []string{
 	"access_token=",
 	"refresh_token=",
 	"authorization: bearer ",
+	"card_number=",
+	"credit_card=",
+	"cc_number=",
+	"cvv=",
+	"ssn=",
+	"social_security=",
 }
 
 value_looks_secret :: proc(value: string) -> bool {

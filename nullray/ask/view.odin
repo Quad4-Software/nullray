@@ -673,6 +673,11 @@ view_validate :: proc(def: ^View_Def, allocator := context.allocator) -> string 
 }
 
 // Build the JSON payload returned to the model after submit.
+// Password fields are vaulted under view.<id> and never leave as plain
+// values. The model only sees [redacted] (same marker as outbound scrub).
+VIEW_PASSWORD_REDACTED :: "[redacted]"
+VIEW_PASSWORD_VAULT_PREFIX :: "view."
+
 view_result_json :: proc(def: ^View_Def, action_id: string, allocator := context.allocator) -> string {
 	b: strings.Builder
 	strings.builder_init(&b, allocator)
@@ -709,6 +714,13 @@ view_result_json :: proc(def: ^View_Def, action_id: string, allocator := context
 			} else {
 				view_write_json_string(&b, f.value)
 			}
+		case .Password:
+			// Store the real value in the process vault; return a scrub marker.
+			if len(strings.trim_space(f.value)) > 0 && len(f.id) > 0 {
+				vault_name := strings.concatenate({VIEW_PASSWORD_VAULT_PREFIX, f.id}, context.temp_allocator)
+				secret_put(vault_name, f.value)
+			}
+			view_write_json_string(&b, VIEW_PASSWORD_REDACTED)
 		case:
 			view_write_json_string(&b, f.value)
 		}

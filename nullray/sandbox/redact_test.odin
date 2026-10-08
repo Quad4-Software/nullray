@@ -75,6 +75,22 @@ test_redact_macos_windows_paths_current :: proc(t: ^testing.T) {
 }
 
 @(test)
+test_redact_pan_and_key_prefixes :: proc(t: ^testing.T) {
+	had_r, prev_r := test_env_set(constants.ENV_PRIVACY_REDACT, "1")
+	defer test_env_restore(constants.ENV_PRIVACY_REDACT, had_r, prev_r)
+	out := redact_secrets("card 4111111111111111 key sk-abcDEF123456 and oc_sk_zz")
+	defer delete(out)
+	testing.expect(t, !strings.contains(out, "4111111111111111"))
+	testing.expect(t, !strings.contains(out, "sk-abcDEF123456"))
+	testing.expect(t, !strings.contains(out, "oc_sk_zz"))
+	testing.expect(t, strings.contains(out, REDACTED_SECRET))
+	out2 := redact_secrets("password=hunter2 cvv=123 ssn=123-45-6789")
+	defer delete(out2)
+	testing.expect(t, !strings.contains(out2, "hunter2"))
+	testing.expect(t, strings.contains(out2, "password="))
+}
+
+@(test)
 test_redact_empty_passthrough :: proc(t: ^testing.T) {
 	had_r, prev_r := test_env_set(constants.ENV_PRIVACY_REDACT, "1")
 	defer test_env_restore(constants.ENV_PRIVACY_REDACT, had_r, prev_r)
