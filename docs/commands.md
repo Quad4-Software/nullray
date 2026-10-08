@@ -101,6 +101,10 @@ this list in-app.
 | `/reset` | Wipe sessions and config (needs confirm) |
 | `/help` or `/?` | Command list |
 
+Agent tools for interactive UI (not slash commands): `ask_question`,
+`ask_secret`, and `show_view` (declarative multi-field TUI form with text,
+checkbox, select, and more).
+
 ## Custom commands
 
 Markdown files in `.nullray/commands/` (and config `commands/`) become

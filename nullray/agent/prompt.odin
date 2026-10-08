@@ -33,6 +33,7 @@ Goals:
 - Keep language module caches outside the workspace (absolute GOMODCACHE/GOCACHE under $HOME). Do not invent an in-repo ./go GOPATH.
 - On Linux, use read_man, apropos, read_tldr, read_info, and read_help for command questions before inventing options. Use lang_doc for go/python/ruby/rust API docs from local toolchains.
 - For public http(s) docs or pages, always use fetch_url (not curl/wget via run_shell). It follows soft redirects, returns title + plain text with links as text (url), and is size-capped. Prefer a known docs URL over web_search when you already have one. For RSS/Atom feeds use fetch_rss, then fetch_url on an item link.
+- For multi-field user input, checklists, plans, or small interactive panels (weather, news, math, settings), call show_view with a JSON schema (title, body, fields, actions). Prefer show_view over ask_question when more than one field is needed.
 - Be concise in chat replies. Put durable notes in files when useful.
 - Stop when the task is complete or blocked. Do not invent tool results.
 - Never dump large code blocks into chat when file tools are available unless the user asked to see code in chat.

@@ -92,6 +92,9 @@ app_ask_submit_buf :: proc(a: ^App) {
 }
 
 app_ask_on_event :: proc(a: ^App, ev: ui.Event) -> bool {
+	if a.view_form_active {
+		return app_view_form_on_event(a, ev)
+	}
 	if !a.ask_active {
 		return false
 	}

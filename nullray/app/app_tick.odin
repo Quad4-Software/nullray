@@ -31,7 +31,7 @@ app_refresh_banner :: proc(a: ^App) {
 
 app_is_dirty :: proc(user: rawptr) -> bool {
 	a := cast(^App)user
-	return a.dirty || splash_active(a) || a.show_setup || a.elevate_active || a.ask_active || a.show_status || len(a.toasts) > 0 || a.sel_dragging
+	return a.dirty || splash_active(a) || a.show_setup || a.elevate_active || a.ask_active || a.view_form_active || a.show_status || len(a.toasts) > 0 || a.sel_dragging
 }
 
 
@@ -41,7 +41,8 @@ app_on_tick :: proc(user: rawptr) -> bool {
 	if app_elevate_poll(a) {
 		changed = true
 	}
-	if app_ask_poll(a) {
+	// Unified poll covers classic ask_question and show_view forms.
+	if app_ask_poll_views(a) {
 		changed = true
 	}
 	if app_toasts_expire(a) {

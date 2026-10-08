@@ -9,6 +9,9 @@ Notable changes for nullray.
   (`NULLRAY_AGENT_STEPS`). `/status` shows the active `agent_steps` budget.
 - llama.cpp adopts the loaded GGUF name from `/v1/models`, probes ports 8080,
   8081, and 9931, and sends `n_ctx` from `/props` or the model profile on chat.
+- `show_view` agent tool: LLM-designed TUI form modals with text, textarea,
+  number, checkbox, select, radio, password, label, markdown, and separator
+  fields, validated submit/cancel actions, and JSON `{action, values}` answers.
 
 ## [0.8.0] - 2026-10-08
 

@@ -230,7 +230,11 @@ app_draw :: proc(buf: ^ui.Buffer, user: rawptr) {
 	app_apply_selection_style(buf, a)
 	app_draw_toasts(buf, a, c)
 	app_draw_elevate_modal(buf, a)
-	app_draw_ask_modal(buf, a)
+	if a.view_form_active {
+		app_draw_view_form_modal(buf, a)
+	} else {
+		app_draw_ask_modal(buf, a)
+	}
 
 	a.dirty = false
 }

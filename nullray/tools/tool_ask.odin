@@ -17,7 +17,7 @@ ASK_UNAVAILABLE :: "interactive prompt unavailable (no UI channel); proceed with
 register_ask_tools :: proc(r: ^Registry) {
 	registry_register(r, Tool{
 		name = "ask_question",
-		description = "Ask the user a question and wait for an answer. options makes it a multiple choice (allow_other=true adds a custom answer), confirm=true makes it yes/no",
+		description = "Ask the user a question and wait for an answer. options makes it a multiple choice (allow_other=true adds a custom answer), confirm=true makes it yes/no. For multi-field forms use show_view.",
 		schema_json = `{"type":"object","properties":{"question":{"type":"string"},"options":{"type":"array","items":{"type":"string"}},"allow_other":{"type":"string","description":"true or false (default true)"},"confirm":{"type":"string","description":"true for a yes/no prompt"},"timeout_sec":{"type":"string"}},"required":["question"]}`,
 		kind = .Read,
 		run = tool_ask_question,
@@ -29,6 +29,165 @@ register_ask_tools :: proc(r: ^Registry) {
 		kind = .Read,
 		run = tool_ask_secret,
 	})
+	registry_register(r, Tool{
+		name = "show_view",
+		description = "Show a custom TUI form modal you design. Pass schema JSON with title, body, fields (text|textarea|number|checkbox|select|radio|password|label|markdown|separator), and optional actions (submit|cancel|secondary). Blocks until the user submits or cancels. Returns JSON {action, values}. Use for multi-input questions, checklists, plans, weather/news cards, math, or any small interactive panel. Prefer this over ask_question when more than one field is needed.",
+		schema_json = `{"type":"object","properties":{"schema":{"type":"string","description":"JSON object: title, body, fields[{id,type,label,required,options,default,min,max,placeholder}], actions[{id,label,type}]"},"title":{"type":"string","description":"shortcut when schema omitted"},"body":{"type":"string"},"fields":{"type":"array","items":{"type":"object"},"description":"array of field objects when not embedding schema"},"timeout_sec":{"type":"string"}},"required":[]}`,
+		kind = .Read,
+		run = tool_show_view,
+	})
+}
+
+tool_show_view :: proc(args_json: string, allocator := context.allocator) -> (result: string, err: string) {
+	// Prefer a full schema string; otherwise build one from title/body/fields.
+	schema_s, _ := json_arg_string_optional(args_json, "schema", "", allocator)
+	defer delete(schema_s)
+	src := strings.trim_space(schema_s)
+	built := false
+	if len(src) == 0 {
+		// Compose from top-level keys so models can pass structured args.
+		title, _ := json_arg_string_optional(args_json, "title", "View", context.temp_allocator)
+		body, _ := json_arg_string_optional(args_json, "body", "", context.temp_allocator)
+		fields_raw := ""
+		if fr, ferr := json_arg_raw_object_slice(args_json, "fields"); ferr == "" {
+			fields_raw = fr
+		}
+		actions_raw := ""
+		if ar, aerr := json_arg_raw_object_slice(args_json, "actions"); aerr == "" {
+			actions_raw = ar
+		}
+		b: strings.Builder
+		strings.builder_init(&b, context.temp_allocator)
+		strings.write_string(&b, `{"title":`)
+		write_json_string_tool(&b, title)
+		strings.write_string(&b, `,"body":`)
+		write_json_string_tool(&b, body)
+		if len(fields_raw) > 0 {
+			strings.write_string(&b, `,"fields":`)
+			strings.write_string(&b, fields_raw)
+		}
+		if len(actions_raw) > 0 {
+			strings.write_string(&b, `,"actions":`)
+			strings.write_string(&b, actions_raw)
+		}
+		strings.write_byte(&b, '}')
+		src = strings.to_string(b)
+		built = true
+	}
+	def, perr := ask.view_parse(src, context.temp_allocator)
+	if perr != "" {
+		return "", perr
+	}
+	// Re-encode a cleaned schema so the UI and model share the same shape.
+	// view_parse already applied caps and defaults.
+	timeout, _ := json_arg_int_optional(args_json, "timeout_sec", ask.VIEW_DEFAULT_TIMEOUT_SEC, allocator)
+	if timeout <= 0 {
+		timeout = ask.VIEW_DEFAULT_TIMEOUT_SEC
+	}
+	if timeout > 3600 {
+		timeout = 3600
+	}
+	prompt := def.title
+	if len(prompt) == 0 {
+		prompt = "View"
+	}
+	// Pass the original (or built) JSON as the view payload.
+	answer, ok, cancelled := ask.request_ex(.View, prompt, nil, false, src, i64(timeout), allocator)
+	_ = built
+	_ = def
+	if cancelled {
+		return strings.clone(`{"action":"cancel","values":{},"status":"cancelled"}`, allocator), ""
+	}
+	if !ok {
+		return "", strings.clone(ASK_UNAVAILABLE, allocator)
+	}
+	// answer is already JSON from the TUI; wrap a soft status if bare.
+	if len(strings.trim_space(answer)) == 0 {
+		delete(answer)
+		return strings.clone(`{"action":"submit","values":{}}`, allocator), ""
+	}
+	return answer, ""
+}
+
+// Pull a raw JSON array substring for key from args (best-effort).
+@(private)
+json_arg_raw_object_slice :: proc(args_json, key: string) -> (string, string) {
+	needle := fmt.tprintf(`"%s"`, key)
+	idx := strings.index(args_json, needle)
+	if idx < 0 {
+		return "", "missing"
+	}
+	rest := args_json[idx + len(needle):]
+	// skip whitespace and colon
+	i := 0
+	for i < len(rest) && (rest[i] == ' ' || rest[i] == '\t' || rest[i] == '\n' || rest[i] == '\r') {
+		i += 1
+	}
+	if i >= len(rest) || rest[i] != ':' {
+		return "", "missing"
+	}
+	i += 1
+	for i < len(rest) && (rest[i] == ' ' || rest[i] == '\t' || rest[i] == '\n' || rest[i] == '\r') {
+		i += 1
+	}
+	if i >= len(rest) || rest[i] != '[' {
+		return "", "not array"
+	}
+	depth := 0
+	start := i
+	in_str := false
+	esc := false
+	for i < len(rest) {
+		c := rest[i]
+		if in_str {
+			if esc {
+				esc = false
+			} else if c == '\\' {
+				esc = true
+			} else if c == '"' {
+				in_str = false
+			}
+			i += 1
+			continue
+		}
+		if c == '"' {
+			in_str = true
+			i += 1
+			continue
+		}
+		if c == '[' {
+			depth += 1
+		} else if c == ']' {
+			depth -= 1
+			if depth == 0 {
+				return rest[start:i + 1], ""
+			}
+		}
+		i += 1
+	}
+	return "", "unclosed"
+}
+
+@(private)
+write_json_string_tool :: proc(b: ^strings.Builder, s: string) {
+	strings.write_byte(b, '"')
+	for i := 0; i < len(s); i += 1 {
+		c := s[i]
+		switch c {
+		case '"', '\\':
+			strings.write_byte(b, '\\')
+			strings.write_byte(b, c)
+		case '\n':
+			strings.write_string(b, `\n`)
+		case '\r':
+			strings.write_string(b, `\r`)
+		case '\t':
+			strings.write_string(b, `\t`)
+		case:
+			strings.write_byte(b, c)
+		}
+	}
+	strings.write_byte(b, '"')
 }
 
 tool_ask_question :: proc(args_json: string, allocator := context.allocator) -> (result: string, err: string) {

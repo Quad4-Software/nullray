@@ -138,6 +138,12 @@ App :: struct {
 	ask_sel:            int,
 	ask_buf:            string,
 	ask_editing:        bool,
+	// Custom show_view form modal (Kind.View).
+	view_form_active:   bool,
+	view_form:          ask.View_Def,
+	view_form_focus:    int,
+	view_form_err:      string,
+	view_form_scroll:   int,
 	input_scroll_col:   int,
 	view_auto:          bool,
 	show_status:        bool,

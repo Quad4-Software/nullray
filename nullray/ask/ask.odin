@@ -17,6 +17,7 @@ Kind :: enum {
 	Secret,
 	Choice,
 	Confirm,
+	View, // declarative multi-field form (show_view tool)
 }
 
 Challenge :: struct {
@@ -26,6 +27,8 @@ Challenge :: struct {
 	options:   [dynamic]string,
 	free_form: bool,
 	active:    bool,
+	// Owned view schema JSON when kind == .View (cloned at request time).
+	view_json: string,
 }
 
 challenge_destroy :: proc(c: ^Challenge) {
@@ -34,6 +37,7 @@ challenge_destroy :: proc(c: ^Challenge) {
 		delete(o)
 	}
 	delete(c.options)
+	delete(c.view_json)
 	c^ = {}
 }
 
@@ -104,11 +108,32 @@ request :: proc(
 	ok: bool,
 	cancelled: bool,
 ) {
+	return request_ex(kind, prompt, options, free_form, "", timeout_sec, allocator)
+}
+
+// request_ex allows an optional view_json payload for Kind.View challenges.
+request_ex :: proc(
+	kind: Kind,
+	prompt: string,
+	options: []string = nil,
+	free_form := false,
+	view_json: string = "",
+	timeout_sec: i64 = 600,
+	allocator := context.allocator,
+) -> (
+	answer: string,
+	ok: bool,
+	cancelled: bool,
+) {
 	sync.mutex_lock(&g_ask.mu)
 	resp := g_ask.responder
 	resp_user := g_ask.responder_user
 	sync.mutex_unlock(&g_ask.mu)
 	if resp != nil {
+		// View payloads are only served by the native TUI channel for now.
+		if kind == .View {
+			return "", false, false
+		}
 		return resp(kind, prompt, options, resp_user, allocator)
 	}
 
@@ -126,6 +151,7 @@ request :: proc(
 		prompt = strings.clone(prompt),
 		free_form = free_form,
 		active = true,
+		view_json = strings.clone(view_json),
 	}
 	g_ask.challenge.options = make([dynamic]string)
 	for o in options {
@@ -179,10 +205,25 @@ challenge_pending :: proc(
 	options: []string,
 	free_form: bool,
 ) {
+	active, id, kind, prompt, options, free_form, _ = challenge_pending_ex(allocator)
+	return
+}
+
+challenge_pending_ex :: proc(
+	allocator := context.allocator,
+) -> (
+	active: bool,
+	id: u64,
+	kind: Kind,
+	prompt: string,
+	options: []string,
+	free_form: bool,
+	view_json: string,
+) {
 	sync.mutex_lock(&g_ask.mu)
 	defer sync.mutex_unlock(&g_ask.mu)
 	if !g_ask.challenge.active {
-		return false, 0, .Text, "", nil, false
+		return false, 0, .Text, "", nil, false, ""
 	}
 	opts := make([]string, len(g_ask.challenge.options), allocator)
 	for o, i in g_ask.challenge.options {
@@ -193,7 +234,8 @@ challenge_pending :: proc(
 		g_ask.challenge.kind,
 		strings.clone(g_ask.challenge.prompt, allocator),
 		opts,
-		g_ask.challenge.free_form
+		g_ask.challenge.free_form,
+		strings.clone(g_ask.challenge.view_json, allocator)
 }
 
 fulfill :: proc(id: u64, answer: string) -> bool {
