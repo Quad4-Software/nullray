@@ -112,9 +112,13 @@ slash_cmd_tab :: proc(a: ^App, args: string) {
 	if len(rest) == 0 || rest == "list" {
 		names := make([dynamic]string, context.temp_allocator)
 		for t, i in a.tabs {
+			mark := " "
+			if i == a.active_tab {
+				mark = "*"
+			}
 			append(
 				&names,
-				fmt.tprintf("%d:%s%s", i + 1, t.sess.name, t.sess.busy ? " (busy)" : ""),
+				fmt.tprintf("%s%d:%s%s", mark, i + 1, t.sess.name, t.sess.busy ? " (busy)" : ""),
 			)
 		}
 		session.session_set_status(
@@ -145,15 +149,66 @@ slash_cmd_tab :: proc(a: ^App, args: string) {
 			app_tab_open_named(a, rest[idx:])
 			return
 		}
+		if strings.has_prefix(rest, "close ") {
+			target := strings.trim_space(rest[len("close "):])
+			if idx, ok := app_tab_resolve(a, target); ok {
+				app_tab_close(a, idx)
+			} else {
+				session.session_set_status(a.session, fmt.tprintf("no open tab matching %s", target))
+			}
+			return
+		}
 		if n, ok := strconv.parse_int(rest); ok {
 			app_tab_goto(a, n - 1)
 			return
 		}
+		// Bare name jumps to that open tab when unique.
+		if idx, ok := app_tab_resolve(a, rest); ok {
+			app_tab_goto(a, idx)
+			return
+		}
 		session.session_set_status(
 			a.session,
-			"usage: /tab list|new [name]|open name|next|prev|close|N",
+			"usage: /tab list|new [name]|open name|next|prev|close [name|N]|N",
 		)
 	}
+}
+
+// Resolve an open tab by 1-based index, exact name, or unique prefix.
+app_tab_resolve :: proc(a: ^App, token: string) -> (idx: int, ok: bool) {
+	tok := strings.trim_space(token)
+	if len(tok) == 0 {
+		return -1, false
+	}
+	if n, nok := strconv.parse_int(tok); nok {
+		i := n - 1
+		if i >= 0 && i < len(a.tabs) {
+			return i, true
+		}
+		return -1, false
+	}
+	safe := store.sanitize_name(tok)
+	// Exact match first.
+	for t, i in a.tabs {
+		if t.sess.name == safe || t.sess.name == tok {
+			return i, true
+		}
+	}
+	// Unique prefix (case-insensitive).
+	low := strings.to_lower(safe, context.temp_allocator)
+	found := -1
+	count := 0
+	for t, i in a.tabs {
+		name_l := strings.to_lower(t.sess.name, context.temp_allocator)
+		if strings.has_prefix(name_l, low) {
+			count += 1
+			found = i
+		}
+	}
+	if count == 1 {
+		return found, true
+	}
+	return -1, false
 }
 
 slash_cmd_fork :: proc(a: ^App, args: string) {
@@ -178,15 +233,51 @@ slash_cmd_fork :: proc(a: ^App, args: string) {
 }
 
 slash_cmd_delete :: proc(a: ^App, args: string) {
-	name := strings.trim_space(args)
-	if len(name) == 0 {
-		session.session_set_status(a.session, "usage: /delete name")
+	rest := strings.trim_space(args)
+	// Bare /delete (or "current" / ".") removes the active session after
+	// closing its tab when needed.
+	if len(rest) == 0 || rest == "." || rest == "current" || rest == "this" {
+		app_delete_current_session(a)
 		return
 	}
-	safe := store.sanitize_name(name)
+	// /delete tab [name] closes (and optionally deletes) an open tab's
+	// session files after the tab is gone.
+	if rest == "tab" || strings.has_prefix(rest, "tab ") {
+		target := ""
+		if strings.has_prefix(rest, "tab ") {
+			target = strings.trim_space(rest[len("tab "):])
+		}
+		app_delete_tab_session(a, target)
+		return
+	}
+	safe := store.sanitize_name(rest)
+	// If the session is open in a tab, close that tab first then delete.
+	for t, i in a.tabs {
+		if t.sess.name == safe {
+			if t.sess.busy {
+				session.session_set_status(a.session, "session is busy · /stop it first")
+				return
+			}
+			// Last tab: switch to a fresh empty tab first so we can close it.
+			if len(a.tabs) <= 1 {
+				app_tab_new(a, "")
+				// The old tab is now index 0 if new went after, find by name.
+				for tt, j in a.tabs {
+					if tt.sess.name == safe {
+						app_tab_close(a, j)
+						break
+					}
+				}
+			} else {
+				app_tab_close(a, i)
+			}
+			break
+		}
+	}
+	// Re-check it is not still open (busy stop may have left it).
 	for t in a.tabs {
 		if t.sess.name == safe {
-			session.session_set_status(a.session, "session is open in a tab · close it first")
+			session.session_set_status(a.session, "session still open · close the tab first")
 			return
 		}
 	}
@@ -196,6 +287,102 @@ slash_cmd_delete :: proc(a: ^App, args: string) {
 		return
 	}
 	session.session_set_status(a.session, fmt.tprintf("deleted %s", safe))
+	app_tabs_persist(a)
+}
+
+// Close the current tab (when more than one is open) and delete its
+// session files. With a single tab, create a fresh sibling first.
+app_delete_current_session :: proc(a: ^App) {
+	if a.session == nil {
+		return
+	}
+	name := a.session.name
+	if len(name) == 0 {
+		session.session_set_status(a.session, "current session has no name on disk")
+		return
+	}
+	if a.session.busy {
+		session.session_set_status(a.session, "session is busy · /stop it first")
+		return
+	}
+	safe := store.sanitize_name(name)
+	// Ensure we will not land on a destroyed last tab.
+	if len(a.tabs) <= 1 {
+		app_tab_new(a, "")
+	}
+	// Close every open tab with this name (usually one).
+	for {
+		found := -1
+		for t, i in a.tabs {
+			if t.sess.name == safe {
+				found = i
+				break
+			}
+		}
+		if found < 0 {
+			break
+		}
+		before := len(a.tabs)
+		app_tab_close(a, found)
+		if len(a.tabs) >= before {
+			// Close refused (busy join) and kept the tab.
+			session.session_set_status(a.session, "could not close tab · try again")
+			return
+		}
+	}
+	ok, err := store.delete_session(safe)
+	if !ok {
+		session.session_set_status(a.session, err)
+		return
+	}
+	session.session_set_status(a.session, fmt.tprintf("deleted %s", safe))
+	app_tabs_persist(a)
+}
+
+app_delete_tab_session :: proc(a: ^App, target: string) {
+	idx := a.active_tab
+	if len(target) > 0 {
+		ok: bool
+		idx, ok = app_tab_resolve(a, target)
+		if !ok {
+			session.session_set_status(a.session, fmt.tprintf("no open tab matching %s", target))
+			return
+		}
+	}
+	if idx < 0 || idx >= len(a.tabs) {
+		return
+	}
+	name := a.tabs[idx].sess.name
+	if len(name) == 0 {
+		session.session_set_status(a.session, "tab has no saved name")
+		return
+	}
+	if a.tabs[idx].sess.busy {
+		session.session_set_status(a.session, "session is busy · /stop it first")
+		return
+	}
+	safe := store.sanitize_name(name)
+	if len(a.tabs) <= 1 {
+		app_tab_new(a, "")
+		// Re-resolve after insert.
+		idx, _ = app_tab_resolve(a, safe)
+	}
+	if idx >= 0 {
+		app_tab_close(a, idx)
+	}
+	for t in a.tabs {
+		if t.sess.name == safe {
+			session.session_set_status(a.session, "tab still open")
+			return
+		}
+	}
+	ok, err := store.delete_session(safe)
+	if !ok {
+		session.session_set_status(a.session, err)
+		return
+	}
+	session.session_set_status(a.session, fmt.tprintf("deleted %s", safe))
+	app_tabs_persist(a)
 }
 
 slash_cmd_ephemeral :: proc(a: ^App, args: string) {

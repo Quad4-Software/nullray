@@ -8,6 +8,7 @@ package app
 import "core:fmt"
 import "core:strings"
 import "nullray:provider"
+import "nullray:store"
 
 Slash_Handler :: #type proc(a: ^App, args: string)
 
@@ -43,9 +44,10 @@ SLASH_COMMANDS := []Slash_Command{
 	{"name", "/name NAME [--force]", "rename current session (moves files)", slash_cmd_name},
 	{"rename", "/rename NAME [--force]", "alias for /name", slash_cmd_name},
 	{"new", "/new [NAME]", "start a new session in a new tab", slash_cmd_new},
-	{"tab", "/tab [list|new|open|next|prev|close|N]", "manage session tabs", slash_cmd_tab},
+	{"tab", "/tab [list|new|open|next|prev|close [NAME|N]|N]", "manage session tabs", slash_cmd_tab},
 	{"fork", "/fork NAME [--force]", "fork current session under a new name", slash_cmd_fork},
-	{"delete", "/delete NAME", "delete a saved session from disk", slash_cmd_delete},
+	{"delete", "/delete [NAME|tab|current]", "delete session (bare = current tab/session)", slash_cmd_delete},
+	{"rm", "/rm [NAME|tab|current]", "alias for /delete", slash_cmd_delete},
 	{"ephemeral", "/ephemeral on|off", "toggle session persistence", slash_cmd_ephemeral},
 	{"group", "/group NAME|none", "shared context group", slash_cmd_group},
 	{"theme", "/theme NAME", "switch color theme", slash_cmd_theme},
@@ -98,9 +100,15 @@ SLASH_COMMANDS := []Slash_Command{
 	{"attach", "/attach PATH", "attach text or media into the next prompt", slash_cmd_attach},
 	{"view", "/view [PATH|auto on|off]", "open a file in the side pane or toggle auto-open", slash_cmd_view},
 	{"artifact", "/artifact ID", "open an LID artifact in the side pane", slash_cmd_artifact},
-	{"close", "/close", "close the file view pane", slash_cmd_close},
+	{"close", "/close [tab|view|NAME|N]", "close view, current tab, or named tab", slash_cmd_close},
 	{"copy", "/copy", "copy selection or last assistant reply", slash_cmd_copy},
 }
+
+TAB_SLASH_EXTRA := []string{"list", "new", "open", "next", "prev", "close", "n", "p", "w"}
+
+CLOSE_SLASH_EXTRA := []string{"tab", "view", "current", "this"}
+
+DELETE_SLASH_EXTRA := []string{"current", "this", "tab", "."}
 
 slash_find :: proc(name: string) -> (^Slash_Command, bool) {
 	for &cmd in SLASH_COMMANDS {
@@ -222,7 +230,7 @@ catalog_expand_unique :: proc(arg: string, allocator := context.temp_allocator) 
 	return arg
 }
 
-slash_matches :: proc(prefix: string, allocator := context.temp_allocator) -> []Slash_Command {
+slash_matches :: proc(prefix: string, allocator := context.temp_allocator, a: ^App = nil) -> []Slash_Command {
 	p := strings.trim_left_space(prefix)
 	if !strings.has_prefix(p, "/") {
 		return {}
@@ -232,19 +240,43 @@ slash_matches :: proc(prefix: string, allocator := context.temp_allocator) -> []
 	if space >= 0 {
 		name := body[:space]
 		rest := strings.trim_left_space(body[space + 1:])
+		// Single-token arg completion (no nested space yet).
 		if strings.index_byte(rest, ' ') < 0 {
-			if name == "provider" {
+			switch name {
+			case "provider":
 				return provider_slash_arg_matches(rest, allocator)
-			}
-			if name == "model" {
+			case "model":
 				return model_slash_arg_matches(rest, allocator)
+			case "tab":
+				return tab_slash_arg_matches(a, rest, allocator)
+			case "close":
+				return close_slash_arg_matches(a, rest, allocator)
+			case "delete", "rm":
+				return delete_slash_arg_matches(a, rest, allocator)
+			case "resume", "switch", "fork", "name", "rename":
+				return session_name_slash_arg_matches(rest, allocator)
+			}
+		} else if name == "tab" || name == "close" || name == "delete" || name == "rm" {
+			// Second token: /tab close <name>, /close tab <name>, /delete tab <name>
+			fields := strings.fields(rest, context.temp_allocator)
+			if len(fields) == 2 {
+				sub := strings.to_lower(fields[0], context.temp_allocator)
+				pref := fields[1]
+				if (name == "tab" && sub == "close") ||
+				   (name == "close" && (sub == "tab" || sub == "view")) ||
+				   ((name == "delete" || name == "rm") && sub == "tab") {
+					if sub == "view" {
+						return {}
+					}
+					return open_tab_name_matches(a, pref, allocator)
+				}
 			}
 		}
 		return {}
 	}
 	out := make([dynamic]Slash_Command, 0, 8, allocator)
 	for cmd in SLASH_COMMANDS {
-		if cmd.name == "?" || cmd.name == "session" || cmd.name == "cancel" || cmd.name == "skill" {
+		if cmd.name == "?" || cmd.name == "session" || cmd.name == "cancel" || cmd.name == "skill" || cmd.name == "rm" {
 			continue
 		}
 		if len(body) == 0 || strings.has_prefix(cmd.name, body) {
@@ -253,6 +285,166 @@ slash_matches :: proc(prefix: string, allocator := context.temp_allocator) -> []
 	}
 	for c in custom_command_matches(body, allocator) {
 		append(&out, c)
+	}
+	return out[:]
+}
+
+// Open-tab names (and 1-based indexes) for completion. a may be nil in pure
+// unit tests; then only static extras are offered.
+open_tab_name_matches :: proc(a: ^App, pref: string, allocator := context.temp_allocator) -> []Slash_Command {
+	out := make([dynamic]Slash_Command, 0, 8, allocator)
+	p := strings.to_lower(strings.trim_space(pref), context.temp_allocator)
+	if a != nil {
+		for t, i in a.tabs {
+			name := t.sess.name
+			if len(name) == 0 {
+				continue
+			}
+			num := fmt.tprintf("%d", i + 1)
+			name_l := strings.to_lower(name, context.temp_allocator)
+			if len(p) == 0 || strings.has_prefix(name_l, p) || strings.has_prefix(num, p) {
+				help := "open tab"
+				if i == a.active_tab {
+					help = "current tab"
+				}
+				append(&out, Slash_Command{
+					name = name,
+					usage = name,
+					help = help,
+				})
+			}
+		}
+	}
+	return out[:]
+}
+
+tab_slash_arg_matches :: proc(a: ^App, pref: string, allocator := context.temp_allocator) -> []Slash_Command {
+	out := make([dynamic]Slash_Command, 0, 12, allocator)
+	p := strings.to_lower(strings.trim_space(pref), context.temp_allocator)
+	for extra in TAB_SLASH_EXTRA {
+		if len(p) == 0 || strings.has_prefix(extra, p) {
+			help := "tab action"
+			switch extra {
+			case "list":
+				help = "list open tabs"
+			case "new":
+				help = "new tab"
+			case "open":
+				help = "open saved session in a tab"
+			case "next", "n":
+				help = "next tab"
+			case "prev", "p":
+				help = "previous tab"
+			case "close", "w":
+				help = "close current tab"
+			}
+			append(&out, Slash_Command{
+				name = extra,
+				usage = fmt.tprintf("/tab %s", extra),
+				help = help,
+			})
+		}
+	}
+	// Also offer open tab names/indexes for jump and close.
+	for m in open_tab_name_matches(a, pref, context.temp_allocator) {
+		append(&out, Slash_Command{
+			name = m.name,
+			usage = fmt.tprintf("/tab %s", m.name),
+			help = m.help,
+		})
+	}
+	return out[:]
+}
+
+close_slash_arg_matches :: proc(a: ^App, pref: string, allocator := context.temp_allocator) -> []Slash_Command {
+	out := make([dynamic]Slash_Command, 0, 12, allocator)
+	p := strings.to_lower(strings.trim_space(pref), context.temp_allocator)
+	for extra in CLOSE_SLASH_EXTRA {
+		if len(p) == 0 || strings.has_prefix(extra, p) {
+			help := "close target"
+			switch extra {
+			case "tab", "current", "this":
+				help = "close current tab"
+			case "view":
+				help = "close file view pane"
+			}
+			append(&out, Slash_Command{
+				name = extra,
+				usage = fmt.tprintf("/close %s", extra),
+				help = help,
+			})
+		}
+	}
+	for m in open_tab_name_matches(a, pref, context.temp_allocator) {
+		append(&out, Slash_Command{
+			name = m.name,
+			usage = fmt.tprintf("/close %s", m.name),
+			help = "close this tab",
+		})
+	}
+	return out[:]
+}
+
+delete_slash_arg_matches :: proc(a: ^App, pref: string, allocator := context.temp_allocator) -> []Slash_Command {
+	out := make([dynamic]Slash_Command, 0, 16, allocator)
+	p := strings.to_lower(strings.trim_space(pref), context.temp_allocator)
+	for extra in DELETE_SLASH_EXTRA {
+		if len(p) == 0 || strings.has_prefix(extra, p) {
+			help := "delete target"
+			switch extra {
+			case "current", "this", ".":
+				help = "delete current session"
+			case "tab":
+				help = "delete open tab session"
+			}
+			append(&out, Slash_Command{
+				name = extra,
+				usage = fmt.tprintf("/delete %s", extra),
+				help = help,
+			})
+		}
+	}
+	// Open tabs first, then disk sessions.
+	for m in open_tab_name_matches(a, pref, context.temp_allocator) {
+		append(&out, Slash_Command{
+			name = m.name,
+			usage = fmt.tprintf("/delete %s", m.name),
+			help = "delete open session",
+		})
+	}
+	for m in session_name_slash_arg_matches(pref, context.temp_allocator) {
+		// Skip names already added from open tabs.
+		dup := false
+		for existing in out {
+			if existing.name == m.name {
+				dup = true
+				break
+			}
+		}
+		if dup {
+			continue
+		}
+		append(&out, m)
+	}
+	return out[:]
+}
+
+session_name_slash_arg_matches :: proc(pref: string, allocator := context.temp_allocator) -> []Slash_Command {
+	out := make([dynamic]Slash_Command, 0, 16, allocator)
+	p := strings.to_lower(strings.trim_space(pref), context.temp_allocator)
+	items := store.list_sessions(context.temp_allocator)
+	for info in items {
+		name_l := strings.to_lower(info.name, context.temp_allocator)
+		if len(p) == 0 || strings.has_prefix(name_l, p) || strings.contains(name_l, p) {
+			append(&out, Slash_Command{
+				name = info.name,
+				usage = info.name,
+				help = "saved session",
+			})
+			if len(out) >= 16 {
+				break
+			}
+		}
 	}
 	return out[:]
 }
@@ -275,7 +467,8 @@ slash_arg_hint :: proc(prefix: string, allocator := context.temp_allocator) -> s
 		return ""
 	}
 	name := body[:space]
-	if name == "provider" || name == "model" {
+	switch name {
+	case "provider", "model", "tab", "close", "delete", "rm", "resume", "switch", "fork", "name", "rename":
 		// Arg matches draw as a suggestion list instead of a one-line hint.
 		return ""
 	}
@@ -286,8 +479,8 @@ slash_arg_hint :: proc(prefix: string, allocator := context.temp_allocator) -> s
 	return fmt.tprintf("%s  %s", cmd.usage, cmd.help)
 }
 
-slash_complete :: proc(prefix: string, sel: int) -> (completed: string, ok: bool) {
-	matches := slash_matches(prefix)
+slash_complete :: proc(prefix: string, sel: int, a: ^App = nil) -> (completed: string, ok: bool) {
+	matches := slash_matches(prefix, context.temp_allocator, a)
 	if len(matches) == 0 {
 		return "", false
 	}
@@ -304,7 +497,14 @@ slash_complete :: proc(prefix: string, sel: int) -> (completed: string, ok: bool
 		body := p[1:]
 		if sp := strings.index_byte(body, ' '); sp >= 0 {
 			name := body[:sp]
-			if name == "provider" || name == "model" {
+			rest := strings.trim_left_space(body[sp + 1:])
+			// Preserve a first subcommand token when completing the second.
+			if fields := strings.fields(rest, context.temp_allocator); len(fields) >= 1 && strings.index_byte(rest, ' ') >= 0 {
+				sub := fields[0]
+				return fmt.tprintf("/%s %s %s", name, sub, cmd.name), true
+			}
+			switch name {
+			case "provider", "model", "tab", "close", "delete", "rm", "resume", "switch", "fork", "name", "rename":
 				return fmt.tprintf("/%s %s", name, cmd.name), true
 			}
 		}

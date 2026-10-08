@@ -256,11 +256,48 @@ slash_cmd_artifact :: proc(a: ^App, args: string) {
 }
 
 slash_cmd_close :: proc(a: ^App, args: string) {
-	_ = args
-	if !a.view_open {
-		session.session_set_status(a.session, "no file view open")
+	rest := strings.trim_space(args)
+	// Bare /close prefers the file view when open, otherwise the current tab.
+	if len(rest) == 0 {
+		if a.view_open {
+			app_view_close(a)
+			session.session_set_status(a.session, "view closed")
+			return
+		}
+		app_tab_close(a, a.active_tab)
 		return
 	}
-	app_view_close(a)
-	session.session_set_status(a.session, "view closed")
+	low := strings.to_lower(rest, context.temp_allocator)
+	switch low {
+	case "view", "pane", "file":
+		if !a.view_open {
+			session.session_set_status(a.session, "no file view open")
+			return
+		}
+		app_view_close(a)
+		session.session_set_status(a.session, "view closed")
+		return
+	case "tab", "current", ".", "this":
+		app_tab_close(a, a.active_tab)
+		return
+	}
+	// /close tab <name|N>
+	if strings.has_prefix(low, "tab ") {
+		target := strings.trim_space(rest[len("tab "):])
+		if idx, ok := app_tab_resolve(a, target); ok {
+			app_tab_close(a, idx)
+		} else {
+			session.session_set_status(a.session, fmt.tprintf("no open tab matching %s", target))
+		}
+		return
+	}
+	// /close <name|N> closes that open tab.
+	if idx, ok := app_tab_resolve(a, rest); ok {
+		app_tab_close(a, idx)
+		return
+	}
+	session.session_set_status(
+		a.session,
+		"usage: /close [tab|view|NAME|N]  (bare closes view if open, else current tab)",
+	)
 }

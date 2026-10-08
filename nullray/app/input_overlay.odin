@@ -211,7 +211,7 @@ app_handle_suggest_event :: proc(a: ^App, ev: ui.Event) -> bool {
 		app_mark_dirty(a)
 		return true
 	case .Down:
-		matches := slash_matches(strings.to_string(a.input))
+		matches := slash_matches(strings.to_string(a.input), context.temp_allocator, a)
 		a.suggest_sel = min(len(matches) - 1, a.suggest_sel + 1)
 		app_mark_dirty(a)
 		return true

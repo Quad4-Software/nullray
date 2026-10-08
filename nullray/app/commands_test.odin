@@ -40,8 +40,80 @@ test_slash_arg_hint_shows_usage :: proc(t: ^testing.T) {
 	testing.expect(t, strings.contains(hint, "/new"))
 	testing.expect(t, strings.contains(hint, "NAME") || strings.contains(hint, "name"))
 
+	// Commands with arg match lists intentionally return no one-line hint.
 	hint2 := slash_arg_hint("/resume ")
-	testing.expect(t, strings.contains(hint2, "/resume NAME"))
+	testing.expect_value(t, hint2, "")
+	hint3 := slash_arg_hint("/close ")
+	testing.expect_value(t, hint3, "")
+	hint4 := slash_arg_hint("/delete ")
+	testing.expect_value(t, hint4, "")
+}
+
+@(test)
+test_slash_close_and_delete_registered :: proc(t: ^testing.T) {
+	c, ok := slash_find("close")
+	testing.expect(t, ok)
+	testing.expect(t, strings.contains(c.usage, "tab"))
+	testing.expect(t, c.run != nil)
+
+	d, dok := slash_find("delete")
+	testing.expect(t, dok)
+	testing.expect(t, strings.contains(d.help, "current") || strings.contains(d.usage, "current"))
+	testing.expect(t, d.run != nil)
+
+	rm, rok := slash_find("rm")
+	testing.expect(t, rok)
+	testing.expect(t, rm.run == d.run)
+}
+
+@(test)
+test_slash_close_delete_tab_arg_matches :: proc(t: ^testing.T) {
+	close_m := slash_matches("/close ")
+	testing.expect(t, len(close_m) >= 2)
+	found_tab, found_view := false, false
+	for m in close_m {
+		if m.name == "tab" {
+			found_tab = true
+		}
+		if m.name == "view" {
+			found_view = true
+		}
+	}
+	testing.expect(t, found_tab)
+	testing.expect(t, found_view)
+
+	del_m := slash_matches("/delete ")
+	testing.expect(t, len(del_m) >= 2)
+	found_cur := false
+	for m in del_m {
+		if m.name == "current" || m.name == "tab" {
+			found_cur = true
+		}
+	}
+	testing.expect(t, found_cur)
+
+	tab_m := slash_matches("/tab cl")
+	testing.expect(t, len(tab_m) >= 1)
+	testing.expect_value(t, tab_m[0].name, "close")
+
+	done, ok := slash_complete("/close t", 0)
+	testing.expect(t, ok)
+	testing.expect(t, strings.has_prefix(done, "/close t"))
+}
+
+@(test)
+test_app_tab_resolve_by_name_and_index :: proc(t: ^testing.T) {
+	a, loop := test_app_minimal()
+	_ = loop
+	defer test_app_destroy_minimal(&a)
+	// Need at least the default tab from minimal app.
+	testing.expect(t, len(a.tabs) >= 1)
+	idx, ok := app_tab_resolve(&a, "1")
+	testing.expect(t, ok)
+	testing.expect_value(t, idx, 0)
+	// Nonsense name should miss.
+	_, miss := app_tab_resolve(&a, "zz-no-such-tab-name")
+	testing.expect(t, !miss)
 }
 
 @(test)

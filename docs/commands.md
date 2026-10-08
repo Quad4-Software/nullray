@@ -13,10 +13,12 @@ this list in-app.
 | `/name NAME [--force]` | Rename the current session |
 | `/new [NAME]` | New session in a new tab |
 | `/fork NAME [--force]` | Copy the session under a new name |
-| `/delete NAME` | Delete a saved session from disk |
+| `/delete [NAME\|tab\|current]` | Delete a session (bare = current) |
+| `/rm ...` | Alias for `/delete` |
+| `/close [tab\|view\|NAME\|N]` | Close view, current tab, or named tab |
 | `/ephemeral on\|off` | Toggle transcript persistence |
 | `/group NAME\|none` | Join a shared context group |
-| `/tab ...` | list, new, open, next, prev, close, N |
+| `/tab ...` | list, new, open, next, prev, close [NAME\|N], N |
 
 ## Agent control
 
@@ -61,7 +63,7 @@ this list in-app.
 | `/attach PATH` | Queue text or media for the next message |
 | `/view [PATH\|auto on\|off]` | Open a file in the side pane |
 | `/artifact ID` | Open an LID artifact in the pane |
-| `/close` | Close the view pane |
+| `/close [tab\|view\|NAME\|N]` | Close view pane or a tab |
 | `/undo` | Undo the last agent file write |
 | `/checkpoint [list\|restore N\|diff N]` | File checkpoints |
 | `/drop N` | Drop the last N user turns (backup saved) |

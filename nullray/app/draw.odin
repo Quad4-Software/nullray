@@ -312,7 +312,7 @@ app_draw_suggestions :: proc(buf: ^ui.Buffer, a: ^App, c: Chrome) {
 		ui.buffer_text_clip(buf, 1, y, buf.width - 1, hint, t.accent, t.highlight_bg, {.Bold})
 		return
 	}
-	matches := slash_matches(text)
+	matches := slash_matches(text, context.temp_allocator, a)
 	if len(matches) == 0 {
 		return
 	}

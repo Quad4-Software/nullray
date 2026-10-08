@@ -42,7 +42,7 @@ slash_busy_exempt :: proc(text: string) -> bool {
 @(private)
 app_apply_suggestion :: proc(a: ^App) -> bool {
 	text := strings.to_string(a.input)
-	completed, ok := slash_complete(text, a.suggest_sel)
+	completed, ok := slash_complete(text, a.suggest_sel, a)
 	if !ok {
 		return false
 	}
@@ -147,7 +147,7 @@ app_on_event :: proc(ev: ui.Event, user: rawptr) -> bool {
 		return false
 	}
 
-	suggesting := len(slash_matches(strings.to_string(a.input))) > 0
+	suggesting := len(slash_matches(strings.to_string(a.input), context.temp_allocator, a)) > 0
 
 	if !suggesting && !(a.view_open && a.view_focus) {
 		#partial switch ev.kind {
