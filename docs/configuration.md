@@ -67,6 +67,8 @@ process only, so nothing silently persists a borrowed credential.
 | `NULLRAY_UI_MALLEABLE` | 0 disables show_view and set_tui agent tools |
 | `NULLRAY_UI_LOCK` | 1 blocks set_tui global (session scope still allowed) |
 | `NULLRAY_UI_RESET` | 1 clears saved custom theme on startup |
+| `NULLRAY_SESSION_KEY` | Passphrase to seal session transcripts at rest |
+| `NULLRAY_VAULT_EXPORT` | 1 exports vault secrets into shell child env |
 | `NULLRAY_VIEW_AUTO` | Auto-open view pane on writes |
 | `NULLRAY_NOTIFY` | auto, desktop, osc, bell, off |
 | `NULLRAY_BARE` | Skip home MCP and non-workspace skills |

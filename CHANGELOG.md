@@ -21,6 +21,10 @@ Notable changes for nullray.
 - show_view password fields vault under view.<id> and return [redacted];
   session push redacts secret-shaped tokens and card digit runs before
   msgpack persist.
+- Encrypted sessions (`NULLRAY_SESSION_KEY` / `/encrypt`), show_view field
+  persist policies (normal|redact|vault|omit), vault export to shell
+  (`NULLRAY_VAULT_EXPORT`), `/scrub`, plan/tool strip, panel canvas seed,
+  `/demo malleable`.
 - Provider set trimmed to locals (ollama, lmstudio, llamacpp), openai-compat,
   openrouter, opencode, opencode-go, and fireworks. Dropped first-class
   openai, anthropic, gemini, azure, and other cloud vendor aliases.

@@ -179,6 +179,32 @@ test_view_default_actions_when_missing :: proc(t: ^testing.T) {
 }
 
 @(test)
+test_view_field_persist_omit_and_redact :: proc(t: ^testing.T) {
+	raw := `{
+  "fields": [
+    {"id": "pub", "type": "text", "default": "visible"},
+    {"id": "hid", "type": "text", "default": "nope", "persist": "omit"},
+    {"id": "scr", "type": "text", "default": "x", "persist": "redact"},
+    {"id": "tok", "type": "text", "default": "s3cret", "persist": "vault", "bind_env": true, "env_name": "DEMO_TOKEN"}
+  ]
+}`
+	def, err := view_parse(raw, context.allocator)
+	testing.expect_value(t, err, "")
+	defer view_def_destroy(&def)
+	out := view_result_json(&def, "ok", context.allocator)
+	defer delete(out)
+	testing.expect(t, strings.contains(out, `"pub":"visible"`))
+	testing.expect(t, !strings.contains(out, "nope"))
+	testing.expect(t, !strings.contains(out, `"hid"`))
+	testing.expect(t, strings.contains(out, `"scr":"[redacted]"`))
+	testing.expect(t, strings.contains(out, `"tok":"[redacted]"`))
+	testing.expect(t, !strings.contains(out, "s3cret"))
+	testing.expect(t, secret_has("view.tok") || secret_has("DEMO_TOKEN"))
+	_ = secret_forget("view.tok")
+	_ = secret_forget("DEMO_TOKEN")
+}
+
+@(test)
 test_view_password_vaulted_not_in_result :: proc(t: ^testing.T) {
 	raw := `{"fields":[{"id":"token","type":"password","default":"super-secret-value"},{"id":"name","type":"text","default":"dev"}]}`
 	def, err := view_parse(raw, context.allocator)

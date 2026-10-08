@@ -24,6 +24,59 @@ app_view_form_clear :: proc(a: ^App) {
 	a.view_form_active = false
 }
 
+// Render form state into the side pane as a text canvas (panel placement).
+app_view_form_seed_canvas :: proc(a: ^App) {
+	title := a.view_form.title
+	if len(title) == 0 {
+		title = "Canvas"
+	}
+	b: strings.Builder
+	strings.builder_init(&b, context.temp_allocator)
+	if len(a.view_form.body) > 0 {
+		strings.write_string(&b, a.view_form.body)
+		strings.write_string(&b, "\n\n")
+	}
+	for f in a.view_form.fields {
+		#partial switch f.kind {
+		case .Separator:
+			strings.write_string(&b, "----------\n")
+		case .Label, .Markdown:
+			strings.write_string(&b, f.label)
+			strings.write_byte(&b, '\n')
+		case .Image:
+			src := len(f.src) > 0 ? f.src : f.default
+			fmt.sbprintf(&b, "[img] %s\n", src)
+		case .Checkbox:
+			fmt.sbprintf(&b, "[%s] %s\n", f.checked ? "x" : " ", f.label)
+		case .Password:
+			fmt.sbprintf(&b, "%s: ****\n", f.label)
+		case .Select, .Radio:
+			cur := f.value
+			if f.sel >= 0 && f.sel < len(f.options) {
+				cur = f.options[f.sel]
+			}
+			fmt.sbprintf(&b, "%s: %s\n", f.label, cur)
+		case:
+			fmt.sbprintf(&b, "%s: %s\n", f.label, f.value)
+		}
+	}
+	if len(a.view_form.actions) > 0 {
+		strings.write_string(&b, "\nActions: ")
+		for act, i in a.view_form.actions {
+			if i > 0 {
+				strings.write_string(&b, " | ")
+			}
+			strings.write_string(&b, act.label)
+		}
+		strings.write_byte(&b, '\n')
+	}
+	strings.write_string(&b, "\n(interactive controls still on the modal; Esc cancels)")
+	_ = app_view_open_text(a, title, strings.to_string(b))
+	if len(a.view_form.image) > 0 {
+		_ = app_view_open(a, a.view_form.image)
+	}
+}
+
 // Drop non-ASCII when the form disables emoji (keeps latin and common ASCII).
 view_strip_non_ascii :: proc(s: string, allocator := context.temp_allocator) -> string {
 	b: strings.Builder
@@ -82,18 +135,9 @@ app_ask_poll_views :: proc(a: ^App) -> bool {
 				})
 			} else {
 				a.view_form = def
-				// Larger UIs can dock in the side pane like the code viewer.
+				// Larger UIs dock as a live canvas in the side pane.
 				if a.view_form.placement == .Panel {
-					title := a.view_form.title
-					if len(title) == 0 {
-						title = "View"
-					}
-					body := a.view_form.body
-					// Seed pane text; the modal still drives interaction on top.
-					_ = app_view_open_text(a, title, len(body) > 0 ? body : "(interactive panel)")
-					if len(a.view_form.image) > 0 {
-						_ = app_view_open(a, a.view_form.image)
-					}
+					app_view_form_seed_canvas(a)
 				} else if len(a.view_form.image) > 0 {
 					_ = app_view_open(a, a.view_form.image)
 				}

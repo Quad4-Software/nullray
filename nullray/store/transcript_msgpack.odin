@@ -103,6 +103,14 @@ save_transcript_msgpack :: proc(path: string, messages: []provider.Message) -> b
 			}
 		}
 	}
+	pass := session_crypto_passphrase()
+	if len(pass) > 0 {
+		sealed, sok := session_seal_bytes(buf[:], pass, context.temp_allocator)
+		if !sok {
+			return false
+		}
+		return atomic_write_bytes(path, sealed)
+	}
 	return atomic_write_bytes(path, buf[:])
 }
 
@@ -111,6 +119,17 @@ load_transcript_msgpack :: proc(path: string, allocator := context.allocator) ->
 	data, err := os.read_entire_file(path, context.temp_allocator)
 	if err != nil {
 		return msgs, false
+	}
+	if session_blob_is_sealed(data) {
+		pass := session_crypto_passphrase()
+		if len(pass) == 0 {
+			return msgs, false
+		}
+		opened, ook := session_open_bytes(data, pass, context.temp_allocator)
+		if !ook {
+			return msgs, false
+		}
+		data = opened
 	}
 	r := Mp_Reader{data = data}
 	n, nok := mp_read_array_len(&r)

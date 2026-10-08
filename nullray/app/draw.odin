@@ -91,6 +91,9 @@ app_draw :: proc(buf: ^ui.Buffer, user: rawptr) {
 	if c.show_agents && c.agents_y >= 0 {
 		app_draw_agents_strip(buf, a, c)
 	}
+	if c.show_plan && c.plan_y >= 0 {
+		app_draw_plan_strip(buf, a, c)
+	}
 	if c.show_sep && c.sep_y >= 0 {
 		ui.buffer_hline(buf, 0, c.sep_y, buf.width, '─', t.border, t.bg)
 	}
@@ -237,6 +240,58 @@ app_draw :: proc(buf: ^ui.Buffer, user: rawptr) {
 	}
 
 	a.dirty = false
+}
+
+// Tool/plan planner strip: live tool + step budget + next plan step.
+app_draw_plan_strip :: proc(buf: ^ui.Buffer, a: ^App, c: Chrome) {
+	t := ui.theme()
+	y := c.plan_y
+	if y < 0 || a.session == nil {
+		return
+	}
+	ui.buffer_fill_rect(buf, 0, y, buf.width, 1, ' ', t.fg, t.status_bg)
+	parts: [dynamic]string
+	parts.allocator = context.temp_allocator
+	if a.session.busy && len(a.session.live_tool) > 0 {
+		spin := ui.spinner_frame(&a.agent_spinner)
+		append(&parts, fmt.tprintf("%s %s", spin, a.session.live_tool))
+		if len(a.session.live_tool_detail) > 0 && !c.narrow {
+			d := a.session.live_tool_detail
+			if ui.string_cols(d) > 28 {
+				d = fmt.tprintf("%s…", d[:min(len(d), 24)])
+			}
+			append(&parts, d)
+		}
+	}
+	if a.session.busy {
+		append(&parts, "busy")
+	}
+	if len(a.session.plan_steps) > 0 {
+		idx := a.session.plan_step_index
+		if idx < 0 {
+			idx = 0
+		}
+		if idx >= len(a.session.plan_steps) {
+			append(&parts, fmt.tprintf("plan done (%d)", len(a.session.plan_steps)))
+		} else {
+			step := a.session.plan_steps[idx]
+			if c.narrow && ui.string_cols(step) > 18 {
+				step = fmt.tprintf("%s…", step[:min(len(step), 14)])
+			} else if ui.string_cols(step) > 36 {
+				step = fmt.tprintf("%s…", step[:min(len(step), 32)])
+			}
+			append(&parts, fmt.tprintf("plan %d/%d %s", idx + 1, len(a.session.plan_steps), step))
+		}
+	}
+	line := strings.join(parts[:], " · ", context.temp_allocator)
+	if len(line) == 0 {
+		line = "planner"
+	}
+	fg := t.accent
+	if a.session.busy {
+		fg = ui.color_lerp(t.accent_dim, t.accent, ui.anim_pulse(1100))
+	}
+	ui.buffer_text_clip(buf, 1, y, buf.width - 1, line, fg, t.status_bg)
 }
 
 // Subagent activity strip: spinner + living roles, OpenCode-style.

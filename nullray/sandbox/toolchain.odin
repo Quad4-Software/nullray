@@ -5,6 +5,7 @@ Toolchain cache RW grants so go/cargo/npm can write outside the workspace.
 
 package sandbox
 
+import "core:mem"
 import "core:os"
 import "core:path/filepath"
 import "core:strings"
@@ -159,7 +160,37 @@ toolchain_shell_env :: proc(allocator := context.allocator) -> []string {
 		append(&out, fmt_env_pair("GIT_CONFIG_GLOBAL", "/dev/null", allocator))
 		append(&out, fmt_env_pair("GIT_CONFIG_SYSTEM", "/dev/null", allocator))
 	}
+	// Optional: export ask vault secrets into child env for scripts.
+	if vault_export_enabled() {
+		append_vault_env(&out, allocator)
+	}
 	return out[:]
+}
+
+vault_export_enabled :: proc() -> bool {
+	if v, ok := os.lookup_env(constants.ENV_VAULT_EXPORT, context.temp_allocator); ok {
+		switch strings.to_lower(strings.trim_space(v), context.temp_allocator) {
+		case "1", "true", "on", "yes":
+			return true
+		}
+	}
+	return false
+}
+
+// Weak hook: packages that implement vault export register via this callback
+// to avoid a sandbox->ask import cycle.
+Vault_Export_Proc :: #type proc(dst: ^[dynamic]string, allocator: mem.Allocator) -> int
+g_vault_export: Vault_Export_Proc
+
+register_vault_export :: proc(cb: Vault_Export_Proc) {
+	g_vault_export = cb
+}
+
+@(private)
+append_vault_env :: proc(dst: ^[dynamic]string, allocator: mem.Allocator) {
+	if g_vault_export != nil {
+		_ = g_vault_export(dst, allocator)
+	}
 }
 
 @(private)

@@ -57,6 +57,14 @@ View_Placement :: enum {
 	Panel,
 }
 
+// What happens to a field value after submit for model + disk.
+Field_Persist :: enum {
+	Normal,  // plain value in JSON + transcript (subject to global scrub)
+	Redact,  // always [redacted] in JSON; not vaulted
+	Vault,   // secret_put under view.<id>, JSON [redacted]
+	Omit,    // drop from returned JSON entirely (never send to model)
+}
+
 View_Field :: struct {
 	id:          string,
 	kind:        Field_Kind,
@@ -76,6 +84,9 @@ View_Field :: struct {
 	src:         string, // image path or URL label
 	cols:        int,
 	rows:        int,
+	persist:     Field_Persist,
+	bind_env:    bool, // after vault, also secret_bind_env(view.id or env name)
+	env_name:    string, // optional env name when bind_env
 }
 
 View_Action :: struct {
@@ -117,6 +128,7 @@ view_field_destroy :: proc(f: ^View_Field) {
 	delete(f.pattern)
 	delete(f.value)
 	delete(f.src)
+	delete(f.env_name)
 	for o in f.options {
 		delete(o)
 	}
@@ -465,6 +477,32 @@ view_parse_field :: proc(obj: json.Object, idx: int, allocator := context.alloca
 		src = json_string_field(obj, "url")
 	}
 	f.src = view_clip(src, VIEW_MAX_IMAGE_PATH, allocator)
+	f.persist = .Normal
+	if kind == .Password {
+		f.persist = .Vault
+	}
+	ps := json_string_field(obj, "persist")
+	if len(ps) == 0 {
+		ps = json_string_field(obj, "policy")
+	}
+	switch strings.to_lower(strings.trim_space(ps), context.temp_allocator) {
+	case "redact", "scrub":
+		f.persist = .Redact
+	case "vault", "secret", "password":
+		f.persist = .Vault
+	case "omit", "never", "drop", "private":
+		f.persist = .Omit
+	case "normal", "plain", "send":
+		f.persist = .Normal
+	}
+	if json_bool_field(obj, "vault") || json_bool_field(obj, "secret") {
+		f.persist = .Vault
+	}
+	if json_bool_field(obj, "omit") || json_bool_field(obj, "private") {
+		f.persist = .Omit
+	}
+	f.bind_env = json_bool_field(obj, "bind_env") || json_bool_field(obj, "env")
+	f.env_name = view_clip(json_string_field(obj, "env_name"), VIEW_MAX_ID, allocator)
 	if cv, has := obj["cols"]; has {
 		if n, nok := json_number_value(cv); nok {
 			f.cols = int(n)
@@ -690,12 +728,43 @@ view_result_json :: proc(def: ^View_Def, action_id: string, allocator := context
 		case .Separator, .Label, .Markdown, .Image:
 			continue
 		}
+		if f.persist == .Omit {
+			continue
+		}
 		if !first {
 			strings.write_byte(&b, ',')
 		}
 		first = false
 		view_write_json_string(&b, f.id)
 		strings.write_byte(&b, ':')
+		// Effective policy: password fields always vault unless omit.
+		pol := f.persist
+		if f.kind == .Password && pol == .Normal {
+			pol = .Vault
+		}
+		if pol == .Redact {
+			view_write_json_string(&b, VIEW_PASSWORD_REDACTED)
+			continue
+		}
+		if pol == .Vault {
+			if len(strings.trim_space(f.value)) > 0 && len(f.id) > 0 {
+				vault_name := strings.concatenate({VIEW_PASSWORD_VAULT_PREFIX, f.id}, context.temp_allocator)
+				secret_put(vault_name, f.value)
+				if f.bind_env {
+					env_n := f.env_name
+					if len(env_n) == 0 {
+						env_n = vault_name
+					}
+					// Also store under env name so bind/export can find it.
+					if env_n != vault_name {
+						secret_put(env_n, f.value)
+					}
+					_ = secret_bind_env(env_n)
+				}
+			}
+			view_write_json_string(&b, VIEW_PASSWORD_REDACTED)
+			continue
+		}
 		#partial switch f.kind {
 		case .Checkbox:
 			strings.write_string(&b, f.checked ? "true" : "false")
@@ -714,13 +783,6 @@ view_result_json :: proc(def: ^View_Def, action_id: string, allocator := context
 			} else {
 				view_write_json_string(&b, f.value)
 			}
-		case .Password:
-			// Store the real value in the process vault; return a scrub marker.
-			if len(strings.trim_space(f.value)) > 0 && len(f.id) > 0 {
-				vault_name := strings.concatenate({VIEW_PASSWORD_VAULT_PREFIX, f.id}, context.temp_allocator)
-				secret_put(vault_name, f.value)
-			}
-			view_write_json_string(&b, VIEW_PASSWORD_REDACTED)
 		case:
 			view_write_json_string(&b, f.value)
 		}
@@ -790,6 +852,9 @@ view_def_clone :: proc(src: View_Def, allocator := context.allocator) -> View_De
 		nf.src = strings.clone(f.src, allocator)
 		nf.cols = f.cols
 		nf.rows = f.rows
+		nf.persist = f.persist
+		nf.bind_env = f.bind_env
+		nf.env_name = strings.clone(f.env_name, allocator)
 		nf.options = make([dynamic]string, 0, len(f.options), allocator)
 		for o in f.options {
 			append(&nf.options, strings.clone(o, allocator))

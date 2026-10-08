@@ -100,6 +100,9 @@ this list in-app.
 | `/copy` | Copy selection or last reply |
 | `/reset` | Wipe sessions and config (needs confirm) |
 | `/tui [get\|reset\|lock\|unlock\|on\|off\|THEME]` | Malleable TUI theme controls |
+| `/encrypt [on KEY\|off\|status]` | Seal session transcripts at rest |
+| `/scrub [all\|last\|matching NEEDLE]` | Redact or forget session content |
+| `/demo malleable` | Smoke show_view password vault + privacy UI |
 | `/help` or `/?` | Command list |
 
 Agent tools for interactive UI (not slash commands): `ask_question`,

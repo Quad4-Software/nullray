@@ -26,6 +26,13 @@ secrets differently from that stream.
 - Plain chat still is not a vault: unstructured addresses or free text
   PII may remain unless they match a scrub pattern. Prefer ephemeral
   sessions or `/delete` after sensitive one-offs.
+- Set `NULLRAY_SESSION_KEY` or `/encrypt on PASSPHRASE` to seal
+  `.msgpack` transcripts with XChaCha20-Poly1305 (PBKDF2). Without the
+  key, sealed files will not load.
+- `NULLRAY_VAULT_EXPORT=1` injects vault names into shell/script child
+  env so agent scripts can use secrets without tool JSON.
+- `/scrub all|last|matching NEEDLE` rewrites the in-memory session
+  (and disk if persisting) after a paste mistake.
 
 ## Foreign config adoption
 

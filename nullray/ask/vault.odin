@@ -8,6 +8,7 @@ them up without entering tool results.
 
 package ask
 
+import "core:fmt"
 import "core:os"
 import "core:strings"
 import "core:sync"
@@ -100,4 +101,27 @@ secrets_clear :: proc() {
 	}
 	delete(g_vault)
 	g_vault = nil
+}
+
+/*
+Append NAME=value pairs for every vault entry onto an env list (caller owns).
+Used when NULLRAY_VAULT_EXPORT is on so shell/script children can read secrets
+without them ever appearing in tool JSON.
+*/
+secret_export_env_pairs :: proc(dst: ^[dynamic]string, allocator := context.allocator) -> int {
+	if dst == nil {
+		return 0
+	}
+	sync.mutex_lock(&g_vault_mu)
+	defer sync.mutex_unlock(&g_vault_mu)
+	n := 0
+	for k, v in g_vault {
+		if len(k) == 0 || len(v) == 0 {
+			continue
+		}
+		pair := fmt.aprintf("%s=%s", k, v, allocator = allocator)
+		append(dst, pair)
+		n += 1
+	}
+	return n
 }

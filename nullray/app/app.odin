@@ -6,6 +6,7 @@ App shell: lifecycle, provider status, dirty flag, tick.
 package app
 
 import "core:fmt"
+import "core:mem"
 import "core:os"
 import "core:strings"
 import "core:sync"
@@ -194,6 +195,10 @@ app_init :: proc(a: ^App, loop: ^ui.Loop) {
 	a.agent_spinner = ui.spinner_init()
 	// Wire set_tui so live loop theme refreshes when the agent recolors the UI.
 	tools.register_tui_apply(app_tui_apply, a)
+	// Export ask vault secrets into shell env when NULLRAY_VAULT_EXPORT=1.
+	sandbox.register_vault_export(proc(dst: ^[dynamic]string, allocator: mem.Allocator) -> int {
+		return ask.secret_export_env_pairs(dst, allocator)
+	})
 	// Load saved custom theme unless reset requested.
 	if v, ok := os.lookup_env(constants.ENV_UI_RESET, context.temp_allocator); ok {
 		switch strings.to_lower(strings.trim_space(v), context.temp_allocator) {
