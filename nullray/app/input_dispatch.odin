@@ -32,7 +32,7 @@ app_handle_bind_action :: proc(a: ^App, ev: ui.Event, suggesting: bool) -> (quit
 		return false, true
 	case .Clear_Chat:
 		if a.session.busy {
-			session.session_set_status(a.session, "stopping · clear chat after stop")
+			session.session_set_status(a.session, "stopping, clear chat after stop")
 			app_mark_dirty(a)
 			return false, true
 		}
@@ -55,7 +55,7 @@ app_handle_bind_action :: proc(a: ^App, ev: ui.Event, suggesting: bool) -> (quit
 		return false, true
 	case .Compact:
 		if a.session.busy {
-			session.session_set_status(a.session, "busy · compact after the turn ends")
+			session.session_set_status(a.session, "busy, compact after the turn ends")
 			app_mark_dirty(a)
 			return false, true
 		}

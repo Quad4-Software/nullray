@@ -99,7 +99,7 @@ TCP listener. Remote access goes over `ssh -L` forwarding.
 `nullray watch` manages standing watches: durable scheduled jobs that run a
 check, diff the result set against `.nullray/watch/<id>/state.json`, append to
 `digest.md`, and send a desktop notification only on new hits. A running daemon
-picks up adds and removals on its next tick; recurring watches auto-expire
+picks up adds and removals on its next tick, recurring watches auto-expire
 after 7 days unless `--expires` overrides.
 
 | Command | Purpose |
@@ -156,7 +156,7 @@ lifetime like `7d`.
 | `--no-splash`, `--splash` | Skip or force the startup splash |
 | `--no-subagents` | Disable the task tool |
 | `--hide-sensitive` | Hide account and API key balances |
-| `--secret NAME=VALUE` | Preload vault secret (also `--key` / `--token`; value never printed) |
+| `--secret NAME=VALUE` | Preload vault secret (also `--key` / `--token`, value never printed) |
 | `--askpass` | sudo/doas askpass helper (internal) |
 | `--elevate-broker P` | Privilege broker path (internal) |
 

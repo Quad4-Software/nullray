@@ -11,25 +11,23 @@ Notable changes for nullray.
   8081, and 9931, and sends `n_ctx` from `/props` or the model profile on chat.
 - `show_view` agent tool: LLM-designed TUI forms with text, textarea,
   number, checkbox, select, radio, password, label, markdown, separator, and
-  image fields; placement=modal|panel; script actions; JSON `{action, values}`.
+  image fields, placement=modal|panel, script actions. JSON `{action, values}`.
 - Kitty graphics protocol image rendering in the side pane, image paste from
   clipboard (wl-paste/xclip), and `/attach` opens images in the pane.
-- show_view width/height, per-form fg/bg/accent colors, emoji toggle; set_tui
-  for session or global TUI recolor; `/tui` slash; NULLRAY_UI_MALLEABLE,
+- show_view width/height, per-form fg/bg/accent colors, emoji toggle, set_tui
+  for session or global TUI recolor, `/tui` slash. NULLRAY_UI_MALLEABLE,
   NULLRAY_UI_LOCK, NULLRAY_UI_RESET gates.
 - Tiny/local prompt tier now exposes show_view, set_tui, ask_*, and fetch_url/rss so local models can see malleable UI.
-- show_view password fields vault under view.<id> and return [redacted];
-  session push redacts secret-shaped tokens and card digit runs before
+- show_view password fields vault under view.<id> and return [redacted], session push redacts secret-shaped tokens and card digit runs before
   msgpack persist.
 - Encrypted sessions (`NULLRAY_SESSION_KEY` / `/encrypt`), show_view field
   persist policies (normal|redact|vault|omit), vault export to shell
   (`NULLRAY_VAULT_EXPORT`), `/scrub`, plan/tool strip, panel canvas seed,
   `/demo malleable`.
-- `/secret` (and `/key` `/token`) list/set/ask/forget vault secrets; CLI
+- `/secret` (and `/key` `/token`) list/set/ask/forget vault secrets. CLI
   `--secret NAME=VALUE`. Faster term present (ASCII path, CUP without fmt).
   Bench size gate raised for seal crypto.
-- FreeDesktop Secret Service vault backend via secret-tool (auto/keyring/memory);
-  works with gnome-keyring, KWallet, KeePassXC-as-provider.
+- FreeDesktop Secret Service vault backend via secret-tool (auto/keyring/memory), works with gnome-keyring, KWallet, KeePassXC-as-provider.
 - Provider set trimmed to locals (ollama, lmstudio, llamacpp), openai-compat,
   openrouter, opencode, opencode-go, and fireworks. Dropped first-class
   openai, anthropic, gemini, azure, and other cloud vendor aliases.
@@ -77,12 +75,12 @@ Notable changes for nullray.
 - The checkout lives under ~/.local/src/nullray by default so you can pull and rebuild.
 - fetch_url follows HTML soft redirects (meta refresh and location.replace), returns title and plain text with links as text (url), and is preferred over curl/wget for public pages.
 - Loop guard defaults leave more room for multi-file scaffolds: looser fuzzy and stagnation thresholds, longer warn/steer/stop ladder, path-bearing write and edit acks, and fuzzy skipped for pure mutator call sets.
-- OpenCode chat completions use Bearer auth; the Anthropic Messages path for OpenCode uses x-api-key only so the two styles are never mixed on one request.
+- OpenCode chat completions use Bearer auth, the Anthropic Messages path for OpenCode uses x-api-key only so the two styles are never mixed on one request.
 - CLI late flags such as --completions now return handled so install and man generation work.
 
 ### Fixed
 - parse_cli_late no longer treats recognized flags as unknown (broke make install completions).
-- Soft-redirect cycles and loopback hop targets are stopped cleanly; apply_edits envelope paths stay distinct for anti-loop signals.
+- Soft-redirect cycles and loopback hop targets are stopped cleanly, apply_edits envelope paths stay distinct for anti-loop signals.
 - Help button hit target is the leading glyph only, not the whole version label.
 - Multi-line input no longer crushes status and transcript chrome on short terminals.
 

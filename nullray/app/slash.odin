@@ -30,7 +30,7 @@ app_handle_slash :: proc(a: ^App, text: string) -> bool {
 			slash_cmd_custom(a, name, args)
 			return true
 		}
-		session.session_set_status(a.session, fmt.tprintf("unknown command: /%s · type ?", name))
+		session.session_set_status(a.session, fmt.tprintf("unknown command: /%s, type ?", name))
 		return true
 	}
 	cmd.run(a, args)

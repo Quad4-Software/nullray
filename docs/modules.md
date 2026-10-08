@@ -70,17 +70,14 @@ glue is POSIX-gated so Windows builds skip them cleanly.
 
 static char *my_tool_run(const char *args_json, char **err_out)
 {
-	(void)args_json; (void)err_out;
-	return strdup("ok");
+	(void)args_json, (void)err_out, return strdup("ok");
 }
 
 NULLRAY_MODULE_ENTRY(mymod)
 {
-	nullray_module_begin("mymod", "My Module", "0.1.0", "example");
-	nullray_module_add_tool("my_tool", "Do a thing",
+	nullray_module_begin("mymod", "My Module", "0.1.0", "example"), nullray_module_add_tool("my_tool", "Do a thing",
 		"{\"type\":\"object\",\"properties\":{},\"required\":[]}",
-		NULLRAY_TOOL_READ, my_tool_run);
-	nullray_module_end();
+		NULLRAY_TOOL_READ, my_tool_run), nullray_module_end();
 }
 ```
 

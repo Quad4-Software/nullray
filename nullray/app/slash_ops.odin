@@ -253,7 +253,7 @@ slash_cmd_hooks :: proc(a: ^App, args: string) {
 		return
 	}
 	path := hooks.hooks_workspace_source(context.temp_allocator)
-	session.session_set_status(a.session, fmt.tprintf("hooks: %s · /hooks trust to re-approve", path))
+	session.session_set_status(a.session, fmt.tprintf("hooks: %s, /hooks trust to re-approve", path))
 }
 
 slash_cmd_pause :: proc(a: ^App, args: string) {
@@ -299,7 +299,7 @@ slash_cmd_continue :: proc(a: ^App, args: string) {
 slash_cmd_retry :: proc(a: ^App, args: string) {
 	_ = args
 	if a.session.busy {
-		session.session_set_status(a.session, "busy · stop first or wait")
+		session.session_set_status(a.session, "busy, stop first or wait")
 		return
 	}
 	p := provider.registry_active(&a.registry)

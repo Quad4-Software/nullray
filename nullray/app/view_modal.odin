@@ -689,6 +689,6 @@ app_draw_view_form_modal :: proc(buf: ^ui.Buffer, a: ^App) {
 		ui.buffer_text_clip(buf, x + 2, row, x + w - 2, a.view_form_err, t.error, box_bg)
 	}
 
-	hint := "Tab fields · Enter submit · Space check · Esc cancel"
+	hint := "Tab fields, Enter submit, Space check, Esc cancel"
 	ui.buffer_text_clip(buf, x + 2, y + h - 2, x + w - 2, hint, t.muted, box_bg)
 }

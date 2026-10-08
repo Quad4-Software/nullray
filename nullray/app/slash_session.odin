@@ -255,7 +255,7 @@ slash_cmd_delete :: proc(a: ^App, args: string) {
 	for t, i in a.tabs {
 		if t.sess.name == safe {
 			if t.sess.busy {
-				session.session_set_status(a.session, "session is busy · /stop it first")
+				session.session_set_status(a.session, "session is busy, /stop it first")
 				return
 			}
 			// Last tab: switch to a fresh empty tab first so we can close it.
@@ -277,7 +277,7 @@ slash_cmd_delete :: proc(a: ^App, args: string) {
 	// Re-check it is not still open (busy stop may have left it).
 	for t in a.tabs {
 		if t.sess.name == safe {
-			session.session_set_status(a.session, "session still open · close the tab first")
+			session.session_set_status(a.session, "session still open, close the tab first")
 			return
 		}
 	}
@@ -302,7 +302,7 @@ app_delete_current_session :: proc(a: ^App) {
 		return
 	}
 	if a.session.busy {
-		session.session_set_status(a.session, "session is busy · /stop it first")
+		session.session_set_status(a.session, "session is busy, /stop it first")
 		return
 	}
 	safe := store.sanitize_name(name)
@@ -326,7 +326,7 @@ app_delete_current_session :: proc(a: ^App) {
 		app_tab_close(a, found)
 		if len(a.tabs) >= before {
 			// Close refused (busy join) and kept the tab.
-			session.session_set_status(a.session, "could not close tab · try again")
+			session.session_set_status(a.session, "could not close tab, try again")
 			return
 		}
 	}
@@ -358,7 +358,7 @@ app_delete_tab_session :: proc(a: ^App, target: string) {
 		return
 	}
 	if a.tabs[idx].sess.busy {
-		session.session_set_status(a.session, "session is busy · /stop it first")
+		session.session_set_status(a.session, "session is busy, /stop it first")
 		return
 	}
 	safe := store.sanitize_name(name)
@@ -452,7 +452,7 @@ slash_cmd_reset :: proc(a: ^App, args: string) {
 		}
 		ok := app_reset_all_state(a)
 		if ok {
-			app_toast_warn(a, "reset complete · setup next")
+			app_toast_warn(a, "reset complete, setup next")
 		} else {
 			app_toast_error(a, "reset failed")
 		}
@@ -467,7 +467,7 @@ slash_cmd_reset :: proc(a: ^App, args: string) {
 	a.reset_pending = true
 	session.session_set_status(
 		a.session,
-		"DANGER: wipe sessions+env+keys · type /reset confirm",
+		"DANGER: wipe sessions+env+keys, type /reset confirm",
 	)
 	app_toast_warn(a, "confirm with /reset confirm")
 	app_mark_dirty(a)

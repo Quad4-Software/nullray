@@ -102,7 +102,7 @@ this list in-app.
 | `/tui [get\|reset\|lock\|unlock\|on\|off\|THEME]` | Malleable TUI theme controls |
 | `/encrypt [on KEY\|off\|status]` | Seal session transcripts at rest |
 | `/scrub [all\|last\|matching NEEDLE]` | Redact or forget session content |
-| `/secret list\|set\|ask\|forget\|has\|clear\|backend` | Agent vault secrets (names only; optional keyring) |
+| `/secret list\|set\|ask\|forget\|has\|clear\|backend` | Agent vault secrets (names only, optional keyring) |
 | `/key` `/token` | Aliases for `/secret` |
 | `/demo malleable` | Smoke show_view password vault + privacy UI |
 | `/help` or `/?` | Command list |

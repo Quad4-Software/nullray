@@ -42,7 +42,7 @@ test_chrome_narrow_shortens_labels :: proc(t: ^testing.T) {
 	testing.expect(t, !c.tight)
 	testing.expect_value(t, app_chrome_brand(c), constants.APP_NAME)
 	help := app_chrome_help_right(&a, c)
-	testing.expect(t, len(help) < len("type / · ? help · ^q quit"))
+	testing.expect(t, len(help) < len("type /, ? help, ^q quit"))
 
 	tight := app_chrome(&a, 20, 24)
 	testing.expect(t, tight.tight)

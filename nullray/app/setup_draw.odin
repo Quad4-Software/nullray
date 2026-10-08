@@ -14,7 +14,7 @@ app_draw_setup :: proc(buf: ^ui.Buffer, a: ^App) {
 	t := ui.theme()
 	ui.buffer_clear(buf, t.bg, t.fg)
 	title := "nullray setup"
-	ui.draw_status_bar(buf, 0, title, "Tab/Enter next · Esc back", t.title, t.status_bg)
+	ui.draw_status_bar(buf, 0, title, "Tab/Enter next, Esc back", t.title, t.status_bg)
 	ui.buffer_hline(buf, 0, 1, buf.width, '─', t.border, t.bg)
 
 	y := 2
@@ -212,7 +212,7 @@ setup_draw_connection :: proc(buf: ^ui.Buffer, a: ^App, start_y: int) {
 			}
 		}
 		ui.buffer_text_clip(buf, 1, start_y + 3, buf.width - 1, fmt.tprintf("%s key:  %s", key_mark, shown), t.fg, t.bg)
-		ui.buffer_text_clip(buf, 1, start_y + 5, buf.width - 1, "Up/Down field · type to edit · Enter next", t.muted, t.bg, {.Dim})
+		ui.buffer_text_clip(buf, 1, start_y + 5, buf.width - 1, "Up/Down field, type to edit, Enter next", t.muted, t.bg, {.Dim})
 	} else {
 		ui.buffer_text_clip(buf, 1, start_y + 3, buf.width - 1, "no API key required", t.muted, t.bg, {.Dim})
 	}
@@ -273,7 +273,7 @@ setup_draw_reasoning :: proc(buf: ^ui.Buffer, a: ^App, start_y: int) {
 	}
 	ui.buffer_text_clip(buf, 1, start_y, buf.width - 1, fmt.tprintf("thinking: %s", a.setup_thinking_on ? "on" : "off"), t.fg, t.bg)
 	ui.buffer_text_clip(buf, 1, start_y + 1, buf.width - 1, fmt.tprintf("effort: %s", a.setup_effort), t.fg, t.bg)
-	ui.buffer_text_clip(buf, 1, start_y + 3, buf.width - 1, "Space toggles thinking · Left/Right effort", t.muted, t.bg, {.Dim})
+	ui.buffer_text_clip(buf, 1, start_y + 3, buf.width - 1, "Space toggles thinking, Left/Right effort", t.muted, t.bg, {.Dim})
 	_ = pid
 	effs := setup_reason_efforts(a)
 	line := "levels:"

@@ -44,7 +44,7 @@ app_draw_view_pane :: proc(buf: ^ui.Buffer, a: ^App, lay: View_Layout) {
 			name := filepath.base(a.view_recent[i])
 			label := name
 			if i > 0 {
-				sep := " · "
+				sep := ", "
 				if cx + ui.string_cols(sep) >= x_max {
 					ui.buffer_text_clip(buf, max(x0 + 1, x_max - 1), row, x_max, "…", t.muted, t.status_bg)
 					break
@@ -74,14 +74,14 @@ app_draw_view_pane :: proc(buf: ^ui.Buffer, a: ^App, lay: View_Layout) {
 		base := filepath.base(a.view_path)
 		focus := ""
 		if a.view_focus {
-			focus = " · focus"
+			focus = ", focus"
 		}
 		hdr := ""
 		if a.view_is_image {
-			hdr = fmt.tprintf("%s · image%s", base, focus)
+			hdr = fmt.tprintf("%s, image%s", base, focus)
 		} else {
 			lines_n := app_view_line_count(a.view_body)
-			hdr = fmt.tprintf("%s · %d lines%s", base, lines_n, focus)
+			hdr = fmt.tprintf("%s, %d lines%s", base, lines_n, focus)
 		}
 		ui.buffer_fill_rect(buf, x0, row, w, 1, ' ', t.title, t.highlight_bg)
 		ui.buffer_text_clip(buf, x0 + 1, row, x0 + w - 1, hdr, t.title, t.highlight_bg, {.Bold})
@@ -102,7 +102,7 @@ app_draw_view_pane :: proc(buf: ^ui.Buffer, a: ^App, lay: View_Layout) {
 		x0 + 1,
 		foot_y,
 		x0 + w - 1,
-		a.view_is_image ? "image pane · Esc close" : "Tab focus · Left/Right files · Esc close",
+		a.view_is_image ? "image pane, Esc close" : "Tab focus, Left/Right files, Esc close",
 		t.muted,
 		t.status_bg,
 		{.Dim},

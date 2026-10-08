@@ -21,7 +21,7 @@ Output: one line per run plus results.jsonl and a summary with tokens per
 solved task. Runs stop when cumulative estimated spend crosses --budget.
 
 Verify uses each task's own shell check (pytest, assertions, grep) run in the
-run workspace. Exit 0 and a green verifier are different things; the table
+run workspace. Exit 0 and a green verifier are different things, the table
 prints the verifier verdict.
 
 Cost comes from the catalog price table in eval.py (USD per MTok). Extend the

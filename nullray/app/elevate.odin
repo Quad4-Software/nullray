@@ -125,5 +125,5 @@ app_draw_elevate_modal :: proc(buf: ^ui.Buffer, a: ^App) {
 	mask_n := min(n, max(0, w - 4))
 	mask, _ := strings.repeat("*", mask_n, context.temp_allocator)
 	ui.buffer_text_clip(buf, x + 2, y + 5, x + w - 2, mask, t.accent, t.bg)
-	ui.buffer_text_clip(buf, x + 2, y + 6, x + w - 2, "Enter submit · Esc cancel", t.muted, t.bg)
+	ui.buffer_text_clip(buf, x + 2, y + 6, x + w - 2, "Enter submit, Esc cancel", t.muted, t.bg)
 }

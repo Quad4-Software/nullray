@@ -197,12 +197,12 @@ app_draw_history :: proc(buf: ^ui.Buffer, a: ^App, c: Chrome) {
 	if c.status_y > c.msg_top {
 		ui.buffer_hline(buf, 0, c.status_y - 1, buf.width, '─', t.border, t.bg)
 	}
-	help_right := "Up/PgUp · Home/End · Esc close"
+	help_right := "Up/PgUp, Home/End, Esc close"
 	if c.narrow {
-		help_right = "Up · Esc"
+		help_right = "Up, Esc"
 	}
 	if max_scroll > 0 {
-		help_right = fmt.tprintf("%d/%d · %s", a.history_scroll + 1, max_scroll + 1, help_right)
+		help_right = fmt.tprintf("%d/%d, %s", a.history_scroll + 1, max_scroll + 1, help_right)
 	}
 	ui.draw_status_bar_ex(buf, c.status_y, "history", help_right, t.status_fg, t.muted, t.status_bg)
 	app_draw_input_box(buf, a, c.input_y, c.input_rows, t.fg, t.input_bg, t.accent)

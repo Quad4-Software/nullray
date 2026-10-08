@@ -57,25 +57,25 @@ app_draw :: proc(buf: ^ui.Buffer, user: rawptr) {
 		if len(sess) == 0 {
 			sess = "default"
 		}
-		right := fmt.tprintf("%s · %s · %s", p.name, p.default_model, sess)
+		right := fmt.tprintf("%s, %s, %s", p.name, p.default_model, sess)
 		// Living children move to the dedicated agents strip when shown;
 		// keep a compact count in the title on tight layouts only.
 		if !c.show_agents {
 			if agents := subagent.roster_compact_line(&a.subagents.roster, context.temp_allocator); len(agents) > 0 {
-				right = fmt.tprintf("%s · %s", right, agents)
+				right = fmt.tprintf("%s, %s", right, agents)
 			}
 		}
 		if subagent.policy_is_locked() || a.subagents.model_locked {
-			right = fmt.tprintf("%s · lock", right)
+			right = fmt.tprintf("%s, lock", right)
 		}
 		if len(a.session.group) > 0 {
-			right = fmt.tprintf("%s · g:%s", right, a.session.group)
+			right = fmt.tprintf("%s, g:%s", right, a.session.group)
 		}
 		if !a.session.persist {
-			right = fmt.tprintf("%s · ephemeral", right)
+			right = fmt.tprintf("%s, ephemeral", right)
 		}
 		if cl := app_credits_label(a); !a.hide_sensitive && len(cl) > 0 {
-			right = fmt.tprintf("%s · %s", right, cl)
+			right = fmt.tprintf("%s, %s", right, cl)
 			delete(cl)
 		}
 		right = app_chrome_right_info(a, c, right)
@@ -168,16 +168,16 @@ app_draw :: proc(buf: ^ui.Buffer, user: rawptr) {
 	status_fg := t.status_fg
 	if a.elevate_active {
 		if c.narrow {
-			status_left = "elevate · Esc"
+			status_left = "elevate, Esc"
 		} else {
-			status_left = "elevate: waiting for password · Esc cancel"
+			status_left = "elevate: waiting for password, Esc cancel"
 		}
 		status_fg = t.warn
 	} else if pending := tools.shell_pending(context.temp_allocator); len(pending) > 0 {
 		if c.narrow {
-			status_left = "shell · /allow"
+			status_left = "shell, /allow"
 		} else {
-			status_left = fmt.tprintf("shell: %s · /allow /deny", pending)
+			status_left = fmt.tprintf("shell: %s, /allow /deny", pending)
 		}
 		status_fg = t.warn
 	} else if a.session.busy {
@@ -185,20 +185,20 @@ app_draw :: proc(buf: ^ui.Buffer, user: rawptr) {
 		if c.narrow {
 			status_left = fmt.tprintf("%s %ds", ui.spinner_frame(&a.spinner), secs)
 			if len(a.session.live_tool) > 0 {
-				status_left = fmt.tprintf("%s · %s", status_left, a.session.live_tool)
+				status_left = fmt.tprintf("%s, %s", status_left, a.session.live_tool)
 			}
 		} else {
 			status_left = fmt.tprintf(
-				"%s %s · %ds",
+				"%s %s, %ds",
 				ui.spinner_frame(&a.spinner),
 				a.session.status,
 				secs,
 			)
 			if len(a.session.live_tool) > 0 {
-				status_left = fmt.tprintf("%s · %s", status_left, a.session.live_tool)
+				status_left = fmt.tprintf("%s, %s", status_left, a.session.live_tool)
 			}
 			if !a.follow {
-				status_left = fmt.tprintf("%s · End to follow", status_left)
+				status_left = fmt.tprintf("%s, End to follow", status_left)
 			}
 		}
 		status_fg = t.accent
@@ -213,7 +213,7 @@ app_draw :: proc(buf: ^ui.Buffer, user: rawptr) {
 			status_left = fmt.tprintf("view: %s", base)
 		}
 		if a.view_focus {
-			status_left = fmt.tprintf("%s · focus", status_left)
+			status_left = fmt.tprintf("%s, focus", status_left)
 		}
 		status_fg = t.accent
 	} else if a.session.last_usage.total_tokens > 0 {
@@ -283,7 +283,7 @@ app_draw_plan_strip :: proc(buf: ^ui.Buffer, a: ^App, c: Chrome) {
 			append(&parts, fmt.tprintf("plan %d/%d %s", idx + 1, len(a.session.plan_steps), step))
 		}
 	}
-	line := strings.join(parts[:], " · ", context.temp_allocator)
+	line := strings.join(parts[:], ", ", context.temp_allocator)
 	if len(line) == 0 {
 		line = "planner"
 	}
@@ -347,12 +347,12 @@ app_draw_status_overlay :: proc(buf: ^ui.Buffer, a: ^App, c: Chrome) {
 	if c.status_y > c.msg_top {
 		ui.buffer_hline(buf, 0, c.status_y - 1, buf.width, '─', t.border, t.bg)
 	}
-	help_right := "PgUp/PgDn · Esc close"
+	help_right := "PgUp/PgDn, Esc close"
 	if c.narrow {
-		help_right = "PgUp · Esc"
+		help_right = "PgUp, Esc"
 	}
 	if max_scroll > 0 {
-		help_right = fmt.tprintf("%d/%d · %s", a.status_scroll + 1, max_scroll + 1, help_right)
+		help_right = fmt.tprintf("%d/%d, %s", a.status_scroll + 1, max_scroll + 1, help_right)
 	}
 	ui.draw_status_bar_ex(buf, c.status_y, "status", help_right, t.status_fg, t.muted, t.status_bg)
 	app_draw_input_box(buf, a, c.input_y, c.input_rows, t.fg, t.input_bg, t.accent)
@@ -382,12 +382,12 @@ app_draw_help :: proc(buf: ^ui.Buffer, a: ^App, c: Chrome) {
 	if c.status_y > c.msg_top {
 		ui.buffer_hline(buf, 0, c.status_y - 1, buf.width, '─', t.border, t.bg)
 	}
-	help_right := "PgUp/PgDn · Esc/? close"
+	help_right := "PgUp/PgDn, Esc/? close"
 	if c.narrow {
-		help_right = "PgUp · Esc"
+		help_right = "PgUp, Esc"
 	}
 	if max_scroll > 0 {
-		help_right = fmt.tprintf("%d/%d · %s", a.help_scroll + 1, max_scroll + 1, help_right)
+		help_right = fmt.tprintf("%d/%d, %s", a.help_scroll + 1, max_scroll + 1, help_right)
 	}
 	ui.draw_status_bar_ex(buf, c.status_y, "help", help_right, t.status_fg, t.muted, t.status_bg)
 	app_draw_input_box(buf, a, c.input_y, c.input_rows, t.fg, t.input_bg, t.accent)

@@ -48,12 +48,12 @@ app_activate_provider :: proc(a: ^App) {
 	app_refresh_provider_status(a)
 
 	ready := provider.provider_is_ready(p)
-	msg := fmt.tprintf("provider %s · %s", p.name, p.default_model)
+	msg := fmt.tprintf("provider %s, %s", p.name, p.default_model)
 	if !ready {
-		msg = fmt.tprintf("%s · %s · /setup", msg, provider.provider_readiness_label(p))
+		msg = fmt.tprintf("%s, %s, /setup", msg, provider.provider_readiness_label(p))
 	} else if !a.hide_sensitive {
 		if cl := app_credits_label(a); len(cl) > 0 {
-			msg = fmt.tprintf("%s · %s", msg, cl)
+			msg = fmt.tprintf("%s, %s", msg, cl)
 			delete(cl)
 		}
 	}
@@ -72,7 +72,7 @@ slash_cmd_provider :: proc(a: ^App, args: string) {
 		ready := provider.provider_readiness_label(p)
 		session.session_set_status(
 			a.session,
-			fmt.tprintf("provider %s (%s) · %s · %s", p.id, p.name, p.default_model, ready),
+			fmt.tprintf("provider %s (%s), %s, %s", p.id, p.name, p.default_model, ready),
 		)
 		return
 	}
@@ -93,7 +93,7 @@ slash_cmd_provider :: proc(a: ^App, args: string) {
 	}
 
 	if !provider.registry_set_active(&a.registry, rest) {
-		session.session_set_status(a.session, "usage: /provider [ID|next|prev|setup] · /providers")
+		session.session_set_status(a.session, "usage: /provider [ID|next|prev|setup], /providers")
 		return
 	}
 	app_activate_provider(a)
@@ -117,7 +117,7 @@ slash_cmd_providers :: proc(a: ^App, args: string) {
 		}
 		fmt.sbprintf(&b, "%s %-16s %-18s %s%s\n", mark, p.id, p.name, ready, smoke)
 	}
-	strings.write_string(&b, "use /provider ID · /setup for keys")
+	strings.write_string(&b, "use /provider ID, /setup for keys")
 	out := strings.to_string(b)
 	session.session_push_assistant(a.session, out)
 	delete(out)

@@ -4,33 +4,21 @@
 
    Strategy:
    - HTML navigations: network first, cache fallback. Online readers
-     always see the newest pages; offline readers get the cached copy.
+     always see the newest pages, offline readers get the cached copy.
    - Site assets (css/js/images): cache first, they are content hashed
      and effectively immutable between builds.
    - Everything else (fonts, cross origin): stale while revalidate.
 
    Paths are derived from this script's own URL so the worker works
    whether the site is mounted at the origin root or a subpath. */
-"use strict";
-
-const VERSION = "v1";
-const PAGES = `nullray-pages-${VERSION}`;
-const ASSETS = `nullray-assets-${VERSION}`;
-
-const BASE = new URL("./", self.location.href);
-
-const rel = (path) => new URL(path, BASE).pathname;
-
-const CORE = [
+"use strict", const VERSION = "v1", const PAGES = `nullray-pages-${VERSION}`, const ASSETS = `nullray-assets-${VERSION}`, const BASE = new URL("./", self.location.href), const rel = (path) => new URL(path, BASE).pathname, const CORE = [
   "",
   "quick-start/",
   "manifest.webmanifest",
   "assets/icon-512.png",
   "assets/favicon.svg",
   "assets/wordmark.webp",
-].map(rel);
-
-self.addEventListener("install", (event) => {
+].map(rel), self.addEventListener("install", (event) => {
   event.waitUntil(
     caches.open(PAGES).then((cache) => cache.addAll(CORE)).then(() => self.skipWaiting()),
   );
@@ -50,9 +38,7 @@ self.addEventListener("activate", (event) => {
 
 const isPageRequest = (request) =>
   request.mode === "navigate" ||
-  (request.headers.get("accept") || "").includes("text/html");
-
-const isAssetRequest = (url) =>
+  (request.headers.get("accept") || "").includes("text/html"), const isAssetRequest = (url) =>
   url.origin === location.origin &&
   url.pathname.startsWith(BASE.pathname) &&
   (url.pathname.includes("/assets/") ||
@@ -60,49 +46,31 @@ const isAssetRequest = (url) =>
     url.pathname.endsWith(".js") ||
     url.pathname.endsWith(".woff2") ||
     url.pathname.endsWith(".svg") ||
-    url.pathname.endsWith(".png"));
-
-const networkFirst = async (request) => {
-  const cache = await caches.open(PAGES);
-  try {
-    const response = await fetch(request);
-    if (response.ok) cache.put(request, response.clone());
-    return response;
+    url.pathname.endsWith(".png")), const networkFirst = async (request) => {
+  const cache = await caches.open(PAGES), try {
+    const response = await fetch(request), if (response.ok) cache.put(request, response.clone()), return response;
   } catch {
-    const cached = await cache.match(request, { ignoreSearch: true });
-    return cached || cache.match(rel(""));
+    const cached = await cache.match(request, { ignoreSearch: true }), return cached || cache.match(rel(""));
   }
 };
 
 const cacheFirst = async (request) => {
-  const cache = await caches.open(ASSETS);
-  const cached = await cache.match(request);
-  if (cached) return cached;
-  const response = await fetch(request);
-  if (response.ok) cache.put(request, response.clone());
-  return response;
+  const cache = await caches.open(ASSETS), const cached = await cache.match(request), if (cached) return cached, const response = await fetch(request), if (response.ok) cache.put(request, response.clone()), return response;
 };
 
 const staleWhileRevalidate = async (request) => {
-  const cache = await caches.open(ASSETS);
-  const cached = await cache.match(request);
-  const fetched = fetch(request)
+  const cache = await caches.open(ASSETS), const cached = await cache.match(request), const fetched = fetch(request)
     .then((response) => {
       if (response.ok || response.type === "opaque") {
         cache.put(request, response.clone());
       }
       return response;
     })
-    .catch(() => undefined);
-  return cached || fetched;
+    .catch(() => undefined), return cached || fetched;
 };
 
 self.addEventListener("fetch", (event) => {
-  const { request } = event;
-  if (request.method !== "GET") return;
-
-  const url = new URL(request.url);
-  if (isPageRequest(request)) {
+  const { request } = event, if (request.method !== "GET") return, const url = new URL(request.url), if (isPageRequest(request)) {
     event.respondWith(networkFirst(request));
   } else if (isAssetRequest(url)) {
     event.respondWith(cacheFirst(request));

@@ -9,7 +9,7 @@ ODIN="${ODIN:-odin}"
 MAX_BYTES="${NULLRAY_MAX_BINARY_BYTES:-7200000}"
 MAX_RSS_KB="${NULLRAY_MAX_RSS_KB:-65536}"
 
-if [[ ! -x "$BIN" ]]; then
+if [[ ! -x "$BIN" ]], then
   echo "missing binary: $BIN" >&2
   exit 1
 fi
@@ -21,7 +21,7 @@ cleanup() {
   [[ -n "$strip_tmp" && -f "$strip_tmp" ]] && rm -f "$strip_tmp"
 }
 trap cleanup EXIT
-if command -v strip >/dev/null 2>&1; then
+if command -v strip >/dev/null 2>&1, then
   strip_tmp="$(mktemp "${TMPDIR:-/tmp}/nullray.stripped.XXXXXX")"
   strip -o "$strip_tmp" "$BIN"
   chmod +x "$strip_tmp"
@@ -30,7 +30,7 @@ fi
 
 size="$(wc -c <"$size_bin" | tr -d ' ')"
 echo "binary_bytes=$size max=$MAX_BYTES"
-if (( size > MAX_BYTES )); then
+if (( size > MAX_BYTES )), then
   echo "binary size gate failed" >&2
   exit 1
 fi
@@ -47,7 +47,7 @@ Linux)
 esac
 
 echo "selftest_rss_kb=$rss_kb max=$MAX_RSS_KB"
-if (( rss_kb > MAX_RSS_KB )); then
+if (( rss_kb > MAX_RSS_KB )), then
   echo "rss gate failed" >&2
   exit 1
 fi

@@ -112,7 +112,7 @@ openrouter_balance_label :: proc(b: OpenRouter_Balance, allocator := context.all
 	if len(parts) == 0 {
 		return strings.clone("credits n/a", allocator)
 	}
-	return strings.clone(strings.join(parts[:], " · ", context.temp_allocator), allocator)
+	return strings.clone(strings.join(parts[:], ", ", context.temp_allocator), allocator)
 }
 
 @(private)

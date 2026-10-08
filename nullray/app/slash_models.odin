@@ -128,9 +128,9 @@ models_list_text :: proc(
 	b: strings.Builder
 	strings.builder_init(&b)
 	provider.modelsdev_enrich(p.id, models)
-	fmt.sbprintf(&b, "%s (%s) · %d models", p.name, p.id, len(models))
+	fmt.sbprintf(&b, "%s (%s), %d models", p.name, p.id, len(models))
 	if cached {
-		strings.write_string(&b, " · models.dev cache")
+		strings.write_string(&b, ", models.dev cache")
 	}
 	strings.write_byte(&b, '\n')
 	if len(models) == 0 {
@@ -155,7 +155,7 @@ models_list_text :: proc(
 		}
 		strings.write_byte(&b, '\n')
 	}
-	strings.write_string(&b, "set with /model ID · approval policy: /models policy")
+	strings.write_string(&b, "set with /model ID, approval policy: /models policy")
 	return strings.to_string(b)
 }
 
