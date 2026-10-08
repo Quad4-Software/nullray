@@ -49,10 +49,12 @@ test_apply_saved_model_no_env :: proc(t: ^testing.T) {
 
 @(test)
 test_apply_saved_model_env_wins :: proc(t: ^testing.T) {
-	os.set_env(constants.ENV_PROVIDER, "openai")
+	os.set_env(constants.ENV_PROVIDER, "fireworks")
 	defer os.unset_env(constants.ENV_PROVIDER)
 	os.set_env(constants.ENV_MODEL, "env/model")
 	defer os.unset_env(constants.ENV_MODEL)
+	os.set_env(constants.ENV_LOCAL_PROBE, "0")
+	defer os.unset_env(constants.ENV_LOCAL_PROBE)
 
 	reg: provider.Registry
 	provider.registry_init(&reg)
@@ -64,7 +66,7 @@ test_apply_saved_model_env_wins :: proc(t: ^testing.T) {
 	testing.expect(t, !session_apply_saved_model(&s, &reg))
 	p := provider.registry_active(&reg)
 	testing.expect(t, p != nil)
-	testing.expect_value(t, p.id, "openai")
+	testing.expect_value(t, p.id, "fireworks")
 	testing.expect_value(t, p.default_model, "env/model")
 }
 

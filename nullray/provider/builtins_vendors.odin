@@ -1,11 +1,12 @@
 // SPDX-License-Identifier: LicenseRef-QSL-1.0-0BSD
 /*
-Named OpenAI-compat cloud providers (Anthropic, Gemini, Groq, …).
+Named OpenAI-compat cloud providers kept in-tree.
+Local servers (ollama, lmstudio, llamacpp) and gateway aliases
+(openai-compat, openrouter, opencode) live in builtins.odin.
 */
 
 package provider
 
-import "core:os"
 import "core:strings"
 import "nullray:constants"
 
@@ -44,105 +45,6 @@ make_compat_named :: proc(
 	}
 }
 
-// Anthropic speaks Messages, not chat/completions. /v1/models shares the
-// OpenAI list shape so the generic parser works.
-make_anthropic :: proc(base_url := "", api_key := "", model := "") -> Provider {
-	base := base_url
-	if len(base) == 0 {
-		if host, ok := os.lookup_env(constants.ENV_ANTHROPIC_BASE, context.temp_allocator); ok {
-			base = normalize_openai_base(host)
-		} else {
-			base = constants.DEFAULT_ANTHROPIC_BASE
-		}
-	} else {
-		base = normalize_openai_base(base)
-	}
-	key := api_key
-	if len(key) == 0 {
-		key = lookup_api_key_env(constants.ENV_ANTHROPIC_KEY, constants.ENV_API_KEY)
-	}
-	m := model
-	if len(m) == 0 {
-		m = constants.DEFAULT_MODEL_ANTHROPIC
-	}
-	return Provider{
-		id = "anthropic",
-		name = "Anthropic",
-		base_url = strings.clone(base),
-		api_key = strings.clone(key),
-		default_model = strings.clone(m),
-		chat = anthropic_chat,
-		stream = anthropic_chat_stream,
-		list_models = openai_list_models,
-	}
-}
-
-make_gemini :: proc(base_url := "", api_key := "", model := "") -> Provider {
-	return make_compat_named(
-		"gemini",
-		"Gemini",
-		constants.DEFAULT_GEMINI_BASE,
-		constants.DEFAULT_MODEL_GEMINI,
-		constants.ENV_GEMINI_KEY,
-		base_url,
-		api_key,
-		model,
-		constants.ENV_GOOGLE_KEY,
-	)
-}
-
-make_groq :: proc(base_url := "", api_key := "", model := "") -> Provider {
-	return make_compat_named(
-		"groq",
-		"Groq",
-		constants.DEFAULT_GROQ_BASE,
-		constants.DEFAULT_MODEL_GROQ,
-		constants.ENV_GROQ_KEY,
-		base_url,
-		api_key,
-		model,
-	)
-}
-
-make_deepseek :: proc(base_url := "", api_key := "", model := "") -> Provider {
-	return make_compat_named(
-		"deepseek",
-		"DeepSeek",
-		constants.DEFAULT_DEEPSEEK_BASE,
-		constants.DEFAULT_MODEL_DEEPSEEK,
-		constants.ENV_DEEPSEEK_KEY,
-		base_url,
-		api_key,
-		model,
-	)
-}
-
-make_mistral :: proc(base_url := "", api_key := "", model := "") -> Provider {
-	return make_compat_named(
-		"mistral",
-		"Mistral",
-		constants.DEFAULT_MISTRAL_BASE,
-		constants.DEFAULT_MODEL_MISTRAL,
-		constants.ENV_MISTRAL_KEY,
-		base_url,
-		api_key,
-		model,
-	)
-}
-
-make_together :: proc(base_url := "", api_key := "", model := "") -> Provider {
-	return make_compat_named(
-		"together",
-		"Together",
-		constants.DEFAULT_TOGETHER_BASE,
-		constants.DEFAULT_MODEL_TOGETHER,
-		constants.ENV_TOGETHER_KEY,
-		base_url,
-		api_key,
-		model,
-	)
-}
-
 make_fireworks :: proc(base_url := "", api_key := "", model := "") -> Provider {
 	return make_compat_named(
 		"fireworks",
@@ -150,72 +52,6 @@ make_fireworks :: proc(base_url := "", api_key := "", model := "") -> Provider {
 		constants.DEFAULT_FIREWORKS_BASE,
 		constants.DEFAULT_MODEL_FIREWORKS,
 		constants.ENV_FIREWORKS_KEY,
-		base_url,
-		api_key,
-		model,
-	)
-}
-
-make_xai :: proc(base_url := "", api_key := "", model := "") -> Provider {
-	return make_compat_named(
-		"xai",
-		"xAI",
-		constants.DEFAULT_XAI_BASE,
-		constants.DEFAULT_MODEL_XAI,
-		constants.ENV_XAI_KEY,
-		base_url,
-		api_key,
-		model,
-	)
-}
-
-make_cerebras :: proc(base_url := "", api_key := "", model := "") -> Provider {
-	return make_compat_named(
-		"cerebras",
-		"Cerebras",
-		constants.DEFAULT_CEREBRAS_BASE,
-		constants.DEFAULT_MODEL_CEREBRAS,
-		constants.ENV_CEREBRAS_KEY,
-		base_url,
-		api_key,
-		model,
-	)
-}
-
-make_cohere :: proc(base_url := "", api_key := "", model := "") -> Provider {
-	return make_compat_named(
-		"cohere",
-		"Cohere",
-		constants.DEFAULT_COHERE_BASE,
-		constants.DEFAULT_MODEL_COHERE,
-		constants.ENV_COHERE_KEY,
-		base_url,
-		api_key,
-		model,
-		constants.ENV_COHERE_KEY_ALT,
-	)
-}
-
-make_nvidia :: proc(base_url := "", api_key := "", model := "") -> Provider {
-	return make_compat_named(
-		"nvidia",
-		"NVIDIA",
-		constants.DEFAULT_NVIDIA_BASE,
-		constants.DEFAULT_MODEL_NVIDIA,
-		constants.ENV_NVIDIA_KEY,
-		base_url,
-		api_key,
-		model,
-	)
-}
-
-make_dashscope :: proc(base_url := "", api_key := "", model := "") -> Provider {
-	return make_compat_named(
-		"dashscope",
-		"DashScope",
-		constants.DEFAULT_DASHSCOPE_BASE,
-		constants.DEFAULT_MODEL_DASHSCOPE,
-		constants.ENV_DASHSCOPE_KEY,
 		base_url,
 		api_key,
 		model,

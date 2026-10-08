@@ -27,7 +27,7 @@ complete -c nullray -l connect -d 'Route --print through a running daemon'
 complete -c nullray -l attach -d 'Attach to a daemon session'
 complete -c nullray -l bare -d 'Skip home MCP and non-workspace skills'
 complete -c nullray -l fail-on-findings -d 'Exit 1 when review findings present'
-complete -c nullray -s p -l provider -d 'Provider id' -xa 'ollama lmstudio llamacpp openai openai-compat openrouter opencode opencode-go anthropic gemini groq deepseek mistral together fireworks xai azure cerebras cohere nvidia dashscope'
+complete -c nullray -s p -l provider -d 'Provider id' -xa 'ollama lmstudio llamacpp openai-compat openrouter opencode opencode-go fireworks'
 complete -c nullray -s m -l model -d 'Model id' -r
 complete -c nullray -l theme -d 'UI theme' -xa 'ink ember moss slate rose mono dusk'
 complete -c nullray -l mode -d 'Agent mode' -xa 'ask plan review edit orchestrate'

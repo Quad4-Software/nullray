@@ -140,7 +140,7 @@ setup_skip_reasoning_step :: proc(a: ^App) -> bool {
 	if p == nil {
 		return true
 	}
-	return p.id == "anthropic" || provider.provider_is_local(p.id)
+	return provider.provider_is_local(p.id)
 }
 
 @(private)
@@ -149,23 +149,8 @@ setup_reason_value :: proc(a: ^App) -> string {
 	if p == nil {
 		return "low"
 	}
-	if p.id == "anthropic" || provider.provider_is_local(p.id) {
+	if provider.provider_is_local(p.id) {
 		return "none"
-	}
-	switch p.id {
-	case "dashscope", "cohere":
-		if a.setup_thinking_on {
-			return "low"
-		}
-		return "none"
-	case "deepseek":
-		if !a.setup_thinking_on {
-			return "none"
-		}
-		if len(a.setup_effort) == 0 || a.setup_effort == "none" {
-			return "low"
-		}
-		return a.setup_effort
 	}
 	if !a.setup_thinking_on {
 		return "none"
@@ -186,7 +171,7 @@ setup_can_advance :: proc(a: ^App) -> bool {
 	case .Provider:
 		return true
 	case .Connection:
-		if p.id == "openai-compat" || p.id == "azure" {
+		if p.id == "openai-compat" {
 			if len(strings.trim_space(a.setup_base)) == 0 {
 				setup_set_status(a, "base URL required")
 				return false

@@ -213,10 +213,8 @@ model_has_marker :: proc(model: string, markers: []string) -> bool {
 // Providers whose mainstream chat models all accept image parts.
 @(private)
 media_image_broad :: proc(id: string) -> bool {
-	switch id {
-	case "openai", "azure", "anthropic", "gemini", "xai":
-		return true
-	}
+	// No remaining first-party cloud vision fleets; rely on model name markers.
+	_ = id
 	return false
 }
 
@@ -224,18 +222,17 @@ media_image_broad :: proc(id: string) -> bool {
 @(private)
 media_audio_provider :: proc(id: string) -> bool {
 	switch id {
-	case "openai", "azure", "gemini", "opencode", "opencode-go", "openrouter":
+	case "opencode", "opencode-go", "openrouter", "openai-compat":
 		return true
 	}
 	return false
 }
 
-// video_url parts are only routed for Gemini-family models and DashScope
-// qwen-vl, locals and other vendors have no documented video input.
+// video_url parts are only routed for providers that forward multimodal media.
 @(private)
 media_video_provider :: proc(id: string) -> bool {
 	switch id {
-	case "gemini", "opencode", "openrouter", "dashscope":
+	case "opencode", "openrouter":
 		return true
 	}
 	return false

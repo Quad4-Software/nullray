@@ -131,49 +131,23 @@ Build a fresh provider instance for failover by id (keys from env).
 Caller owns and must provider_destroy.
 */
 make_provider_by_id :: proc(id: string) -> (Provider, bool) {
-	switch strings.to_lower(strings.trim_space(id), context.temp_allocator) {
+	switch normalize_provider_id(id) {
 	case "ollama":
 		return make_ollama(), true
-	case "lmstudio", "lm-studio":
+	case "lmstudio":
 		return make_lmstudio(), true
-	case "llamacpp", "llama.cpp", "llama-cpp", "llama":
+	case "llamacpp":
 		return make_llamacpp(), true
-	case "openai":
-		return make_openai(), true
-	case "openai-compat", "compat":
+	case "openai-compat":
 		return make_openai_compat(), true
 	case "openrouter":
 		return make_openrouter(), true
-	case "opencode", "zen":
+	case "opencode":
 		return make_opencode(), true
 	case "opencode-go":
 		return make_opencode_go(), true
-	case "anthropic":
-		return make_anthropic(), true
-	case "gemini", "google":
-		return make_gemini(), true
-	case "groq":
-		return make_groq(), true
-	case "deepseek":
-		return make_deepseek(), true
-	case "mistral":
-		return make_mistral(), true
-	case "together":
-		return make_together(), true
 	case "fireworks":
 		return make_fireworks(), true
-	case "xai":
-		return make_xai(), true
-	case "azure":
-		return make_azure(), true
-	case "cerebras":
-		return make_cerebras(), true
-	case "cohere":
-		return make_cohere(), true
-	case "nvidia":
-		return make_nvidia(), true
-	case "dashscope":
-		return make_dashscope(), true
 	}
 	return {}, false
 }

@@ -176,19 +176,16 @@ test_provider_http_error_ctx_hint :: proc(t: ^testing.T) {
 
 @(test)
 test_normalize_provider_id_aliases :: proc(t: ^testing.T) {
-	testing.expect_value(t, normalize_provider_id("OpenAI"), "openai")
 	testing.expect_value(t, normalize_provider_id("openai_compatible"), "openai-compat")
 	testing.expect_value(t, normalize_provider_id("custom"), "openai-compat")
-	testing.expect_value(t, normalize_provider_id("oai"), "openai")
-	testing.expect_value(t, normalize_provider_id("qwen"), "dashscope")
-	testing.expect_value(t, normalize_provider_id("alibaba"), "dashscope")
-	testing.expect_value(t, normalize_provider_id("nim"), "nvidia")
-	testing.expect_value(t, normalize_provider_id("nvidia-nim"), "nvidia")
-	testing.expect_value(t, normalize_provider_id("co"), "cohere")
+	testing.expect_value(t, normalize_provider_id("oai"), "openai-compat")
+	testing.expect_value(t, normalize_provider_id("OpenAI"), "openai")
 	testing.expect_value(t, normalize_provider_id("llama.cpp"), "llamacpp")
 	testing.expect_value(t, normalize_provider_id("llama-cpp"), "llamacpp")
 	testing.expect_value(t, normalize_provider_id("llama"), "llamacpp")
 	testing.expect_value(t, normalize_provider_id("lm-studio"), "lmstudio")
+	testing.expect_value(t, normalize_provider_id("zen"), "opencode")
+	testing.expect_value(t, normalize_provider_id("fw"), "fireworks")
 }
 
 @(test)
@@ -231,16 +228,6 @@ test_probe_local_provider_respects_disable :: proc(t: ^testing.T) {
 	os.set_env(constants.ENV_LOCAL_PROBE, "0")
 	defer os.unset_env(constants.ENV_LOCAL_PROBE)
 	testing.expect(t, !probe_local_provider("ollama", 1))
-}
-
-@(test)
-test_make_openai_defaults :: proc(t: ^testing.T) {
-	p := make_openai("https://api.openai.com", "sk-test", "gpt-4o-mini")
-	defer provider_destroy(&p)
-	testing.expect_value(t, p.id, "openai")
-	testing.expect_value(t, p.base_url, "https://api.openai.com/v1")
-	testing.expect_value(t, p.api_key, "sk-test")
-	testing.expect(t, uses_max_completion_tokens(&p, "gpt-4o-mini"))
 }
 
 @(test)

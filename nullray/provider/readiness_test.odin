@@ -5,20 +5,14 @@ import "core:testing"
 
 @(test)
 test_provider_readiness_label_key_and_base :: proc(t: ^testing.T) {
-	openai := Provider{id = "openai", name = "OpenAI", api_key = "", base_url = "https://api.openai.com/v1"}
-	testing.expect_value(t, provider_readiness_label(&openai, false), "no key")
-	openai.api_key = "sk-test"
-	testing.expect_value(t, provider_readiness_label(&openai, false), "configured")
-	testing.expect(t, provider_is_ready(&openai, false))
+	orouter := Provider{id = "openrouter", name = "OpenRouter", api_key = "", base_url = "https://openrouter.ai/api/v1"}
+	testing.expect_value(t, provider_readiness_label(&orouter, false), "no key")
+	orouter.api_key = "sk-or-test"
+	testing.expect_value(t, provider_readiness_label(&orouter, false), "configured")
+	testing.expect(t, provider_is_ready(&orouter, false))
 
-	azure := Provider{id = "azure", name = "Azure", api_key = "k", base_url = ""}
-	testing.expect_value(t, provider_readiness_label(&azure, false), "no base")
-	testing.expect(t, !provider_is_ready(&azure, false))
-	azure.base_url = "https://example.openai.azure.com"
-	azure.api_key = ""
-	testing.expect_value(t, provider_readiness_label(&azure, false), "no key")
-	azure.api_key = "k"
-	testing.expect_value(t, provider_readiness_label(&azure, false), "configured")
+	fw := Provider{id = "fireworks", name = "Fireworks", api_key = "k", base_url = "https://api.fireworks.ai/inference/v1"}
+	testing.expect_value(t, provider_readiness_label(&fw, false), "configured")
 
 	compat := Provider{id = "openai-compat", name = "Compat", api_key = "", base_url = ""}
 	testing.expect_value(t, provider_readiness_label(&compat, false), "no base")
@@ -34,31 +28,41 @@ test_provider_is_local :: proc(t: ^testing.T) {
 	testing.expect(t, provider_is_local("ollama"))
 	testing.expect(t, provider_is_local("lmstudio"))
 	testing.expect(t, provider_is_local("llamacpp"))
-	testing.expect(t, !provider_is_local("openai"))
 	testing.expect(t, !provider_is_local("openrouter"))
 	testing.expect(t, !provider_is_local("openai-compat"))
+	testing.expect(t, !provider_is_local("fireworks"))
 }
 
 @(test)
 test_provider_ids_cover_registry_builtins :: proc(t: ^testing.T) {
-	testing.expect(t, len(PROVIDER_IDS) >= 20)
-	found_dash := false
-	found_cerebras := false
-	for id in PROVIDER_IDS {
-		if id == "dashscope" {
-			found_dash = true
-		}
-		if id == "cerebras" {
-			found_cerebras = true
-		}
+	testing.expect_value(t, len(PROVIDER_IDS), 8)
+	want := []string{
+		"ollama",
+		"lmstudio",
+		"llamacpp",
+		"openai-compat",
+		"openrouter",
+		"opencode",
+		"opencode-go",
+		"fireworks",
 	}
-	testing.expect(t, found_dash)
-	testing.expect(t, found_cerebras)
-	found_llama := false
-	for id in PROVIDER_IDS {
-		if id == "llamacpp" {
-			found_llama = true
+	for id in want {
+		found := false
+		for have in PROVIDER_IDS {
+			if have == id {
+				found = true
+				break
+			}
 		}
+		testing.expect(t, found)
 	}
-	testing.expect(t, found_llama)
+}
+
+@(test)
+test_normalize_provider_aliases :: proc(t: ^testing.T) {
+	testing.expect_value(t, normalize_provider_id("oai"), "openai-compat")
+	testing.expect_value(t, normalize_provider_id("custom"), "openai-compat")
+	testing.expect_value(t, normalize_provider_id("zen"), "opencode")
+	testing.expect_value(t, normalize_provider_id("llama.cpp"), "llamacpp")
+	testing.expect_value(t, normalize_provider_id("fw"), "fireworks")
 }

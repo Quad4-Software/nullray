@@ -12,24 +12,11 @@ PROVIDER_IDS :: []string{
 	"ollama",
 	"lmstudio",
 	"llamacpp",
-	"openai",
 	"openai-compat",
 	"openrouter",
 	"opencode",
 	"opencode-go",
-	"anthropic",
-	"gemini",
-	"groq",
-	"deepseek",
-	"mistral",
-	"together",
 	"fireworks",
-	"xai",
-	"azure",
-	"cerebras",
-	"cohere",
-	"nvidia",
-	"dashscope",
 }
 
 // Local OpenAI-compat hosts (no cloud API key required by default).
@@ -58,7 +45,7 @@ provider_readiness_label :: proc(p: ^Provider, probe := true) -> string {
 		}
 		return "down"
 	}
-	if (p.id == "azure" || p.id == "openai-compat") && len(strings.trim_space(p.base_url)) == 0 {
+	if p.id == "openai-compat" && len(strings.trim_space(p.base_url)) == 0 {
 		return "no base"
 	}
 	if p.id == "openai-compat" {

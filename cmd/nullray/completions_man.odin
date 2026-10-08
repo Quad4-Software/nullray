@@ -108,8 +108,8 @@ Same as
 In review mode, exit 1 when the reply ends with FINDINGS: N and N > 0.
 .TP
 .BR \-p ", " \-\-provider " " \fIID\fR
-Select provider: ollama, lmstudio, llamacpp, openai, openai-compat, openrouter, opencode,
-opencode-go, anthropic, gemini, groq, deepseek, mistral, together, fireworks, xai, azure.
+Select provider: ollama, lmstudio, llamacpp, openai-compat, openrouter, opencode,
+opencode-go, fireworks.
 .TP
 .BR \-m ", " \-\-model " " \fINAME\fR
 Override the default model for the active provider.

@@ -4,31 +4,23 @@ Pick a provider with `--provider`, `NULLRAY_PROVIDER`, or `/provider`
 inside the TUI. `/providers` lists every built-in and whether its key is
 present.
 
+Built-in cloud vendors outside this table are not registered. Use
+`openai-compat` with any chat/completions base URL when you need a custom
+gateway.
+
 | Provider id | Auth env | Notes |
 |-------------|----------|-------|
 | ollama | none, `OLLAMA_HOST` | Local. Default host 127.0.0.1:11434 |
 | lmstudio | `LM_API_TOKEN` | Local. Defaults to the value lm-studio when unset |
 | llamacpp | `LLAMA_CPP_HOST`, `LLAMA_CPP_API_KEY` | Local. Probes 8080, 8081, 9931. Adopts loaded GGUF name and n_ctx from `/props` |
-| openai | `OPENAI_API_KEY`, `OPENAI_BASE_URL` | Chat completions |
-| openai-compat | `OPENAI_BASE_URL` + `OPENAI_API_KEY` | Any chat/completions endpoint |
+| openai-compat | `OPENAI_BASE_URL` + optional `OPENAI_API_KEY` | Any chat/completions endpoint |
 | openrouter | `OPENROUTER_API_KEY` | Model list, fallbacks, credits |
 | opencode | `OPENCODE_API_KEY` | OpenCode Zen subscription |
 | opencode-go | `OPENCODE_API_KEY` | Zen Go surface |
-| anthropic | `ANTHROPIC_API_KEY`, `ANTHROPIC_BASE_URL` | Native Messages API |
-| gemini | `GEMINI_API_KEY` or `GOOGLE_API_KEY` | |
-| groq | `GROQ_API_KEY` | |
-| deepseek | `DEEPSEEK_API_KEY` | |
-| mistral | `MISTRAL_API_KEY` | |
-| together | `TOGETHER_API_KEY` | |
 | fireworks | `FIREWORKS_API_KEY` | |
-| xai | `XAI_API_KEY` | |
-| azure | `AZURE_OPENAI_ENDPOINT` + `AZURE_OPENAI_API_KEY` | |
-| cerebras | `CEREBRAS_API_KEY` | |
-| cohere | `COHERE_API_KEY` | |
-| nvidia | `NVIDIA_API_KEY` | |
-| dashscope | `DASHSCOPE_API_KEY` | |
 
-`zen` is accepted as an alias for `opencode`.
+`zen` is accepted as an alias for `opencode`. `oai`, `custom`, and
+`compatible` alias to `openai-compat`.
 
 ## Keys
 
@@ -43,14 +35,14 @@ If a supported AI CLI already has credentials, nullray imports them on
 startup. It reads the config files directly, never executes helper
 commands like `apiKeyHelper`, and fills only variables that are unset.
 Provider votes need a usable credential, and a custom provider base URL
-routes through `openai-compat` rather than sending a proxy key to the
-real vendor host. `NULLRAY_ADOPT=0` disables it. `--doctor` lists every
-detected source without printing values.
+routes through `openai-compat` rather than sending a proxy key to an
+unsupported vendor host. `NULLRAY_ADOPT=0` disables it. `--doctor` lists
+every detected source without printing values.
 
 Two limits worth knowing: OAuth access tokens that need a Bearer
-exchange are skipped (Claude Code subscription tokens, most third-party
-OpenCode oauth entries), and OpenCode v2 stores credentials in a SQLite
-database that nullray does not read.
+exchange are skipped (most third-party OpenCode oauth entries), and
+OpenCode v2 stores credentials in a SQLite database that nullray does
+not read.
 
 ## Models
 
@@ -68,8 +60,8 @@ subagent role maps cannot change it.
 
 ## Failover
 
-- `NULLRAY_PROVIDER_FALLBACKS=ollama,groq,...` retries other providers
-  on chat auth and payment failures.
+- `NULLRAY_PROVIDER_FALLBACKS=ollama,openrouter,fireworks` retries other
+  providers on chat auth and payment failures.
 - `NULLRAY_FALLBACK_MODELS` lists models to try on OpenRouter routing
   failures.
 - `NULLRAY_HTTP_RETRIES` controls 429/502/503 retries.

@@ -11,7 +11,7 @@
 - Native OS sandboxing and privacy scrubbing
 - Reads man pages, `--help`, and language docs
 - Extensible and Modular via Odin or C
-- Very token effeicent harness. 
+- Very token efficient harness.
 
 Docs: [nullray.xyz/docs](https://nullray.xyz/docs)
 
@@ -88,17 +88,13 @@ Shell exports override the file. Secrets stay blocked unless listed in `NULLRAY_
 
 | Provider | Auth |
 |----------|------|
-| openai | OPENAI_API_KEY |
-| openai-compat | base URL + optional key |
-| anthropic | ANTHROPIC_API_KEY |
-| gemini | GEMINI_API_KEY or GOOGLE_API_KEY |
-| groq / deepseek / mistral / together / fireworks / xai | matching *_API_KEY |
-| azure | AZURE_OPENAI_ENDPOINT + AZURE_OPENAI_API_KEY |
 | ollama | OLLAMA_HOST |
 | lmstudio | LM_API_TOKEN (defaults to lm-studio) |
 | llamacpp | LLAMA_CPP_HOST (default http://127.0.0.1:8080/v1), optional LLAMA_CPP_API_KEY |
+| openai-compat | OPENAI_BASE_URL + optional OPENAI_API_KEY |
 | openrouter | OPENROUTER_API_KEY |
 | opencode / opencode-go | OPENCODE_API_KEY |
+| fireworks | FIREWORKS_API_KEY |
 
 ## Usage
 

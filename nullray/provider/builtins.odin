@@ -180,39 +180,7 @@ make_opencode :: proc(base_url := "", api_key := "", model := "") -> Provider {
 	}
 }
 
-make_openai :: proc(base_url := "", api_key := "", model := "") -> Provider {
-	base := base_url
-	if len(base) == 0 {
-		if host, ok := os.lookup_env(constants.ENV_OPENAI_BASE, context.temp_allocator); ok {
-			base = normalize_openai_base(host)
-		} else {
-			base = constants.DEFAULT_OPENAI_BASE
-		}
-	} else {
-		base = normalize_openai_base(base)
-	}
-	key := api_key
-	if len(key) == 0 {
-		key = lookup_api_key_env(constants.ENV_OPENAI_KEY, constants.ENV_API_KEY)
-	}
-	m := model
-	if len(m) == 0 {
-		m = constants.DEFAULT_MODEL_OPENAI
-	}
-	return Provider{
-		id = "openai",
-		name = "OpenAI",
-		base_url = strings.clone(base),
-		api_key = strings.clone(key),
-		default_model = strings.clone(m),
-		chat = openai_chat,
-		stream = openai_chat_stream,
-		list_models = openai_list_models,
-		embed = openai_embed,
-	}
-}
-
-// Any OpenAI Chat Completions compatible endpoint (vLLM, LiteLLM, Azure proxy, Groq, …).
+// Any OpenAI Chat Completions compatible endpoint (vLLM, LiteLLM, local gateways, …).
 make_openai_compat :: proc(base_url := "", api_key := "", model := "") -> Provider {
 	base := base_url
 	if len(base) == 0 {
@@ -239,36 +207,6 @@ make_openai_compat :: proc(base_url := "", api_key := "", model := "") -> Provid
 	return Provider{
 		id = "openai-compat",
 		name = "OpenAI Compat",
-		base_url = strings.clone(base),
-		api_key = strings.clone(key),
-		default_model = strings.clone(m),
-		chat = openai_chat,
-		stream = openai_chat_stream,
-		list_models = openai_list_models,
-		embed = openai_embed,
-	}
-}
-
-make_azure :: proc(base_url := "", api_key := "", model := "") -> Provider {
-	base := base_url
-	if len(base) == 0 {
-		if host, ok := os.lookup_env(constants.ENV_AZURE_BASE, context.temp_allocator); ok {
-			base = normalize_openai_base(host)
-		}
-	} else {
-		base = normalize_openai_base(base)
-	}
-	key := api_key
-	if len(key) == 0 {
-		key = lookup_api_key_env(constants.ENV_AZURE_KEY, constants.ENV_OPENAI_KEY, constants.ENV_API_KEY)
-	}
-	m := model
-	if len(m) == 0 {
-		m = constants.DEFAULT_MODEL_AZURE
-	}
-	return Provider{
-		id = "azure",
-		name = "Azure OpenAI",
 		base_url = strings.clone(base),
 		api_key = strings.clone(key),
 		default_model = strings.clone(m),

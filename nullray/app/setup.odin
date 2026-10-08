@@ -165,34 +165,10 @@ setup_provider_key_env :: proc(id: string) -> string {
 		return constants.ENV_OPENROUTER_KEY
 	case "opencode", "opencode-go":
 		return constants.ENV_OPENCODE_KEY
-	case "openai", "openai-compat":
+	case "openai-compat":
 		return constants.ENV_OPENAI_KEY
-	case "anthropic":
-		return constants.ENV_ANTHROPIC_KEY
-	case "gemini":
-		return constants.ENV_GEMINI_KEY
-	case "groq":
-		return constants.ENV_GROQ_KEY
-	case "deepseek":
-		return constants.ENV_DEEPSEEK_KEY
-	case "mistral":
-		return constants.ENV_MISTRAL_KEY
-	case "together":
-		return constants.ENV_TOGETHER_KEY
 	case "fireworks":
 		return constants.ENV_FIREWORKS_KEY
-	case "xai":
-		return constants.ENV_XAI_KEY
-	case "azure":
-		return constants.ENV_AZURE_KEY
-	case "cerebras":
-		return constants.ENV_CEREBRAS_KEY
-	case "cohere":
-		return constants.ENV_COHERE_KEY
-	case "nvidia":
-		return constants.ENV_NVIDIA_KEY
-	case "dashscope":
-		return constants.ENV_DASHSCOPE_KEY
 	case "lmstudio":
 		return constants.ENV_LMSTUDIO_KEY
 	case "llamacpp":
@@ -210,10 +186,8 @@ setup_provider_host_env :: proc(id: string) -> string {
 		return constants.ENV_LMSTUDIO_HOST
 	case "llamacpp":
 		return constants.ENV_LLAMACPP_HOST
-	case "openai", "openai-compat":
+	case "openai-compat":
 		return constants.ENV_OPENAI_BASE
-	case "azure":
-		return constants.ENV_AZURE_BASE
 	}
 	return constants.ENV_BASE_URL
 }
@@ -252,7 +226,7 @@ setup_apply_provider_defaults :: proc(a: ^App) {
 	a.setup_base = setup_env_or({host_env, constants.ENV_BASE_URL}, p.base_url)
 	a.setup_key = setup_env_or({key_env, constants.ENV_API_KEY}, p.api_key)
 	a.setup_model = setup_env_or({constants.ENV_MODEL}, p.default_model)
-	if provider.provider_is_local(p.id) || p.id == "anthropic" {
+	if provider.provider_is_local(p.id) {
 		a.setup_effort = strings.clone("none")
 		a.setup_thinking_on = false
 	} else {

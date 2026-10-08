@@ -14,15 +14,9 @@ import "nullray:constants"
 append_provider_headers :: proc(headers: ^[dynamic]string, p: ^Provider, session_id := "") {
 	append(headers, "Content-Type: application/json")
 	if len(p.api_key) > 0 {
-		if p.id == "azure" {
-			append(headers, fmt.tprintf("api-key: %s", p.api_key))
-		} else if p.id == "anthropic" {
-			append(headers, fmt.tprintf("x-api-key: %s", p.api_key))
-		} else {
-			// OpenCode Zen chat uses Bearer. Free-tier keys may still answer
-			// /models with x-api-key but reject chat outside the OpenCode app.
-			append(headers, fmt.tprintf("Authorization: Bearer %s", p.api_key))
-		}
+		// OpenCode Zen chat uses Bearer. Free-tier keys may still answer
+		// /models with x-api-key but reject chat outside the OpenCode app.
+		append(headers, fmt.tprintf("Authorization: Bearer %s", p.api_key))
 	}
 	if p.id == "openrouter" {
 		append(headers, "HTTP-Referer: https://github.com/Quad4-Software/nullray")
@@ -33,10 +27,7 @@ append_provider_headers :: proc(headers: ^[dynamic]string, p: ^Provider, session
 		append(headers, "Origin: http://127.0.0.1")
 	}
 	append_opencode_headers(headers, p, session_id)
-	if p.id == "anthropic" {
-		append(headers, "anthropic-version: 2023-06-01")
-	}
-	if p.id == "openai" || p.id == "openai-compat" || p.id == "azure" {
+	if p.id == "openai-compat" {
 		if org, ok := os.lookup_env(constants.ENV_OPENAI_ORG, context.temp_allocator); ok && len(org) > 0 {
 			append(headers, fmt.tprintf("OpenAI-Organization: %s", org))
 		}
@@ -122,9 +113,7 @@ supports_sampling_params :: proc(p: ^Provider, model: string) -> bool {
 }
 
 uses_max_completion_tokens :: proc(p: ^Provider, model: string) -> bool {
-	if p != nil && p.id == "openai" {
-		return true
-	}
+	_ = p
 	m := strings.to_lower(model, context.temp_allocator)
 	if strings.has_prefix(m, "o1") || strings.has_prefix(m, "o3") || strings.has_prefix(m, "o4") {
 		return true
@@ -170,8 +159,6 @@ write_reasoning_json :: proc(b: ^strings.Builder, p: ^Provider, effort: string) 
 			strings.write_string(b, `,"thinking":{"type":"enabled"},"reasoning_effort":`)
 			write_json_string(b, map_deepseek_effort(el))
 		}
-	case "anthropic":
-		return
 	case "ollama", "lmstudio", "llamacpp", "openai-compat":
 		// Local OpenAI-compat servers reject unknown reasoning/thinking fields.
 		return
@@ -308,7 +295,7 @@ assistant_reasoning_json_field :: proc(p: ^Provider) -> string {
 		return "reasoning_content"
 	}
 	switch p.id {
-	case "openrouter", "cerebras":
+	case "openrouter":
 		return "reasoning"
 	case:
 		return "reasoning_content"
@@ -320,7 +307,7 @@ message_cache_control_ok :: proc(p: ^Provider) -> bool {
 	if p == nil {
 		return false
 	}
-	return p.id == "openrouter" || p.id == "anthropic"
+	return p.id == "openrouter"
 }
 
 @(private)

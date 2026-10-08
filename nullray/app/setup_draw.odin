@@ -274,9 +274,7 @@ setup_draw_reasoning :: proc(buf: ^ui.Buffer, a: ^App, start_y: int) {
 	ui.buffer_text_clip(buf, 1, start_y, buf.width - 1, fmt.tprintf("thinking: %s", a.setup_thinking_on ? "on" : "off"), t.fg, t.bg)
 	ui.buffer_text_clip(buf, 1, start_y + 1, buf.width - 1, fmt.tprintf("effort: %s", a.setup_effort), t.fg, t.bg)
 	ui.buffer_text_clip(buf, 1, start_y + 3, buf.width - 1, "Space toggles thinking · Left/Right effort", t.muted, t.bg, {.Dim})
-	if pid == "dashscope" || pid == "cohere" {
-		ui.buffer_text_clip(buf, 1, start_y + 4, buf.width - 1, "this provider maps to on/off on the wire", t.muted, t.bg, {.Dim})
-	}
+	_ = pid
 	effs := setup_reason_efforts(a)
 	line := "levels:"
 	for e in effs {

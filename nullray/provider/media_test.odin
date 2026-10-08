@@ -57,8 +57,9 @@ test_media_detect_rejects_text :: proc(t: ^testing.T) {
 
 @(test)
 test_media_kind_supported :: proc(t: ^testing.T) {
-	openai := Provider{id = "openai"}
-	testing.expect(t, media_kind_supported(&openai, "gpt-4o", .Image))
+	compat := Provider{id = "openai-compat"}
+	testing.expect(t, media_kind_supported(&compat, "gpt-4o", .Image))
+	testing.expect(t, !media_kind_supported(&compat, "plain-chat", .Image))
 
 	ol := Provider{id = "ollama"}
 	testing.expect(t, media_kind_supported(&ol, "qwen3-vl:8b", .Image))
@@ -78,9 +79,9 @@ test_media_kind_supported :: proc(t: ^testing.T) {
 	testing.expect(t, media_kind_supported(&router, "google/gemini-2.5-flash", .Video))
 	testing.expect(t, !media_kind_supported(&router, "deepseek/deepseek-chat", .Video))
 
-	cb := Provider{id = "cerebras"}
-	testing.expect(t, !media_kind_supported(&cb, "llama-4-scout-17b", .Audio))
-	testing.expect(t, media_kind_supported(&cb, "llama-4-scout-17b", .Image))
+	fw := Provider{id = "fireworks"}
+	testing.expect(t, !media_kind_supported(&fw, "accounts/fireworks/models/llama-v3p1-8b-instruct", .Audio))
+	testing.expect(t, media_kind_supported(&fw, "qwen2.5-vl-72b", .Image))
 }
 
 @(test)

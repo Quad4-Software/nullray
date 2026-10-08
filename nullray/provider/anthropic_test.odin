@@ -168,12 +168,14 @@ test_anthropic_sse_blocks :: proc(t: ^testing.T) {
 
 @(test)
 test_anthropic_headers_use_x_api_key :: proc(t: ^testing.T) {
-	p := Provider{id = "anthropic", api_key = "sk-ant-test"}
+	// OpenCode Messages still uses x-api-key; the dropped anthropic vendor
+	// provider no longer exists, so this asserts the OpenCode path.
+	p := Provider{id = "opencode", api_key = "sk-oc-test"}
 	headers := make([dynamic]string, context.temp_allocator)
-	append_provider_headers(&headers, &p)
+	anthropic_request_headers(&headers, &p)
 	found_key, found_bearer, found_ver := false, false, false
 	for h in headers {
-		if h == "x-api-key: sk-ant-test" {
+		if h == "x-api-key: sk-oc-test" {
 			found_key = true
 		}
 		if strings.has_prefix(h, "Authorization:") {

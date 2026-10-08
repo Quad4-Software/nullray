@@ -20,24 +20,11 @@ registry_init :: proc(r: ^Registry) {
 	registry_register(r, make_ollama())
 	registry_register(r, make_lmstudio())
 	registry_register(r, make_llamacpp())
-	registry_register(r, make_openai())
 	registry_register(r, make_openai_compat())
 	registry_register(r, make_openrouter())
 	registry_register(r, make_opencode())
 	registry_register(r, make_opencode_go())
-	registry_register(r, make_anthropic())
-	registry_register(r, make_gemini())
-	registry_register(r, make_groq())
-	registry_register(r, make_deepseek())
-	registry_register(r, make_mistral())
-	registry_register(r, make_together())
 	registry_register(r, make_fireworks())
-	registry_register(r, make_xai())
-	registry_register(r, make_azure())
-	registry_register(r, make_cerebras())
-	registry_register(r, make_cohere())
-	registry_register(r, make_nvidia())
-	registry_register(r, make_dashscope())
 	registry_select_from_env(r)
 }
 
@@ -96,30 +83,16 @@ registry_set_active :: proc(r: ^Registry, id: string) -> bool {
 normalize_provider_id :: proc(id: string, allocator := context.temp_allocator) -> string {
 	s := strings.to_lower(strings.trim_space(id), allocator)
 	switch s {
-	case "openai_compatible", "openai-compatible", "compatible", "custom":
+	case "openai_compatible", "openai-compatible", "compatible", "custom", "oai":
 		return "openai-compat"
-	case "oai":
-		return "openai"
-	case "claude":
-		return "anthropic"
 	case "zen", "opencode-zen":
 		return "opencode"
-	case "google", "google-gemini":
-		return "gemini"
-	case "azure-openai", "azure_openai":
-		return "azure"
-	case "grok":
-		return "xai"
-	case "qwen", "alibaba":
-		return "dashscope"
-	case "nim", "nvidia-nim":
-		return "nvidia"
-	case "co":
-		return "cohere"
 	case "llama.cpp", "llama-cpp", "llama":
 		return "llamacpp"
 	case "lm-studio":
 		return "lmstudio"
+	case "fw", "fireworks-ai":
+		return "fireworks"
 	}
 	return s
 }
@@ -206,7 +179,7 @@ registry_select_from_env :: proc(r: ^Registry) {
 			p.api_key = strings.clone(key)
 		}
 	}
-	if (p.id == "openai" || p.id == "openai-compat") && len(p.api_key) == 0 {
+	if p.id == "openai-compat" && len(p.api_key) == 0 {
 		if key, ok := os.lookup_env(constants.ENV_OPENAI_KEY, context.temp_allocator); ok && len(key) > 0 {
 			p.api_key = strings.clone(key)
 		}

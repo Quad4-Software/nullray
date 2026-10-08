@@ -42,7 +42,7 @@ _nullray() {
   prev="${COMP_WORDS[COMP_CWORD-1]}"
   opts="--help -h --version -V --ephemeral -e --self-test -t --audit --review --review-scope --base --staged --unstaged --include-untracked --paths --doctor --debug --print -P --stream --trace --patch-out --no-adopt --ask -q --acp --serve --connect --attach --bare --fail-on-findings --provider -p --model -m --theme --mode --hunt --perms --gate --sandbox --workspace -w --session --list-sessions --inspect-session --follow --search-sessions --delete-session --rename-session --force --export-session --import-session --as --list-skills --distill --skills --keys --message-file --image --audio --video --media --out --plan-out --plan-in --output-format --print-strict --auto --usage --samples --architect --timeout --no-splash --no-subagents --splash --hide-sensitive --list-models --list-modules --completions --man"
   cmds="serve attach watch"
-  providers="ollama lmstudio llamacpp openai openai-compat openrouter opencode opencode-go anthropic gemini groq deepseek mistral together fireworks xai azure cerebras cohere nvidia dashscope"
+  providers="ollama lmstudio llamacpp openai-compat openrouter opencode opencode-go fireworks"
   modes="ask plan review edit orchestrate"
   hunts="auto balanced explore oracle adversarial"
   perms="ask allow yolo"
@@ -102,8 +102,8 @@ _nullray() {
     '--attach[attach to a daemon session]'
     '--bare[skip home MCP and non-workspace skills]'
     '--fail-on-findings[exit 1 when review findings present]'
-    '--provider[provider id]:provider:(ollama lmstudio llamacpp openai openai-compat openrouter opencode opencode-go anthropic gemini groq deepseek mistral together fireworks xai azure cerebras cohere nvidia dashscope)'
-    '-p[provider id]:provider:(ollama lmstudio llamacpp openai openai-compat openrouter opencode opencode-go anthropic gemini groq deepseek mistral together fireworks xai azure cerebras cohere nvidia dashscope)'
+    '--provider[provider id]:provider:(ollama lmstudio llamacpp openai-compat openrouter opencode opencode-go fireworks)'
+    '-p[provider id]:provider:(ollama lmstudio llamacpp openai-compat openrouter opencode opencode-go fireworks)'
     '--model[model id]:model:'
     '-m[model id]:model:'
     '--theme[ui theme]:theme:(ink ember moss slate rose mono dusk)'
