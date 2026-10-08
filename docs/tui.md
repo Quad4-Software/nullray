@@ -87,6 +87,26 @@ is empty.
 from `--keys` / `NULLRAY_KEYS`. Individual binds can be overridden in
 the same file.
 
+## Programmatic art
+
+Agents must not freehand box drawing. Use `show_art` (or `/art`) with a
+JSON program the engine rasterizes: figlet banners, rect/line/circle,
+bars, sparklines, math plots (`sin`/`cos`/`quad`/`noise`), scatter, and
+a limited ANSI SGR blit. Results open in the side pane.
+
+```json
+{
+  "width": 56, "height": 16,
+  "ops": [
+    {"op": "figlet", "text": "SHIP", "x": 1, "y": 0, "color": "#5ad2ff"},
+    {"op": "plot", "fn": "sin", "x": 2, "y": 6, "w": 40, "h": 9, "color": "cyan"},
+    {"op": "bars", "x": 44, "y": 7, "h": 8, "values": [2, 5, 3, 7]}
+  ]
+}
+```
+
+`/art demo` smokes the stack. `/art figlet TEXT` is the banner shortcut.
+
 ## Themes
 
 Built-ins: ink, ember, moss, slate, rose, mono, dusk. Switch with

@@ -60,6 +60,7 @@ SLASH_COMMANDS := []Slash_Command{
 	{"skill", "/skill [ID]", "alias for /skills", slash_cmd_skills},
 	{"learn", "/learn ID [description]", "save a compact skill from last reply", slash_cmd_learn},
 	{"canvas", "/canvas list|open|save|rm", "persist and reopen agent panel UIs", slash_cmd_canvas},
+	{"art", "/art figlet|demo|show JSON", "programmatic ASCII/ANSI art (engine, not freehand)", slash_cmd_art},
 	{"keys", "/keys", "show key bindings", slash_cmd_keys},
 	{"setup", "/setup", "provider setup wizard", slash_cmd_setup},
 	{"provider", "/provider [ID|next|prev|setup]", "show or switch provider", slash_cmd_provider},

@@ -197,6 +197,7 @@ app_init :: proc(a: ^App, loop: ^ui.Loop) {
 	a.agent_spinner = ui.spinner_init()
 	// Wire set_tui so live loop theme refreshes when the agent recolors the UI.
 	tools.register_tui_apply(app_tui_apply, a)
+	tools.register_art_show(app_art_show_cb, a)
 	// Export ask vault secrets into shell env when NULLRAY_VAULT_EXPORT=1.
 	sandbox.register_vault_export(proc(dst: ^[dynamic]string, allocator: mem.Allocator) -> int {
 		return ask.secret_export_env_pairs(dst, allocator)
