@@ -174,6 +174,13 @@ theme_save_custom :: proc(raw_json: string) -> (ok: bool, err: string) {
 	path := theme_custom_path(context.temp_allocator)
 	dir := filepath.dir(path)
 	_ = os.make_directory_all(dir)
+	// Validate before write so we never leave a corrupt file.
+	if len(strings.trim_space(raw_json)) == 0 || !strings.has_prefix(strings.trim_space(raw_json), "{") {
+		return false, "refusing to write empty theme json"
+	}
+	if _, perr := json.parse_string(raw_json, .JSON, allocator = context.temp_allocator); perr != .None {
+		return false, "refusing to write invalid theme json"
+	}
 	if os.write_entire_file(path, transmute([]u8)raw_json) != nil {
 		return false, "failed to write theme_custom.json"
 	}
@@ -186,9 +193,20 @@ theme_load_custom :: proc() -> (Theme, bool) {
 	if err != nil || len(data) == 0 {
 		return {}, false
 	}
-	t, perr := theme_from_json(string(data))
+	// Reject known-corrupt exports left by the old fmt-based writer.
+	raw := string(data)
+	if strings.contains(raw, "%!(") || strings.contains(raw, "MISSING CLOSE BRACE") {
+		return {}, false
+	}
+	t, perr := theme_from_json(raw)
 	if perr != "" {
 		return {}, false
+	}
+	// Keep stock name when colors match a named base so UI shows ember not custom.
+	if base_n := strings.trim_space(t.name); len(base_n) > 0 && base_n != "custom" {
+		// name already set from file
+	} else if theme_exists(t.name) {
+		// ok
 	}
 	return t, true
 }
@@ -199,11 +217,24 @@ theme_clear_custom :: proc() -> bool {
 	return true
 }
 
-// Snapshot of current theme slots for agent feedback.
+// Snapshot of current theme slots for agent feedback and theme_custom.json.
+// Built by hand: Odin fmt treats '{' as a format directive, so JSON must
+// not go through sbprintf with brace literals.
 theme_export_json :: proc(t: Theme, allocator := context.allocator) -> string {
 	b: strings.Builder
 	strings.builder_init(&b, allocator)
-	fmt.sbprintf(&b, `{"name":%q,"base":"custom","colors":{`, t.name)
+	strings.write_string(&b, `{"name":`)
+	theme_write_json_string(&b, t.name)
+	// Prefer stock base name so load restores a real palette when possible.
+	base := t.name
+	if base == "custom" || len(base) == 0 {
+		base = "ink"
+	}
+	strings.write_string(&b, `,"base":`)
+	theme_write_json_string(&b, base)
+	strings.write_string(&b, `,"theme":`)
+	theme_write_json_string(&b, base)
+	strings.write_string(&b, `,"colors":{`)
 	pairs := []struct {
 		k: string,
 		c: Color,
@@ -238,8 +269,44 @@ theme_export_json :: proc(t: Theme, allocator := context.allocator) -> string {
 		if i > 0 {
 			strings.write_byte(&b, ',')
 		}
-		fmt.sbprintf(&b, `%q:"#%02x%02x%02x"`, p.k, p.c.r, p.c.g, p.c.b)
+		theme_write_json_string(&b, p.k)
+		strings.write_byte(&b, ':')
+		strings.write_byte(&b, '"')
+		fmt.sbprintf(&b, "#%02x%02x%02x", p.c.r, p.c.g, p.c.b)
+		strings.write_byte(&b, '"')
 	}
 	strings.write_string(&b, `}}`)
 	return strings.to_string(b)
+}
+
+@(private)
+theme_write_json_string :: proc(b: ^strings.Builder, s: string) {
+	strings.write_byte(b, '"')
+	for i := 0; i < len(s); i += 1 {
+		c := s[i]
+		switch c {
+		case '"', '\\':
+			strings.write_byte(b, '\\')
+			strings.write_byte(b, c)
+		case '\n':
+			strings.write_string(b, "\\n")
+		case '\r':
+			strings.write_string(b, "\\r")
+		case '\t':
+			strings.write_string(b, "\\t")
+		case:
+			if c < 0x20 {
+				fmt.sbprintf(b, "\\u%04x", c)
+			} else {
+				strings.write_byte(b, c)
+			}
+		}
+	}
+	strings.write_byte(b, '"')
+}
+
+// Save the live Theme struct to theme_custom.json (global persist).
+theme_persist :: proc(t: Theme) -> (ok: bool, err: string) {
+	js := theme_export_json(t, context.temp_allocator)
+	return theme_save_custom(js)
 }

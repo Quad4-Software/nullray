@@ -90,7 +90,11 @@ the same file.
 ## Themes
 
 Built-ins: ink, ember, moss, slate, rose, mono, dusk. Switch with
-`/theme NAME` or `--theme`, list with `/themes`.
+`/theme NAME` (saved to `theme_custom.json` for next launch) or
+`/theme NAME session` for this run only. `--theme` / `NULLRAY_THEME`
+set the startup default when no custom file exists. Agent `set_tui`
+with `scope=global` writes the same file. `/tui reset` clears it.
+List with `/themes`.
 
 ## Terminal behavior
 

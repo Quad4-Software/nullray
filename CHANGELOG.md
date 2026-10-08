@@ -86,6 +86,9 @@ Notable changes for nullray.
   longer closes before write. Ctrl-C remains stop/quit (copy via drag or /copy).
 - Clipboard prefers wl-copy/xclip over OSC 52 (Wayland-friendly). Inline
   #hex color chips in transcript/forms/status. Right-click a tab to close it.
+- Global theme persist: theme_export_json no longer emits broken fmt
+  braces. `/theme NAME` and set_tui scope=global write valid
+  theme_custom.json, load on startup.
 - parse_cli_late no longer treats recognized flags as unknown (broke make install completions).
 - Soft-redirect cycles and loopback hop targets are stopped cleanly, apply_edits envelope paths stay distinct for anti-loop signals.
 - Help button hit target is the leading glyph only, not the whole version label.

@@ -53,7 +53,7 @@ SLASH_COMMANDS := []Slash_Command{
 	{"scrub", "/scrub [all|last|matching NEEDLE]", "redact or forget session content", slash_cmd_scrub},
 	{"demo", "/demo malleable", "smoke show_view/set_tui privacy paths", slash_cmd_demo},
 	{"group", "/group NAME|none", "shared context group", slash_cmd_group},
-	{"theme", "/theme NAME", "switch color theme", slash_cmd_theme},
+	{"theme", "/theme NAME [global|session]", "switch color theme (default saves global)", slash_cmd_theme},
 	{"themes", "/themes", "list built-in themes", slash_cmd_themes},
 	{"tui", "/tui [get|reset|lock|unlock|NAME]", "malleable TUI theme (session/global)", slash_cmd_tui},
 	{"skills", "/skills [ID]", "list skills or show one by id", slash_cmd_skills},

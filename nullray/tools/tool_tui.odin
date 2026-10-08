@@ -129,8 +129,7 @@ tool_set_tui :: proc(args_json: string, allocator := context.allocator) -> (resu
 
 	ui.theme_set(t)
 	if persistent {
-		js := ui.theme_export_json(t, context.temp_allocator)
-		ok, werr := ui.theme_save_custom(js)
+		ok, werr := ui.theme_persist(t)
 		if !ok {
 			return "", strings.clone(werr, allocator)
 		}

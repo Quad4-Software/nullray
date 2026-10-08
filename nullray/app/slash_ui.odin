@@ -81,16 +81,42 @@ slash_cmd_theme :: proc(a: ^App, args: string) {
 		session.session_set_status(a.session, fmt.tprintf("theme %s", ui.theme().name))
 		return
 	}
-	if !ui.theme_exists(name) {
-		session.session_set_status(a.session, "usage: /theme ink|ember|moss|slate|rose|mono|dusk")
+	// Optional: /theme ember session  (default is global persist)
+	parts := strings.fields(name, context.temp_allocator)
+	theme_name := parts[0]
+	persist := true
+	if len(parts) > 1 {
+		mode := strings.to_lower(parts[1], context.temp_allocator)
+		if mode == "session" || mode == "temp" || mode == "local" {
+			persist = false
+		}
+	}
+	if !ui.theme_exists(theme_name) {
+		session.session_set_status(a.session, "usage: /theme ink|ember|moss|slate|rose|mono|dusk [global|session]")
 		return
 	}
-	ui.theme_set(ui.theme_by_name(name))
+	t := ui.theme_by_name(theme_name)
+	ui.theme_set(t)
 	if a.loop != nil {
-		a.loop.theme = ui.theme()
+		a.loop.theme = t
 		ui.loop_request_full_redraw(a.loop)
 	}
-	session.session_set_status(a.session, fmt.tprintf("theme %s", ui.theme().name))
+	scope := "session"
+	if persist {
+		if tools.ui_global_locked() {
+			session.session_set_status(a.session, fmt.tprintf("theme %s (session only, global lock on)", t.name))
+			app_mark_dirty(a)
+			return
+		}
+		ok, werr := ui.theme_persist(t)
+		if !ok {
+			session.session_set_status(a.session, fmt.tprintf("theme %s live, save failed: %s", t.name, werr))
+			app_mark_dirty(a)
+			return
+		}
+		scope = "global"
+	}
+	session.session_set_status(a.session, fmt.tprintf("theme %s (%s)", t.name, scope))
 	app_mark_dirty(a)
 }
 
@@ -128,7 +154,7 @@ slash_cmd_tui :: proc(a: ^App, args: string) {
 			a.loop.theme = t
 			ui.loop_request_full_redraw(a.loop)
 		}
-		session.session_set_status(a.session, "tui reset")
+		session.session_set_status(a.session, "tui reset (cleared theme_custom.json)")
 		app_mark_dirty(a)
 	case "lock":
 		os.set_env(constants.ENV_UI_LOCK, "1")
