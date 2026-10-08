@@ -49,6 +49,51 @@ test_fetch_url_live_example :: proc(t: ^testing.T) {
 	}
 	testing.expect(t, strings.has_prefix(out, "status=200"))
 	testing.expect(t, strings.contains(out, "format="))
+	testing.expect(t, strings.contains(out, "url="))
 	testing.expect(t, strings.contains(strings.to_lower(out, context.temp_allocator), "example"))
 	testing.expect(t, !strings.contains(out, "<script"))
+}
+
+@(test)
+test_html_soft_redirect_meta_and_js :: proc(t: ^testing.T) {
+	meta := `<!DOCTYPE html><html><head>
+<meta http-equiv="refresh" content="1; url=latest/" />
+</head><body>Redirecting</body></html>`
+	u, ok := html_soft_redirect_target("https://lxmfy.quad4.io/", meta)
+	testing.expect(t, ok)
+	testing.expect_value(t, u, "https://lxmfy.quad4.io/latest/")
+
+	js := `<html><head><script>
+window.location.replace("latest/" + window.location.search);
+</script></head><body>go</body></html>`
+	u2, ok2 := html_soft_redirect_target("https://lxmfy.quad4.io/", js)
+	testing.expect(t, ok2)
+	testing.expect_value(t, u2, "https://lxmfy.quad4.io/latest/")
+
+	abs, aok := html_resolve_url("https://docs.example/a/b/", "/root/page")
+	testing.expect(t, aok)
+	testing.expect_value(t, abs, "https://docs.example/root/page")
+
+	none, nok := html_soft_redirect_target("https://example.com/", "<html><body><p>Hello docs</p></body></html>")
+	testing.expect(t, !nok)
+	testing.expect_value(t, none, "")
+}
+
+@(test)
+test_fetch_url_soft_redirect_live_lxmfy :: proc(t: ^testing.T) {
+	// GitHub Pages versioned docs return a JS soft redirect at the apex.
+	out, err := tool_fetch_url(`{"url":"https://lxmfy.quad4.io/","format":"auto","max_chars":"4000"}`, context.allocator)
+	defer delete(out)
+	defer delete(err)
+	if err != "" {
+		// Offline or blocked environments should still report cleanly.
+		testing.expect(t, strings.contains(err, "fetch failed") || strings.contains(err, "blocked") || strings.contains(err, "redirect"))
+		return
+	}
+	testing.expect(t, strings.has_prefix(out, "status=200"))
+	// Soft redirect should land under /latest/ (or a version path).
+	testing.expect(t, strings.contains(out, "url=https://lxmfy.quad4.io/"))
+	lower := strings.to_lower(out, context.temp_allocator)
+	testing.expect(t, strings.contains(lower, "lxmf") || strings.contains(lower, "reticulum") || strings.contains(lower, "quick-start"))
+	testing.expect(t, !strings.contains(lower, "window.location.replace"))
 }

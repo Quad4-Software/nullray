@@ -64,7 +64,7 @@ tool_web_search :: proc(args_json: string, allocator := context.allocator) -> (s
 	}
 	if len(candidates) == 0 {
 		return "", strings.clone(
-			"no web search providers configured. Point NULLRAY_SEARCH_URL at a SearXNG instance or set a vendor key (TAVILY_API_KEY, BRAVE_SEARCH_API_KEY, KAGI_API_KEY, EXA_API_KEY, PARALLEL_API_KEY, MOJEEK_API_KEY, MARGINALIA_API_KEY).",
+			"no web search providers configured. Point NULLRAY_SEARCH_URL at a SearXNG instance (example: http://127.0.0.1:8088) or set a vendor key (TAVILY_API_KEY, BRAVE_SEARCH_API_KEY, KAGI_API_KEY, EXA_API_KEY, PARALLEL_API_KEY, MOJEEK_API_KEY, MARGINALIA_API_KEY). For a known docs URL, call fetch_url directly instead of web_search.",
 			allocator,
 		)
 	}
@@ -72,9 +72,16 @@ tool_web_search :: proc(args_json: string, allocator := context.allocator) -> (s
 	res, errs := nr_search.run_search(queries[:], candidates, scope, count, allocator)
 	if len(res) == 0 {
 		if len(errs) > 0 {
-			return "", fmt.aprintf("all backends failed: %s", strings.join(errs, "; ", context.temp_allocator), allocator = allocator)
+			return "", fmt.aprintf(
+				"all backends failed: %s. If you already know the URL, use fetch_url on it.",
+				strings.join(errs, "; ", context.temp_allocator),
+				allocator = allocator,
+			)
 		}
-		return "", strings.clone("no results", allocator)
+		return "", strings.clone(
+			"no results. Try a shorter query, or fetch_url on a known documentation URL.",
+			allocator,
+		)
 	}
 	return render_search_results(res, max_chars, allocator), ""
 }

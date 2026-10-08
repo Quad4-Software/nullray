@@ -51,6 +51,7 @@ tool_fetch_url :: proc(args_json: string, allocator := context.allocator) -> (st
 	}
 	via_err: string
 	resp: nr_http.Response
+	final_url := url
 	if len(via) > 0 {
 		// Explicit via= routes the request through the named fetch
 		// provider instead of the direct path.
@@ -66,10 +67,36 @@ tool_fetch_url :: proc(args_json: string, allocator := context.allocator) -> (st
 		resp.status = 200
 		resp.body = fb
 	} else {
-		resp = nr_http.get_checked(url, headers, 30, fetch_url_allow_hop, context.temp_allocator)
+		cur := strings.clone(url, context.temp_allocator)
+		for hop in 0 ..= HTML_SOFT_REDIRECT_MAX {
+			resp = nr_http.get_checked(cur, headers, 30, fetch_url_allow_hop, context.temp_allocator)
+			if !resp.ok {
+				break
+			}
+			final_url = cur
+			body_probe := resp.body
+			if len(body_probe) > max_bytes {
+				body_probe = body_probe[:max_bytes]
+			}
+			// Soft redirects only apply to short HTML 200 shells (meta refresh
+			// / window.location). Large pages are returned as-is.
+			if resp.status == 200 && hop < HTML_SOFT_REDIRECT_MAX && len(body_probe) < 4096 {
+				if next, nok := html_soft_redirect_target(cur, body_probe, context.temp_allocator); nok {
+					if block, why := fetch_url_blocked(next); block {
+						return "", fmt.aprintf("soft redirect blocked: %s", why, allocator = allocator)
+					}
+					if next == cur {
+						break
+					}
+					cur = next
+					continue
+				}
+			}
+			break
+		}
 		if !resp.ok || resp.status == 403 || resp.status == 503 {
 			if p, ok := nr_search.fetch_provider_by_id("flaresolverr", context.temp_allocator); ok {
-				if fb, ferr := nr_search.exec_fetch(&p, url, context.temp_allocator); ferr == "" {
+				if fb, ferr := nr_search.exec_fetch(&p, final_url, context.temp_allocator); ferr == "" {
 					resp.ok = true
 					resp.status = 200
 					resp.body = fb
@@ -80,7 +107,20 @@ tool_fetch_url :: proc(args_json: string, allocator := context.allocator) -> (st
 		}
 	}
 	if !resp.ok {
-		return "", fmt.aprintf("fetch failed: %s%s", resp.err, via_err, allocator = allocator)
+		detail := resp.err
+		if len(detail) == 0 {
+			detail = fmt.tprintf("HTTP %d", resp.status)
+		}
+		return "", fmt.aprintf("fetch failed: %s%s", detail, via_err, allocator = allocator)
+	}
+	if resp.status >= 400 {
+		return "", fmt.aprintf(
+			"fetch failed: HTTP %d from %s%s",
+			resp.status,
+			final_url,
+			via_err,
+			allocator = allocator,
+		)
 	}
 	body := resp.body
 	if len(body) > max_bytes {
@@ -125,7 +165,16 @@ tool_fetch_url :: proc(args_json: string, allocator := context.allocator) -> (st
 	if truncated {
 		note = fmt.tprintf("\n\n[truncated at %d chars; raise max_chars or fetch a smaller page]", max_chars)
 	}
-	out := fmt.aprintf("status=%d format=%s\n%s%s", resp.status, kind, rendered, note, allocator = allocator)
+	// Always report the final URL so soft redirects are visible to the agent.
+	out := fmt.aprintf(
+		"status=%d format=%s url=%s\n%s%s",
+		resp.status,
+		kind,
+		final_url,
+		rendered,
+		note,
+		allocator = allocator,
+	)
 	delete(owned_render)
 	return out, ""
 }
