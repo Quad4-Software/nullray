@@ -126,10 +126,16 @@ test_draw_brand_text_paints_letters :: proc(t: ^testing.T) {
 	testing.expect_value(t, used, 7)
 	testing.expect_value(t, buffer_at(&b, 1, 0).ch, 'n')
 	testing.expect_value(t, buffer_at(&b, 7, 0).ch, 'y')
-	// Letters are not a flat single color.
+	// Letters are a static gradient, not a flat single color.
 	c0 := buffer_at(&b, 1, 0).fg
 	c3 := buffer_at(&b, 4, 0).fg
 	testing.expect(t, c0 != c3)
+	// Second paint matches the first (no time-based animation).
+	b2 := buffer_create(16, 2)
+	defer buffer_destroy(&b2)
+	_ = draw_brand_text(&b2, 1, 0, "nullray", INK.status_bg, {.Bold}, INK.title)
+	testing.expect_value(t, buffer_at(&b2, 1, 0).fg, c0)
+	testing.expect_value(t, buffer_at(&b2, 4, 0).fg, c3)
 }
 
 @(test)

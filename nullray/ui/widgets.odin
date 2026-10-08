@@ -29,7 +29,8 @@ draw_box :: proc(b: ^Buffer, x, y, w, h: int, fg, bg: Color, title := "") {
 	}
 }
 
-// Paint text with a smooth per-letter hue cycle. Returns display columns used.
+// Paint text with a static per-letter gradient. Returns display columns used.
+// phase is fixed so the title does not animate between frames.
 draw_brand_text :: proc(b: ^Buffer, x, y: int, text: string, bg: Color, style: Style = {}, base: Color = {}) -> int {
 	if len(text) == 0 {
 		return 0
@@ -47,7 +48,7 @@ draw_brand_text :: proc(b: ^Buffer, x, y: int, text: string, bg: Color, style: S
 	if n_letters == 0 {
 		return 0
 	}
-	phase := anim_phase(4800)
+	BRAND_PHASE :: f32(0.12)
 	cx := x
 	li := 0
 	for r in text {
@@ -61,7 +62,7 @@ draw_brand_text :: proc(b: ^Buffer, x, y: int, text: string, bg: Color, style: S
 		if cx + w > b.width {
 			break
 		}
-		fg := brand_letter_color(li, n_letters, phase, base)
+		fg := brand_letter_color(li, n_letters, BRAND_PHASE, base)
 		buffer_put(b, cx, y, r, fg, bg, style)
 		for i in 1 ..< w {
 			buffer_put(b, cx + i, y, CELL_WIDE_CONT, fg, bg, style)

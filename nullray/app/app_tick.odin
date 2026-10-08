@@ -121,17 +121,6 @@ app_on_tick :: proc(user: rawptr) -> bool {
 			}
 		}
 	}
-	// Title brand hue cycle. Separate timer so idle brand paint does not
-	// steal the spinner cadence or thrash full layout every poll tick.
-	BRAND_FRAME_MS :: 320
-	if !a.show_setup && !splash_active(a) && !a.show_help && !a.show_status && !a.show_history {
-		brand_due := time.tick_diff(a.brand_tick, time.tick_now()) >=
-			time.Duration(BRAND_FRAME_MS) * time.Millisecond
-		if brand_due {
-			a.brand_tick = time.tick_now()
-			changed = true
-		}
-	}
 	if changed {
 		app_mark_dirty(a)
 	}

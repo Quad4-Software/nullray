@@ -79,7 +79,6 @@ App :: struct {
 	banner_live:    int,
 	banner_refresh: time.Tick,
 	anim_tick:      time.Tick,
-	brand_tick:     time.Tick,
 	view_open:      bool,
 	view_path:      string,
 	view_body:      string,
