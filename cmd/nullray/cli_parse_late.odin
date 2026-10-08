@@ -13,6 +13,7 @@ parse_cli_late :: proc(cli: ^Cli, args: []string, i: ^int, arg: string, prompt_p
 			return true, true
 		}
 		cli.message_file = v
+		return true, false
 	case "--image", "--audio", "--video", "--media":
 		v, ok := take_value(args, i)
 		if !ok {
@@ -24,6 +25,7 @@ parse_cli_late :: proc(cli: ^Cli, args: []string, i: ^int, arg: string, prompt_p
 			kind = arg[2:]
 		}
 		append(&cli.media_args, Media_Arg{path = v, kind = kind})
+		return true, false
 	case "--out":
 		v, ok := take_value(args, i)
 		if !ok {
@@ -31,6 +33,7 @@ parse_cli_late :: proc(cli: ^Cli, args: []string, i: ^int, arg: string, prompt_p
 			return true, true
 		}
 		cli.out_path = v
+		return true, false
 	case "--plan-out":
 		v, ok := take_value(args, i)
 		if !ok {
@@ -38,6 +41,7 @@ parse_cli_late :: proc(cli: ^Cli, args: []string, i: ^int, arg: string, prompt_p
 			return true, true
 		}
 		cli.plan_out = v
+		return true, false
 	case "--plan-in":
 		v, ok := take_value(args, i)
 		if !ok {
@@ -45,6 +49,7 @@ parse_cli_late :: proc(cli: ^Cli, args: []string, i: ^int, arg: string, prompt_p
 			return true, true
 		}
 		cli.plan_in = v
+		return true, false
 	case "--output-format":
 		v, ok := take_value(args, i)
 		if !ok {
@@ -57,6 +62,7 @@ parse_cli_late :: proc(cli: ^Cli, args: []string, i: ^int, arg: string, prompt_p
 			return true, true
 		}
 		cli.output_format = lv
+		return true, false
 	case "--timeout":
 		v, ok := take_value(args, i)
 		if !ok {
@@ -69,20 +75,28 @@ parse_cli_late :: proc(cli: ^Cli, args: []string, i: ^int, arg: string, prompt_p
 			return true, true
 		}
 		cli.timeout_sec = n
+		return true, false
 	case "--no-splash":
 		cli.no_splash = true
+		return true, false
 	case "--no-subagents":
 		cli.no_subagents = true
+		return true, false
 	case "--splash":
 		cli.splash = true
+		return true, false
 	case "--hide-sensitive":
 		cli.hide_sensitive = true
+		return true, false
 	case "--print-strict":
 		cli.print_strict = true
+		return true, false
 	case "--auto":
 		cli.auto = true
+		return true, false
 	case "--usage":
 		cli.print_usage = true
+		return true, false
 	case "--samples":
 		v, ok := take_value(args, i)
 		if !ok {
@@ -95,8 +109,10 @@ parse_cli_late :: proc(cli: ^Cli, args: []string, i: ^int, arg: string, prompt_p
 			return true, true
 		}
 		cli.samples = n
+		return true, false
 	case "--architect":
 		cli.architect = true
+		return true, false
 	case "--completions":
 		v, ok := take_value(args, i)
 		if !ok {
@@ -104,6 +120,7 @@ parse_cli_late :: proc(cli: ^Cli, args: []string, i: ^int, arg: string, prompt_p
 			return true, true
 		}
 		cli.completions = v
+		return true, false
 	}
 	return false, false
 }

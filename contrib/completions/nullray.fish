@@ -37,6 +37,7 @@ complete -c nullray -l export-session -d 'Export session to --out dir' -r
 complete -c nullray -l import-session -d 'Import session from path' -r -F
 complete -c nullray -l as -d 'Name for import-session or rename-session' -r
 complete -c nullray -l list-skills -d 'List loaded skills'
+complete -c nullray -l distill -d 'Write experience.md digest'
 complete -c nullray -l skills -d 'Extra skill root dirs' -r -F
 complete -c nullray -l keys -d 'Keybind preset' -xa 'default neovim emacs'
 complete -c nullray -l message-file -d 'Prompt from file' -r -F

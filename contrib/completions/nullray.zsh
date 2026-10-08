@@ -50,6 +50,7 @@ _nullray() {
     '--import-session[import session from path]:path:_files'
     '--as[import or install destination name]:name:'
     '--list-skills[list loaded skills]'
+    '--distill[write experience.md digest]'
     '--skills[extra skill root dirs]:path:_files -/'
     '--keys[keybind preset]:keys:(default neovim emacs)'
     '--message-file[prompt file]:file:_files'
@@ -70,6 +71,7 @@ _nullray() {
     '--splash[force startup splash]'
     '--hide-sensitive[hide account and API key balances]'
     '--list-models[list models for active provider]'
+    '--list-modules[list compiled-in modules]'
     '--completions[print shell completions]:shell:(bash zsh fish powershell elvish nushell)'
     '--man[print man page source]'
   )
