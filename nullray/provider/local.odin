@@ -13,8 +13,13 @@ import "nullray:http"
 
 LOCAL_PROBE_IDS :: []string{"ollama", "lmstudio", "llamacpp"}
 
-// llama-server is moving its default port to 9931, probe both.
-LLAMACPP_BASES :: []string{constants.DEFAULT_LLAMACPP_BASE, "http://127.0.0.1:9931/v1"}
+// Common llama-server listen ports. 8080 is the historic default, 8081 is a
+// frequent alternate, 9931 is the newer upstream default.
+LLAMACPP_BASES :: []string{
+	constants.DEFAULT_LLAMACPP_BASE,
+	"http://127.0.0.1:8081/v1",
+	"http://127.0.0.1:9931/v1",
+}
 
 local_probe_enabled_from_env :: proc() -> bool {
 	if v, ok := os.lookup_env(constants.ENV_LOCAL_PROBE, context.temp_allocator); ok {
@@ -174,6 +179,50 @@ probe_local_base :: proc(id: string, timeout_sec := 2, allocator := context.temp
 		}
 	}
 	return ""
+}
+
+// Pick a useful default model id from a live llama.cpp /v1/models list.
+// Prefers non-embed models; falls back to the first entry.
+llamacpp_pick_default_model :: proc(models: []Model_Info) -> string {
+	if len(models) == 0 {
+		return ""
+	}
+	for m in models {
+		id_l := strings.to_lower(m.id, context.temp_allocator)
+		if strings.contains(id_l, "embed") || strings.contains(id_l, "embedding") {
+			continue
+		}
+		return m.id
+	}
+	return models[0].id
+}
+
+// After a live base is known, fill an empty or generic default_model from
+// /v1/models so the title bar and first chat use the loaded GGUF name.
+llamacpp_adopt_live_model :: proc(p: ^Provider, timeout_sec := 2) {
+	if p == nil || p.id != "llamacpp" {
+		return
+	}
+	// Respect an explicit user model.
+	if model_env_set() {
+		return
+	}
+	generic := p.default_model == "local" || len(strings.trim_space(p.default_model)) == 0
+	if !generic {
+		return
+	}
+	models, err := llamacpp_list_models_timeout(p, timeout_sec)
+	defer destroy_models(models)
+	defer delete(err)
+	if err != "" || len(models) == 0 {
+		return
+	}
+	pick := llamacpp_pick_default_model(models)
+	if len(pick) == 0 {
+		return
+	}
+	delete(p.default_model)
+	p.default_model = strings.clone(pick)
 }
 
 // Short HTTP probe for local OpenAI-compat hosts (setup, readiness, auto-select).

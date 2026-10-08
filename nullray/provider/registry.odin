@@ -197,6 +197,10 @@ registry_select_from_env :: proc(r: ^Registry) {
 			p.base_url = strings.clone(base)
 		}
 	}
+	// Fill "local" with the GGUF name the server actually loaded.
+	if p.id == "llamacpp" {
+		llamacpp_adopt_live_model(p, 2)
+	}
 	if key, ok := os.lookup_env(constants.ENV_API_KEY, context.temp_allocator); ok && len(key) > 0 {
 		if len(p.api_key) == 0 {
 			p.api_key = strings.clone(key)

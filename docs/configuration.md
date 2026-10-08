@@ -86,6 +86,7 @@ process only, so nothing silently persists a borrowed credential.
 | `NULLRAY_ESCALATE_MODEL` | Loop-stall escalation target, provider/model |
 | `NULLRAY_ESCALATE_MAX` | Escalated calls per turn, default 3 |
 | `NULLRAY_AGENT_TOOLS` | 0 drops tool schemas entirely |
+| `NULLRAY_AGENT_STEPS` | Max tool/chat iterations per turn (default 24, auto mode 80). `/steps N` in TUI |
 | `NULLRAY_VERIFY` | Post-edit verify gate |
 | `NULLRAY_LINT` | Post-edit lint.json (0 disables) |
 | `NULLRAY_GGUF_SAMPLE` | Local tool-call temp clamp (0 disables) |
@@ -170,10 +171,30 @@ variable beats adoption, so a stray foreign config can only fill gaps.
 ## Local model caching
 
 nullray pins prefix reuse on local servers: llamacpp chat requests carry
-`cache_prompt: true`, and ollama requests carry
-`keep_alive: "30m"` so the model stays resident between turns
-(`NULLRAY_OLLAMA_KEEP_ALIVE` overrides the duration, `0` disables).
-Run llama.cpp's server with `--cache-reuse 256` so an unchanged prompt
-prefix hits warm KV instead of a full prefill. On the build side the
-system prompt is ordered stable-first: volatile blocks like the task
-list and retrieved memory sit at the tail of the request.
+`cache_prompt: true` and (when known) `n_ctx` from `/props` or the model
+profile, and ollama requests carry `keep_alive: "30m"` so the model stays
+resident between turns (`NULLRAY_OLLAMA_KEEP_ALIVE` overrides the duration,
+`0` disables). Run llama.cpp's server with `--cache-reuse 256` so an
+unchanged prompt prefix hits warm KV instead of a full prefill. On the
+build side the system prompt is ordered stable-first: volatile blocks like
+the task list and retrieved memory sit at the tail of the request.
+
+### llama.cpp quick start
+
+```
+llama-server -m your.gguf --port 8080 --ctx-size 8192 -np 4 --cache-reuse 256
+```
+
+Then in nullray:
+
+```
+/provider llamacpp
+/model
+/steps 40
+```
+
+Env: `NULLRAY_PROVIDER=llamacpp`, optional
+`LLAMA_CPP_HOST=http://127.0.0.1:8080/v1`, optional `LLAMA_CPP_API_KEY`
+when the server uses `--api-key`. Port probe tries 8080, 8081, and 9931
+when the host is not pinned. An unset model adopts the loaded GGUF name
+from `/v1/models`.

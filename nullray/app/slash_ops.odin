@@ -7,6 +7,7 @@ package app
 
 import "core:fmt"
 import "core:os"
+import "core:strconv"
 import "core:strings"
 import "nullray:agent"
 import "nullray:constants"
@@ -63,6 +64,70 @@ slash_cmd_usage :: proc(a: ^App, args: string) {
 		session.session_push_assistant(a.session, txt)
 		delete(txt)
 		session.session_set_status(a.session, "usage")
+	}
+}
+
+// Show or set NULLRAY_AGENT_STEPS (max tool/chat iterations per turn).
+slash_cmd_steps :: proc(a: ^App, args: string) {
+	rest := strings.trim_space(args)
+	if len(rest) == 0 {
+		cfg := agent.default_config()
+		auto := agent.auto_from_env()
+		env_set := ""
+		if v, ok := os.lookup_env(constants.ENV_AGENT_STEPS, context.temp_allocator); ok && len(strings.trim_space(v)) > 0 {
+			env_set = strings.trim_space(v)
+		}
+		note := "default"
+		if auto {
+			note = "auto"
+		}
+		if len(env_set) > 0 {
+			session.session_set_status(
+				a.session,
+				fmt.tprintf(
+					"steps %d (NULLRAY_AGENT_STEPS=%s, floor default=%d auto=%d). /steps N|auto|default",
+					cfg.max_steps,
+					env_set,
+					constants.MAX_AGENT_STEPS,
+					constants.MAX_AUTO_AGENT_STEPS,
+				),
+			)
+			return
+		}
+		session.session_set_status(
+			a.session,
+			fmt.tprintf(
+				"steps %d (%s mode). /steps N to set, /steps auto for %d, /steps default for %d",
+				cfg.max_steps,
+				note,
+				constants.MAX_AUTO_AGENT_STEPS,
+				constants.MAX_AGENT_STEPS,
+			),
+		)
+		return
+	}
+	lower := strings.to_lower(rest, context.temp_allocator)
+	switch lower {
+	case "default", "off", "reset":
+		os.unset_env(constants.ENV_AGENT_STEPS)
+		session.session_set_status(
+			a.session,
+			fmt.tprintf("steps default (%d normal, %d with /auto on)", constants.MAX_AGENT_STEPS, constants.MAX_AUTO_AGENT_STEPS),
+		)
+	case "auto":
+		os.set_env(constants.ENV_AGENT_STEPS, fmt.tprintf("%d", constants.MAX_AUTO_AGENT_STEPS))
+		session.session_set_status(a.session, fmt.tprintf("steps %d (auto budget)", constants.MAX_AUTO_AGENT_STEPS))
+	case:
+		n, ok := strconv.parse_int(rest)
+		if !ok || n < 1 {
+			session.session_set_status(a.session, "usage: /steps [N|auto|default]  (N >= 1)")
+			return
+		}
+		if n > 500 {
+			n = 500
+		}
+		os.set_env(constants.ENV_AGENT_STEPS, fmt.tprintf("%d", n))
+		session.session_set_status(a.session, fmt.tprintf("steps %d (this process)", n))
 	}
 }
 

@@ -73,6 +73,7 @@ SLASH_COMMANDS := []Slash_Command{
 	{"approve", "/approve", "approve plan contract and switch to edit", slash_cmd_approve},
 	{"status", "/status", "show mode, plan, verify, tokens, context chars", slash_cmd_status},
 	{"context", "/context", "per-category context char and token estimate", slash_cmd_context},
+	{"steps", "/steps [N|auto|default]", "max agent tool steps per turn (default 24, auto 80)", slash_cmd_steps},
 	{"ops", "/ops", "show NULLRAY_OPS grants and sandbox extras", slash_cmd_ops},
 	{"sandbox", "/sandbox", "alias for /ops", slash_cmd_ops},
 	{"usage", "/usage [json|export PATH]", "session token and cost summary", slash_cmd_usage},

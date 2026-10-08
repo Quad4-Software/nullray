@@ -54,8 +54,9 @@ slash_cmd_status :: proc(a: ^App, args: string) {
 	if len(steps_sidecar) == 0 {
 		steps_sidecar = "(none)"
 	}
+	agent_cfg := agent.default_config()
 	body := fmt.tprintf(
-		"mode=%s\nhunt=%s\nsandbox_applied=%v\n%s\nask_simple=%v\nplan_ok=%v\nplan_step=%s\nverify=%s\nfails=%d\nchars=%d/%d\npeak=%d\ntok=%d/%d\n%s\nstopped=%s\nplan=%s\nsteps_sidecar=%s\nview_auto=%v",
+		"mode=%s\nhunt=%s\nsandbox_applied=%v\n%s\nask_simple=%v\nplan_ok=%v\nplan_step=%s\nagent_steps=%d\nverify=%s\nfails=%d\nchars=%d/%d\npeak=%d\ntok=%d/%d\n%s\nstopped=%s\nplan=%s\nsteps_sidecar=%s\nview_auto=%v",
 		agent.mode_string(a.session.agent_mode),
 		agent.hunt_profile_string(agent.hunt_from_env()),
 		sandbox_applied,
@@ -63,6 +64,7 @@ slash_cmd_status :: proc(a: ^App, args: string) {
 		agent.ask_simple_from_env(),
 		a.session.plan_contract_ok,
 		plan_step_line,
+		agent_cfg.max_steps,
 		verify,
 		a.session.verify_fail_count,
 		a.session.last_input_chars,

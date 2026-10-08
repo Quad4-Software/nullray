@@ -6,6 +6,7 @@ OpenAI-compatible chat completions with native tool_calls.
 package provider
 
 import "base:runtime"
+import "core:fmt"
 import "core:os"
 import "core:strings"
 import "nullray:constants"
@@ -130,8 +131,9 @@ build_openai_chat_body :: proc(
 			write_ollama_num_ctx_json(&b, p, model)
 		}
 	} else if p != nil && p.id == "llamacpp" {
-		// One GET /props per provider instance flags tool support.
+		// One GET /props per provider instance flags tool support + n_ctx.
 		llamacpp_ensure_caps(p)
+		write_llamacpp_ctx_json(&b, p, model)
 	}
 	if len(req_p.tools_json) > 0 {
 		strings.write_string(&b, `,"tools":`)
@@ -188,6 +190,46 @@ write_local_cache_hints_json :: proc(b: ^strings.Builder, p: ^Provider) {
 		}
 	case:
 	}
+}
+
+// Optional n_ctx override for llama.cpp chat. Profile num_ctx wins, else the
+// probed server window (capped) so requests match --ctx-size. Without this a
+// mismatch often surfaces as empty replies or silent truncation.
+write_llamacpp_ctx_json :: proc(b: ^strings.Builder, p: ^Provider, model: string) {
+	if p == nil || p.id != "llamacpp" {
+		return
+	}
+	n := 0
+	if write_profile_num_ctx_only(&n, model) {
+		// handled
+	} else if p.caps.context_length > 0 {
+		n = p.caps.context_length
+	}
+	if n <= 0 {
+		return
+	}
+	// Keep a sane ceiling so a mis-reported props value cannot explode KV.
+	if n > 262144 {
+		n = 262144
+	}
+	if n < 512 {
+		n = 512
+	}
+	fmt.sbprintf(b, `,"n_ctx":%d`, n)
+}
+
+// Profile num_ctx without emitting ollama-style options block.
+@(private)
+write_profile_num_ctx_only :: proc(n: ^int, model: string) -> bool {
+	if n == nil {
+		return false
+	}
+	prof, found := profile_for(model)
+	if !found || prof.num_ctx <= 0 {
+		return false
+	}
+	n^ = prof.num_ctx
+	return true
 }
 
 @(private)

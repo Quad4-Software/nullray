@@ -8,7 +8,7 @@ present.
 |-------------|----------|-------|
 | ollama | none, `OLLAMA_HOST` | Local. Default host 127.0.0.1:11434 |
 | lmstudio | `LM_API_TOKEN` | Local. Defaults to the value lm-studio when unset |
-| llamacpp | `LLAMA_CPP_HOST`, `LLAMA_CPP_API_KEY` | Local. Default http://127.0.0.1:8080/v1 |
+| llamacpp | `LLAMA_CPP_HOST`, `LLAMA_CPP_API_KEY` | Local. Probes 8080, 8081, 9931. Adopts loaded GGUF name and n_ctx from `/props` |
 | openai | `OPENAI_API_KEY`, `OPENAI_BASE_URL` | Chat completions |
 | openai-compat | `OPENAI_BASE_URL` + `OPENAI_API_KEY` | Any chat/completions endpoint |
 | openrouter | `OPENROUTER_API_KEY` | Model list, fallbacks, credits |

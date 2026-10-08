@@ -29,7 +29,20 @@ restore_env :: proc(key, saved: string, had: bool) {
 	delete(saved)
 }
 
-@test
+@(test)
+test_llamacpp_ctx_json_from_caps :: proc(t: ^testing.T) {
+	p := make_llamacpp("http://127.0.0.1:8080/v1", "", "local")
+	defer provider_destroy(&p)
+	p.caps.context_length = 8192
+	p.caps.probed = true
+	b: strings.Builder
+	strings.builder_init(&b, context.temp_allocator)
+	write_llamacpp_ctx_json(&b, &p, "local")
+	out := strings.to_string(b)
+	testing.expect(t, strings.contains(out, `"n_ctx":8192`))
+}
+
+@(test)
 test_llamacpp_emits_cache_prompt_no_id_slot :: proc(t: ^testing.T) {
 	saved, had := save_env(constants.ENV_LOCAL_PROBE)
 	defer restore_env(constants.ENV_LOCAL_PROBE, saved, had)

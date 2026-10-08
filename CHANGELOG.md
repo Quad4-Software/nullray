@@ -4,6 +4,12 @@ Notable changes for nullray.
 
 ## [Unreleased]
 
+### Added
+- `/steps [N|auto|default]` controls the max tool/chat iterations per turn
+  (`NULLRAY_AGENT_STEPS`). `/status` shows the active `agent_steps` budget.
+- llama.cpp adopts the loaded GGUF name from `/v1/models`, probes ports 8080,
+  8081, and 9931, and sends `n_ctx` from `/props` or the model profile on chat.
+
 ## [0.8.0] - 2026-10-08
 
 ### Added

@@ -107,7 +107,25 @@ test_llamacpp_probe_bases_defaults :: proc(t: ^testing.T) {
 	bases := llamacpp_probe_bases()
 	testing.expect_value(t, len(bases), len(LLAMACPP_BASES))
 	testing.expect_value(t, bases[0], constants.DEFAULT_LLAMACPP_BASE)
-	testing.expect_value(t, bases[1], "http://127.0.0.1:9931/v1")
+	testing.expect(t, len(bases) >= 2)
+	// Historic + alternate + newer upstream default must all be candidates.
+	found_9931 := false
+	for b in bases {
+		if b == "http://127.0.0.1:9931/v1" {
+			found_9931 = true
+		}
+	}
+	testing.expect(t, found_9931)
+}
+
+@(test)
+test_llamacpp_pick_default_model_skips_embed :: proc(t: ^testing.T) {
+	models := []Model_Info{
+		{id = "nomic-embed-text", name = "nomic-embed-text"},
+		{id = "Qwen2.5-Coder-7B-Q4_K_M.gguf", name = "coder"},
+	}
+	got := llamacpp_pick_default_model(models)
+	testing.expect_value(t, got, "Qwen2.5-Coder-7B-Q4_K_M.gguf")
 }
 
 @(test)
