@@ -113,6 +113,18 @@ parse_cli_late :: proc(cli: ^Cli, args: []string, i: ^int, arg: string, prompt_p
 	case "--architect":
 		cli.architect = true
 		return true, false
+	case "--secret", "--key", "--token":
+		v, ok := take_value(args, i)
+		if !ok {
+			cli.err = fmt.aprintf("%s needs NAME=VALUE", arg)
+			return true, true
+		}
+		if !strings.contains(v, "=") {
+			cli.err = fmt.aprintf("%s needs NAME=VALUE", arg)
+			return true, true
+		}
+		append(&cli.secret_args, v)
+		return true, false
 	case "--completions":
 		v, ok := take_value(args, i)
 		if !ok {

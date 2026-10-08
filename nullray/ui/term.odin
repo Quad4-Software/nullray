@@ -96,6 +96,34 @@ term_flush :: proc(t: ^Term) {
 	}
 }
 
+// Emit CSI row;col H without fmt allocations.
+@(private)
+term_write_cup :: proc(b: ^strings.Builder, row, col: int) {
+	strings.write_string(b, "\x1b[")
+	term_write_int(b, row)
+	strings.write_byte(b, ';')
+	term_write_int(b, col)
+	strings.write_byte(b, 'H')
+}
+
+@(private)
+term_write_int :: proc(b: ^strings.Builder, n: int) {
+	if n <= 0 {
+		strings.write_byte(b, '0')
+		return
+	}
+	// max terminal coords fit in a few digits
+	buf: [16]u8
+	i := len(buf)
+	v := n
+	for v > 0 {
+		i -= 1
+		buf[i] = u8('0' + (v % 10))
+		v /= 10
+	}
+	strings.write_bytes(b, buf[i:])
+}
+
 term_invalidate :: proc(t: ^Term) {
 	t.has_prev = false
 }
@@ -173,11 +201,16 @@ term_present :: proc(t: ^Term, buf: ^Buffer) {
 			}
 			if use_diff {
 				prev := t.prev.cells[idx]
-				if cell.ch == prev.ch && cell.fg == prev.fg && cell.bg == prev.bg && cell.style == prev.style {
+				// Compare raw fields only; avoid temp construction.
+				if cell.ch == prev.ch &&
+					cell.fg.r == prev.fg.r && cell.fg.g == prev.fg.g && cell.fg.b == prev.fg.b &&
+					cell.bg.r == prev.bg.r && cell.bg.g == prev.bg.g && cell.bg.b == prev.bg.b &&
+					cell.style == prev.style {
 					continue
 				}
 				if cursor_x != x || cursor_y != y {
-					fmt.sbprintf(&t.out, "\x1b[%d;%dH", y + 1, x + 1)
+					// Fast CUP: avoid fmt for the common dirty-path hop.
+					term_write_cup(&t.out, y + 1, x + 1)
 					cursor_x = x
 					cursor_y = y
 					sgr_valid = false
@@ -191,10 +224,17 @@ term_present :: proc(t: ^Term, buf: ^Buffer) {
 				sgr_valid = true
 			}
 			ch := sanitize_cell_rune(cell.ch)
-			strings.write_rune(&t.out, ch)
-			w := max(1, rune_cols(ch))
-			cursor_x = x + w
-			cursor_y = y
+			// ASCII fast path: skip rune_cols/write_rune overhead.
+			if ch >= 0x20 && ch < 0x7f {
+				strings.write_byte(&t.out, u8(ch))
+				cursor_x = x + 1
+				cursor_y = y
+			} else {
+				strings.write_rune(&t.out, ch)
+				w := max(1, rune_cols(ch))
+				cursor_x = x + w
+				cursor_y = y
+			}
 			if cursor_x >= buf.width {
 				cursor_x = 0
 				cursor_y = y + 1

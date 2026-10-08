@@ -104,6 +104,8 @@ Cli :: struct {
 	askpass:          bool,
 	elevate_broker:   string,
 	no_elevate:       bool,
+	// Preload vault secrets from CLI (NAME=VALUE). Values never printed.
+	secret_args:      [dynamic]string,
 	err:              string,
 }
 
@@ -152,6 +154,7 @@ main :: proc() {
 		fmt.eprintln("nullray: adopt", n)
 	}
 	apply_cli_env(&cli)
+	apply_cli_secrets(&cli)
 
 	crash.install()
 	defer os.exit(0)

@@ -53,8 +53,13 @@ buffer_resize :: proc(b: ^Buffer, width, height: int, allocator := context.alloc
 }
 
 buffer_clear :: proc(b: ^Buffer, bg: Color, fg: Color) {
+	// Fill without per-cell struct literal churn when possible.
+	if len(b.cells) == 0 {
+		return
+	}
+	blank := Cell{ch = ' ', fg = fg, bg = bg, style = {}}
 	for &c in b.cells {
-		c = Cell{ch = ' ', fg = fg, bg = bg, style = {}}
+		c = blank
 	}
 }
 

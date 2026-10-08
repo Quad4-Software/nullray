@@ -5,7 +5,8 @@ set -euo pipefail
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 BIN="${1:-$ROOT/bin/nullray}"
 ODIN="${ODIN:-odin}"
-MAX_BYTES="${NULLRAY_MAX_BINARY_BYTES:-6200000}"
+# Room for session seal crypto + planner/strip/malleable UI growth.
+MAX_BYTES="${NULLRAY_MAX_BINARY_BYTES:-7200000}"
 MAX_RSS_KB="${NULLRAY_MAX_RSS_KB:-65536}"
 
 if [[ ! -x "$BIN" ]]; then

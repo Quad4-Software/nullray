@@ -108,6 +108,7 @@ print_help :: proc() {
 	fmt.println("      --no-subagents      disable subagent task tool")
 	fmt.println("      --splash            force startup splash")
 	fmt.println("      --hide-sensitive    hide account and API key balances")
+	fmt.println("      --secret NAME=VALUE vault a secret (value never printed; also --key/--token)")
 	fmt.println("      --list-models       list models for active provider and exit")
 	fmt.println("      --probe-tools [P/M] probe tool-name spellings a model emits, save aliases")
 	fmt.println("      --completions SHELL print completion script and exit")

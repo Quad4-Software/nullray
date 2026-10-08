@@ -156,6 +156,7 @@ lifetime like `7d`.
 | `--no-splash`, `--splash` | Skip or force the startup splash |
 | `--no-subagents` | Disable the task tool |
 | `--hide-sensitive` | Hide account and API key balances |
+| `--secret NAME=VALUE` | Preload vault secret (also `--key` / `--token`; value never printed) |
 | `--askpass` | sudo/doas askpass helper (internal) |
 | `--elevate-broker P` | Privilege broker path (internal) |
 

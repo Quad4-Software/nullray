@@ -5,6 +5,7 @@ import "core:fmt"
 import "core:os"
 import "core:path/filepath"
 import "core:strings"
+import "nullray:ask"
 import "nullray:constants"
 
 apply_cli_env :: proc(cli: ^Cli) {
@@ -226,4 +227,26 @@ env_or :: proc(key, fallback: string) -> string {
 		return v
 	}
 	return fallback
+}
+
+// Preload vault secrets from --secret/--key/--token NAME=VALUE.
+// Values go into the ask vault and process env; never printed.
+apply_cli_secrets :: proc(cli: ^Cli) {
+	if cli == nil {
+		return
+	}
+	for raw in cli.secret_args {
+		eq := strings.index_byte(raw, '=')
+		if eq <= 0 {
+			continue
+		}
+		name := strings.trim_space(raw[:eq])
+		value := strings.trim_space(raw[eq + 1:])
+		if len(name) == 0 || len(value) == 0 {
+			continue
+		}
+		ask.secret_put(name, value)
+		_ = ask.secret_bind_env(name)
+		os.set_env(name, value)
+	}
 }
