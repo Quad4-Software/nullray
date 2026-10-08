@@ -149,7 +149,9 @@ tool_write_file :: proc(args_json: string, allocator := context.allocator) -> (r
 	if werr := tool_write_atomic(abs, transmute([]u8)content); len(werr) > 0 {
 		return "", strings.clone(werr, allocator)
 	}
-	return strings.clone("ok", allocator), ""
+	// Include path and size so anti-loop stagnation does not treat a
+	// multi-file scaffold as one repeating result.
+	return fmt.aprintf("ok wrote %s (%d bytes)", path, len(content), allocator = allocator), ""
 }
 
 @(private)

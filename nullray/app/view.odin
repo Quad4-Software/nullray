@@ -15,9 +15,9 @@ import "nullray:session"
 import "nullray:tools"
 
 VIEW_RECENT_MAX :: 16
-VIEW_MIN_PANE :: 28
-VIEW_MIN_TRANSCRIPT :: 40
-VIEW_SPLIT_MIN_WIDTH :: 72
+VIEW_MIN_PANE :: 22
+VIEW_MIN_TRANSCRIPT :: 28
+VIEW_SPLIT_MIN_WIDTH :: 56
 
 View_Layout :: struct {
 	open:     bool,
@@ -296,14 +296,24 @@ app_view_layout :: proc(a: ^App, width, height: int) -> View_Layout {
 		return lay
 	}
 	lay.open = true
-	lay.pane_y = 2
-	lay.pane_h = max(1, height - 5)
-	if width >= VIEW_SPLIT_MIN_WIDTH {
-		pane_w := max(VIEW_MIN_PANE, width * 2 / 5)
-		if width - pane_w - 1 < VIEW_MIN_TRANSCRIPT {
-			pane_w = width - VIEW_MIN_TRANSCRIPT - 1
+	c := app_chrome(a, width, height)
+	lay.pane_y = c.msg_top
+	lay.pane_h = app_chrome_msg_h(c)
+	// Prefer split when width allows; fall back to full overlay on narrow terms.
+	min_split := VIEW_SPLIT_MIN_WIDTH
+	min_pane := VIEW_MIN_PANE
+	min_tr := VIEW_MIN_TRANSCRIPT
+	if width < 72 {
+		min_split = 48
+		min_pane = 18
+		min_tr = 20
+	}
+	if width >= min_split {
+		pane_w := max(min_pane, width * 2 / 5)
+		if width - pane_w - 1 < min_tr {
+			pane_w = width - min_tr - 1
 		}
-		if pane_w >= VIEW_MIN_PANE && width - pane_w - 1 >= VIEW_MIN_TRANSCRIPT {
+		if pane_w >= min_pane && width - pane_w - 1 >= min_tr {
 			lay.split_x = width - pane_w - 1
 			lay.pane_x = lay.split_x + 1
 			lay.pane_w = pane_w

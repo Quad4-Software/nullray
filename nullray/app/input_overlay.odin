@@ -101,7 +101,8 @@ app_handle_help_status_event :: proc(a: ^App, ev: ui.Event) -> (quit: bool, hand
 			app_mark_dirty(a)
 		case .End:
 			width := a.loop.term.width
-			view_h := max(1, a.loop.term.height - 5)
+			c := app_chrome(a, width, a.loop.term.height)
+			view_h := app_chrome_overlay_h(c)
 			a.history_scroll = max(0, app_history_line_count(a, width) - view_h)
 			app_mark_dirty(a)
 		}

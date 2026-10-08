@@ -244,21 +244,30 @@ loop_detector_check :: proc(det: ^Loop_Detector, calls: []provider.Tool_Call, si
 		}
 	}
 	calls_norm := loop_norm_calls(calls)
-	if det.fuzzy > 0 && n > 0 {
+	// Fuzzy is for near-duplicate shell/read rhythm, not multi-file writers.
+	// Mutators share name+JSON structure tokens so jaccard false-positives
+	// on scaffolds; Exact still catches identical rewrites.
+	if det.fuzzy > 0 && n > 0 && !loop_calls_are_mutators(calls) {
 		last_result := det.obs[n - 1].result_norm
-		for i in loop_window_start(det) ..< n {
-			o := det.obs[i]
-			if o.sig == sig || len(o.result_norm) == 0 || o.result_norm != last_result {
-				continue
-			}
-			if loop_token_jaccard(calls_norm, o.calls_norm) >= det.fuzzy {
-				return .Fuzzy
+		// Require a stagnant non-trivial result before fuzzy.
+		if len(last_result) > 0 && !loop_result_is_trivial(last_result) {
+			for i in loop_window_start(det) ..< n {
+				o := det.obs[i]
+				if o.sig == sig || len(o.result_norm) == 0 || o.result_norm != last_result {
+					continue
+				}
+				if loop_token_jaccard(calls_norm, o.calls_norm) >= det.fuzzy {
+					return .Fuzzy
+				}
 			}
 		}
 	}
 	if det.stagnation >= 2 && n >= det.stagnation {
 		norm0 := det.obs[n - 1].result_norm
-		if len(norm0) > 0 {
+		// Short ack-only results (bare "ok") are common across distinct
+		// mutators. Path-bearing write/edit acks are already distinct; this
+		// skip only covers leftover trivial successes.
+		if len(norm0) > 0 && !loop_result_is_trivial(norm0) {
 			same := true
 			sigs: map[u64]struct{}
 			sigs = make(map[u64]struct{}, context.temp_allocator)

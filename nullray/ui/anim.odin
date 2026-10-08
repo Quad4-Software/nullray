@@ -50,3 +50,12 @@ anim_pulse :: proc(period_ms: int = 1600) -> f32 {
 	}
 	return 1 - f32(phase - half) / f32(half)
 }
+
+// Linear 0..1 sawtooth over period_ms. Used for brand hue cycles.
+anim_phase :: proc(period_ms: int = 4200) -> f32 {
+	if period_ms <= 0 {
+		return 0
+	}
+	ms := int(time.to_unix_nanoseconds(time.now()) / 1_000_000)
+	return f32(ms % period_ms) / f32(period_ms)
+}

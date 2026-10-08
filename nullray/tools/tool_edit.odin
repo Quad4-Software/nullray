@@ -81,7 +81,7 @@ tool_edit_file :: proc(args_json: string, allocator := context.allocator) -> (re
 		return "", strings.clone(werr, allocator)
 	}
 	if kind == .Fuzzy {
-		return strings.clone("ok fuzzy", allocator), ""
+		return fmt.aprintf("ok fuzzy edited %s (%d bytes)", path, len(updated), allocator = allocator), ""
 	}
-	return strings.clone("ok", allocator), ""
+	return fmt.aprintf("ok edited %s (%d bytes)", path, len(updated), allocator = allocator), ""
 }

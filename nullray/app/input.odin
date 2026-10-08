@@ -81,8 +81,8 @@ app_handle_esc_idle :: proc(a: ^App) {
 app_mouse_in_transcript :: proc(a: ^App, mx, my: int) -> bool {
 	h := a.loop.term.height
 	w := a.loop.term.width
-	input_rows := app_input_rows(a, w)
-	if my < 2 || my > h - 2 - input_rows {
+	c := app_chrome(a, w, h)
+	if my < c.msg_top || my > c.msg_bottom {
 		return false
 	}
 	lay := app_view_layout(a, w, h)

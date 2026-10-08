@@ -197,7 +197,7 @@ test_escalate_e2e_degrades_to_base :: proc(t: ^testing.T) {
 	reg.tools = make([dynamic]tools.Tool, context.temp_allocator)
 	tools.registry_register(&reg, tools.Tool{name = "fake_tool", kind = .Read, run = mock_tool_run})
 	esc_st := Esc_Mock{fail = true}
-	res := esc_turn(t, &esc_st, &reg, 14)
+	res := esc_turn(t, &esc_st, &reg, constants.LOOP_STOP_FIRES * 6)
 	defer free_run_result(&res)
 	testing.expect(t, res.ok)
 	// The failed escalation silently degrades and the base model keeps

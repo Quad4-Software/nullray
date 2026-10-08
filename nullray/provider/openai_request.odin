@@ -19,6 +19,8 @@ append_provider_headers :: proc(headers: ^[dynamic]string, p: ^Provider, session
 		} else if p.id == "anthropic" {
 			append(headers, fmt.tprintf("x-api-key: %s", p.api_key))
 		} else {
+			// OpenCode Zen chat uses Bearer. Free-tier keys may still answer
+			// /models with x-api-key but reject chat outside the OpenCode app.
 			append(headers, fmt.tprintf("Authorization: Bearer %s", p.api_key))
 		}
 	}

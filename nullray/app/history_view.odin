@@ -157,12 +157,13 @@ slash_cmd_history :: proc(a: ^App, args: string) {
 		width = a.loop.term.width
 		height = a.loop.term.height
 	}
-	view_h := max(1, height - 5)
+	c := app_chrome(a, width, height)
+	view_h := app_chrome_overlay_h(c)
 	a.history_scroll = max(0, app_history_line_count(a, width) - view_h)
 	app_mark_dirty(a)
 }
 
-app_draw_history :: proc(buf: ^ui.Buffer, a: ^App) {
+app_draw_history :: proc(buf: ^ui.Buffer, a: ^App, c: Chrome) {
 	t := ui.theme()
 	lines := history_view_lines(
 		a.session.messages[:],
@@ -172,7 +173,7 @@ app_draw_history :: proc(buf: ^ui.Buffer, a: ^App) {
 		t,
 		t.accent,
 	)
-	view_h := max(1, buf.height - 5)
+	view_h := app_chrome_overlay_h(c)
 	max_scroll := max(0, len(lines) - view_h)
 	if a.history_scroll > max_scroll {
 		a.history_scroll = max_scroll
@@ -180,20 +181,29 @@ app_draw_history :: proc(buf: ^ui.Buffer, a: ^App) {
 	if a.history_scroll < 0 {
 		a.history_scroll = 0
 	}
-	y := 3
+	y := c.msg_top
+	end_y := c.status_y
+	if c.status_y > c.msg_top {
+		end_y = c.status_y - 1
+	}
 	if len(lines) == 0 {
 		ui.buffer_text_clip(buf, 1, y, buf.width - 1, "empty session", t.muted, t.bg, {.Dim})
 	}
-	for i := a.history_scroll; i < len(lines) && y < buf.height - 3; i += 1 {
+	for i := a.history_scroll; i < len(lines) && y < end_y; i += 1 {
 		ui.buffer_fill_rect(buf, 0, y, buf.width, 1, ' ', t.fg, t.bg)
 		ui.buffer_text_clip(buf, 1, y, buf.width - 1, lines[i].text, lines[i].fg, t.bg, lines[i].style)
 		y += 1
 	}
-	ui.buffer_hline(buf, 0, buf.height - 3, buf.width, '─', t.border, t.bg)
+	if c.status_y > c.msg_top {
+		ui.buffer_hline(buf, 0, c.status_y - 1, buf.width, '─', t.border, t.bg)
+	}
 	help_right := "Up/PgUp · Home/End · Esc close"
+	if c.narrow {
+		help_right = "Up · Esc"
+	}
 	if max_scroll > 0 {
 		help_right = fmt.tprintf("%d/%d · %s", a.history_scroll + 1, max_scroll + 1, help_right)
 	}
-	ui.draw_status_bar_ex(buf, buf.height - 2, "history", help_right, t.status_fg, t.muted, t.status_bg)
-	ui.draw_input_line(buf, buf.height - 1, "❯ ", strings.to_string(a.input), a.cursor, t.fg, t.input_bg, t.accent)
+	ui.draw_status_bar_ex(buf, c.status_y, "history", help_right, t.status_fg, t.muted, t.status_bg)
+	app_draw_input_box(buf, a, c.input_y, c.input_rows, t.fg, t.input_bg, t.accent)
 }

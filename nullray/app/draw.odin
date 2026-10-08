@@ -32,21 +32,23 @@ app_draw :: proc(buf: ^ui.Buffer, user: rawptr) {
 	}
 	t := ui.theme()
 	p := provider.registry_active(&a.registry)
-
-	title := constants.APP_NAME
+	c := app_chrome(a, buf.width, buf.height)
 	accent := ui.color_lerp(t.accent_dim, t.accent, ui.anim_pulse(1800))
-	ver := fmt.tprintf("?  %s", constants.VERSION)
-	ui.draw_status_bar(buf, 0, title, ver, t.title, t.status_bg)
-	a.help_btn_x = max(1, buf.width - ui.string_cols(ver) - 1)
 
-	mid_x := max(string_cols_safe(title) + 2, 1)
+	ver := app_chrome_ver_label(c)
+	mid_x := app_draw_title_brand(buf, c, t)
+	a.help_btn_x = max(1, buf.width - ui.string_cols(ver) - 1)
+	ui.buffer_text_clip(buf, a.help_btn_x, c.title_y, buf.width, ver, t.accent, t.status_bg, {.Bold})
+
 	mode_chip := agent.mode_string(a.session.agent_mode)
-	counts := fmt.tprintf("%s · %d sess · %d live", mode_chip, a.banner_sess, a.banner_live)
-	if len(a.tabs) > 1 {
-		counts = fmt.tprintf("%s · %d tabs", counts, len(a.tabs))
+	counts := app_chrome_counts(a, c, mode_chip)
+	count_end := mid_x + ui.string_cols(counts) + 1
+	if count_end > a.help_btn_x - 1 {
+		count_end = a.help_btn_x - 1
 	}
-	count_end := mid_x + ui.string_cols(counts) + 2
-	ui.buffer_text_clip(buf, mid_x, 0, min(count_end, a.help_btn_x - 1), counts, t.accent, t.status_bg)
+	if mid_x < a.help_btn_x - 1 && len(counts) > 0 {
+		ui.buffer_text_clip(buf, mid_x, c.title_y, min(count_end, a.help_btn_x - 1), counts, t.accent, t.status_bg)
+	}
 
 	if p != nil {
 		sess := a.session.name
@@ -70,34 +72,39 @@ app_draw :: proc(buf: ^ui.Buffer, user: rawptr) {
 			right = fmt.tprintf("%s · %s", right, cl)
 			delete(cl)
 		}
+		right = app_chrome_right_info(a, c, right)
 		info_x := max(count_end + 1, mid_x)
-		ui.buffer_text_clip(buf, info_x, 0, a.help_btn_x - 1, right, t.muted, t.status_bg)
+		if len(right) > 0 && info_x < a.help_btn_x - 1 {
+			ui.buffer_text_clip(buf, info_x, c.title_y, a.help_btn_x - 1, right, t.muted, t.status_bg)
+		}
 	}
-	ui.buffer_text(buf, a.help_btn_x, 0, "?", t.accent, t.status_bg, {.Bold})
 
-	app_draw_tabs(buf, a, 1)
-	ui.buffer_hline(buf, 0, 2, buf.width, '─', t.border, t.bg)
+	if c.show_tabs && c.tabs_y >= 0 {
+		app_draw_tabs(buf, a, c.tabs_y)
+	}
+	if c.show_sep && c.sep_y >= 0 {
+		ui.buffer_hline(buf, 0, c.sep_y, buf.width, '─', t.border, t.bg)
+	}
 
 	if a.show_help {
-		app_draw_help(buf, a)
+		app_draw_help(buf, a, c)
 		a.dirty = false
 		return
 	}
 	if a.show_status {
-		app_draw_status_overlay(buf, a)
+		app_draw_status_overlay(buf, a, c)
 		a.dirty = false
 		return
 	}
 	if a.show_history {
-		app_draw_history(buf, a)
+		app_draw_history(buf, a, c)
 		a.dirty = false
 		return
 	}
 
-	input_rows := app_input_rows(a, buf.width)
-	msg_top := 3
-	msg_bottom := buf.height - 3 - input_rows
-	msg_h := max(msg_bottom - msg_top + 1, 1)
+	msg_top := c.msg_top
+	msg_bottom := c.msg_bottom
+	msg_h := app_chrome_msg_h(c)
 
 	lay := app_view_layout(a, buf.width, buf.height)
 	app_expand_hits_clear(a)
@@ -141,29 +148,46 @@ app_draw :: proc(buf: ^ui.Buffer, user: rawptr) {
 		app_draw_view_pane(buf, a, lay)
 	}
 
-	ui.buffer_hline(buf, 0, buf.height - 2 - input_rows, buf.width, '─', t.border, t.bg)
+	if c.status_y > c.msg_top {
+		ui.buffer_hline(buf, 0, c.status_y - 1, buf.width, '─', t.border, t.bg)
+	}
 
 	status_left := a.session.status
 	status_fg := t.status_fg
 	if a.elevate_active {
-		status_left = "elevate: waiting for password · Esc cancel"
+		if c.narrow {
+			status_left = "elevate · Esc"
+		} else {
+			status_left = "elevate: waiting for password · Esc cancel"
+		}
 		status_fg = t.warn
 	} else if pending := tools.shell_pending(context.temp_allocator); len(pending) > 0 {
-		status_left = fmt.tprintf("shell: %s · /allow /deny", pending)
+		if c.narrow {
+			status_left = "shell · /allow"
+		} else {
+			status_left = fmt.tprintf("shell: %s · /allow /deny", pending)
+		}
 		status_fg = t.warn
 	} else if a.session.busy {
 		secs := int(time.tick_since(a.session.busy_since) / time.Second)
-		status_left = fmt.tprintf(
-			"%s %s · %ds",
-			ui.spinner_frame(&a.spinner),
-			a.session.status,
-			secs,
-		)
-		if len(a.session.live_tool) > 0 {
-			status_left = fmt.tprintf("%s · %s", status_left, a.session.live_tool)
-		}
-		if !a.follow {
-			status_left = fmt.tprintf("%s · End to follow", status_left)
+		if c.narrow {
+			status_left = fmt.tprintf("%s %ds", ui.spinner_frame(&a.spinner), secs)
+			if len(a.session.live_tool) > 0 {
+				status_left = fmt.tprintf("%s · %s", status_left, a.session.live_tool)
+			}
+		} else {
+			status_left = fmt.tprintf(
+				"%s %s · %ds",
+				ui.spinner_frame(&a.spinner),
+				a.session.status,
+				secs,
+			)
+			if len(a.session.live_tool) > 0 {
+				status_left = fmt.tprintf("%s · %s", status_left, a.session.live_tool)
+			}
+			if !a.follow {
+				status_left = fmt.tprintf("%s · End to follow", status_left)
+			}
 		}
 		status_fg = t.accent
 	} else if strings.has_prefix(a.session.status, "error") {
@@ -183,14 +207,8 @@ app_draw :: proc(buf: ^ui.Buffer, user: rawptr) {
 	} else if a.session.last_usage.total_tokens > 0 {
 		status_left = session.session_ready_status(a.session)
 	}
-	help := "type / · ? help · ^q quit"
-	if a.view_open {
-		help = "Tab focus · Left/Right files · Esc close"
-	} else if a.sel_has || a.sel_dragging {
-		help = "drag select · /copy · Esc clear"
-	}
-	status_y := buf.height - 1 - input_rows
-	ui.draw_status_bar_ex(buf, status_y, status_left, help, status_fg, t.muted, t.status_bg)
+	help := app_chrome_help_right(a, c)
+	ui.draw_status_bar_ex(buf, c.status_y, status_left, help, status_fg, t.muted, t.status_bg)
 
 	cap_x1 := buf.width - 1
 	if lay.open && !lay.overlay {
@@ -198,10 +216,10 @@ app_draw :: proc(buf: ^ui.Buffer, user: rawptr) {
 	}
 	app_sel_capture_buffer(a, buf, msg_top, msg_bottom, 0, cap_x1)
 
-	app_draw_input_box(buf, a, buf.height - input_rows, input_rows, t.fg, t.input_bg, t.accent)
-	app_draw_suggestions(buf, a)
+	app_draw_input_box(buf, a, c.input_y, c.input_rows, t.fg, t.input_bg, t.accent)
+	app_draw_suggestions(buf, a, c)
 	app_apply_selection_style(buf, a)
-	app_draw_toasts(buf, a)
+	app_draw_toasts(buf, a, c)
 	app_draw_elevate_modal(buf, a)
 	app_draw_ask_modal(buf, a)
 
@@ -209,66 +227,84 @@ app_draw :: proc(buf: ^ui.Buffer, user: rawptr) {
 }
 
 @(private)
-app_draw_status_overlay :: proc(buf: ^ui.Buffer, a: ^App) {
+app_draw_status_overlay :: proc(buf: ^ui.Buffer, a: ^App, c: Chrome) {
 	t := ui.theme()
 	body := a.status_body
 	lines := strings.split_lines(body, context.temp_allocator)
-	view_h := max(1, buf.height - 5)
+	view_h := app_chrome_overlay_h(c)
 	max_scroll := max(0, len(lines) - view_h)
 	if a.status_scroll > max_scroll {
 		a.status_scroll = max_scroll
 	}
-	y := 3
-	for i := a.status_scroll; i < len(lines) && y < buf.height - 3; i += 1 {
+	y := c.msg_top
+	end_y := c.status_y
+	if c.status_y > c.msg_top {
+		end_y = c.status_y - 1
+	}
+	for i := a.status_scroll; i < len(lines) && y < end_y; i += 1 {
 		ui.buffer_fill_rect(buf, 0, y, buf.width, 1, ' ', t.fg, t.bg)
 		ui.buffer_text_clip(buf, 1, y, buf.width - 1, lines[i], t.fg, t.bg)
 		y += 1
 	}
-	ui.buffer_hline(buf, 0, buf.height - 3, buf.width, '─', t.border, t.bg)
+	if c.status_y > c.msg_top {
+		ui.buffer_hline(buf, 0, c.status_y - 1, buf.width, '─', t.border, t.bg)
+	}
 	help_right := "PgUp/PgDn · Esc close"
+	if c.narrow {
+		help_right = "PgUp · Esc"
+	}
 	if max_scroll > 0 {
 		help_right = fmt.tprintf("%d/%d · %s", a.status_scroll + 1, max_scroll + 1, help_right)
 	}
-	ui.draw_status_bar_ex(buf, buf.height - 2, "status", help_right, t.status_fg, t.muted, t.status_bg)
-	ui.draw_input_line(buf, buf.height - 1, "❯ ", strings.to_string(a.input), a.cursor, t.fg, t.input_bg, t.accent)
+	ui.draw_status_bar_ex(buf, c.status_y, "status", help_right, t.status_fg, t.muted, t.status_bg)
+	app_draw_input_box(buf, a, c.input_y, c.input_rows, t.fg, t.input_bg, t.accent)
 }
 
 @(private)
-app_draw_help :: proc(buf: ^ui.Buffer, a: ^App) {
+app_draw_help :: proc(buf: ^ui.Buffer, a: ^App, c: Chrome) {
 	t := ui.theme()
 	binds_help := config.binds_help_text(a.binds, a.keys_preset, context.temp_allocator)
 	body := help_overlay_text(binds_help, context.temp_allocator)
 	lines := strings.split_lines(body, context.temp_allocator)
-	view_h := max(1, buf.height - 5)
+	view_h := app_chrome_overlay_h(c)
 	max_scroll := max(0, len(lines) - view_h)
 	if a.help_scroll > max_scroll {
 		a.help_scroll = max_scroll
 	}
-	y := 3
-	for i := a.help_scroll; i < len(lines) && y < buf.height - 3; i += 1 {
+	y := c.msg_top
+	end_y := c.status_y
+	if c.status_y > c.msg_top {
+		end_y = c.status_y - 1
+	}
+	for i := a.help_scroll; i < len(lines) && y < end_y; i += 1 {
 		ui.buffer_fill_rect(buf, 0, y, buf.width, 1, ' ', t.fg, t.bg)
 		ui.buffer_text_clip(buf, 1, y, buf.width - 1, lines[i], t.fg, t.bg)
 		y += 1
 	}
-	ui.buffer_hline(buf, 0, buf.height - 3, buf.width, '─', t.border, t.bg)
+	if c.status_y > c.msg_top {
+		ui.buffer_hline(buf, 0, c.status_y - 1, buf.width, '─', t.border, t.bg)
+	}
 	help_right := "PgUp/PgDn · Esc/? close"
+	if c.narrow {
+		help_right = "PgUp · Esc"
+	}
 	if max_scroll > 0 {
 		help_right = fmt.tprintf("%d/%d · %s", a.help_scroll + 1, max_scroll + 1, help_right)
 	}
-	ui.draw_status_bar_ex(buf, buf.height - 2, "help", help_right, t.status_fg, t.muted, t.status_bg)
-	ui.draw_input_line(buf, buf.height - 1, "❯ ", strings.to_string(a.input), a.cursor, t.fg, t.input_bg, t.accent)
+	ui.draw_status_bar_ex(buf, c.status_y, "help", help_right, t.status_fg, t.muted, t.status_bg)
+	app_draw_input_box(buf, a, c.input_y, c.input_rows, t.fg, t.input_bg, t.accent)
 }
 
 @(private)
-app_draw_suggestions :: proc(buf: ^ui.Buffer, a: ^App) {
+app_draw_suggestions :: proc(buf: ^ui.Buffer, a: ^App, c: Chrome) {
 	text := strings.to_string(a.input)
 	t := ui.theme()
-	input_rows := app_input_rows(a, buf.width)
 	hint := slash_arg_hint(text)
+	floor_y := max(c.msg_top, 1)
 	if len(hint) > 0 {
-		y := buf.height - 1 - input_rows
-		if y < 2 {
-			y = 2
+		y := c.status_y
+		if y < floor_y {
+			y = floor_y
 		}
 		ui.buffer_fill_rect(buf, 0, y, buf.width, 1, ' ', t.highlight_fg, t.highlight_bg)
 		ui.buffer_text_clip(buf, 1, y, buf.width - 1, hint, t.accent, t.highlight_bg, {.Bold})
@@ -278,10 +314,11 @@ app_draw_suggestions :: proc(buf: ^ui.Buffer, a: ^App) {
 	if len(matches) == 0 {
 		return
 	}
-	max_show := min(len(matches), 6)
-	start_y := buf.height - 1 - input_rows - max_show
-	if start_y < 2 {
-		start_y = 2
+	room := max(1, c.status_y - floor_y)
+	max_show := min(len(matches), min(6, room))
+	start_y := c.status_y - max_show
+	if start_y < floor_y {
+		start_y = floor_y
 	}
 	sel := a.suggest_sel
 	if sel < 0 {
@@ -294,6 +331,9 @@ app_draw_suggestions :: proc(buf: ^ui.Buffer, a: ^App) {
 		cmd := matches[i]
 		y := start_y + i
 		line := fmt.tprintf("%-28s %s", cmd.usage, cmd.help)
+		if c.narrow {
+			line = cmd.usage
+		}
 		bg := t.highlight_bg
 		fg := t.highlight_fg
 		style: ui.Style

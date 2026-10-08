@@ -67,14 +67,21 @@ anthropic_version_header :: proc(headers: ^[dynamic]string) {
 }
 
 // The Anthropic Messages surface wants x-api-key auth: Anthropic itself and
-// OpenCode Zen /messages both reject Bearer-only requests.
+// OpenCode Zen /messages both reject Bearer-only requests. OpenCode chat
+// completions still use Bearer via append_provider_headers; this path must
+// not also add Bearer or Zen receives two auth styles on one request.
 @(private)
 anthropic_request_headers :: proc(headers: ^[dynamic]string, p: ^Provider, session_id := "") {
-	append_provider_headers(headers, p, session_id)
-	anthropic_version_header(headers)
-	if is_opencode_provider(p) && len(p.api_key) > 0 {
-		append(headers, fmt.tprintf("x-api-key: %s", p.api_key))
+	if is_opencode_provider(p) {
+		append(headers, "Content-Type: application/json")
+		if len(p.api_key) > 0 {
+			append(headers, fmt.tprintf("x-api-key: %s", p.api_key))
+		}
+		append_opencode_headers(headers, p, session_id)
+	} else {
+		append_provider_headers(headers, p, session_id)
 	}
+	anthropic_version_header(headers)
 }
 
 @(private)

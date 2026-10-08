@@ -10,18 +10,65 @@ test_opencode_session_header :: proc(t: ^testing.T) {
 	defer clear_session()
 	set_session("chat-42")
 
-	p := Provider{id = "opencode-go"}
+	p := Provider{id = "opencode-go", api_key = "oc_sk_test"}
 	headers := make([dynamic]string, context.temp_allocator)
 	append_provider_headers(&headers, &p)
 
 	found := false
+	auth_bearer := false
 	for h in headers {
 		if strings.has_prefix(h, "x-opencode-session: ") {
 			testing.expect_value(t, h, "x-opencode-session: chat-42")
 			found = true
 		}
+		if h == "Authorization: Bearer oc_sk_test" {
+			auth_bearer = true
+		}
 	}
 	testing.expect(t, found)
+	testing.expect(t, auth_bearer)
+}
+
+@(test)
+test_opencode_auth_uses_bearer :: proc(t: ^testing.T) {
+	p := Provider{id = "opencode", api_key = "oc_sk_live"}
+	headers := make([dynamic]string, context.temp_allocator)
+	append_provider_headers(&headers, &p)
+	found := false
+	for h in headers {
+		if h == "Authorization: Bearer oc_sk_live" {
+			found = true
+		}
+		testing.expect(t, !strings.has_prefix(h, "x-api-key:"))
+	}
+	testing.expect(t, found)
+}
+
+@(test)
+test_opencode_messages_auth_is_x_api_key_only :: proc(t: ^testing.T) {
+	// Zen /messages must not carry Bearer alongside x-api-key.
+	p := Provider{id = "opencode", api_key = "oc_sk_msg"}
+	headers := make([dynamic]string, context.temp_allocator)
+	anthropic_request_headers(&headers, &p)
+	has_x, has_bearer, has_ver, has_session := false, false, false, false
+	for h in headers {
+		if h == "x-api-key: oc_sk_msg" {
+			has_x = true
+		}
+		if strings.has_prefix(h, "Authorization:") {
+			has_bearer = true
+		}
+		if strings.has_prefix(h, "anthropic-version:") {
+			has_ver = true
+		}
+		if strings.has_prefix(h, "x-opencode-session:") {
+			has_session = true
+		}
+	}
+	testing.expect(t, has_x)
+	testing.expect(t, !has_bearer)
+	testing.expect(t, has_ver)
+	testing.expect(t, has_session)
 }
 
 @(test)

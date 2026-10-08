@@ -78,11 +78,11 @@ process only, so nothing silently persists a borrowed credential.
 | `NULLRAY_ARTIFACT_READ_LINES` | Default peek lines, default 200 |
 | `NULLRAY_SPECULATE` | Speculative read-only tool runs |
 | `NULLRAY_SPECULATE_PARALLEL` | Speculation cap, default 2 |
-| `NULLRAY_LOOP_WINDOW` | Anti-loop observation window, default 8 |
-| `NULLRAY_LOOP_FUZZY` | Fuzzy repeat threshold 0..1, off disables |
-| `NULLRAY_LOOP_STAGNATION` | Output stagnation count, 0 disables, default 3 |
+| `NULLRAY_LOOP_WINDOW` | Anti-loop observation window, default 10 |
+| `NULLRAY_LOOP_FUZZY` | Fuzzy repeat threshold 0..1, off disables, default 0.88 |
+| `NULLRAY_LOOP_STAGNATION` | Output stagnation count, 0 disables, default 5 |
 | `NULLRAY_LOOP_SEM` | Semantic loop signal: off, hash, on (embedder) |
-| `NULLRAY_LOOP_SEM_THRESHOLD` | Semantic cosine threshold, default 0.8 |
+| `NULLRAY_LOOP_SEM_THRESHOLD` | Semantic cosine threshold, default 0.85 |
 | `NULLRAY_ESCALATE_MODEL` | Loop-stall escalation target, provider/model |
 | `NULLRAY_ESCALATE_MAX` | Escalated calls per turn, default 3 |
 | `NULLRAY_AGENT_TOOLS` | 0 drops tool schemas entirely |

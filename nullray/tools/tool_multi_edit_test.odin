@@ -38,6 +38,8 @@ test_apply_edits_replace_and_create :: proc(t: ^testing.T) {
 	defer delete(err)
 	testing.expect(t, len(err) == 0, err)
 	testing.expect(t, strings.has_prefix(result, "ok applied=2"))
+	testing.expect(t, strings.contains(result, "a.txt"))
+	testing.expect(t, strings.contains(result, "b.txt"))
 
 	data, read_err := os.read_entire_file(target, context.temp_allocator)
 	testing.expect(t, read_err == nil)

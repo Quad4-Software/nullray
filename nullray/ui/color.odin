@@ -47,6 +47,81 @@ color_lerp :: proc(a, b: Color, t: f32) -> Color {
 	}
 }
 
+// h is degrees (wrapped), s and v are 0..1.
+color_from_hsv :: proc(h, s, v: f32) -> Color {
+	hh := h
+	for hh < 0 {
+		hh += 360
+	}
+	for hh >= 360 {
+		hh -= 360
+	}
+	ss := s
+	if ss < 0 {
+		ss = 0
+	} else if ss > 1 {
+		ss = 1
+	}
+	vv := v
+	if vv < 0 {
+		vv = 0
+	} else if vv > 1 {
+		vv = 1
+	}
+	if ss <= 0 {
+		c := u8(vv * 255 + 0.5)
+		return Color{c, c, c}
+	}
+	sector := hh / 60
+	i := int(sector)
+	f := sector - f32(i)
+	p := vv * (1 - ss)
+	q := vv * (1 - ss * f)
+	t := vv * (1 - ss * (1 - f))
+	r, g, b: f32
+	switch i % 6 {
+	case 0:
+		r, g, b = vv, t, p
+	case 1:
+		r, g, b = q, vv, p
+	case 2:
+		r, g, b = p, vv, t
+	case 3:
+		r, g, b = p, q, vv
+	case 4:
+		r, g, b = t, p, vv
+	case:
+		r, g, b = vv, p, q
+	}
+	return Color{
+		r = u8(r * 255 + 0.5),
+		g = u8(g * 255 + 0.5),
+		b = u8(b * 255 + 0.5),
+	}
+}
+
+// Smooth rainbow letter color. phase is 0..1 over one full cycle.
+// letter_i and letter_n space hues across the word so it reads as a gradient.
+brand_letter_color :: proc(letter_i, letter_n: int, phase: f32, base: Color = {}) -> Color {
+	n := max(1, letter_n)
+	i := letter_i
+	if i < 0 {
+		i = 0
+	}
+	// Spread ~140 deg across the word; spin the whole band with phase.
+	spread := 140.0 / f32(n)
+	hue := phase * 360 + f32(i) * spread
+	// Soft pastel; mono themes still get chroma so the brand stays lively.
+	sat: f32 = 0.62
+	val: f32 = 0.92
+	c := color_from_hsv(hue, sat, val)
+	if base.r != 0 || base.g != 0 || base.b != 0 {
+		// Nudge toward the theme title color so ink/ember stay familiar.
+		c = color_lerp(c, base, 0.28)
+	}
+	return c
+}
+
 color_to_ansi16 :: proc(c: Color) -> int {
 	levels := [8]Color{
 		{0, 0, 0},

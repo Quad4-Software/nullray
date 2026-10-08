@@ -246,8 +246,8 @@ app_handle_default_event :: proc(a: ^App, ev: ui.Event) -> bool {
 		app_scroll_by(a, -3)
 		return true
 	case .Mouse_Press:
-		input_rows := app_input_rows(a, a.loop.term.width)
-		if ev.my >= a.loop.term.height - input_rows {
+		c := app_chrome(a, a.loop.term.width, a.loop.term.height)
+		if ev.my >= c.input_y {
 			app_follow_bottom(a)
 			return true
 		}

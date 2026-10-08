@@ -96,27 +96,38 @@ toast_colors :: proc(kind: Toast_Kind, t: ui.Theme) -> (fg, bg: ui.Color) {
 	return t.fg, t.highlight_bg
 }
 
-app_draw_toasts :: proc(buf: ^ui.Buffer, a: ^App) {
+app_draw_toasts :: proc(buf: ^ui.Buffer, a: ^App, c: Chrome) {
 	n := len(a.toasts)
 	if n == 0 {
 		return
 	}
 	t := ui.theme()
-	y := buf.height - 3 - n
-	if y < 2 {
-		y = 2
+	floor_y := c.msg_top
+	if floor_y <= 0 {
+		floor_y = 2
+	}
+	ceil_y := c.status_y
+	if ceil_y <= 0 {
+		ceil_y = max(3, buf.height - 3)
+	}
+	y := ceil_y - n
+	if y < floor_y {
+		y = floor_y
 	}
 	for i in 0 ..< n {
 		toast := a.toasts[i]
 		fg, bg := toast_colors(toast.kind, t)
 		label := toast.text
+		if c.tight || c.narrow {
+			label = ui.ellipsize_cols(label, max(8, buf.width - 6), context.temp_allocator)
+		}
 		w := min(buf.width - 4, ui.string_cols(label) + 4)
 		if w < 8 {
 			w = min(buf.width - 2, 8)
 		}
 		x := max(0, buf.width - w - 1)
 		row := y + i
-		if row >= buf.height - 3 {
+		if row >= ceil_y {
 			break
 		}
 		ui.buffer_fill_rect(buf, x, row, w, 1, ' ', fg, bg)

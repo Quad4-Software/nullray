@@ -344,5 +344,22 @@ tool_apply_edits :: proc(args_json: string, allocator := context.allocator) -> (
 			return "", fmt.aprintf("write failed for %s: %s", s.abs, werr, allocator = allocator)
 		}
 	}
-	return fmt.aprintf("ok applied=%d", total, allocator = allocator), ""
+	// Path list keeps multi-batch scaffolds distinct for anti-loop signals.
+	b: strings.Builder
+	strings.builder_init(&b, allocator)
+	fmt.sbprintf(&b, "ok applied=%d", total)
+	for s, i in staged {
+		if i >= 6 {
+			fmt.sbprintf(&b, " +%d more", len(staged) - 6)
+			break
+		}
+		base := s.abs
+		if slash := strings.last_index_byte(base, '/'); slash >= 0 && slash+1 < len(base) {
+			base = base[slash+1:]
+		} else if slash := strings.last_index_byte(base, '\\'); slash >= 0 && slash+1 < len(base) {
+			base = base[slash+1:]
+		}
+		fmt.sbprintf(&b, " %s", base)
+	}
+	return strings.to_string(b), ""
 }

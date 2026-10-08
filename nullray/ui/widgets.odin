@@ -29,6 +29,49 @@ draw_box :: proc(b: ^Buffer, x, y, w, h: int, fg, bg: Color, title := "") {
 	}
 }
 
+// Paint text with a smooth per-letter hue cycle. Returns display columns used.
+draw_brand_text :: proc(b: ^Buffer, x, y: int, text: string, bg: Color, style: Style = {}, base: Color = {}) -> int {
+	if len(text) == 0 {
+		return 0
+	}
+	// Count visible letters first so hue spacing is stable for multi-byte glyphs.
+	n_letters := 0
+	for r in text {
+		if r == '\n' {
+			break
+		}
+		if rune_cols(r) > 0 {
+			n_letters += 1
+		}
+	}
+	if n_letters == 0 {
+		return 0
+	}
+	phase := anim_phase(4800)
+	cx := x
+	li := 0
+	for r in text {
+		if r == '\n' {
+			break
+		}
+		w := rune_cols(r)
+		if w <= 0 {
+			continue
+		}
+		if cx + w > b.width {
+			break
+		}
+		fg := brand_letter_color(li, n_letters, phase, base)
+		buffer_put(b, cx, y, r, fg, bg, style)
+		for i in 1 ..< w {
+			buffer_put(b, cx + i, y, CELL_WIDE_CONT, fg, bg, style)
+		}
+		cx += w
+		li += 1
+	}
+	return cx - x
+}
+
 draw_status_bar :: proc(b: ^Buffer, y: int, left, right: string, fg, bg: Color) {
 	draw_status_bar_ex(b, y, left, right, fg, fg, bg)
 }

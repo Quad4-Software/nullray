@@ -256,14 +256,15 @@ TOOL_RETRY_DEFAULT :: 2
 TOOL_RETRY_MAX :: 5
 
 // Hybrid loop detection sliding window and thresholds.
-LOOP_WINDOW_DEFAULT :: 8
+// Defaults leave room for multi-file scaffolds before warn/steer/stop.
+LOOP_WINDOW_DEFAULT :: 10
 LOOP_WINDOW_MAX :: 32
-LOOP_FUZZY_DEFAULT :: 0.80
-LOOP_STAGNATION_DEFAULT :: 3
-LOOP_SEM_THRESHOLD_DEFAULT :: 0.80
+LOOP_FUZZY_DEFAULT :: 0.88
+LOOP_STAGNATION_DEFAULT :: 5
+LOOP_SEM_THRESHOLD_DEFAULT :: 0.85
 // Warn count before the detector steers, then stops the turn.
-LOOP_STEER_FIRES :: 2
-LOOP_STOP_FIRES :: 3
+LOOP_STEER_FIRES :: 3
+LOOP_STOP_FIRES :: 5
 
 // SWE-Protege escalation: cap escalated chat calls per turn.
 ESCALATE_MAX_DEFAULT :: 3

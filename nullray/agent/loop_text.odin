@@ -18,6 +18,32 @@ LOOP_NORM_CAP :: 512
 // Buckets for the hashed-trigram semantic fallback vector.
 LOOP_HASH_DIM :: 64
 
+// Trivial tool acks that must not feed the stagnation signal on their own.
+// Path-bearing write/edit successes ("ok wrote path (N bytes)") stay in.
+loop_result_is_trivial :: proc(norm: string) -> bool {
+	switch norm {
+	case "ok", "ok fuzzy", "done", "true", "false", "yes", "no":
+		return true
+	}
+	return false
+}
+
+// Mutating tools: fuzzy similarity over JSON structure is noisy; Exact and
+// stagnation still cover stuck rewrites and stuck errors.
+loop_calls_are_mutators :: proc(calls: []provider.Tool_Call) -> bool {
+	if len(calls) == 0 {
+		return false
+	}
+	for c in calls {
+		switch c.name {
+		case "write_file", "edit_file", "apply_edits", "multi_edit":
+		case:
+			return false
+		}
+	}
+	return true
+}
+
 // Lowercase alnum runs joined by single spaces, capped. JSON punctuation,
 // quoting, and path separators collapse, so near-identical calls normalize
 // together.

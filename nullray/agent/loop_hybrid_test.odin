@@ -6,6 +6,7 @@ hashed fallback, and the tier ladder.
 
 package agent
 
+import "core:fmt"
 import "core:os"
 import "core:strings"
 import "core:testing"
@@ -34,8 +35,11 @@ test_hybrid_exact_repeat_fires :: proc(t: ^testing.T) {
 	det := mk_det(0.8, 3)
 	defer loop_detector_destroy(&det)
 	calls := mk_calls({"run_shell", `{"cmd":"ls"}`})
-	det_exec(&det, calls, "a\nb\n")
-	det_exec(&det, calls, "a\nb\n")
+	// Need MAX_IDENTICAL_TOOL_LOOPS-1 prior identical observations so the
+	// next matching call trips Exact (run + 1 >= threshold).
+	for _ in 0 ..< constants.MAX_IDENTICAL_TOOL_LOOPS - 1 {
+		det_exec(&det, calls, "a\nb\n")
+	}
 	sig := loop_sig_of_calls(calls)
 	testing.expect(t, loop_detector_check(&det, calls, sig) == .Exact)
 }
@@ -178,12 +182,77 @@ test_hybrid_verdict_ladder :: proc(t: ^testing.T) {
 	tier, stall := loop_verdict_for_fires(1)
 	testing.expect(t, tier == .Warn)
 	testing.expect(t, !stall)
-	tier, stall = loop_verdict_for_fires(2)
+	tier, stall = loop_verdict_for_fires(constants.LOOP_STEER_FIRES)
 	testing.expect(t, tier == .Steer)
 	testing.expect(t, stall)
-	tier, stall = loop_verdict_for_fires(3)
+	tier, stall = loop_verdict_for_fires(constants.LOOP_STOP_FIRES)
 	testing.expect(t, tier == .Stop)
 	testing.expect(t, !stall)
+}
+
+@(test)
+test_hybrid_write_scaffold_not_stagnation :: proc(t: ^testing.T) {
+	// Multi-file scaffolding returns distinct path-bearing acks and must not
+	// trip stagnation or fuzzy just because the tool name repeats.
+	det := mk_det(0.88, 5)
+	defer loop_detector_destroy(&det)
+	paths := []string{"a.py", "b.py", "c.py", "d.py", "e.py", "f.py"}
+	for p in paths {
+		args := strings.concatenate({`{"path":"`, p, `","content":"x"}`}, context.temp_allocator)
+		calls := mk_calls({"write_file", args})
+		res := strings.concatenate({"ok wrote ", p, " (1 bytes)"}, context.temp_allocator)
+		sig := loop_sig_of_calls(calls)
+		testing.expect(t, loop_detector_check(&det, calls, sig) == .None)
+		det_exec(&det, calls, res)
+	}
+}
+
+@(test)
+test_hybrid_trivial_ok_skipped_for_stagnation :: proc(t: ^testing.T) {
+	det := mk_det(0.8, 3)
+	defer loop_detector_destroy(&det)
+	det_exec(&det, mk_calls({"write_file", `{"path":"a"}`}), "ok")
+	det_exec(&det, mk_calls({"write_file", `{"path":"b"}`}), "ok")
+	det_exec(&det, mk_calls({"write_file", `{"path":"c"}`}), "ok")
+	incoming := mk_calls({"write_file", `{"path":"d"}`})
+	// Bare "ok" is trivial; stagnation must not fire on it alone.
+	testing.expect(t, loop_detector_check(&det, incoming, loop_sig_of_calls(incoming)) == .None)
+}
+
+@(test)
+test_hybrid_apply_edits_batch_not_stagnation :: proc(t: ^testing.T) {
+	det := mk_det(0.88, 5)
+	defer loop_detector_destroy(&det)
+	// Distinct path lists in both args and results: a scaffold must not trip.
+	batches := []struct {
+		args: string,
+		res:  string,
+	}{
+		{`{"edits":[{"path":"src/a.py","old_string":"x","new_string":"y"}]}`, "ok applied=1 a.py"},
+		{`{"edits":[{"path":"src/b.py","old_string":"x","new_string":"y"}]}`, "ok applied=1 b.py"},
+		{`{"edits":[{"path":"src/c.toml","old_string":"x","new_string":"y"}]}`, "ok applied=1 c.toml"},
+		{`{"edits":[{"path":"tests/d_test.py","old_string":"x","new_string":"y"}]}`, "ok applied=1 d_test.py"},
+		{`{"edits":[{"path":"README.md","old_string":"x","new_string":"y"}]}`, "ok applied=1 README.md"},
+	}
+	for b in batches {
+		calls := mk_calls({"apply_edits", b.args})
+		sig := loop_sig_of_calls(calls)
+		got := loop_detector_check(&det, calls, sig)
+		testing.expect(t, got == .None)
+		det_exec(&det, calls, b.res)
+	}
+}
+
+@(test)
+test_hybrid_true_stagnation_still_fires :: proc(t: ^testing.T) {
+	det := mk_det(0.8, 3)
+	defer loop_detector_destroy(&det)
+	// Non-trivial identical results across different call sets still trip.
+	det_exec(&det, mk_calls({"run_shell", `{"cmd":"make a"}`}), "FAIL: cannot find package")
+	det_exec(&det, mk_calls({"run_shell", `{"cmd":"make b"}`}), "FAIL: cannot find package")
+	det_exec(&det, mk_calls({"run_shell", `{"cmd":"make c"}`}), "FAIL: cannot find package")
+	incoming := mk_calls({"run_shell", `{"cmd":"make d"}`})
+	testing.expect(t, loop_detector_check(&det, incoming, loop_sig_of_calls(incoming)) == .Stagnation)
 }
 
 @(test)

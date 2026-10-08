@@ -23,7 +23,8 @@ test_edit_file_exact :: proc(t: ^testing.T) {
 	defer delete(result)
 	defer delete(err)
 	testing.expect(t, len(err) == 0, err)
-	testing.expect_value(t, result, "ok")
+	testing.expect(t, strings.has_prefix(result, "ok edited "))
+	testing.expect(t, strings.contains(result, "a.txt"))
 	data, _ := os.read_entire_file(target, context.temp_allocator)
 	testing.expect_value(t, string(data), "hello nullray")
 }
@@ -45,7 +46,8 @@ test_edit_file_fuzzy_crlf :: proc(t: ^testing.T) {
 	defer delete(result)
 	defer delete(err)
 	testing.expect(t, len(err) == 0, err)
-	testing.expect(t, result == "ok" || result == "ok fuzzy")
+	testing.expect(t, strings.has_prefix(result, "ok"))
+	testing.expect(t, strings.contains(result, "a.txt"))
 	data, _ := os.read_entire_file(target, context.temp_allocator)
 	testing.expect(t, strings.contains(string(data), "ONE"))
 }

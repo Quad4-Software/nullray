@@ -70,7 +70,16 @@ test_loop_result_head_caps_at_budget :: proc(t: ^testing.T) {
 @(test)
 test_loop_identical_repeat_trips_at_threshold :: proc(t: ^testing.T) {
 	sig := loop_sig_of_calls(mk_calls({"run_shell", `{"cmd":"ls"}`}))
-	h := mk_history([]u64{sig, sig}, []u64{7, 7})
+	// Threshold is run+1 >= MAX_IDENTICAL_TOOL_LOOPS, so need threshold-1
+	// prior identical entries before the incoming call trips.
+	n := constants.MAX_IDENTICAL_TOOL_LOOPS - 1
+	sigs := make([]u64, n, context.temp_allocator)
+	rhs := make([]u64, n, context.temp_allocator)
+	for i in 0 ..< n {
+		sigs[i] = sig
+		rhs[i] = 7
+	}
+	h := mk_history(sigs, rhs)
 	v, _ := loop_check(h.entries[:h.len], sig)
 	testing.expect(t, v == .Identical)
 	// One prior occurrence is not enough.
@@ -306,7 +315,8 @@ test_run_turn_loop_intervene_then_stop :: proc(t: ^testing.T) {
 	reg: tools.Registry
 	reg.tools = make([dynamic]tools.Tool, context.temp_allocator)
 	tools.registry_register(&reg, tools.Tool{name = "fake_tool", kind = .Read, run = mock_tool_run})
-	res := mock_turn(t, "fake_tool", &reg, 12)
+	// Budget past several Exact rebuilds and LOOP_STOP_FIRES steers.
+	res := mock_turn(t, "fake_tool", &reg, constants.LOOP_STOP_FIRES * 6)
 	defer free_run_result(&res)
 	testing.expect(t, res.ok)
 	testing.expect_value(t, res.stopped, "loop")
@@ -321,7 +331,7 @@ test_run_turn_malformed_budget :: proc(t: ^testing.T) {
 	reg: tools.Registry
 	reg.tools = make([dynamic]tools.Tool, context.temp_allocator)
 	tools.registry_register(&reg, tools.Tool{name = "fake_tool", kind = .Read, run = mock_tool_run})
-	res := mock_turn(t, "no_such_tool_xyz", &reg, 12)
+	res := mock_turn(t, "no_such_tool_xyz", &reg, constants.LOOP_STOP_FIRES * 6)
 	defer free_run_result(&res)
 	testing.expect(t, res.ok)
 	testing.expect(t, count_role_msgs(res.messages[:], .User, "dropped because it was malformed") >= 2)
