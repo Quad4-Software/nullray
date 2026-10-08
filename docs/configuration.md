@@ -69,6 +69,9 @@ process only, so nothing silently persists a borrowed credential.
 | `NULLRAY_UI_RESET` | 1 clears saved custom theme on startup |
 | `NULLRAY_SESSION_KEY` | Passphrase to seal session transcripts at rest |
 | `NULLRAY_VAULT_EXPORT` | 1 exports vault secrets into shell child env |
+| `NULLRAY_VAULT_BACKEND` | `auto` (default), `keyring`, or `memory` |
+| `NULLRAY_KEYRING_SERVICE` | Secret Service attribute (default `nullray`) |
+| `NULLRAY_SECRET_TOOL` | Optional path to `secret-tool` |
 | `NULLRAY_VIEW_AUTO` | Auto-open view pane on writes |
 | `NULLRAY_NOTIFY` | auto, desktop, osc, bell, off |
 | `NULLRAY_BARE` | Skip home MCP and non-workspace skills |

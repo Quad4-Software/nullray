@@ -1,7 +1,8 @@
 // SPDX-License-Identifier: LicenseRef-QSL-1.0-0BSD
 /*
 Named secret vault for values the model may need but must never read
-(api keys, tokens). Stored in-process only, zeroed on forget or clear.
+(api keys, tokens). In-process map always; optional FreeDesktop keyring
+mirror when NULLRAY_VAULT_BACKEND=keyring|auto and secret-tool works.
 Values can be bound to process env so providers and shell children pick
 them up without entering tool results.
 */
@@ -19,6 +20,52 @@ g_vault: map[string]string
 
 secret_put :: proc(name, value: string) {
 	sync.mutex_lock(&g_vault_mu)
+	if g_vault == nil {
+		g_vault = make(map[string]string)
+	}
+	found := false
+	for k in g_vault {
+		if k == name {
+			old := g_vault[k]
+			g_vault[k] = strings.clone(value)
+			elevate.zero_and_delete(old)
+			found = true
+			break
+		}
+	}
+	if !found {
+		g_vault[strings.clone(name)] = strings.clone(value)
+	}
+	sync.mutex_unlock(&g_vault_mu)
+	// Best-effort durable mirror. Never blocks agents on keyring UI long-term
+	// beyond secret-tool timeout inside keyring_run.
+	_ = keyring_store(name, value)
+}
+
+/*
+Caller owns the returned clone and should zero it when done.
+*/
+secret_get :: proc(name: string, allocator := context.allocator) -> string {
+	sync.mutex_lock(&g_vault_mu)
+	if v, ok := g_vault[name]; ok {
+		out := strings.clone(v, allocator)
+		sync.mutex_unlock(&g_vault_mu)
+		return out
+	}
+	sync.mutex_unlock(&g_vault_mu)
+	// Cache miss: optional keyring load into memory for the session.
+	if kv, ok := keyring_lookup(name, context.allocator); ok {
+		// Re-enter put path without recursive keyring write thrash: memory only.
+		secret_put_memory_only(name, kv)
+		return kv
+	}
+	return ""
+}
+
+// Memory-only put (no keyring write). Used when hydrating from keyring.
+@(private)
+secret_put_memory_only :: proc(name, value: string) {
+	sync.mutex_lock(&g_vault_mu)
 	defer sync.mutex_unlock(&g_vault_mu)
 	if g_vault == nil {
 		g_vault = make(map[string]string)
@@ -34,46 +81,55 @@ secret_put :: proc(name, value: string) {
 	g_vault[strings.clone(name)] = strings.clone(value)
 }
 
-/*
-Caller owns the returned clone and should zero it when done.
-*/
-secret_get :: proc(name: string, allocator := context.allocator) -> string {
-	sync.mutex_lock(&g_vault_mu)
-	defer sync.mutex_unlock(&g_vault_mu)
-	if v, ok := g_vault[name]; ok {
-		return strings.clone(v, allocator)
-	}
-	return ""
-}
-
 secret_has :: proc(name: string) -> bool {
 	sync.mutex_lock(&g_vault_mu)
-	defer sync.mutex_unlock(&g_vault_mu)
 	_, ok := g_vault[name]
-	return ok
+	sync.mutex_unlock(&g_vault_mu)
+	if ok {
+		return true
+	}
+	// Cheap probe via lookup (value discarded).
+	if v, kok := keyring_lookup(name, context.allocator); kok {
+		secret_put_memory_only(name, v)
+		elevate.zero_and_delete(v)
+		return true
+	}
+	return false
 }
 
 secret_forget :: proc(name: string) -> bool {
+	found := false
 	sync.mutex_lock(&g_vault_mu)
-	defer sync.mutex_unlock(&g_vault_mu)
 	for k in g_vault {
 		if k == name {
 			old := g_vault[k]
 			delete_key(&g_vault, k)
 			delete(k)
 			elevate.zero_and_delete(old)
-			return true
+			found = true
+			break
 		}
 	}
-	return false
+	sync.mutex_unlock(&g_vault_mu)
+	kr := keyring_clear(name)
+	return found || kr
 }
 
 secret_names :: proc(allocator := context.allocator) -> []string {
 	sync.mutex_lock(&g_vault_mu)
-	defer sync.mutex_unlock(&g_vault_mu)
 	out := make([dynamic]string, allocator)
+	seen: map[string]bool
+	seen = make(map[string]bool, context.temp_allocator)
 	for k in g_vault {
 		append(&out, strings.clone(k, allocator))
+		seen[k] = true
+	}
+	sync.mutex_unlock(&g_vault_mu)
+	for n in keyring_list_names(context.temp_allocator) {
+		if !seen[n] {
+			append(&out, strings.clone(n, allocator))
+			seen[n] = true
+		}
 	}
 	return out[:]
 }

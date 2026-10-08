@@ -95,7 +95,7 @@ SLASH_COMMANDS := []Slash_Command{
 	{"reset", "/reset", "wipe sessions and config (needs /reset confirm)", slash_cmd_reset},
 	{"auto", "/auto on|off", "autonomous agent (edit + yolo)", slash_cmd_auto},
 	{"secrets", "/secrets path", "allow reading a secret path", slash_cmd_secrets},
-	{"secret", "/secret list|set|ask|forget|has|clear", "agent vault secrets (values hidden)", slash_cmd_secret},
+	{"secret", "/secret list|set|ask|forget|has|clear|backend", "agent vault secrets (values hidden; optional keyring)", slash_cmd_secret},
 	{"key", "/key …", "alias for /secret", slash_cmd_secret},
 	{"token", "/token …", "alias for /secret", slash_cmd_secret},
 	{"hide", "/hide on|off", "hide account balances and credit labels", slash_cmd_hide},

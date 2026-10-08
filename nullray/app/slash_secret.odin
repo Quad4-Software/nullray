@@ -15,10 +15,18 @@ import "nullray:session"
 slash_cmd_secret :: proc(a: ^App, args: string) {
 	rest := strings.trim_space(args)
 	low := strings.to_lower(rest, context.temp_allocator)
+	if low == "backend" || low == "status" {
+		session.session_set_status(a.session, ask.vault_backend_status_line(context.temp_allocator))
+		return
+	}
 	if len(rest) == 0 || low == "list" || low == "ls" {
 		names := ask.secret_names(context.temp_allocator)
+		backend := ask.vault_backend_status_line(context.temp_allocator)
 		if len(names) == 0 {
-			session.session_set_status(a.session, "secrets: (none) · /secret set NAME | ask NAME | forget NAME")
+			session.session_set_status(
+				a.session,
+				fmt.tprintf("%s · none · /secret set NAME | ask NAME", backend),
+			)
 			return
 		}
 		b: strings.Builder
@@ -29,7 +37,7 @@ slash_cmd_secret :: proc(a: ^App, args: string) {
 			strings.write_string(&b, n)
 		}
 		session.session_push_assistant(a.session, strings.to_string(b))
-		session.session_set_status(a.session, fmt.tprintf("%d secrets vaulted", len(names)))
+		session.session_set_status(a.session, fmt.tprintf("%s · %d names", backend, len(names)))
 		return
 	}
 	if low == "clear" {

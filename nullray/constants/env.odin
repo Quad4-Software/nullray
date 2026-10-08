@@ -69,6 +69,14 @@ ENV_SESSION :: "NULLRAY_SESSION"
 ENV_SESSION_KEY :: "NULLRAY_SESSION_KEY"
 // When 1, shell/script children receive vault secrets as env (names only set).
 ENV_VAULT_EXPORT :: "NULLRAY_VAULT_EXPORT"
+// Vault backend: memory | keyring | auto (default auto). Keyring uses
+// FreeDesktop Secret Service via secret-tool (gnome-keyring, KWallet,
+// KeePassXC as secret provider, etc).
+ENV_VAULT_BACKEND :: "NULLRAY_VAULT_BACKEND"
+// Attribute.service value for secret-tool (default nullray).
+ENV_KEYRING_SERVICE :: "NULLRAY_KEYRING_SERVICE"
+// Optional absolute path to secret-tool.
+ENV_SECRET_TOOL :: "NULLRAY_SECRET_TOOL"
 ENV_COMPACT_CHARS :: "NULLRAY_COMPACT_CHARS"
 ENV_STREAM :: "NULLRAY_STREAM"
 ENV_REASONING :: "NULLRAY_REASONING"

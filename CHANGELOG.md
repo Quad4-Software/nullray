@@ -28,6 +28,8 @@ Notable changes for nullray.
 - `/secret` (and `/key` `/token`) list/set/ask/forget vault secrets; CLI
   `--secret NAME=VALUE`. Faster term present (ASCII path, CUP without fmt).
   Bench size gate raised for seal crypto.
+- FreeDesktop Secret Service vault backend via secret-tool (auto/keyring/memory);
+  works with gnome-keyring, KWallet, KeePassXC-as-provider.
 - Provider set trimmed to locals (ollama, lmstudio, llamacpp), openai-compat,
   openrouter, opencode, opencode-go, and fireworks. Dropped first-class
   openai, anthropic, gemini, azure, and other cloud vendor aliases.

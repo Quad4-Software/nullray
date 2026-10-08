@@ -33,10 +33,15 @@ secrets differently from that stream.
   env so agent scripts can use secrets without tool JSON.
 - `/scrub all|last|matching NEEDLE` rewrites the in-memory session
   (and disk if persisting) after a paste mistake.
-- Agent vault: `ask_secret`, `/secret set|ask|list|forget`, and CLI
+- Agent vault: `ask_secret`, `/secret set|ask|list|forget|backend`, and CLI
   `--secret NAME=VALUE` (also `--key` / `--token`). Agents only ever
   see names and status strings, never values. Optional
   `NULLRAY_VAULT_EXPORT=1` injects vault pairs into shell children.
+- FreeDesktop keyring (default when `secret-tool` exists):
+  `NULLRAY_VAULT_BACKEND=auto|keyring|memory`. Uses Secret Service
+  (`service=nullray`, override with `NULLRAY_KEYRING_SERVICE`). Works with
+  gnome-keyring, KWallet compat, and KeePassXC when it is the active
+  Secret Service provider. No keepassxc-cli integration.
 
 ## Foreign config adoption
 
