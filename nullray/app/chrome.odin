@@ -225,6 +225,10 @@ app_chrome_ver_label :: proc(c: Chrome) -> string {
 		return "?"
 	}
 	commit := constants.BUILD_COMMIT
+	// Make may prefix "x" when the SHA would parse as a float (7e1...).
+	if len(commit) > 1 && commit[0] == 'x' {
+		commit = commit[1:]
+	}
 	if c.narrow {
 		// Keep the narrow label short: version only.
 		return fmt.tprintf("? %s", constants.VERSION)

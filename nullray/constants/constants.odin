@@ -10,6 +10,8 @@ VERSION :: "0.8.0"
 BUILD_DATE :: #config(NULLRAY_BUILD_DATE, "unknown")
 BUILD_TIME :: #config(NULLRAY_BUILD_TIME, "unknown")
 // Short git SHA baked at make time. Empty when unset or not a git tree.
+// Makefile must quote the define value so hex-like SHAs (7e1af7d) stay strings
+// instead of being parsed as floats (7e1 = 70).
 BUILD_COMMIT :: #config(NULLRAY_BUILD_COMMIT, "")
 CONFIG_DIR_NAME :: "nullray"
 CONFIG_FILE :: "config.ini"

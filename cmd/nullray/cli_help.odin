@@ -5,12 +5,16 @@ import "core:fmt"
 import "nullray:constants"
 
 print_version :: proc() {
-	if len(constants.BUILD_COMMIT) > 0 {
+	commit := constants.BUILD_COMMIT
+	if len(commit) > 1 && commit[0] == 'x' {
+		commit = commit[1:]
+	}
+	if len(commit) > 0 {
 		fmt.printf(
 			"%s %s (%s, built %s %s)\n",
 			constants.APP_NAME,
 			constants.VERSION,
-			constants.BUILD_COMMIT,
+			commit,
 			constants.BUILD_DATE,
 			constants.BUILD_TIME,
 		)

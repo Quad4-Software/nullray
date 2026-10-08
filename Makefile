@@ -28,7 +28,15 @@ BUILD_DATE := $(shell date -u +%Y-%m-%d)
 BUILD_TIME := $(shell date -u +%H:%M:%S)
 # Short commit for the title bar; empty when not a git checkout.
 BUILD_COMMIT := $(shell git -C "$(ROOT)" rev-parse --short HEAD 2>/dev/null || true)
-DEFINES    := -define:NULLRAY_BUILD_DATE="$(BUILD_DATE)" -define:NULLRAY_BUILD_TIME="$(BUILD_TIME)" -define:NULLRAY_BUILD_COMMIT="$(BUILD_COMMIT)"
+# Pass commit as a string-like token. Prefix with g when the short SHA would
+# parse as a float (e.g. 7e1af7d -> 7e1 = 70). The TUI shows the raw SHA only.
+BUILD_COMMIT_DEF := $(BUILD_COMMIT)
+ifneq ($(BUILD_COMMIT),)
+ifeq ($(shell printf '%s' '$(BUILD_COMMIT)' | grep -E '^[0-9]+[eE][0-9]' >/dev/null && echo yes),yes)
+BUILD_COMMIT_DEF := x$(BUILD_COMMIT)
+endif
+endif
+DEFINES    := -define:NULLRAY_BUILD_DATE="$(BUILD_DATE)" -define:NULLRAY_BUILD_TIME="$(BUILD_TIME)" -define:NULLRAY_BUILD_COMMIT="$(BUILD_COMMIT_DEF)"
 
 MBEDTLS_DIR := $(ROOT)/vendor/mbedtls
 MBEDTLS_INC := $(MBEDTLS_DIR)/include
