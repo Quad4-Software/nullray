@@ -100,13 +100,17 @@ slash_cmd_tui :: proc(a: ^App, args: string) {
 	if len(rest) == 0 || low == "get" || low == "status" {
 		mal := tools.ui_malleable_enabled()
 		lock := tools.ui_global_locked()
+		th := ui.theme()
+		// Show a few live color chips next to the theme status line.
 		session.session_set_status(
 			a.session,
 			fmt.tprintf(
-				"tui theme=%s malleable=%v lock=%v · /tui reset|lock|unlock|THEME",
-				ui.theme().name,
+				"tui theme=%s malleable=%v lock=%v · accent=#%02x%02x%02x bg=#%02x%02x%02x · /tui reset|lock|unlock|THEME",
+				th.name,
 				mal,
 				lock,
+				th.accent.r, th.accent.g, th.accent.b,
+				th.bg.r, th.bg.g, th.bg.b,
 			),
 		)
 		return

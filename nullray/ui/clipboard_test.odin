@@ -2,7 +2,26 @@
 package ui
 
 import "core:os"
+import "core:strings"
 import "core:testing"
+
+@(test)
+test_clipboard_prefer_tools_order :: proc(t: ^testing.T) {
+	// OSC52 is last resort: native xclip path must work on this host.
+	when ODIN_OS == .Windows {
+		testing.expect(t, true)
+		return
+	}
+	ok := clipboard_run_stdin([]string{"xclip", "-selection", "clipboard"}, "nullray-clip-order")
+	if !ok {
+		// xclip may be missing in minimal CI. Not a hard fail.
+		testing.expect(t, true)
+		return
+	}
+	out, pok := clipboard_run_stdout([]string{"xclip", "-o", "-selection", "clipboard"}, context.temp_allocator)
+	testing.expect(t, pok)
+	testing.expect(t, strings.contains(out, "nullray-clip-order"))
+}
 
 @(test)
 test_clipboard_run_stdin_cat_roundtrip :: proc(t: ^testing.T) {

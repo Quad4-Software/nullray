@@ -134,9 +134,15 @@ app_on_event :: proc(ev: ui.Event, user: rawptr) -> bool {
 		return false
 	}
 	if ev.kind == .Mouse_Press && ev.my == 1 {
+		// SGR button: 0 left, 1 middle, 2 right.
+		right := ev.ch == 2
 		if idx := app_tab_hit(a, ev.mx); idx >= 0 {
-			app_tab_goto(a, idx)
-		} else if a.tab_plus_x >= 0 && ev.mx >= a.tab_plus_x && ev.mx <= a.tab_plus_x + 2 {
+			if right {
+				app_tab_close(a, idx)
+			} else {
+				app_tab_goto(a, idx)
+			}
+		} else if !right && a.tab_plus_x >= 0 && ev.mx >= a.tab_plus_x && ev.mx <= a.tab_plus_x + 2 {
 			app_tab_new(a, "")
 		}
 		return false

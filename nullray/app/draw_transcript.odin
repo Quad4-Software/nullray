@@ -288,7 +288,7 @@ app_draw_blocks :: proc(
 		if used <= 0 {
 			used = 1
 			if local_skip == 0 {
-				ui.buffer_text_clip(buf, px, y, px + bw, body, block.body_fg, bg, block.body_style)
+				_ = ui.buffer_text_clip_colors(buf, px, y, px + bw, body, block.body_fg, bg, block.body_style)
 			}
 		}
 		if block.caret && local_skip + used >= h {

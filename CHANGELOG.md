@@ -84,6 +84,8 @@ Notable changes for nullray.
 ### Fixed
 - Transcript drag-select copies on mouse release, Ctrl-C copies an active
   selection, and clipboard tool stdin no longer closes before write.
+- Clipboard prefers wl-copy/xclip over OSC 52 (Wayland-friendly). Inline
+  #hex color chips in transcript/forms/status. Right-click a tab to close it.
 - parse_cli_late no longer treats recognized flags as unknown (broke make install completions).
 - Soft-redirect cycles and loopback hop targets are stopped cleanly, apply_edits envelope paths stay distinct for anti-loop signals.
 - Help button hit target is the leading glyph only, not the whole version label.

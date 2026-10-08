@@ -46,6 +46,40 @@ draw_flat_md_line :: proc(
 	cx := 0
 	i := 0
 	for i < len(text) {
+		// Inline #rgb / #rrggbb gets a color chip after the token.
+		if text[i] == '#' && i + 3 < len(text) {
+			hex_len := 0
+			if i + 7 <= len(text) && color_is_hex6(text[i+1:i+7]) {
+				hex_len = 6
+			} else if i + 4 <= len(text) && color_is_hex3(text[i+1:i+4]) {
+				hex_len = 3
+			}
+			if hex_len > 0 {
+				next := i + 1 + hex_len
+				if next >= len(text) || !color_is_hex_char(text[next]) {
+					tok := text[i:next]
+					kind := Md_Inline_Kind.Normal
+					if i < len(kinds) {
+						kind = kinds[i]
+					}
+					ofg, obg, ostyle := md_kind_paint(kind, fg, code_fg, bg, style)
+					for j := 0; j < len(tok); j += 1 {
+						if cx + 1 > width {
+							return cx
+						}
+						buffer_put(b, x + cx, y, rune(tok[j]), ofg, obg, ostyle)
+						cx += 1
+					}
+					if c, ok := color_parse(tok); ok && cx + 3 <= width {
+						cx += 1
+						buffer_color_swatch(b, x + cx, y, c)
+						cx += 2
+					}
+					i = next
+					continue
+				}
+			}
+		}
 		r, size := utf8.decode_rune_in_string(text[i:])
 		if size <= 0 {
 			break

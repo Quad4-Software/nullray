@@ -657,7 +657,17 @@ app_draw_view_form_modal :: proc(buf: ^ui.Buffer, a: ^App) {
 		if !a.view_form.emoji {
 			line = view_strip_non_ascii(line, context.temp_allocator)
 		}
-		ui.buffer_text_clip(buf, x + 2, row, x + w - 2, line, fg, box_bg)
+		// Paint line with #hex color chips when present.
+		_ = ui.buffer_text_clip_colors(buf, x + 2, row, x + w - 2, line, fg, box_bg)
+		// Extra leading swatch for field values that are themselves a color.
+		if f.kind == .Text || f.kind == .Textarea {
+			if c, cok := ui.color_parse(strings.trim_space(f.value)); cok {
+				sw_x := x + w - 4
+				if sw_x > x + 2 {
+					ui.buffer_color_swatch(buf, sw_x, row, c)
+				}
+			}
+		}
 		row += 1
 		// count focusable
 		focus_idx += 1

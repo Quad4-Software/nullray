@@ -4,6 +4,23 @@ package ui
 import "core:testing"
 
 @(test)
+test_buffer_text_clip_colors_swatch :: proc(t: ^testing.T) {
+	buf := buffer_create(40, 3)
+	defer buffer_destroy(&buf)
+	_ = buffer_text_clip_colors(&buf, 0, 0, 40, "accent=#00ffcc done", Color{255, 255, 255}, Color{0, 0, 0})
+	// After "#00ffcc" and a space, expect block cells with that green-cyan.
+	found := false
+	for x in 0 ..< 40 {
+		cell := buffer_at(&buf, x, 0)
+		if cell != nil && cell.ch == '█' && cell.fg.g > 200 {
+			found = true
+			break
+		}
+	}
+	testing.expect(t, found)
+}
+
+@(test)
 test_color_parse_hex_and_names :: proc(t: ^testing.T) {
 	c, ok := color_parse("#f00")
 	testing.expect(t, ok)

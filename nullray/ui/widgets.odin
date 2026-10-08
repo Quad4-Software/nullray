@@ -87,8 +87,9 @@ draw_status_bar_ex :: proc(b: ^Buffer, y: int, left, right: string, left_fg, rig
 	}
 	rw := string_cols(right_fit)
 	right_x := max(1, b.width - rw - 1)
-	buffer_text_clip(b, 1, y, right_x - 1, left, left_fg, bg)
-	buffer_text_clip(b, right_x, y, b.width, right_fit, right_fg, bg)
+	// Color-aware left status so #hex codes show a chip.
+	_ = buffer_text_clip_colors(b, 1, y, right_x - 1, left, left_fg, bg)
+	_ = buffer_text_clip_colors(b, right_x, y, b.width, right_fit, right_fg, bg)
 }
 
 draw_input_line :: proc(b: ^Buffer, y: int, prompt, text: string, cursor: int, fg, bg, prompt_fg: Color) {

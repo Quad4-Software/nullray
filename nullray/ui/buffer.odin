@@ -5,6 +5,8 @@ Retained cell buffer the UI paints into each frame.
 
 package ui
 
+import "core:unicode/utf8"
+
 Style :: bit_set[Style_Bit]
 Style_Bit :: enum {
 	Bold,
@@ -122,6 +124,103 @@ buffer_text :: proc(b: ^Buffer, x, y: int, text: string, fg, bg: Color, style: S
 		}
 		cx += w
 	}
+}
+
+// Draw a solid color swatch (two cells) at (x,y). Used next to #rrggbb tokens.
+buffer_color_swatch :: proc(b: ^Buffer, x, y: int, c: Color) {
+	if b == nil {
+		return
+	}
+	// Full block runes give a visible chip even on monochrome-ish fonts.
+	buffer_put(b, x, y, '█', c, c, {})
+	buffer_put(b, x + 1, y, '█', c, c, {})
+}
+
+/*
+Paint text and render inline #rgb / #rrggbb tokens with a color chip after them.
+Returns columns advanced (same semantics as a clipped paint).
+*/
+buffer_text_clip_colors :: proc(b: ^Buffer, x, y, x_max: int, text: string, fg, bg: Color, style: Style = {}) -> int {
+	if b == nil || y < 0 || y >= b.height {
+		return 0
+	}
+	cx := x
+	i := 0
+	for i < len(text) && cx < x_max {
+		// Detect #rrggbb or #rgb starting at i
+		if text[i] == '#' && i + 3 < len(text) {
+			hex_len := 0
+			if i + 7 <= len(text) && color_is_hex6(text[i+1:i+7]) {
+				hex_len = 6
+			} else if i + 4 <= len(text) && color_is_hex3(text[i+1:i+4]) {
+				hex_len = 3
+			}
+			if hex_len > 0 {
+				// boundary: next char not more hex
+				next := i + 1 + hex_len
+				if next >= len(text) || !color_is_hex_char(text[next]) {
+					tok := text[i:next]
+					c, ok := color_parse(tok)
+					// paint the token itself
+					for j := 0; j < len(tok) && cx < x_max; j += 1 {
+						buffer_put(b, cx, y, rune(tok[j]), fg, bg, style)
+						cx += 1
+					}
+					if ok && cx + 2 <= x_max {
+						cx += 1 // gap
+						if cx + 1 < x_max {
+							buffer_color_swatch(b, cx, y, c)
+							cx += 2
+						}
+					}
+					i = next
+					continue
+				}
+			}
+		}
+		r, sz := utf8.decode_rune_in_string(text[i:])
+		if sz <= 0 {
+			break
+		}
+		if r == CELL_WIDE_CONT {
+			i += sz
+			continue
+		}
+		w := max(1, rune_cols(r))
+		if cx + w > x_max {
+			break
+		}
+		buffer_put(b, cx, y, r, fg, bg, style)
+		cx += w
+		i += sz
+	}
+	return cx - x
+}
+
+@(private)
+color_is_hex_char :: proc(c: u8) -> bool {
+	return (c >= '0' && c <= '9') || (c >= 'a' && c <= 'f') || (c >= 'A' && c <= 'F')
+}
+
+@(private)
+color_is_hex3 :: proc(s: string) -> bool {
+	if len(s) != 3 {
+		return false
+	}
+	return color_is_hex_char(s[0]) && color_is_hex_char(s[1]) && color_is_hex_char(s[2])
+}
+
+@(private)
+color_is_hex6 :: proc(s: string) -> bool {
+	if len(s) != 6 {
+		return false
+	}
+	for i in 0 ..< 6 {
+		if !color_is_hex_char(s[i]) {
+			return false
+		}
+	}
+	return true
 }
 
 buffer_text_clip :: proc(b: ^Buffer, x, y, x_max: int, text: string, fg, bg: Color, style: Style = {}) {
