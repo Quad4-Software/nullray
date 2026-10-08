@@ -53,7 +53,7 @@ compact_local_impl :: proc(s: ^Session) -> bool {
 @(private)
 compact_set_status :: proc(s: ^Session, label: string, backup: string, backed: bool) {
 	if backed {
-		session_set_status(s, fmt.tprintf("%s, backup %s", label, backup))
+		session_set_status(s, fmt.tprintf("%s · backup %s", label, backup))
 	} else {
 		session_set_status(s, label)
 	}

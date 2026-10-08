@@ -337,7 +337,7 @@ session_list_text :: proc(allocator := context.allocator) -> string {
 			fmt.sbprintf(&b, " [%s]", it.group)
 		}
 		if len(it.model) > 0 {
-			fmt.sbprintf(&b, ", %s", it.model)
+			fmt.sbprintf(&b, " · %s", it.model)
 		}
 		fmt.sbprintf(&b, "  %s", it.preview)
 	}

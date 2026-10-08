@@ -49,7 +49,7 @@ slash_cmd_encrypt :: proc(a: ^App, args: string) {
 		on := store.session_crypto_has_passphrase() || len(store.session_crypto_passphrase()) > 0
 		session.session_set_status(
 			a.session,
-			fmt.tprintf("session encrypt %s, /encrypt on KEY | off | status", on ? "on" : "off"),
+			fmt.tprintf("session encrypt %s · /encrypt on KEY | off | status", on ? "on" : "off"),
 		)
 		return
 	}

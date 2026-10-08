@@ -45,7 +45,7 @@ session_drop_pairs :: proc(s: ^Session, pairs: int) -> bool {
 		return false
 	}
 	if s.busy {
-		session_set_status(s, "busy, stop first or wait")
+		session_set_status(s, "busy · stop first or wait")
 		return false
 	}
 	start := drop_start_index(s.messages[:], pairs)
@@ -61,7 +61,7 @@ session_drop_pairs :: proc(s: ^Session, pairs: int) -> bool {
 	session_clear_streaming(s)
 	session_maybe_persist(s)
 	if backed {
-		session_set_status(s, fmt.tprintf("dropped %d pair(s), backup %s", pairs, backup))
+		session_set_status(s, fmt.tprintf("dropped %d pair(s) · backup %s", pairs, backup))
 	} else {
 		session_set_status(s, fmt.tprintf("dropped %d pair(s)", pairs))
 	}

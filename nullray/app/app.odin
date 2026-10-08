@@ -347,7 +347,7 @@ app_refresh_provider_status :: proc(a: ^App) {
 		status = "error: OPENROUTER_API_KEY missing in ~/.config/nullray/env"
 	} else if !a.hide_sensitive {
 		if cl := app_credits_label(a); len(cl) > 0 {
-			status = fmt.tprintf("%s, %s", status, cl)
+			status = fmt.tprintf("%s · %s", status, cl)
 			delete(cl)
 		}
 	}

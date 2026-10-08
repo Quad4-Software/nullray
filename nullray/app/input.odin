@@ -128,7 +128,7 @@ app_on_event :: proc(ev: ui.Event, user: rawptr) -> bool {
 		a.tab_x_prefix = true
 		session.session_set_status(
 			a.session,
-			"tab: n new, w close, h/← prev, l/→ next, 1-9 jump, o sessions",
+			"tab: n new · w close · h/← prev · l/→ next · 1-9 jump · o sessions",
 		)
 		app_mark_dirty(a)
 		return false
@@ -193,11 +193,11 @@ app_submit :: proc(a: ^App) {
 	}
 	if a.session.busy && !slash_busy_exempt(text) {
 		if strings.has_prefix(text, "/") {
-			msg := "busy, Esc stop"
+			msg := "busy · Esc stop"
 			if pending := tools.shell_pending(context.temp_allocator); len(pending) > 0 {
-				msg = "busy, Esc stop, /allow|/deny"
+				msg = "busy · Esc stop · /allow|/deny"
 			} else if a.elevate_active {
-				msg = "busy, elevate active"
+				msg = "busy · elevate active"
 			}
 			app_toast_warn(a, msg)
 			return
@@ -209,7 +209,7 @@ app_submit :: proc(a: ^App) {
 			app_mark_dirty(a)
 			return
 		}
-		app_toast_warn(a, "busy, Esc stop")
+		app_toast_warn(a, "busy · Esc stop")
 		return
 	}
 	a.pasting = false

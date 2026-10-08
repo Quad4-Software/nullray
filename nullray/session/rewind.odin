@@ -17,7 +17,7 @@ session_rewind :: proc(s: ^Session, pairs: int, p: ^provider.Provider) -> bool {
 		return false
 	}
 	if s.busy {
-		session_set_status(s, "busy, stop first or wait")
+		session_set_status(s, "busy · stop first or wait")
 		return false
 	}
 	n := pairs
@@ -74,12 +74,12 @@ session_rewind :: proc(s: ^Session, pairs: int, p: ^provider.Provider) -> bool {
 	session_maybe_persist(s)
 	label := "rewound"
 	if backed {
-		label = fmt.tprintf("rewound %d pair(s), backup %s", n, backup)
+		label = fmt.tprintf("rewound %d pair(s) · backup %s", n, backup)
 	} else {
 		label = fmt.tprintf("rewound %d pair(s)", n)
 	}
 	if len(undo_msg) > 0 && undo_msg != "nothing to undo" {
-		session_set_status(s, fmt.tprintf("%s, %s", label, undo_msg))
+		session_set_status(s, fmt.tprintf("%s · %s", label, undo_msg))
 	} else {
 		session_set_status(s, label)
 	}

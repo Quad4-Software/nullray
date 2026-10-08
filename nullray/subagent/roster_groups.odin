@@ -318,7 +318,7 @@ roster_compact_line :: proc(r: ^Roster, allocator := context.allocator) -> strin
 }
 
 // Living child count plus a short role sample for the TUI activity strip.
-// Example: "2 live, explore@qwen, edit@sonnet" or "1 blocked, review".
+// Example: "2 live · explore@qwen · edit@sonnet" or "1 blocked · review".
 roster_activity_line :: proc(r: ^Roster, max_names: int, allocator := context.allocator) -> string {
 	sync.mutex_lock(&r.mu)
 	defer sync.mutex_unlock(&r.mu)
@@ -383,10 +383,10 @@ roster_activity_line :: proc(r: ^Roster, max_names: int, allocator := context.al
 		fmt.sbprintf(&b, "%d live", running)
 	}
 	if n_lab > 0 {
-		strings.write_string(&b, ", ")
+		strings.write_string(&b, " · ")
 		for i in 0 ..< n_lab {
 			if i > 0 {
-				strings.write_string(&b, ", ")
+				strings.write_string(&b, " · ")
 			}
 			strings.write_string(&b, labels[i])
 		}

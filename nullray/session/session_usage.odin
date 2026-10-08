@@ -60,14 +60,14 @@ session_ready_status :: proc(s: ^Session) -> string {
 		}
 	}
 	if hide || s.last_usage.total_tokens <= 0 {
-		return fmt.tprintf("ready, %s, %s%s", mode, perms, auto)
+		return fmt.tprintf("ready · %s · %s%s", mode, perms, auto)
 	}
 	cost := ""
 	if s.last_usage.cost_known && !hide {
-		cost = fmt.tprintf(", $%.4f", s.last_usage.cost_usd)
+		cost = fmt.tprintf(" · $%.4f", s.last_usage.cost_usd)
 	}
 	return fmt.tprintf(
-		"ready, %s, %s%s, %s in / %s out, sess %s%s",
+		"ready · %s · %s%s · %s in / %s out · sess %s%s",
 		mode,
 		perms,
 		auto,
@@ -88,7 +88,7 @@ session_usage_label :: proc(s: ^Session, allocator := context.allocator) -> stri
 			cost = s.last_usage.cost_usd
 		}
 		return fmt.aprintf(
-			"%s/%s tok, $%.4f",
+			"%s/%s tok · $%.4f",
 			format_token_count(s.last_usage.total_tokens),
 			format_token_count(s.session_usage.total_tokens),
 			cost,

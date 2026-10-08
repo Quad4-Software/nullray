@@ -25,7 +25,7 @@ slash_cmd_secret :: proc(a: ^App, args: string) {
 		if len(names) == 0 {
 			session.session_set_status(
 				a.session,
-				fmt.tprintf("%s, none, /secret set NAME | ask NAME", backend),
+				fmt.tprintf("%s · none · /secret set NAME | ask NAME", backend),
 			)
 			return
 		}
@@ -37,7 +37,7 @@ slash_cmd_secret :: proc(a: ^App, args: string) {
 			strings.write_string(&b, n)
 		}
 		session.session_push_assistant(a.session, strings.to_string(b))
-		session.session_set_status(a.session, fmt.tprintf("%s, %d names", backend, len(names)))
+		session.session_set_status(a.session, fmt.tprintf("%s · %d names", backend, len(names)))
 		return
 	}
 	if low == "clear" {

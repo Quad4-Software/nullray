@@ -274,7 +274,7 @@ app_draw_ask_modal :: proc(buf: ^ui.Buffer, a: ^App) {
 	}
 
 	row_y := y + 1 + p_show + 1
-	hint := "Enter submit, Esc cancel"
+	hint := "Enter submit · Esc cancel"
 	if list_mode {
 		top := 0
 		if a.ask_sel >= o_show {
@@ -299,7 +299,7 @@ app_draw_ask_modal :: proc(buf: ^ui.Buffer, a: ^App) {
 			ui.buffer_text_clip(buf, x + 2, row_y, x + w - 2, fmt.tprintf("%s%s", mark, line), fg, t.bg)
 			row_y += 1
 		}
-		hint = "Up/Down move, Enter select, 1-9 jump, Esc cancel"
+		hint = "Up/Down move · Enter select · 1-9 jump · Esc cancel"
 	} else {
 		shown := a.ask_buf
 		if a.ask_kind == .Secret {
@@ -312,9 +312,9 @@ app_draw_ask_modal :: proc(buf: ^ui.Buffer, a: ^App) {
 			ui.buffer_text_clip(buf, x + 2, row_y, x + w - 2, caret, t.accent, t.bg)
 		}
 		if a.ask_kind == .Confirm {
-			hint = "y yes, n no, Esc cancel"
+			hint = "y yes · n no · Esc cancel"
 		} else if a.ask_kind == .Choice {
-			hint = "Enter submit, Esc back to options"
+			hint = "Enter submit · Esc back to options"
 		}
 	}
 	ui.buffer_text_clip(buf, x + 2, y + h - 2, x + w - 2, hint, t.muted, t.bg)

@@ -204,23 +204,23 @@ app_chrome_overlay_h :: proc(c: Chrome) -> int {
 app_chrome_help_right :: proc(a: ^App, c: Chrome) -> string {
 	if a.view_open {
 		if c.narrow {
-			return "Tab, Esc"
+			return "Tab · Esc"
 		}
-		return "Tab focus, Left/Right files, Esc close"
+		return "Tab focus · Left/Right files · Esc close"
 	}
 	if a.sel_has || a.sel_dragging {
 		if c.narrow {
-			return "/copy, Esc"
+			return "/copy · Esc"
 		}
-		return "drag select, /copy, Esc clear"
+		return "drag select · /copy · Esc clear"
 	}
 	if c.tight {
-		return "/, ?"
+		return "/ · ?"
 	}
 	if c.narrow {
-		return "/, ?, ^q"
+		return "/ · ? · ^q"
 	}
-	return "type /, ? help, ^q quit"
+	return "type / · ? help · ^q quit"
 }
 
 // Brand label: full name, short mark on tight widths.
@@ -254,36 +254,33 @@ app_chrome_ver_label :: proc(c: Chrome) -> string {
 	return fmt.tprintf("?  %s", constants.VERSION)
 }
 
-// Mode, session counts, shortened when the bar is tight.
+// Mode · session counts, shortened when the bar is tight.
 app_chrome_counts :: proc(a: ^App, c: Chrome, mode_chip: string) -> string {
 	if c.tight {
 		return mode_chip
 	}
 	if c.narrow {
-		s := fmt.tprintf("%s, %d", mode_chip, a.banner_sess)
+		s := fmt.tprintf("%s · %d", mode_chip, a.banner_sess)
 		if len(a.tabs) > 1 {
-			s = fmt.tprintf("%s, t%d", s, len(a.tabs))
+			s = fmt.tprintf("%s · t%d", s, len(a.tabs))
 		}
 		return s
 	}
-	s := fmt.tprintf("%s, %d sess, %d live", mode_chip, a.banner_sess, a.banner_live)
+	s := fmt.tprintf("%s · %d sess · %d live", mode_chip, a.banner_sess, a.banner_live)
 	if len(a.tabs) > 1 {
-		s = fmt.tprintf("%s, %d tabs", s, len(a.tabs))
+		s = fmt.tprintf("%s · %d tabs", s, len(a.tabs))
 	}
 	return s
 }
 
-// Provider, model, session line. Empty when there is no room.
+// Provider · model · session line. Empty when there is no room.
 app_chrome_right_info :: proc(a: ^App, c: Chrome, full: string) -> string {
 	if c.tight || len(full) == 0 {
 		return ""
 	}
 	if c.narrow {
-		// Keep the first segment only (provider name). Split on comma.
-		if i := strings.index(full, ", "); i > 0 {
-			return strings.trim_space(full[:i])
-		}
-		if i := strings.index_byte(full, ','); i > 0 {
+		// Keep the first segment only (provider name).
+		if i := strings.index_byte(full, '·'); i > 0 {
 			return strings.trim_space(full[:i])
 		}
 	}

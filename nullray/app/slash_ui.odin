@@ -67,7 +67,7 @@ slash_cmd_skills :: proc(a: ^App, args: string) {
 	}
 	text, ok := skills.skills_show_text(id)
 	if !ok {
-		session.session_set_status(a.session, fmt.tprintf("unknown skill: %s, type /skills", id))
+		session.session_set_status(a.session, fmt.tprintf("unknown skill: %s · type /skills", id))
 		return
 	}
 	session.session_push_assistant(a.session, text)
@@ -103,7 +103,7 @@ slash_cmd_tui :: proc(a: ^App, args: string) {
 		session.session_set_status(
 			a.session,
 			fmt.tprintf(
-				"tui theme=%s malleable=%v lock=%v, /tui reset|lock|unlock|THEME",
+				"tui theme=%s malleable=%v lock=%v · /tui reset|lock|unlock|THEME",
 				ui.theme().name,
 				mal,
 				lock,

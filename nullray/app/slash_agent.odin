@@ -124,7 +124,7 @@ slash_cmd_model :: proc(a: ^App, args: string) {
 		model := p != nil ? p.default_model : a.session.model
 		session.session_set_status(
 			a.session,
-			fmt.tprintf("model %s lock=%s, /model + space to pick, /models lists", model, lock ? "on" : "off"),
+			fmt.tprintf("model %s lock=%s · /model + space to pick · /models lists", model, lock ? "on" : "off"),
 		)
 		return
 	}

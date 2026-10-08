@@ -148,7 +148,7 @@ app_tab_close :: proc(a: ^App, i: int) {
 			// while it writes would corrupt memory, so keep the tab.
 			session.session_set_status(
 				a.session,
-				"session still stopping, run /tab close again",
+				"session still stopping · run /tab close again",
 			)
 			return
 		}
