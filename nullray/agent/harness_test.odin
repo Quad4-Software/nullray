@@ -58,6 +58,17 @@ test_format_tool_envelope_write_path :: proc(t: ^testing.T) {
 }
 
 @(test)
+test_cmd_or_path_apply_edits_nested :: proc(t: ^testing.T) {
+	args := `{"edits":[{"path":"src/a.py","old_string":"x","new_string":"y"},{"path":"src/b.py","old_string":"1","new_string":"2"}]}`
+	got := cmd_or_path_from_args("apply_edits", args)
+	testing.expect_value(t, got, "src/a.py")
+	got2 := cmd_or_path_from_args("multi_edit", `{"files":[{"path":"new.txt","content":"hi"}]}`)
+	testing.expect_value(t, got2, "new.txt")
+	// Unrelated tool falls back to tool name when path is absent.
+	testing.expect_value(t, cmd_or_path_from_args("apply_edits", `{"edits":[]}`), "apply_edits")
+}
+
+@(test)
 test_format_tool_envelope :: proc(t: ^testing.T) {
 	s := format_tool_envelope("ok", "make test", 0, "a1", "pass", 3)
 	defer delete(s)

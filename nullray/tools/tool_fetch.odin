@@ -68,6 +68,9 @@ tool_fetch_url :: proc(args_json: string, allocator := context.allocator) -> (st
 		resp.body = fb
 	} else {
 		cur := strings.clone(url, context.temp_allocator)
+		// Track visited soft-redirect targets so A->B->A cycles stop cleanly.
+		seen := make([dynamic]string, 0, HTML_SOFT_REDIRECT_MAX + 1, context.temp_allocator)
+		append(&seen, cur)
 		for hop in 0 ..= HTML_SOFT_REDIRECT_MAX {
 			resp = nr_http.get_checked(cur, headers, 30, fetch_url_allow_hop, context.temp_allocator)
 			if !resp.ok {
@@ -88,6 +91,18 @@ tool_fetch_url :: proc(args_json: string, allocator := context.allocator) -> (st
 					if next == cur {
 						break
 					}
+					// Cycle detection: stop with the body we already have.
+					cycled := false
+					for s in seen {
+						if s == next {
+							cycled = true
+							break
+						}
+					}
+					if cycled {
+						break
+					}
+					append(&seen, next)
 					cur = next
 					continue
 				}

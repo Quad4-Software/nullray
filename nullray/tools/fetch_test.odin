@@ -74,9 +74,38 @@ window.location.replace("latest/" + window.location.search);
 	testing.expect(t, aok)
 	testing.expect_value(t, abs, "https://docs.example/root/page")
 
+	rel, rok := html_resolve_url("https://docs.example/a/b/page.html", "next.html")
+	testing.expect(t, rok)
+	testing.expect_value(t, rel, "https://docs.example/a/b/next.html")
+
+	proto, pok := html_resolve_url("https://docs.example/x", "//cdn.example/lib.js")
+	testing.expect(t, pok)
+	testing.expect_value(t, proto, "https://cdn.example/lib.js")
+
+	jsbad, jok := html_resolve_url("https://docs.example/", "javascript:alert(1)")
+	testing.expect(t, !jok)
+	testing.expect_value(t, jsbad, "")
+
 	none, nok := html_soft_redirect_target("https://example.com/", "<html><body><p>Hello docs</p></body></html>")
 	testing.expect(t, !nok)
 	testing.expect_value(t, none, "")
+
+	testing.expect(t, html_is_redirect_shell(meta))
+	testing.expect(t, !html_is_redirect_shell("<html><body><p>docs body with enough text</p></body></html>"))
+}
+
+@(test)
+test_html_soft_redirect_ssrf_target_blocks :: proc(t: ^testing.T) {
+	// Soft redirect hop into loopback must be blocked by the same SSRF gate.
+	body := `<!DOCTYPE html><html><head>
+<meta http-equiv="refresh" content="0; url=http://127.0.0.1/secret">
+</head><body>go</body></html>`
+	u, ok := html_soft_redirect_target("https://evil.example/", body)
+	testing.expect(t, ok)
+	testing.expect_value(t, u, "http://127.0.0.1/secret")
+	blocked, why := fetch_url_blocked(u)
+	testing.expect(t, blocked)
+	testing.expect(t, len(why) > 0)
 }
 
 @(test)

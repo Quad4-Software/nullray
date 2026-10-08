@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: LicenseRef-QSL-1.0-0BSD
 package app
 
+import "core:strings"
 import "core:testing"
 import "nullray:constants"
 import "nullray:ui"
@@ -86,7 +87,7 @@ test_chrome_geometry_invariants :: proc(t: ^testing.T) {
 	_ = loop
 	defer test_app_destroy_minimal(&a)
 
-	sizes := [][2]int{{1, 1}, {2, 2}, {10, 3}, {20, 5}, {40, 8}, {80, 12}, {80, 24}, {200, 40}, {24, 100}}
+	sizes := [][2]int{{1, 1}, {2, 2}, {10, 3}, {20, 5}, {40, 8}, {80, 12}, {80, 24}, {200, 40}, {24, 100}, {30, 4}, {50, 6}}
 	for s in sizes {
 		c := app_chrome(&a, s[0], s[1])
 		testing.expect(t, c.width == max(1, s[0]))
@@ -95,18 +96,37 @@ test_chrome_geometry_invariants :: proc(t: ^testing.T) {
 		testing.expect(t, app_chrome_msg_h(c) >= 1)
 		testing.expect(t, c.input_rows >= 1)
 		if c.height > 2 {
-			testing.expect(t, c.status_y >= c.title_y)
+			testing.expect(t, c.status_y > c.title_y || c.status_y == c.title_y)
 			testing.expect(t, c.status_y < c.input_y || c.input_y == 0)
 			testing.expect(t, c.msg_top <= c.status_y)
+			// Transcript must not paint into status/input rows.
+			testing.expect(t, c.msg_bottom < c.status_y || c.msg_bottom == c.msg_top && c.msg_top == c.status_y)
 		}
 		if c.show_tabs {
 			testing.expect(t, c.tabs_y > c.title_y)
+			testing.expect(t, c.tabs_y < c.status_y)
 		}
 		if c.show_sep {
 			testing.expect(t, c.sep_y > c.title_y)
 			testing.expect(t, c.sep_y < c.status_y)
 		}
 	}
+}
+
+@(test)
+test_chrome_multiline_input_does_not_eat_status :: proc(t: ^testing.T) {
+	a, loop := test_app_minimal()
+	_ = loop
+	defer test_app_destroy_minimal(&a)
+	// Fill input with enough text to want many wrap rows.
+	for _ in 0 ..< 40 {
+		strings.write_string(&a.input, "word ")
+	}
+	c := app_chrome(&a, 40, 10)
+	testing.expect(t, c.status_y < c.input_y)
+	testing.expect(t, c.status_y > c.title_y)
+	testing.expect(t, c.msg_bottom < c.status_y || c.msg_top == c.msg_bottom)
+	testing.expect(t, c.input_y + c.input_rows == 10)
 }
 
 @(test)

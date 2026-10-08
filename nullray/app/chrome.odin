@@ -94,21 +94,31 @@ app_chrome :: proc(a: ^App, width, height: int) -> Chrome {
 		c.show_sep = false
 		return c
 	}
+	// Status always sits strictly above the input block.
 	c.status_y = max(1, c.input_y - 1)
 	if c.status_y >= c.input_y {
 		c.status_y = max(1, c.input_y - 1)
 	}
+	// Leave at least one row free above status for title-adjacent chrome.
+	// If multi-line input eats the whole window, shrink it so title+status+msg fit.
+	if c.input_y <= 2 && c.height > 3 {
+		c.input_rows = max(1, c.height - 3)
+		c.input_y = c.height - c.input_rows
+		c.status_y = max(1, c.input_y - 1)
+	}
 
 	// Hide tabs on very short terminals or when there is nothing to show.
-	c.show_tabs = !c.short && len(a.tabs) > 0 && c.height >= 8
-	c.show_sep = !c.short && c.height >= 8
+	// Need room for title, tab, optional sep, msg, status, input.
+	c.show_tabs = !c.short && len(a.tabs) > 0 && c.height >= 8 && c.status_y >= 3
+	c.show_sep = !c.short && c.height >= 8 && c.status_y >= 4
 
 	y := 1
-	if c.show_tabs {
+	if c.show_tabs && y < c.status_y {
 		c.tabs_y = y
 		y += 1
 	} else {
 		c.tabs_y = -1
+		c.show_tabs = false
 	}
 	if c.show_sep && y < c.status_y {
 		c.sep_y = y
@@ -117,10 +127,14 @@ app_chrome :: proc(a: ^App, width, height: int) -> Chrome {
 		c.sep_y = -1
 		c.show_sep = false
 	}
-	// Transcript sits between chrome top and the status rule.
+	// Transcript sits between chrome top and the status rule. Cap so it
+	// never claims the status or input rows.
 	c.msg_top = min(y, c.status_y)
-	if c.msg_top < 1 && c.height > 2 {
+	if c.msg_top < 1 {
 		c.msg_top = 1
+	}
+	if c.msg_top > c.status_y {
+		c.msg_top = c.status_y
 	}
 	rule_y := c.status_y - 1
 	if rule_y > c.msg_top {
@@ -132,6 +146,9 @@ app_chrome :: proc(a: ^App, width, height: int) -> Chrome {
 	}
 	if c.msg_bottom < c.msg_top {
 		c.msg_bottom = c.msg_top
+	}
+	if c.msg_bottom >= c.status_y && c.status_y > c.msg_top {
+		c.msg_bottom = c.status_y - 1
 	}
 	// Guarantee status never collides with title when there is room.
 	if c.status_y == c.title_y && c.height > 2 {

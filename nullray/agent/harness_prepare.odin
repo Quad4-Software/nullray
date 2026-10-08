@@ -144,6 +144,15 @@ cmd_or_path_from_args :: proc(name, args_json: string) -> string {
 		key = "pattern"
 	case "load_skill", "read_artifact", "grep_artifact":
 		key = "id"
+	case "apply_edits", "multi_edit":
+		// First nested path under edits[] or files[] so batches stay distinct.
+		if v := json_first_nested_path(args_json); len(v) > 0 {
+			if len(v) > 120 {
+				return v[:120]
+			}
+			return v
+		}
+		return name
 	}
 	// lightweight extract without tools package import cycle risk
 	needle := fmt.tprintf(`"%s"`, key)
@@ -170,4 +179,29 @@ cmd_or_path_from_args :: proc(name, args_json: string) -> string {
 		return val[:120]
 	}
 	return val
+}
+
+// First "path":"..." string value in a JSON blob (nested apply_edits shape).
+@(private)
+json_first_nested_path :: proc(args_json: string) -> string {
+	needle := `"path"`
+	idx := strings.index(args_json, needle)
+	if idx < 0 {
+		return ""
+	}
+	rest := args_json[idx + len(needle):]
+	colon := strings.index_byte(rest, ':')
+	if colon < 0 {
+		return ""
+	}
+	rest = strings.trim_left_space(rest[colon + 1:])
+	if len(rest) == 0 || rest[0] != '"' {
+		return ""
+	}
+	rest = rest[1:]
+	end := strings.index_byte(rest, '"')
+	if end < 0 {
+		return ""
+	}
+	return rest[:end]
 }

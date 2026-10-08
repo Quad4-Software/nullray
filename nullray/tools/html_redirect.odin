@@ -241,3 +241,16 @@ html_soft_redirect_target :: proc(base_url, body: string, allocator := context.t
 	}
 	return "", false
 }
+
+// True when body is only a soft-redirect shell (almost no real content).
+// Used by tests and callers that want to know the page is not final.
+html_is_redirect_shell :: proc(body: string) -> bool {
+	if !html_looks_like(body) {
+		return false
+	}
+	if len(body) >= 4096 {
+		return false
+	}
+	_, ok := html_soft_redirect_target("https://example.com/", body, context.temp_allocator)
+	return ok
+}
