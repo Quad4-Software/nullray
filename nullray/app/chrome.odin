@@ -200,13 +200,21 @@ app_chrome_brand :: proc(c: Chrome) -> string {
 	return constants.APP_NAME
 }
 
-// Version label on the title bar right side.
+// Version label on the title bar right side. Appends short commit when width
+// allows and the build baked one in.
 app_chrome_ver_label :: proc(c: Chrome) -> string {
 	if c.tight {
 		return "?"
 	}
+	commit := constants.BUILD_COMMIT
 	if c.narrow {
+		// Keep the narrow label short: version only.
 		return fmt.tprintf("? %s", constants.VERSION)
+	}
+	// Prefer "?  0.7.0 fa198d1" when there is room; fall back to version alone
+	// if the commit define is empty (dev builds without make).
+	if len(commit) > 0 && c.width >= 56 {
+		return fmt.tprintf("?  %s %s", constants.VERSION, commit)
 	}
 	return fmt.tprintf("?  %s", constants.VERSION)
 }

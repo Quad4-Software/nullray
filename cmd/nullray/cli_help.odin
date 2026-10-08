@@ -5,7 +5,18 @@ import "core:fmt"
 import "nullray:constants"
 
 print_version :: proc() {
-	fmt.printf("%s %s (built %s %s)\n", constants.APP_NAME, constants.VERSION, constants.BUILD_DATE, constants.BUILD_TIME)
+	if len(constants.BUILD_COMMIT) > 0 {
+		fmt.printf(
+			"%s %s (%s, built %s %s)\n",
+			constants.APP_NAME,
+			constants.VERSION,
+			constants.BUILD_COMMIT,
+			constants.BUILD_DATE,
+			constants.BUILD_TIME,
+		)
+	} else {
+		fmt.printf("%s %s (built %s %s)\n", constants.APP_NAME, constants.VERSION, constants.BUILD_DATE, constants.BUILD_TIME)
+	}
 }
 
 print_help :: proc() {

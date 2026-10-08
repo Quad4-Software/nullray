@@ -50,6 +50,30 @@ test_chrome_narrow_shortens_labels :: proc(t: ^testing.T) {
 }
 
 @(test)
+test_chrome_ver_label_commit_when_roomy :: proc(t: ^testing.T) {
+	a, loop := test_app_minimal()
+	_ = loop
+	defer test_app_destroy_minimal(&a)
+
+	roomy := app_chrome(&a, 80, 24)
+	label := app_chrome_ver_label(roomy)
+	testing.expect(t, strings.has_prefix(label, "?"))
+	testing.expect(t, strings.contains(label, constants.VERSION))
+	// Commit is optional (empty define in pure odin test without make).
+	if len(constants.BUILD_COMMIT) > 0 {
+		testing.expect(t, strings.contains(label, constants.BUILD_COMMIT))
+	}
+
+	narrow := app_chrome(&a, 40, 24)
+	nlab := app_chrome_ver_label(narrow)
+	testing.expect(t, strings.contains(nlab, constants.VERSION))
+	// Narrow never includes the commit, even if baked in.
+	if len(constants.BUILD_COMMIT) > 0 {
+		testing.expect(t, !strings.contains(nlab, constants.BUILD_COMMIT))
+	}
+}
+
+@(test)
 test_chrome_short_hides_tabs :: proc(t: ^testing.T) {
 	a, loop := test_app_minimal()
 	_ = loop

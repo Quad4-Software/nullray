@@ -26,7 +26,9 @@ FISHCOMPDIR := $(PREFIX)/share/fish/vendor_completions.d
 COLLECTION := -collection:nullray=$(ROOT)/nullray
 BUILD_DATE := $(shell date -u +%Y-%m-%d)
 BUILD_TIME := $(shell date -u +%H:%M:%S)
-DEFINES    := -define:NULLRAY_BUILD_DATE="$(BUILD_DATE)" -define:NULLRAY_BUILD_TIME="$(BUILD_TIME)"
+# Short commit for the title bar; empty when not a git checkout.
+BUILD_COMMIT := $(shell git -C "$(ROOT)" rev-parse --short HEAD 2>/dev/null || true)
+DEFINES    := -define:NULLRAY_BUILD_DATE="$(BUILD_DATE)" -define:NULLRAY_BUILD_TIME="$(BUILD_TIME)" -define:NULLRAY_BUILD_COMMIT="$(BUILD_COMMIT)"
 
 MBEDTLS_DIR := $(ROOT)/vendor/mbedtls
 MBEDTLS_INC := $(MBEDTLS_DIR)/include

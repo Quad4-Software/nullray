@@ -9,6 +9,8 @@ APP_NAME :: "nullray"
 VERSION :: "0.7.0"
 BUILD_DATE :: #config(NULLRAY_BUILD_DATE, "unknown")
 BUILD_TIME :: #config(NULLRAY_BUILD_TIME, "unknown")
+// Short git SHA baked at make time. Empty when unset or not a git tree.
+BUILD_COMMIT :: #config(NULLRAY_BUILD_COMMIT, "")
 CONFIG_DIR_NAME :: "nullray"
 CONFIG_FILE :: "config.ini"
 MCP_CONFIG_FILE :: "mcp.json"
