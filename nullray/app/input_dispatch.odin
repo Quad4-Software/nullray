@@ -16,15 +16,13 @@ app_handle_bind_action :: proc(a: ^App, ev: ui.Event, suggesting: bool) -> (quit
 	action := config.binds_resolve(a.binds, ev.kind)
 	switch action {
 	case .Quit:
-		// Ctrl-C with an active selection copies instead of quitting/stopping.
-		if ev.kind == .Ctrl_C && (a.sel_has || a.sel_dragging) {
-			_ = app_sel_copy(a)
-			return false, true
-		}
-		// Ctrl-C while busy stops the agent. Ctrl-Q (or Ctrl-C when idle) quits.
+		// Ctrl-C always stop/quit. Copy stays on drag-release and /copy.
 		if a.session.busy && ev.kind == .Ctrl_C {
 			session.session_request_cancel(a.session)
 			a.pasting = false
+			if a.sel_has || a.sel_dragging {
+				app_sel_clear(a)
+			}
 			app_mark_dirty(a)
 			return false, true
 		}

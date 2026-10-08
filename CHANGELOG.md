@@ -82,8 +82,8 @@ Notable changes for nullray.
 - CLI late flags such as --completions now return handled so install and man generation work.
 
 ### Fixed
-- Transcript drag-select copies on mouse release, Ctrl-C copies an active
-  selection, and clipboard tool stdin no longer closes before write.
+- Transcript drag-select copies on mouse release. Clipboard tool stdin no
+  longer closes before write. Ctrl-C remains stop/quit (copy via drag or /copy).
 - Clipboard prefers wl-copy/xclip over OSC 52 (Wayland-friendly). Inline
   #hex color chips in transcript/forms/status. Right-click a tab to close it.
 - parse_cli_late no longer treats recognized flags as unknown (broke make install completions).
