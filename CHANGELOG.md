@@ -17,6 +17,7 @@ Notable changes for nullray.
 - show_view width/height, per-form fg/bg/accent colors, emoji toggle; set_tui
   for session or global TUI recolor; `/tui` slash; NULLRAY_UI_MALLEABLE,
   NULLRAY_UI_LOCK, NULLRAY_UI_RESET gates.
+- Tiny/local prompt tier now exposes show_view, set_tui, ask_*, and fetch_url/rss so local models can see malleable UI.
 - Provider set trimmed to locals (ollama, lmstudio, llamacpp), openai-compat,
   openrouter, opencode, opencode-go, and fireworks. Dropped first-class
   openai, anthropic, gemini, azure, and other cloud vendor aliases.

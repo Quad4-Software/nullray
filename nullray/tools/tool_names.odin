@@ -21,7 +21,11 @@ tiny_core_tool :: proc(name: string) -> bool {
 	switch name {
 	case "read_file", "write_file", "edit_file", "apply_edits", "list_dir",
 		"grep_files", "glob_files", "run_shell", "compact_context", "search_tools",
-		"read_artifact", "grep_artifact":
+		"read_artifact", "grep_artifact",
+		// Interactive TUI forms and theme control must stay visible on local
+		// Tiny tier or models cannot discover show_view / set_tui at all.
+		"ask_question", "ask_secret", "show_view", "set_tui",
+		"fetch_url", "fetch_rss":
 		return true
 	}
 	return false

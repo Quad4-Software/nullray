@@ -111,6 +111,28 @@ test_openai_tools_json_lean_and_subagent_omit :: proc(t: ^testing.T) {
 }
 
 @(test)
+test_openai_tools_json_tiny_exposes_malleable_ui :: proc(t: ^testing.T) {
+	// Local models default to Tiny. show_view/set_tui must still appear or
+	// the model cannot discover malleable UI at all.
+	reg: Registry
+	registry_init(&reg)
+	defer registry_destroy(&reg)
+
+	tiny := openai_tools_json(&reg, "edit", .Tiny, context.allocator, nil, "llamacpp", "qwen")
+	defer delete(tiny)
+	testing.expect(t, strings.contains(tiny, `"show_view"`))
+	testing.expect(t, strings.contains(tiny, `"set_tui"`))
+	testing.expect(t, strings.contains(tiny, `"ask_question"`))
+	testing.expect(t, strings.contains(tiny, `"fetch_url"`))
+	testing.expect(t, strings.contains(tiny, `"fetch_rss"`))
+
+	lean := openai_tools_json(&reg, "edit", .Lean, context.allocator)
+	defer delete(lean)
+	testing.expect(t, strings.contains(lean, `"show_view"`))
+	testing.expect(t, strings.contains(lean, `"set_tui"`))
+}
+
+@(test)
 test_read_artifact_default_limit :: proc(t: ^testing.T) {
 	ws := "/tmp/nullray-read-artifact-ws"
 	_ = os.remove_all(ws)
