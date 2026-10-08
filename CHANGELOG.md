@@ -4,7 +4,14 @@ Notable changes for nullray.
 
 ## [Unreleased]
 
+## [0.8.0] - 2026-10-08
+
 ### Added
+- fetch_rss tool for RSS 2.0 and Atom feeds: title, link, date, and snippet digests with soft-redirect following. Prefer it over curl, then fetch_url individual item links.
+- Responsive TUI chrome: layout adapts to narrow, short, tall, and wide terminals with a compact brand mark, capped input rows, and geometry that keeps title, status, and transcript from colliding.
+- Static per-letter brand gradient in the title bar, plus the short git commit next to the version when width allows (also on --version).
+- Live subagent activity strip under the tab row while children run or block: spinner, live/blocked counts, role@model samples, and a /agents hint.
+- Richer tab and session commands: /close [tab|view|NAME|N], /delete [NAME|tab|current] (bare deletes the current session), /rm alias, and slash completions for open tabs and saved session names.
 - Anthropic tool results now set is_error so the model can self-correct failed calls.
 - Constrained tool decoding: NULLRAY_CONSTRAINED_TOOLS emits a GBNF grammar or JSON-schema tool-call envelope on llama.cpp, Ollama, LM Studio, and compatible endpoints, with strict, shape, and late modes (NULLRAY_CONSTRAINED_MODE) so weak models reason freely and only the packaging step is constrained. Rejected constraints latch off and retry clean.
 - Per-model tool-name adaptation: model_profiles.json tool_names aliases canonical tools to the spelling a model prefers, and --probe-tools provider/model samples the model to write the winners automatically.
@@ -38,6 +45,16 @@ Notable changes for nullray.
 ### Changed
 - Install clones the git repo and builds on Linux, macOS, and Windows instead of downloading a release archive.
 - The checkout lives under ~/.local/src/nullray by default so you can pull and rebuild.
+- fetch_url follows HTML soft redirects (meta refresh and location.replace), returns title and plain text with links as text (url), and is preferred over curl/wget for public pages.
+- Loop guard defaults leave more room for multi-file scaffolds: looser fuzzy and stagnation thresholds, longer warn/steer/stop ladder, path-bearing write and edit acks, and fuzzy skipped for pure mutator call sets.
+- OpenCode chat completions use Bearer auth; the Anthropic Messages path for OpenCode uses x-api-key only so the two styles are never mixed on one request.
+- CLI late flags such as --completions now return handled so install and man generation work.
+
+### Fixed
+- parse_cli_late no longer treats recognized flags as unknown (broke make install completions).
+- Soft-redirect cycles and loopback hop targets are stopped cleanly; apply_edits envelope paths stay distinct for anti-loop signals.
+- Help button hit target is the leading glyph only, not the whole version label.
+- Multi-line input no longer crushes status and transcript chrome on short terminals.
 
 ### Removed
 - GitHub release archives for Linux, macOS, and Windows.

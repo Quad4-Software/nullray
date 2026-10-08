@@ -6,7 +6,7 @@ Shared names paths timeouts defaults and size limits.
 package constants
 
 APP_NAME :: "nullray"
-VERSION :: "0.7.0"
+VERSION :: "0.8.0"
 BUILD_DATE :: #config(NULLRAY_BUILD_DATE, "unknown")
 BUILD_TIME :: #config(NULLRAY_BUILD_TIME, "unknown")
 // Short git SHA baked at make time. Empty when unset or not a git tree.

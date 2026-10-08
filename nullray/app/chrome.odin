@@ -229,7 +229,7 @@ app_chrome_ver_label :: proc(c: Chrome) -> string {
 		// Keep the narrow label short: version only.
 		return fmt.tprintf("? %s", constants.VERSION)
 	}
-	// Prefer "?  0.7.0 fa198d1" when there is room; fall back to version alone
+	// Prefer "?  VERSION commit" when there is room; fall back to version alone
 	// if the commit define is empty (dev builds without make).
 	if len(commit) > 0 && c.width >= 56 {
 		return fmt.tprintf("?  %s %s", constants.VERSION, commit)
