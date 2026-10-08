@@ -14,6 +14,7 @@ test_env_keep_allowlist :: proc(t: ^testing.T) {
 		"TERM",
 		"COLORTERM",
 		"OPENROUTER_API_KEY",
+		"OPENCODE_API_KEY",
 		"OLLAMA_HOST",
 		"LM_API_KEY",
 		"LM_STUDIO_HOST",
@@ -79,11 +80,13 @@ test_env_scrub_unsets_cloud_keys :: proc(t: ^testing.T) {
 		saved_had[i], saved_prev[i] = test_env_set(probe[i], "secret-value")
 	}
 	keep_had, keep_prev := test_env_set("OPENROUTER_API_KEY", "or-keep")
+	oc_had, oc_prev := test_env_set("OPENCODE_API_KEY", "oc-keep")
 	defer {
 		for i in 0 ..< len(probe) {
 			test_env_restore(probe[i], saved_had[i], saved_prev[i])
 		}
 		test_env_restore("OPENROUTER_API_KEY", keep_had, keep_prev)
+		test_env_restore("OPENCODE_API_KEY", oc_had, oc_prev)
 	}
 
 	env_scrub()
@@ -95,4 +98,7 @@ test_env_scrub_unsets_cloud_keys :: proc(t: ^testing.T) {
 	v, ok := os.lookup_env("OPENROUTER_API_KEY", context.temp_allocator)
 	testing.expect(t, ok)
 	testing.expect_value(t, v, "or-keep")
+	ov, ook := os.lookup_env("OPENCODE_API_KEY", context.temp_allocator)
+	testing.expect(t, ook)
+	testing.expect_value(t, ov, "oc-keep")
 }

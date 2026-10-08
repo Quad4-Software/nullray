@@ -53,6 +53,7 @@ App :: struct {
 	binds:          config.Binds,
 	keys_preset:    config.Key_Preset,
 	help_btn_x:     int,
+	help_btn_w:     int,
 	improve_undo:   string,
 	improving:      bool,
 	improve_gen:    u64,

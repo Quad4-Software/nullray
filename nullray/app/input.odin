@@ -142,7 +142,7 @@ app_on_event :: proc(ev: ui.Event, user: rawptr) -> bool {
 		return false
 	}
 
-	if ev.kind == .Mouse_Press && ev.my == 0 && ev.mx >= a.help_btn_x {
+	if ev.kind == .Mouse_Press && app_help_btn_hit(a, ev.mx, ev.my) {
 		app_toggle_help(a)
 		return false
 	}

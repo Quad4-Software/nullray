@@ -18,7 +18,7 @@ app_handle_help_status_event :: proc(a: ^App, ev: ui.Event) -> (quit: bool, hand
 			app_toggle_help(a)
 			return false, true
 		}
-		if ev.kind == .Mouse_Press && ev.my == 0 && ev.mx >= a.help_btn_x {
+		if ev.kind == .Mouse_Press && app_help_btn_hit(a, ev.mx, ev.my) {
 			app_toggle_help(a)
 			return false, true
 		}

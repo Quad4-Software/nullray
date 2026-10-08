@@ -235,3 +235,18 @@ app_draw_title_brand :: proc(buf: ^ui.Buffer, c: Chrome, t: ui.Theme) -> int {
 	used := ui.draw_brand_text(buf, x, c.title_y, brand, t.status_bg, {.Bold}, t.title)
 	return x + used + 1
 }
+
+// True when (mx, my) lands on the leading help glyph of the title bar.
+app_help_btn_hit :: proc(a: ^App, mx, my: int) -> bool {
+	if a == nil || a.help_btn_x < 0 {
+		return false
+	}
+	w := a.help_btn_w
+	if w <= 0 {
+		w = 1
+	}
+	if my != 0 {
+		return false
+	}
+	return mx >= a.help_btn_x && mx < a.help_btn_x + w
+}

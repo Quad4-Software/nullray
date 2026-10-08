@@ -151,6 +151,20 @@ test_view_layout_follows_chrome :: proc(t: ^testing.T) {
 }
 
 @(test)
+test_help_btn_hit_only_glyph :: proc(t: ^testing.T) {
+	a, loop := test_app_minimal()
+	_ = loop
+	defer test_app_destroy_minimal(&a)
+	a.help_btn_x = 70
+	a.help_btn_w = 1
+	testing.expect(t, app_help_btn_hit(&a, 70, 0))
+	testing.expect(t, !app_help_btn_hit(&a, 71, 0))
+	testing.expect(t, !app_help_btn_hit(&a, 69, 0))
+	testing.expect(t, !app_help_btn_hit(&a, 70, 1))
+	testing.expect(t, !app_help_btn_hit(&a, 70, -1))
+}
+
+@(test)
 test_chrome_counts_compact :: proc(t: ^testing.T) {
 	a, loop := test_app_minimal()
 	_ = loop

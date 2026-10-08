@@ -37,7 +37,9 @@ app_draw :: proc(buf: ^ui.Buffer, user: rawptr) {
 
 	ver := app_chrome_ver_label(c)
 	mid_x := app_draw_title_brand(buf, c, t)
+	// Help hit is the leading '?' glyph only, not the full version label.
 	a.help_btn_x = max(1, buf.width - ui.string_cols(ver) - 1)
+	a.help_btn_w = 1
 	ui.buffer_text_clip(buf, a.help_btn_x, c.title_y, buf.width, ver, t.accent, t.status_bg, {.Bold})
 
 	mode_chip := agent.mode_string(a.session.agent_mode)

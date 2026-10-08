@@ -45,6 +45,19 @@ test_untrusted_neutralizes_opening_delimiter :: proc(t: ^testing.T) {
 }
 
 @(test)
+test_format_tool_envelope_write_path :: proc(t: ^testing.T) {
+	// Distinct write paths must stay distinct after envelope framing so the
+	// loop detector can tell multi-file scaffolds apart.
+	a := format_tool_envelope("ok", "bot/main.py", 0, "", "ok wrote bot/main.py (120 bytes)", 1)
+	b := format_tool_envelope("ok", "bot/cogs/status_cog.py", 0, "", "ok wrote bot/cogs/status_cog.py (80 bytes)", 1)
+	defer delete(a)
+	defer delete(b)
+	testing.expect(t, a != b)
+	testing.expect(t, strings.contains(a, "path=bot/main.py"))
+	testing.expect(t, strings.contains(b, "path=bot/cogs/status_cog.py"))
+}
+
+@(test)
 test_format_tool_envelope :: proc(t: ^testing.T) {
 	s := format_tool_envelope("ok", "make test", 0, "a1", "pass", 3)
 	defer delete(s)
