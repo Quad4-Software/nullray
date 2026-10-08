@@ -6,6 +6,7 @@ App shell: lifecycle, provider status, dirty flag, tick.
 package app
 
 import "core:fmt"
+import "core:os"
 import "core:strings"
 import "core:sync"
 import "core:thread"
@@ -191,6 +192,27 @@ app_init :: proc(a: ^App, loop: ^ui.Loop) {
 	strings.builder_init(&a.input)
 	a.spinner = ui.spinner_init()
 	a.agent_spinner = ui.spinner_init()
+	// Wire set_tui so live loop theme refreshes when the agent recolors the UI.
+	tools.register_tui_apply(app_tui_apply, a)
+	// Load saved custom theme unless reset requested.
+	if v, ok := os.lookup_env(constants.ENV_UI_RESET, context.temp_allocator); ok {
+		switch strings.to_lower(strings.trim_space(v), context.temp_allocator) {
+		case "1", "true", "on", "yes", "reset":
+			_ = ui.theme_clear_custom()
+		case:
+			if t, tok := ui.theme_load_custom(); tok {
+				ui.theme_set(t)
+				if a.loop != nil {
+					a.loop.theme = t
+				}
+			}
+		}
+	} else if t, tok := ui.theme_load_custom(); tok {
+		ui.theme_set(t)
+		if a.loop != nil {
+			a.loop.theme = t
+		}
+	}
 	a.dirty = true
 	a.follow = true
 	a.splash_on = splash_enabled_from_env()

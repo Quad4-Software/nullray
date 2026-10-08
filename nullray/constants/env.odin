@@ -41,6 +41,12 @@ ENV_NVIDIA_KEY :: "NVIDIA_API_KEY"
 ENV_DASHSCOPE_KEY :: "DASHSCOPE_API_KEY"
 ENV_COLOR :: "NULLRAY_COLOR"
 ENV_THEME :: "NULLRAY_THEME"
+// Malleable UI: agent-driven show_view / set_tui. 0|off disables those tools.
+ENV_UI_MALLEABLE :: "NULLRAY_UI_MALLEABLE"
+// When 1|on, set_tui cannot write global theme files (session-only only).
+ENV_UI_LOCK :: "NULLRAY_UI_LOCK"
+// set_tui reset or /tui reset restores stock theme.
+ENV_UI_RESET :: "NULLRAY_UI_RESET"
 ENV_SANDBOX :: "NULLRAY_SANDBOX"
 ENV_SANDBOX_NET :: "NULLRAY_SANDBOX_NET"
 ENV_SANDBOX_FS :: "NULLRAY_SANDBOX_FS"

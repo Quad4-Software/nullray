@@ -64,6 +64,9 @@ process only, so nothing silently persists a borrowed credential.
 | `NULLRAY_ALT_SCREEN` | Alternate screen buffer |
 | `NULLRAY_MOUSE` | Mouse input |
 | `NULLRAY_KITTY_GRAPHICS` | Force Kitty image graphics on/off (auto detects kitty/ghostty/wezterm) |
+| `NULLRAY_UI_MALLEABLE` | 0 disables show_view and set_tui agent tools |
+| `NULLRAY_UI_LOCK` | 1 blocks set_tui global (session scope still allowed) |
+| `NULLRAY_UI_RESET` | 1 clears saved custom theme on startup |
 | `NULLRAY_VIEW_AUTO` | Auto-open view pane on writes |
 | `NULLRAY_NOTIFY` | auto, desktop, osc, bell, off |
 | `NULLRAY_BARE` | Skip home MCP and non-workspace skills |

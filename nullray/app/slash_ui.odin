@@ -94,6 +94,59 @@ slash_cmd_theme :: proc(a: ^App, args: string) {
 	app_mark_dirty(a)
 }
 
+slash_cmd_tui :: proc(a: ^App, args: string) {
+	rest := strings.trim_space(args)
+	low := strings.to_lower(rest, context.temp_allocator)
+	if len(rest) == 0 || low == "get" || low == "status" {
+		mal := tools.ui_malleable_enabled()
+		lock := tools.ui_global_locked()
+		session.session_set_status(
+			a.session,
+			fmt.tprintf(
+				"tui theme=%s malleable=%v lock=%v · /tui reset|lock|unlock|THEME",
+				ui.theme().name,
+				mal,
+				lock,
+			),
+		)
+		return
+	}
+	switch low {
+	case "reset", "default", "clear":
+		_ = ui.theme_clear_custom()
+		base := "ink"
+		if v, ok := os.lookup_env(constants.ENV_THEME, context.temp_allocator); ok && len(v) > 0 {
+			base = v
+		}
+		t := ui.theme_by_name(base)
+		ui.theme_set(t)
+		if a.loop != nil {
+			a.loop.theme = t
+			ui.loop_request_full_redraw(a.loop)
+		}
+		session.session_set_status(a.session, "tui reset")
+		app_mark_dirty(a)
+	case "lock":
+		os.set_env(constants.ENV_UI_LOCK, "1")
+		session.session_set_status(a.session, "tui global lock on")
+	case "unlock":
+		os.unset_env(constants.ENV_UI_LOCK)
+		session.session_set_status(a.session, "tui global lock off")
+	case "off", "disable":
+		os.set_env(constants.ENV_UI_MALLEABLE, "0")
+		session.session_set_status(a.session, "tui malleable off (show_view/set_tui disabled)")
+	case "on", "enable":
+		os.unset_env(constants.ENV_UI_MALLEABLE)
+		session.session_set_status(a.session, "tui malleable on")
+	case:
+		if ui.theme_exists(rest) {
+			slash_cmd_theme(a, rest)
+			return
+		}
+		session.session_set_status(a.session, "usage: /tui get|reset|lock|unlock|on|off|THEME")
+	}
+}
+
 slash_cmd_copy :: proc(a: ^App, args: string) {
 	_ = args
 	if a.sel_has {

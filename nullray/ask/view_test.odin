@@ -179,6 +179,38 @@ test_view_default_actions_when_missing :: proc(t: ^testing.T) {
 }
 
 @(test)
+test_view_modal_size_and_colors :: proc(t: ^testing.T) {
+	raw := `{
+  "title": "Big",
+  "width": 100,
+  "height": 40,
+  "fg": "#eeeeee",
+  "bg": "#111111",
+  "accent": "cyan",
+  "emoji": true,
+  "body": "hello"
+}`
+	def, err := view_parse(raw, context.allocator)
+	testing.expect_value(t, err, "")
+	defer view_def_destroy(&def)
+	testing.expect_value(t, def.width, 100)
+	testing.expect_value(t, def.height, 40)
+	testing.expect_value(t, def.fg, "#eeeeee")
+	testing.expect_value(t, def.accent, "cyan")
+	testing.expect(t, def.emoji)
+}
+
+@(test)
+test_view_width_clamp :: proc(t: ^testing.T) {
+	raw := `{"title":"X","width":9999,"height":-3}`
+	def, err := view_parse(raw, context.allocator)
+	testing.expect_value(t, err, "")
+	defer view_def_destroy(&def)
+	testing.expect_value(t, def.width, 200)
+	testing.expect_value(t, def.height, 0)
+}
+
+@(test)
 test_view_panel_placement_and_script_action :: proc(t: ^testing.T) {
 	raw := `{
   "title": "Dash",

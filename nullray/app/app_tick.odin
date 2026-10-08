@@ -13,6 +13,21 @@ import "nullray:sandbox"
 import "nullray:session"
 import "nullray:store"
 import "nullray:subagent"
+import "nullray:ui"
+
+app_tui_apply :: proc(theme: ui.Theme, persistent: bool, user: rawptr) {
+	a := cast(^App)user
+	_ = persistent
+	if a == nil {
+		return
+	}
+	ui.theme_set(theme)
+	if a.loop != nil {
+		a.loop.theme = theme
+		ui.loop_request_full_redraw(a.loop)
+	}
+	app_mark_dirty(a)
+}
 
 app_mark_dirty :: proc(a: ^App) {
 	a.dirty = true

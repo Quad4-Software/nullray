@@ -52,6 +52,7 @@ SLASH_COMMANDS := []Slash_Command{
 	{"group", "/group NAME|none", "shared context group", slash_cmd_group},
 	{"theme", "/theme NAME", "switch color theme", slash_cmd_theme},
 	{"themes", "/themes", "list built-in themes", slash_cmd_themes},
+	{"tui", "/tui [get|reset|lock|unlock|NAME]", "malleable TUI theme (session/global)", slash_cmd_tui},
 	{"skills", "/skills [ID]", "list skills or show one by id", slash_cmd_skills},
 	{"skill", "/skill [ID]", "alias for /skills", slash_cmd_skills},
 	{"keys", "/keys", "show key bindings", slash_cmd_keys},

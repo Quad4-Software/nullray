@@ -93,6 +93,17 @@ View_Def :: struct {
 	actions:   [dynamic]View_Action,
 	placement: View_Placement,
 	image:     string, // optional banner image path for the whole view
+	// Modal geometry (0 = auto). Agent can size the box.
+	width:     int,
+	height:    int,
+	// Optional per-view colors (hex/name). Empty = inherit TUI theme.
+	fg:        string,
+	bg:        string,
+	accent:    string,
+	border:    string,
+	// When true, body/labels may contain emoji; default true.
+	emoji:     bool,
+	style:     string, // "plain"|"ansi"|"rich" (hint only; always truecolor when available)
 }
 
 view_field_destroy :: proc(f: ^View_Field) {
@@ -120,6 +131,11 @@ view_def_destroy :: proc(v: ^View_Def) {
 	delete(v.title)
 	delete(v.body)
 	delete(v.image)
+	delete(v.fg)
+	delete(v.bg)
+	delete(v.accent)
+	delete(v.border)
+	delete(v.style)
 	for &f in v.fields {
 		view_field_destroy(&f)
 	}
@@ -255,6 +271,38 @@ view_parse :: proc(raw: string, allocator := context.allocator) -> (def: View_De
 		img = json_string_field(obj, "banner")
 	}
 	def.image = view_clip(img, VIEW_MAX_IMAGE_PATH, allocator)
+	def.emoji = true
+	if _, has := obj["emoji"]; has {
+		def.emoji = json_bool_field(obj, "emoji")
+	}
+	def.fg = view_clip(json_string_field(obj, "fg"), 32, allocator)
+	def.bg = view_clip(json_string_field(obj, "bg"), 32, allocator)
+	def.accent = view_clip(json_string_field(obj, "accent"), 32, allocator)
+	def.border = view_clip(json_string_field(obj, "border"), 32, allocator)
+	def.style = view_clip(json_string_field(obj, "style"), 16, allocator)
+	if wv, has := obj["width"]; has {
+		if n, nok := json_number_value(wv); nok {
+			def.width = int(n)
+		}
+	}
+	if hv, has := obj["height"]; has {
+		if n, nok := json_number_value(hv); nok {
+			def.height = int(n)
+		}
+	}
+	// Clamp geometry into safe bounds (absolute max, actual draw clamps to term).
+	if def.width < 0 {
+		def.width = 0
+	}
+	if def.width > 200 {
+		def.width = 200
+	}
+	if def.height < 0 {
+		def.height = 0
+	}
+	if def.height > 80 {
+		def.height = 80
+	}
 	def.fields = make([dynamic]View_Field, 0, 8, allocator)
 	def.actions = make([dynamic]View_Action, 0, 4, allocator)
 
@@ -702,6 +750,14 @@ view_def_clone :: proc(src: View_Def, allocator := context.allocator) -> View_De
 	out.body = strings.clone(src.body, allocator)
 	out.image = strings.clone(src.image, allocator)
 	out.placement = src.placement
+	out.width = src.width
+	out.height = src.height
+	out.fg = strings.clone(src.fg, allocator)
+	out.bg = strings.clone(src.bg, allocator)
+	out.accent = strings.clone(src.accent, allocator)
+	out.border = strings.clone(src.border, allocator)
+	out.emoji = src.emoji
+	out.style = strings.clone(src.style, allocator)
 	out.fields = make([dynamic]View_Field, 0, len(src.fields), allocator)
 	for f in src.fields {
 		nf: View_Field

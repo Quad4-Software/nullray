@@ -24,6 +24,20 @@ app_view_form_clear :: proc(a: ^App) {
 	a.view_form_active = false
 }
 
+// Drop non-ASCII when the form disables emoji (keeps latin and common ASCII).
+view_strip_non_ascii :: proc(s: string, allocator := context.temp_allocator) -> string {
+	b: strings.Builder
+	strings.builder_init(&b, allocator)
+	for r in s {
+		if r <= 0x7f {
+			strings.write_rune(&b, r)
+		} else {
+			strings.write_byte(&b, '?')
+		}
+	}
+	return strings.to_string(b)
+}
+
 app_ask_clear_full :: proc(a: ^App) {
 	app_ask_clear(a)
 	app_view_form_clear(a)
@@ -428,19 +442,56 @@ app_draw_view_form_modal :: proc(buf: ^ui.Buffer, a: ^App) {
 		return
 	}
 	t := ui.theme()
-	w := min(78, buf.width - 2)
+	// Per-view color overrides (agent-styled modal).
+	box_fg := t.fg
+	box_bg := t.bg
+	box_accent := t.accent
+	box_border := t.border
+	if c, ok := ui.color_parse(a.view_form.fg); ok {
+		box_fg = c
+	}
+	if c, ok := ui.color_parse(a.view_form.bg); ok {
+		box_bg = c
+	}
+	if c, ok := ui.color_parse(a.view_form.accent); ok {
+		box_accent = c
+	}
+	if c, ok := ui.color_parse(a.view_form.border); ok {
+		box_border = c
+	}
+	// Agent-requested size, clamped to the terminal with a usable minimum.
+	want_w := a.view_form.width
+	want_h := a.view_form.height
+	if want_w <= 0 {
+		want_w = 78
+	}
+	if want_h <= 0 {
+		want_h = max(10, buf.height / 2)
+	}
+	w := min(want_w, buf.width - 2)
 	if w < 20 {
 		w = max(10, buf.width - 2)
 	}
 	inner_w := max(1, w - 4)
-	h := min(buf.height - 1, max(10, buf.height - 2))
+	h := min(want_h, buf.height - 1)
+	if h < 8 {
+		h = min(8, buf.height)
+	}
+	if h > buf.height {
+		h = buf.height
+	}
 	x := max(0, (buf.width - w) / 2)
 	y := max(0, (buf.height - h) / 2)
 	title := a.view_form.title
 	if len(title) == 0 {
 		title = "View"
 	}
-	ui.draw_box(buf, x, y, w, h, t.accent, t.bg, title)
+	if !a.view_form.emoji {
+		title = view_strip_non_ascii(title, context.temp_allocator)
+	}
+	ui.draw_box(buf, x, y, w, h, box_accent, box_bg, title)
+	_ = box_border
+	_ = box_fg
 
 	// Build display rows: body lines, fields, actions, error, hint.
 	content_top := y + 1
@@ -449,13 +500,18 @@ app_draw_view_form_modal :: proc(buf: ^ui.Buffer, a: ^App) {
 
 	// Body
 	if len(a.view_form.body) > 0 {
-		lines := ui.word_wrap_lines(a.view_form.body, inner_w, context.temp_allocator)
-		max_body := min(len(lines), 6)
+		body := a.view_form.body
+		if !a.view_form.emoji {
+			body = view_strip_non_ascii(body, context.temp_allocator)
+		}
+		lines := ui.word_wrap_lines(body, inner_w, context.temp_allocator)
+		// Scale body lines with modal height.
+		max_body := min(len(lines), max(3, h / 4))
 		for i in 0 ..< max_body {
 			if row >= content_bot {
 				break
 			}
-			ui.buffer_text_clip(buf, x + 2, row, x + w - 2, lines[i], t.fg, t.bg)
+			ui.buffer_text_clip(buf, x + 2, row, x + w - 2, lines[i], box_fg, box_bg)
 			row += 1
 		}
 		if row < content_bot {
@@ -544,7 +600,10 @@ app_draw_view_form_modal :: proc(buf: ^ui.Buffer, a: ^App) {
 		case .Label, .Markdown, .Separator:
 			line = fmt.tprintf("%s%s", mark, label)
 		}
-		ui.buffer_text_clip(buf, x + 2, row, x + w - 2, line, fg, t.bg)
+		if !a.view_form.emoji {
+			line = view_strip_non_ascii(line, context.temp_allocator)
+		}
+		ui.buffer_text_clip(buf, x + 2, row, x + w - 2, line, fg, box_bg)
 		row += 1
 		// count focusable
 		focus_idx += 1
@@ -563,25 +622,29 @@ app_draw_view_form_modal :: proc(buf: ^ui.Buffer, a: ^App) {
 			if ai > 0 {
 				strings.write_string(&ab, "  ")
 			}
+			lab := act.label
+			if !a.view_form.emoji {
+				lab = view_strip_non_ascii(lab, context.temp_allocator)
+			}
 			if hot {
 				strings.write_string(&ab, "[")
-				strings.write_string(&ab, act.label)
+				strings.write_string(&ab, lab)
 				strings.write_string(&ab, "]")
 			} else {
 				strings.write_string(&ab, " ")
-				strings.write_string(&ab, act.label)
+				strings.write_string(&ab, lab)
 				strings.write_string(&ab, " ")
 			}
 		}
-		ui.buffer_text_clip(buf, x + 2, row, x + w - 2, strings.to_string(ab), t.accent, t.bg)
+		ui.buffer_text_clip(buf, x + 2, row, x + w - 2, strings.to_string(ab), box_accent, box_bg)
 		row += 1
 	}
 
 	// Error
 	if len(a.view_form_err) > 0 && row < content_bot {
-		ui.buffer_text_clip(buf, x + 2, row, x + w - 2, a.view_form_err, t.error, t.bg)
+		ui.buffer_text_clip(buf, x + 2, row, x + w - 2, a.view_form_err, t.error, box_bg)
 	}
 
 	hint := "Tab fields · Enter submit · Space check · Esc cancel"
-	ui.buffer_text_clip(buf, x + 2, y + h - 2, x + w - 2, hint, t.muted, t.bg)
+	ui.buffer_text_clip(buf, x + 2, y + h - 2, x + w - 2, hint, t.muted, box_bg)
 }

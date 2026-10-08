@@ -14,6 +14,9 @@ Notable changes for nullray.
   image fields; placement=modal|panel; script actions; JSON `{action, values}`.
 - Kitty graphics protocol image rendering in the side pane, image paste from
   clipboard (wl-paste/xclip), and `/attach` opens images in the pane.
+- show_view width/height, per-form fg/bg/accent colors, emoji toggle; set_tui
+  for session or global TUI recolor; `/tui` slash; NULLRAY_UI_MALLEABLE,
+  NULLRAY_UI_LOCK, NULLRAY_UI_RESET gates.
 
 ## [0.8.0] - 2026-10-08
 

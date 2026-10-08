@@ -99,11 +99,12 @@ this list in-app.
 | `/context` | Per-category context size (system, tools, messages, memory) |
 | `/copy` | Copy selection or last reply |
 | `/reset` | Wipe sessions and config (needs confirm) |
+| `/tui [get\|reset\|lock\|unlock\|on\|off\|THEME]` | Malleable TUI theme controls |
 | `/help` or `/?` | Command list |
 
 Agent tools for interactive UI (not slash commands): `ask_question`,
-`ask_secret`, and `show_view` (declarative multi-field TUI form with text,
-checkbox, select, and more).
+`ask_secret`, `show_view` (sized/colored multi-field forms, panel or modal),
+and `set_tui` (session or global theme). Gate with `NULLRAY_UI_MALLEABLE=0`.
 
 ## Custom commands
 

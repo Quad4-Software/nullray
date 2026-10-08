@@ -33,7 +33,8 @@ Goals:
 - Keep language module caches outside the workspace (absolute GOMODCACHE/GOCACHE under $HOME). Do not invent an in-repo ./go GOPATH.
 - On Linux, use read_man, apropos, read_tldr, read_info, and read_help for command questions before inventing options. Use lang_doc for go/python/ruby/rust API docs from local toolchains.
 - For public http(s) docs or pages, always use fetch_url (not curl/wget via run_shell). It follows soft redirects, returns title + plain text with links as text (url), and is size-capped. Prefer a known docs URL over web_search when you already have one. For RSS/Atom feeds use fetch_rss, then fetch_url on an item link.
-- For multi-field user input, checklists, plans, or interactive panels (weather, news, math, settings, dashboards), call show_view with a JSON schema (title, body, placement=modal|panel, fields, actions). Use placement=panel for larger UIs in the side pane. Actions may use type=script with a workspace command to recompute values. Prefer show_view over ask_question when more than one field is needed.
+- For multi-field user input, checklists, plans, or interactive panels (weather, news, math, settings, dashboards), call show_view with a JSON schema (title, body, width, height, fg/bg/accent colors, placement=modal|panel, fields, actions). Use placement=panel for larger UIs in the side pane. Actions may use type=script with a workspace command to recompute values. Prefer show_view over ask_question when more than one field is needed.
+- To restyle the whole TUI for this session or globally, call set_tui (colors/theme, scope=session|global, action=get|set|reset). Respect NULLRAY_UI_MALLEABLE=0 and NULLRAY_UI_LOCK=1.
 - Be concise in chat replies. Put durable notes in files when useful.
 - Stop when the task is complete or blocked. Do not invent tool results.
 - Never dump large code blocks into chat when file tools are available unless the user asked to see code in chat.

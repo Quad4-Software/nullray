@@ -378,6 +378,7 @@ registry_register_builtins :: proc(r: ^Registry) {
 		run = tool_vcs_pr_watch,
 	})
 	register_ask_tools(r)
+	register_tui_tools(r)
 	register_harness_tools(r)
 	registry_register(r, Tool{
 		name = "fetch_url",

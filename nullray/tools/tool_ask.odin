@@ -31,14 +31,17 @@ register_ask_tools :: proc(r: ^Registry) {
 	})
 	registry_register(r, Tool{
 		name = "show_view",
-		description = "Show a custom interactive TUI form you design. schema JSON: title, body, placement (modal|panel), image (banner path), fields (text|textarea|number|checkbox|select|radio|password|label|markdown|separator|image), actions (submit|cancel|secondary|script with script/command). Panel opens in the side code pane for larger UIs. Script actions run a workspace command and can refresh the form. Returns JSON {action, values}. Prefer over ask_question for multi-field UI, checklists, plans, weather/news/math, or dashboards.",
-		schema_json = `{"type":"object","properties":{"schema":{"type":"string","description":"JSON object: title, body, placement, image, fields[{id,type,label,required,options,default,min,max,placeholder,src,cols,rows}], actions[{id,label,type,script}]"},"title":{"type":"string"},"body":{"type":"string"},"placement":{"type":"string","description":"modal (default) or panel"},"image":{"type":"string","description":"optional banner image path"},"fields":{"type":"array","items":{"type":"object"}},"timeout_sec":{"type":"string"}},"required":[]}`,
+		description = "Show a custom interactive TUI form. schema: title, body, width, height, fg/bg/accent/border colors (#hex or names), emoji bool, placement modal|panel, image, fields, actions (submit|cancel|secondary|script). Panel docks in the side pane. Returns JSON {action,values}. Disabled when NULLRAY_UI_MALLEABLE=0.",
+		schema_json = `{"type":"object","properties":{"schema":{"type":"string"},"title":{"type":"string"},"body":{"type":"string"},"width":{"type":"string"},"height":{"type":"string"},"fg":{"type":"string"},"bg":{"type":"string"},"accent":{"type":"string"},"placement":{"type":"string"},"image":{"type":"string"},"emoji":{"type":"string"},"fields":{"type":"array","items":{"type":"object"}},"timeout_sec":{"type":"string"}},"required":[]}`,
 		kind = .Read,
 		run = tool_show_view,
 	})
 }
 
 tool_show_view :: proc(args_json: string, allocator := context.allocator) -> (result: string, err: string) {
+	if !ui_malleable_enabled() {
+		return "", strings.clone("show_view disabled (NULLRAY_UI_MALLEABLE=0)", allocator)
+	}
 	// Prefer a full schema string; otherwise build one from title/body/fields.
 	schema_s, _ := json_arg_string_optional(args_json, "schema", "", allocator)
 	defer delete(schema_s)
@@ -50,6 +53,11 @@ tool_show_view :: proc(args_json: string, allocator := context.allocator) -> (re
 		body, _ := json_arg_string_optional(args_json, "body", "", context.temp_allocator)
 		placement, _ := json_arg_string_optional(args_json, "placement", "", context.temp_allocator)
 		image, _ := json_arg_string_optional(args_json, "image", "", context.temp_allocator)
+		fg, _ := json_arg_string_optional(args_json, "fg", "", context.temp_allocator)
+		bg, _ := json_arg_string_optional(args_json, "bg", "", context.temp_allocator)
+		accent, _ := json_arg_string_optional(args_json, "accent", "", context.temp_allocator)
+		width, _ := json_arg_string_optional(args_json, "width", "", context.temp_allocator)
+		height, _ := json_arg_string_optional(args_json, "height", "", context.temp_allocator)
 		fields_raw := ""
 		if fr, ferr := json_arg_raw_object_slice(args_json, "fields"); ferr == "" {
 			fields_raw = fr
@@ -71,6 +79,26 @@ tool_show_view :: proc(args_json: string, allocator := context.allocator) -> (re
 		if len(image) > 0 {
 			strings.write_string(&b, `,"image":`)
 			write_json_string_tool(&b, image)
+		}
+		if len(fg) > 0 {
+			strings.write_string(&b, `,"fg":`)
+			write_json_string_tool(&b, fg)
+		}
+		if len(bg) > 0 {
+			strings.write_string(&b, `,"bg":`)
+			write_json_string_tool(&b, bg)
+		}
+		if len(accent) > 0 {
+			strings.write_string(&b, `,"accent":`)
+			write_json_string_tool(&b, accent)
+		}
+		if len(width) > 0 {
+			strings.write_string(&b, `,"width":`)
+			strings.write_string(&b, width)
+		}
+		if len(height) > 0 {
+			strings.write_string(&b, `,"height":`)
+			strings.write_string(&b, height)
 		}
 		if len(fields_raw) > 0 {
 			strings.write_string(&b, `,"fields":`)
