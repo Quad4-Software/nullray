@@ -11,6 +11,7 @@ import "core:fmt"
 import "core:os"
 import "core:strings"
 import "nullray:ask"
+import "nullray:store"
 
 ASK_UNAVAILABLE :: "interactive prompt unavailable (no UI channel); proceed with reasonable assumptions and state them"
 
@@ -129,6 +130,27 @@ tool_show_view :: proc(args_json: string, allocator := context.allocator) -> (re
 	if len(prompt) == 0 {
 		prompt = "View"
 	}
+	// Auto-persist panel canvases when persist=true or canvas_id is set.
+	saved_canvas_id := ""
+	if def.placement == .Panel {
+		cid, _ := json_arg_string_optional(args_json, "canvas_id", "", context.temp_allocator)
+		if len(strings.trim_space(cid)) == 0 {
+			cid, _ = json_arg_string_optional(args_json, "id", "", context.temp_allocator)
+		}
+		persist_flag, _ := json_arg_bool_string(args_json, "persist", false)
+		if strings.contains(src, `"persist":true`) || strings.contains(src, `"persist": true`) {
+			persist_flag = true
+		}
+		if persist_flag || len(strings.trim_space(cid)) > 0 {
+			if len(strings.trim_space(cid)) == 0 {
+				cid = def.title
+			}
+			sid, serr := store.canvas_save(cid, def.title, src, context.temp_allocator)
+			if serr == "" {
+				saved_canvas_id = sid
+			}
+		}
+	}
 	// Pass the original (or built) JSON as the view payload.
 	answer, ok, cancelled := ask.request_ex(.View, prompt, nil, false, src, i64(timeout), allocator)
 	_ = built
@@ -142,7 +164,20 @@ tool_show_view :: proc(args_json: string, allocator := context.allocator) -> (re
 	// answer is already JSON from the TUI; wrap a soft status if bare.
 	if len(strings.trim_space(answer)) == 0 {
 		delete(answer)
+		if len(saved_canvas_id) > 0 {
+			return fmt.aprintf(`{"action":"submit","values":{},"canvas_id":"%s"}`, saved_canvas_id, allocator = allocator), ""
+		}
 		return strings.clone(`{"action":"submit","values":{}}`, allocator), ""
+	}
+	if len(saved_canvas_id) > 0 && strings.has_prefix(strings.trim_space(answer), "{") {
+		// Inject canvas_id before final }
+		trim := strings.trim_space(answer)
+		if strings.has_suffix(trim, "}") {
+			core := trim[:len(trim)-1]
+			merged := fmt.aprintf(`%s,"canvas_id":"%s"}`, core, saved_canvas_id, allocator = allocator)
+			delete(answer)
+			return merged, ""
+		}
 	}
 	return answer, ""
 }

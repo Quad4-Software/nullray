@@ -17,7 +17,6 @@ app_view_form_clear :: proc(a: ^App) {
 	ask.view_def_destroy(&a.view_form)
 	a.view_form = {}
 	a.view_form_focus = 0
-	a.view_form_err = {}
 	delete(a.view_form_err)
 	a.view_form_err = {}
 	a.view_form_scroll = 0
@@ -96,6 +95,13 @@ app_ask_clear_full :: proc(a: ^App) {
 	app_view_form_clear(a)
 }
 
+app_canvas_remember_schema :: proc(a: ^App, id, schema: string) {
+	delete(a.view_canvas_id)
+	a.view_canvas_id = strings.clone(id)
+	delete(a.view_canvas_schema)
+	a.view_canvas_schema = strings.clone(schema)
+}
+
 // Extended poll: when the pending challenge is a View, load the schema.
 app_ask_poll_views :: proc(a: ^App) -> bool {
 	active, id, kind, prompt, options, free_form, view_json := ask.challenge_pending_ex()
@@ -117,9 +123,11 @@ app_ask_poll_views :: proc(a: ^App) -> bool {
 			a.ask_kind = .View
 			a.ask_prompt = prompt
 			// prompt already owned
+			schema_keep := strings.clone(view_json)
 			def, perr := ask.view_parse(view_json, context.allocator)
 			delete(view_json)
 			if perr != "" {
+				delete(schema_keep)
 				// Bad schema at fulfill time: cancel with message baked in status.
 				a.view_form_err = perr
 				// Still show a minimal modal so Esc works.
@@ -135,6 +143,8 @@ app_ask_poll_views :: proc(a: ^App) -> bool {
 				})
 			} else {
 				a.view_form = def
+				app_canvas_remember_schema(a, def.title, schema_keep)
+				delete(schema_keep)
 				// Larger UIs dock as a live canvas in the side pane.
 				if a.view_form.placement == .Panel {
 					app_view_form_seed_canvas(a)

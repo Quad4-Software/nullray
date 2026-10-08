@@ -105,6 +105,9 @@ this list in-app.
 | `/secret list\|set\|ask\|forget\|has\|clear\|backend` | Agent vault secrets (names only, optional keyring) |
 | `/key` `/token` | Aliases for `/secret` |
 | `/demo malleable` | Smoke show_view password vault + privacy UI |
+| `/canvas list\|open\|save\|rm` | Persist and reopen agent panel UIs |
+| `/learn ID [description]` | Save a compact skill from the last assistant reply |
+| `/agents worktree [--force]` | Prune orphan edit-subagent worktrees |
 | `/help` or `/?` | Command list |
 
 Agent tools for interactive UI (not slash commands): `ask_question`,

@@ -53,7 +53,8 @@ lean_core_tool :: proc(name: string) -> bool {
 	switch name {
 	case "read_file", "write_file", "edit_file", "apply_edits", "list_dir", "repo_map",
 		"grep_files", "glob_files", "run_shell", "run_script",
-		"load_skill", "list_skills", "compact_context", "search_tools",
+		"load_skill", "list_skills", "skill_write", "compact_context", "search_tools",
+		"canvas_list", "canvas_save", "canvas_open",
 		"read_artifact", "grep_artifact",
 		"memory_get", "memory_put", "memory_list", "memory_delete", "memory_forget", "memory_search",
 		"rag_status", "rag_query", "rag_reindex",

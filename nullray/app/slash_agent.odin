@@ -224,8 +224,21 @@ slash_cmd_agents :: proc(a: ^App, args: string) {
 			return
 		}
 		session.session_set_status(a.session, fmt.tprintf("apply merged=%d force=%v\n%s", merged, force, apply_rep))
+	case "worktree", "wt", "janitor", "cleanup":
+		force := false
+		for p in parts[1:] {
+			if p == "--force" || p == "force" {
+				force = true
+			}
+		}
+		ws := ""
+		if st := sandbox.state(); st != nil {
+			ws = st.workspace
+		}
+		n, rep := subagent.worktree_janitor(ws, force, context.temp_allocator)
+		session.session_set_status(a.session, fmt.tprintf("worktree clean removed=%d force=%v\n%s", n, force, rep))
 	case:
-		session.session_set_status(a.session, "usage: /agents [list|on|off|knowledge|cancel ID|apply GROUP [--force]]")
+		session.session_set_status(a.session, "usage: /agents [list|on|off|knowledge|cancel ID|apply GROUP|worktree [--force]]")
 	}
 }
 

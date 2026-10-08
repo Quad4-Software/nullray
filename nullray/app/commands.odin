@@ -58,6 +58,8 @@ SLASH_COMMANDS := []Slash_Command{
 	{"tui", "/tui [get|reset|lock|unlock|NAME]", "malleable TUI theme (session/global)", slash_cmd_tui},
 	{"skills", "/skills [ID]", "list skills or show one by id", slash_cmd_skills},
 	{"skill", "/skill [ID]", "alias for /skills", slash_cmd_skills},
+	{"learn", "/learn ID [description]", "save a compact skill from last reply", slash_cmd_learn},
+	{"canvas", "/canvas list|open|save|rm", "persist and reopen agent panel UIs", slash_cmd_canvas},
 	{"keys", "/keys", "show key bindings", slash_cmd_keys},
 	{"setup", "/setup", "provider setup wizard", slash_cmd_setup},
 	{"provider", "/provider [ID|next|prev|setup]", "show or switch provider", slash_cmd_provider},
@@ -68,7 +70,7 @@ SLASH_COMMANDS := []Slash_Command{
 	{"top_p", "/top_p [0-1|off]", "sampling top_p override", slash_cmd_top_p},
 	{"model", "/model [NAME|lock|unlock]", "show or set model; lock freezes agent switches", slash_cmd_model},
 	{"models", "/models [policy]", "list provider models (policy: /models policy)", slash_cmd_models},
-	{"agents", "/agents [off|on|list|knowledge|apply ...]", "subagent roster and controls", slash_cmd_agents},
+	{"agents", "/agents [off|on|list|knowledge|apply|worktree ...]", "subagent roster and controls", slash_cmd_agents},
 	{"todo", "/todo", "show session task list", slash_cmd_todo},
 	{"schedule", "/schedule [list|cancel ID|cancel all]", "scheduled prompts", slash_cmd_schedule},
 	{"watch", "/watch [list|add <spec> <task>|show ID|rm ID]", "standing watches that notify on new hits", slash_cmd_watch},
@@ -113,6 +115,7 @@ SLASH_COMMANDS := []Slash_Command{
 }
 
 TAB_SLASH_EXTRA := []string{"list", "new", "open", "next", "prev", "close", "n", "p", "w"}
+CANVAS_SLASH_EXTRA := []string{"list", "open", "save", "rm", "delete"}
 
 CLOSE_SLASH_EXTRA := []string{"tab", "view", "current", "this"}
 
@@ -257,6 +260,8 @@ slash_matches :: proc(prefix: string, allocator := context.temp_allocator, a: ^A
 				return model_slash_arg_matches(rest, allocator)
 			case "tab":
 				return tab_slash_arg_matches(a, rest, allocator)
+			case "canvas":
+				return canvas_slash_arg_matches(rest, allocator)
 			case "close":
 				return close_slash_arg_matches(a, rest, allocator)
 			case "delete", "rm":
@@ -360,6 +365,21 @@ tab_slash_arg_matches :: proc(a: ^App, pref: string, allocator := context.temp_a
 			usage = fmt.tprintf("/tab %s", m.name),
 			help = m.help,
 		})
+	}
+	return out[:]
+}
+
+canvas_slash_arg_matches :: proc(pref: string, allocator := context.temp_allocator) -> []Slash_Command {
+	out := make([dynamic]Slash_Command, 0, 8, allocator)
+	p := strings.to_lower(strings.trim_space(pref), context.temp_allocator)
+	for extra in CANVAS_SLASH_EXTRA {
+		if len(p) == 0 || strings.has_prefix(extra, p) {
+			append(&out, Slash_Command{
+				name = extra,
+				usage = fmt.tprintf("/canvas %s", extra),
+				help = "canvas action",
+			})
+		}
 	}
 	return out[:]
 }

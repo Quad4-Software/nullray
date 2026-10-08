@@ -91,6 +91,13 @@ registry_register_builtins :: proc(r: ^Registry) {
 		run = tool_load_skill,
 	})
 	registry_register(r, Tool{
+		name = "skill_write",
+		description = "Save a compact durable skill for later sessions under the user skills dir. Prefer short bodies. Args: id, name, description, body (or content), optional paths comma-list.",
+		schema_json = `{"type":"object","properties":{"id":{"type":"string"},"name":{"type":"string"},"description":{"type":"string"},"body":{"type":"string"},"content":{"type":"string"},"paths":{"type":"string","description":"optional comma-separated path globs"}},"required":[]}`,
+		kind = .Write,
+		run = tool_skill_write,
+	})
+	registry_register(r, Tool{
 		name = "memory_get",
 		description = "Read a project memory value by key",
 		schema_json = `{"type":"object","properties":{"key":{"type":"string"}},"required":["key"]}`,
@@ -379,6 +386,7 @@ registry_register_builtins :: proc(r: ^Registry) {
 	})
 	register_ask_tools(r)
 	register_tui_tools(r)
+	register_canvas_tools(r)
 	register_harness_tools(r)
 	registry_register(r, Tool{
 		name = "fetch_url",

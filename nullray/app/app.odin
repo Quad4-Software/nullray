@@ -150,6 +150,8 @@ App :: struct {
 	view_form_focus:    int,
 	view_form_err:      string,
 	view_form_scroll:   int,
+	view_canvas_id:     string, // last saved/opened canvas id
+	view_canvas_schema: string, // raw schema for /canvas save
 	input_scroll_col:   int,
 	view_auto:          bool,
 	show_status:        bool,

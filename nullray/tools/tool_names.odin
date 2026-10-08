@@ -25,6 +25,8 @@ tiny_core_tool :: proc(name: string) -> bool {
 		// Interactive TUI forms and theme control must stay visible on local
 		// Tiny tier or models cannot discover show_view / set_tui at all.
 		"ask_question", "ask_secret", "show_view", "set_tui",
+		"load_skill", "list_skills", "skill_write",
+		"canvas_list", "canvas_save", "canvas_open",
 		"fetch_url", "fetch_rss":
 		return true
 	}

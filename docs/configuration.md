@@ -72,6 +72,7 @@ process only, so nothing silently persists a borrowed credential.
 | `NULLRAY_VAULT_BACKEND` | `auto` (default), `keyring`, or `memory` |
 | `NULLRAY_KEYRING_SERVICE` | Secret Service attribute (default `nullray`) |
 | `NULLRAY_SECRET_TOOL` | Optional path to `secret-tool` |
+| (paths) | `canvases/` under config stores saved panel UIs, `skills/` holds `/learn` and `skill_write` output |
 | `NULLRAY_VIEW_AUTO` | Auto-open view pane on writes |
 | `NULLRAY_NOTIFY` | auto, desktop, osc, bell, off |
 | `NULLRAY_BARE` | Skip home MCP and non-workspace skills |

@@ -366,3 +366,46 @@ worktree_apply_merge :: proc(
 	}
 	return true, ""
 }
+
+/*
+Remove orphaned nullray worktrees under .nullray/worktrees when clean.
+Also prune git worktree metadata. Safe: skips dirty trees unless force.
+Returns how many removed.
+*/
+worktree_janitor :: proc(repo_root: string, force := false, allocator := context.allocator) -> (removed: int, report: string) {
+	if !is_git_repo(repo_root) {
+		return 0, strings.clone("not a git repo", allocator)
+	}
+	_, _ = run_cmd([]string{"git", "worktree", "prune"}, repo_root, context.temp_allocator)
+	wt_root, _ := filepath.join({repo_root, constants.WORKTREES_DIR}, context.temp_allocator)
+	entries, err := os.read_directory_by_path(wt_root, -1, context.temp_allocator)
+	if err != nil {
+		return 0, strings.clone("no worktrees dir", allocator)
+	}
+	b: strings.Builder
+	strings.builder_init(&b, allocator)
+	for e in entries {
+		if e.type != .Directory {
+			continue
+		}
+		path, _ := filepath.join({wt_root, e.name}, context.temp_allocator)
+		if !force && worktree_has_changes(path) {
+			fmt.sbprintf(&b, "skip dirty %s\n", e.name)
+			continue
+		}
+		_, rerr := run_cmd([]string{"git", "worktree", "remove", "--force", path}, repo_root, context.temp_allocator)
+		if len(rerr) == 0 {
+			removed += 1
+			fmt.sbprintf(&b, "removed %s\n", e.name)
+			// drop local branch if present
+			br := fmt.tprintf("nullray/%s", e.name)
+			_, _ = run_cmd([]string{"git", "branch", "-D", br}, repo_root, context.temp_allocator)
+		} else {
+			fmt.sbprintf(&b, "failed %s: %s\n", e.name, rerr)
+		}
+	}
+	if removed == 0 && strings.builder_len(b) == 0 {
+		strings.write_string(&b, "nothing to clean\n")
+	}
+	return removed, strings.to_string(b)
+}

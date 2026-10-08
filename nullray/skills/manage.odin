@@ -6,6 +6,7 @@ Users drop their own skill files into those dirs. There is no install command.
 
 package skills
 
+import "core:fmt"
 import "core:os"
 import "core:path/filepath"
 import "core:strings"
@@ -76,4 +77,111 @@ destroy_path_list :: proc(paths: []string, allocator := context.allocator) {
 		delete(p, allocator)
 	}
 	delete(paths, allocator)
+}
+
+/*
+Write a skill markdown file under the default user skills dir
+(~/.config/nullray/skills/<id>.md). Caps body size. Safe overwrite.
+Returns owned path and empty err on success.
+*/
+skills_save :: proc(
+	id: string,
+	name: string,
+	description: string,
+	body: string,
+	paths: []string = nil,
+	allocator := context.allocator,
+) -> (path: string, err: string) {
+	raw_id := strings.trim_space(id)
+	if len(raw_id) == 0 {
+		raw_id = strings.trim_space(name)
+	}
+	if len(raw_id) == 0 {
+		return "", strings.clone("skill id required", allocator)
+	}
+	// Allow alnum _ - only.
+	b_id: strings.Builder
+	strings.builder_init(&b_id, context.temp_allocator)
+	for r in raw_id {
+		switch r {
+		case 'a' ..= 'z', 'A' ..= 'Z', '0' ..= '9', '-', '_':
+			strings.write_rune(&b_id, r)
+		case ' ', '/':
+			strings.write_byte(&b_id, '-')
+		}
+	}
+	safe := strings.to_lower(strings.to_string(b_id), context.temp_allocator)
+	if len(safe) == 0 {
+		return "", strings.clone("skill id invalid", allocator)
+	}
+	if len(safe) > 64 {
+		safe = safe[:64]
+	}
+	desc := strings.trim_space(description)
+	if len(desc) == 0 {
+		desc = strings.trim_space(name)
+	}
+	if len(desc) == 0 {
+		desc = safe
+	}
+	if len(desc) > 400 {
+		desc = desc[:400]
+	}
+	body_s := body
+	if len(body_s) > MAX_SKILL_BYTES {
+		return "", strings.clone("skill body too large", allocator)
+	}
+	nm := strings.trim_space(name)
+	if len(nm) == 0 {
+		nm = safe
+	}
+	dir := default_skills_dir(context.temp_allocator)
+	if len(dir) == 0 {
+		return "", strings.clone("skills dir unavailable", allocator)
+	}
+	_ = os.make_directory_all(dir)
+	joined, jerr := filepath.join({dir, fmt.tprintf("%s.md", safe)}, context.temp_allocator)
+	if jerr != nil {
+		joined = fmt.tprintf("%s/%s.md", dir, safe)
+	}
+	fb: strings.Builder
+	strings.builder_init(&fb, context.temp_allocator)
+	strings.write_string(&fb, "---\n")
+	fmt.sbprintf(&fb, "name: %s\n", nm)
+	fmt.sbprintf(&fb, "description: %s\n", desc)
+	if len(paths) > 0 {
+		strings.write_string(&fb, "paths:\n")
+		for p in paths {
+			t := strings.trim_space(p)
+			if len(t) == 0 {
+				continue
+			}
+			fmt.sbprintf(&fb, "  - %s\n", t)
+		}
+	}
+	strings.write_string(&fb, "---\n\n")
+	strings.write_string(&fb, body_s)
+	if !strings.has_suffix(body_s, "\n") {
+		strings.write_byte(&fb, '\n')
+	}
+	data := strings.to_string(fb)
+	if os.write_entire_file(joined, transmute([]u8)data) != nil {
+		return "", strings.clone("failed to write skill file", allocator)
+	}
+	return strings.clone(joined, allocator), ""
+}
+
+skills_delete :: proc(id: string) -> bool {
+	safe := strings.trim_space(id)
+	if len(safe) == 0 {
+		return false
+	}
+	dir := default_skills_dir(context.temp_allocator)
+	path, _ := filepath.join({dir, fmt.tprintf("%s.md", safe)}, context.temp_allocator)
+	if os.remove(path) == nil {
+		return true
+	}
+	// nested SKILL.md form
+	nested, _ := filepath.join({dir, safe, "SKILL.md"}, context.temp_allocator)
+	return os.remove(nested) == nil
 }
