@@ -108,7 +108,9 @@ shell_net_blocked :: proc(cmd: string) -> (blocked: bool, reason: string) {
 		return !ok2, reason2
 	}
 	shell_set_pending(cmd)
-	return true, "pending approval: network shell tool needs /allow or NULLRAY_SHELL_NET=1"
+	// Point models at fetch_url for plain page reads. Shell net remains for
+	// bulk download, authenticated APIs, and pipelines that need curl flags.
+	return true, "pending approval: network shell needs /allow or NULLRAY_SHELL_NET=1. For reading a public page use fetch_url instead of curl/wget"
 }
 
 /*

@@ -219,6 +219,7 @@ test_shell_net_needs_allow_even_yolo :: proc(t: ^testing.T) {
 	ok, reason := shell_command_allowed("curl https://example.com")
 	testing.expect(t, !ok)
 	testing.expect(t, len(reason) > 0)
+	testing.expect(t, strings.contains(reason, "fetch_url"))
 	delete(reason)
 }
 

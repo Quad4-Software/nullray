@@ -145,17 +145,20 @@ tool_fetch_url :: proc(args_json: string, allocator := context.allocator) -> (st
 	rendered := body
 	kind := "text"
 	owned_render: string
+	page_title := ""
 	switch fmt_mode {
 	case "raw":
 		kind = "raw"
 	case "text":
 		if html_looks_like(body) {
+			page_title = html_document_title(body, context.temp_allocator)
 			owned_render = html_to_readable_text(body, allocator)
 			rendered = owned_render
 			kind = "html"
 		}
 	case "auto", "":
 		if html_looks_like(body) {
+			page_title = html_document_title(body, context.temp_allocator)
 			owned_render = html_to_readable_text(body, allocator)
 			rendered = owned_render
 			kind = "html"
@@ -181,6 +184,21 @@ tool_fetch_url :: proc(args_json: string, allocator := context.allocator) -> (st
 		note = fmt.tprintf("\n\n[truncated at %d chars; raise max_chars or fetch a smaller page]", max_chars)
 	}
 	// Always report the final URL so soft redirects are visible to the agent.
+	// Title + link-preserving body beats raw curl HTML for model reading.
+	if len(page_title) > 0 {
+		out := fmt.aprintf(
+			"status=%d format=%s url=%s\ntitle=%s\n%s%s",
+			resp.status,
+			kind,
+			final_url,
+			page_title,
+			rendered,
+			note,
+			allocator = allocator,
+		)
+		delete(owned_render)
+		return out, ""
+	}
 	out := fmt.aprintf(
 		"status=%d format=%s url=%s\n%s%s",
 		resp.status,

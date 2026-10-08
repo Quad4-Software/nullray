@@ -41,6 +41,8 @@ html_to_readable_text :: proc(html: string, allocator := context.allocator) -> s
 	stripped := html_strip_noise(html, context.temp_allocator)
 	b: strings.Builder
 	strings.builder_init(&b, allocator)
+	// Keep link targets so agents can fetch follow-up pages without guessing.
+	pending_href := ""
 	i := 0
 	for i < len(stripped) {
 		if stripped[i] == '<' {
@@ -50,12 +52,26 @@ html_to_readable_text :: proc(html: string, allocator := context.allocator) -> s
 			}
 			tag := stripped[i + 1:i + end]
 			tag_lower := strings.to_lower(tag, context.temp_allocator)
+			closing := strings.has_prefix(tag_lower, "/")
 			name := tag_lower
-			if strings.has_prefix(name, "/") {
+			if closing {
 				name = name[1:]
 			}
 			if sp := strings.index_any(name, " \t\r\n/"); sp >= 0 {
 				name = name[:sp]
+			}
+			if name == "a" {
+				if closing {
+					if len(pending_href) > 0 {
+						fmt.sbprintf(&b, " (%s)", pending_href)
+						pending_href = ""
+					}
+				} else if href, hok := html_tag_attr(tag, "href"); hok {
+					// Skip empty and pure fragment links.
+					if len(href) > 0 && href[0] != '#' {
+						pending_href = href
+					}
+				}
 			}
 			switch name {
 			case "br", "p", "div", "tr", "li", "h1", "h2", "h3", "h4", "h5", "h6",
@@ -79,10 +95,99 @@ html_to_readable_text :: proc(html: string, allocator := context.allocator) -> s
 		strings.write_byte(&b, stripped[i])
 		i += 1
 	}
+	if len(pending_href) > 0 {
+		fmt.sbprintf(&b, " (%s)", pending_href)
+	}
 	raw := strings.to_string(b)
 	collapsed := html_collapse_ws(raw, allocator)
 	delete(raw)
 	return collapsed
+}
+
+// First <title>...</title> text, HTML-decoded and trimmed.
+html_document_title :: proc(html: string, allocator := context.temp_allocator) -> string {
+	lower := strings.to_lower(html, context.temp_allocator)
+	start := strings.index(lower, "<title")
+	if start < 0 {
+		return ""
+	}
+	rest := html[start:]
+	gt := strings.index_byte(rest, '>')
+	if gt < 0 {
+		return ""
+	}
+	body := rest[gt + 1:]
+	body_l := strings.to_lower(body, context.temp_allocator)
+	end := strings.index(body_l, "</title>")
+	if end < 0 {
+		return ""
+	}
+	raw := body[:end]
+	// Decode common entities without a full pass.
+	decoded := html_decode_title(raw, context.temp_allocator)
+	return strings.clone(strings.trim_space(decoded), allocator)
+}
+
+@(private)
+html_tag_attr :: proc(tag, name: string) -> (val: string, ok: bool) {
+	lower_tag := strings.to_lower(tag, context.temp_allocator)
+	needle := strings.to_lower(name, context.temp_allocator)
+	idx := strings.index(lower_tag, needle)
+	if idx < 0 {
+		return "", false
+	}
+	rest := tag[idx + len(name):]
+	rest = strings.trim_left_space(rest)
+	if len(rest) == 0 || rest[0] != '=' {
+		return "", false
+	}
+	rest = strings.trim_left_space(rest[1:])
+	if len(rest) == 0 {
+		return "", false
+	}
+	if rest[0] == '"' || rest[0] == '\'' {
+		q := rest[0]
+		rest = rest[1:]
+		end := strings.index_byte(rest, q)
+		if end < 0 {
+			return "", false
+		}
+		return rest[:end], true
+	}
+	end := 0
+	for end < len(rest) {
+		c := rest[end]
+		if c == ' ' || c == '\t' || c == '\n' || c == '\r' || c == '>' {
+			break
+		}
+		end += 1
+	}
+	return rest[:end], true
+}
+
+@(private)
+html_decode_title :: proc(s: string, allocator := context.temp_allocator) -> string {
+	b: strings.Builder
+	strings.builder_init(&b, allocator)
+	i := 0
+	for i < len(s) {
+		if s[i] == '&' {
+			ent, n := html_decode_entity(s[i:])
+			if n > 0 {
+				strings.write_string(&b, ent)
+				i += n
+				continue
+			}
+		}
+		if s[i] == '\n' || s[i] == '\r' || s[i] == '\t' {
+			strings.write_byte(&b, ' ')
+			i += 1
+			continue
+		}
+		strings.write_byte(&b, s[i])
+		i += 1
+	}
+	return strings.to_string(b)
 }
 
 @(private)

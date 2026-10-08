@@ -381,14 +381,14 @@ registry_register_builtins :: proc(r: ^Registry) {
 	register_harness_tools(r)
 	registry_register(r, Tool{
 		name = "fetch_url",
-		description = "Fetch a public http(s) URL as text (HTML to plain when useful, size-capped, no browser). via picks a fetch provider (flaresolverr, etc) for protected pages",
-		schema_json = `{"type":"object","properties":{"url":{"type":"string"},"format":{"type":"string","description":"auto, text, or raw"},"max_chars":{"type":"string"},"via":{"type":"string","description":"fetch provider id from search_providers.json, e.g. flaresolverr"}},"required":["url"]}`,
+		description = "Preferred way to read a public http(s) page. Returns status, final url, title, and plain text (HTML stripped, links kept as text (url)). Soft-redirects (meta refresh / location.replace) are followed. Prefer this over curl/wget in run_shell. via=flaresolverr for protected pages.",
+		schema_json = `{"type":"object","properties":{"url":{"type":"string","description":"absolute http(s) URL"},"format":{"type":"string","description":"auto (default, HTML to text), text, or raw"},"max_chars":{"type":"string","description":"cap returned text, default large"},"via":{"type":"string","description":"optional fetch provider id, e.g. flaresolverr"}},"required":["url"]}`,
 		kind = .Read,
 		run = tool_fetch_url,
 	})
 	registry_register(r, Tool{
 		name = "web_search",
-		description = "Search the web for titles, URLs, and snippets. SearXNG, OpenSearch, or SaaS keys per search_providers.json. Use fetch_url on a result for full text",
+		description = "Search the web for titles, URLs, and snippets when you do not already know the URL. Needs NULLRAY_SEARCH_URL (SearXNG) or a vendor key. For a known docs URL, call fetch_url instead.",
 		schema_json = `{"type":"object","properties":{"query":{"type":"string"},"queries":{"type":"array","items":{"type":"string"},"description":"combined multi-query fan-out, deduped"},"backends":{"type":"array","items":{"type":"string"},"description":"provider ids to federate across; default auto"},"count":{"type":"string","description":"max results, default 5, cap 10"},"scope":{"type":"string","description":"general, code, or news"},"context_max_chars":{"type":"string","description":"cap the result envelope, default 4000"}},"required":[]}`,
 		kind = .Read,
 		run = tool_web_search,

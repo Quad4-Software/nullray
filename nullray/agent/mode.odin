@@ -244,6 +244,10 @@ mode_prompt_section :: proc(mode: Agent_Mode, policy: Mode_Policy, lean: bool, a
 		)
 		strings.write_string(
 			&b,
+			"Read public docs with fetch_url, not curl/wget. run_shell is for builds and tests.\n",
+		)
+		strings.write_string(
+			&b,
 			"Keep chat replies short: what you changed and why. Prefer tools over transcript code blocks.\n",
 		)
 		strings.write_string(
