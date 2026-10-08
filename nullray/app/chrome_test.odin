@@ -4,6 +4,7 @@ package app
 import "core:strings"
 import "core:testing"
 import "nullray:constants"
+import "nullray:subagent"
 import "nullray:ui"
 
 @(test)
@@ -192,6 +193,33 @@ test_view_layout_follows_chrome :: proc(t: ^testing.T) {
 	testing.expect(t, narrow.open)
 	testing.expect(t, narrow.overlay)
 	testing.expect_value(t, narrow.pane_w, 40)
+}
+
+@(test)
+test_chrome_agents_strip_when_living :: proc(t: ^testing.T) {
+	a, loop := test_app_minimal()
+	_ = loop
+	defer test_app_destroy_minimal(&a)
+	// No living children: strip hidden.
+	c0 := app_chrome(&a, 80, 24)
+	testing.expect(t, !c0.show_agents)
+	testing.expect_value(t, c0.agents_y, -1)
+
+	// Inject a fake living child into the runtime roster.
+	h := subagent.Agent_Handle{
+		id = strings.clone("child1"),
+		role = strings.clone("explore"),
+		model = strings.clone("local"),
+		status = .Running,
+	}
+	subagent.roster_register(&a.subagents.roster, h)
+	c1 := app_chrome(&a, 80, 24)
+	testing.expect(t, c1.show_agents)
+	testing.expect(t, c1.agents_y > 0)
+	testing.expect(t, c1.agents_living >= 1)
+	// Tight width hides the strip (title compact count remains).
+	c2 := app_chrome(&a, 24, 24)
+	testing.expect(t, !c2.show_agents || c2.tight)
 }
 
 @(test)

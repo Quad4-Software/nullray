@@ -7,6 +7,7 @@ import "nullray:config"
 import "nullray:constants"
 import "nullray:provider"
 import "nullray:session"
+import "nullray:subagent"
 import "nullray:ui"
 
 @(private)
@@ -23,6 +24,8 @@ test_app_minimal :: proc() -> (a: App, loop: ui.Loop) {
 	a.binds = config.binds_defaults()
 	a.follow = true
 	a.view_auto = true
+	// Empty roster so chrome living-agent queries are safe in unit tests.
+	subagent.roster_init(&a.subagents.roster)
 	return
 }
 
@@ -46,6 +49,7 @@ test_app_destroy_minimal :: proc(a: ^App) {
 	delete(a.improve_pending_text)
 	delete(a.improve_pending_err)
 	delete(a.status_body)
+	subagent.roster_destroy(&a.subagents.roster)
 }
 
 @(private)

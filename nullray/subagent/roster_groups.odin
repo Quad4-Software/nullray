@@ -316,3 +316,97 @@ roster_compact_line :: proc(r: ^Roster, allocator := context.allocator) -> strin
 	}
 	return fmt.aprintf("%d agents", n, allocator = allocator)
 }
+
+// Living child count plus a short role sample for the TUI activity strip.
+// Example: "2 live · explore@qwen · edit@sonnet" or "1 blocked · review".
+roster_activity_line :: proc(r: ^Roster, max_names: int, allocator := context.allocator) -> string {
+	sync.mutex_lock(&r.mu)
+	defer sync.mutex_unlock(&r.mu)
+	running, blocked := 0, 0
+	// Collect up to max_names display labels while locked.
+	cap_n := max_names
+	if cap_n <= 0 {
+		cap_n = 3
+	}
+	if cap_n > 6 {
+		cap_n = 6
+	}
+	labels: [6]string
+	n_lab := 0
+	for _, h in r.agents {
+		if h.id == "main" {
+			continue
+		}
+		if h.status == .Running {
+			running += 1
+		} else if h.status == .Blocked {
+			blocked += 1
+		} else {
+			continue
+		}
+		if n_lab < cap_n {
+			role := h.role
+			if len(role) == 0 {
+				role = h.id
+			}
+			// Prefer "role" when model is empty, else "role@short-model".
+			lab := role
+			if len(h.model) > 0 {
+				model := h.model
+				// Trim provider/ prefixes and long paths for the strip.
+				if slash := strings.last_index_byte(model, '/'); slash >= 0 && slash + 1 < len(model) {
+					model = model[slash + 1:]
+				}
+				if len(model) > 16 {
+					model = model[:16]
+				}
+				lab = fmt.tprintf("%s@%s", role, model)
+			}
+			if h.status == .Blocked {
+				lab = fmt.tprintf("%s!", lab)
+			}
+			labels[n_lab] = strings.clone(lab, context.temp_allocator)
+			n_lab += 1
+		}
+	}
+	living := running + blocked
+	if living == 0 {
+		return strings.clone("", allocator)
+	}
+	b: strings.Builder
+	strings.builder_init(&b, allocator)
+	if blocked > 0 && running > 0 {
+		fmt.sbprintf(&b, "%d live %d blocked", running, blocked)
+	} else if blocked > 0 {
+		fmt.sbprintf(&b, "%d blocked", blocked)
+	} else {
+		fmt.sbprintf(&b, "%d live", running)
+	}
+	if n_lab > 0 {
+		strings.write_string(&b, " · ")
+		for i in 0 ..< n_lab {
+			if i > 0 {
+				strings.write_string(&b, " · ")
+			}
+			strings.write_string(&b, labels[i])
+		}
+		extra := living - n_lab
+		if extra > 0 {
+			fmt.sbprintf(&b, " +%d", extra)
+		}
+	}
+	return strings.to_string(b)
+}
+
+// Snapshot of living children for UI redraw decisions (count only).
+roster_living_children :: proc(r: ^Roster) -> int {
+	sync.mutex_lock(&r.mu)
+	defer sync.mutex_unlock(&r.mu)
+	n := 0
+	for _, h in r.agents {
+		if h.id != "main" && (h.status == .Running || h.status == .Blocked) {
+			n += 1
+		}
+	}
+	return n
+}

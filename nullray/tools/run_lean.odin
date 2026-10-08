@@ -57,7 +57,7 @@ lean_core_tool :: proc(name: string) -> bool {
 		"read_artifact", "grep_artifact",
 		"memory_get", "memory_put", "memory_list", "memory_delete", "memory_forget", "memory_search",
 		"rag_status", "rag_query", "rag_reindex",
-		"read_man", "apropos", "read_tldr", "read_info", "read_help", "lang_doc", "fetch_url", "web_search",
+		"read_man", "apropos", "read_tldr", "read_info", "read_help", "lang_doc", "fetch_url", "fetch_rss", "web_search",
 		"list_scaffolds", "scaffold", "audit_structure",
 		"vcs_status", "vcs_diff", "vcs_log", "vcs_commit", "vcs_branch", "vcs_merge",
 		"vcs_rebase", "vcs_push", "vcs_pull", "vcs_fetch",

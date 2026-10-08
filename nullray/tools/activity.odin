@@ -53,7 +53,7 @@ tool_activity_line :: proc(name, args_json: string, allocator := context.allocat
 		detail = activity_field(args_json, "command")
 	case "lang_doc":
 		detail = activity_field(args_json, "query")
-	case "fetch_url":
+	case "fetch_url", "fetch_rss":
 		detail = activity_field(args_json, "url")
 	case "glob_files":
 		detail = activity_field(args_json, "pattern")

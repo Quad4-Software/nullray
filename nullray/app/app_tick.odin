@@ -12,6 +12,7 @@ import "nullray:provider"
 import "nullray:sandbox"
 import "nullray:session"
 import "nullray:store"
+import "nullray:subagent"
 
 app_mark_dirty :: proc(a: ^App) {
 	a.dirty = true
@@ -110,7 +111,8 @@ app_on_tick :: proc(user: rawptr) -> bool {
 	}
 	// Redraw on new deltas, or on spinner/caret/reveal cadence while busy.
 	// Avoid full transcript layout every poll tick with no UI change.
-	if app_tabs_any_busy(a) || a.session.has_streaming || a.session.has_thinking || len(a.session.pending_status) > 0 {
+	living_agents := subagent.roster_living_children(&a.subagents.roster)
+	if app_tabs_any_busy(a) || a.session.has_streaming || a.session.has_thinking || len(a.session.pending_status) > 0 || living_agents > 0 {
 		anim_due := time.tick_diff(a.anim_tick, time.tick_now()) >=
 			time.Duration(constants.SPINNER_FRAME_MS) * time.Millisecond
 		if poll_changed || anim_due {

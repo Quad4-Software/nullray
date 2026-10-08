@@ -79,6 +79,7 @@ App :: struct {
 	banner_live:    int,
 	banner_refresh: time.Tick,
 	anim_tick:      time.Tick,
+	agent_spinner:  ui.Spinner,
 	view_open:      bool,
 	view_path:      string,
 	view_body:      string,
@@ -179,6 +180,7 @@ app_init :: proc(a: ^App, loop: ^ui.Loop) {
 	session.session_rebuild_system_prompt(a.session)
 	strings.builder_init(&a.input)
 	a.spinner = ui.spinner_init()
+	a.agent_spinner = ui.spinner_init()
 	a.dirty = true
 	a.follow = true
 	a.splash_on = splash_enabled_from_env()

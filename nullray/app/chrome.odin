@@ -11,6 +11,7 @@ package app
 import "core:fmt"
 import "core:strings"
 import "nullray:constants"
+import "nullray:subagent"
 import "nullray:ui"
 
 // Compact thresholds. Below these, chrome drops nonessential rows/labels.
@@ -20,21 +21,24 @@ CHROME_SHORT_H :: 14
 CHROME_TINY_H :: 9
 
 Chrome :: struct {
-	width:       int,
-	height:      int,
-	title_y:     int,
-	tabs_y:      int, // -1 when the tab strip is hidden
-	sep_y:       int,
-	msg_top:     int,
-	msg_bottom:  int,
-	status_y:    int,
-	input_y:     int,
-	input_rows:  int,
-	show_tabs:   bool,
-	show_sep:    bool,
-	narrow:      bool,
-	tight:       bool,
-	short:       bool,
+	width:         int,
+	height:        int,
+	title_y:       int,
+	tabs_y:        int, // -1 when the tab strip is hidden
+	agents_y:      int, // -1 when the subagent activity strip is hidden
+	sep_y:         int,
+	msg_top:       int,
+	msg_bottom:    int,
+	status_y:      int,
+	input_y:       int,
+	input_rows:    int,
+	show_tabs:     bool,
+	show_agents:   bool,
+	show_sep:      bool,
+	narrow:        bool,
+	tight:         bool,
+	short:         bool,
+	agents_living: int, // running+blocked children (for draw/tick)
 }
 
 // How many input rows fit without crushing the transcript.
@@ -68,6 +72,9 @@ app_chrome :: proc(a: ^App, width, height: int) -> Chrome {
 	// Title always owns row 0 when height allows. Status sits above input
 	// and below title so they never paint the same cell.
 	c.title_y = 0
+	c.agents_y = -1
+	c.show_agents = false
+	c.agents_living = 0
 	if c.height <= 1 {
 		// Degenerate: everything collapses onto row 0.
 		c.status_y = 0
@@ -107,9 +114,13 @@ app_chrome :: proc(a: ^App, width, height: int) -> Chrome {
 		c.status_y = max(1, c.input_y - 1)
 	}
 
+	c.agents_living = subagent.roster_living_children(&a.subagents.roster)
+
 	// Hide tabs on very short terminals or when there is nothing to show.
-	// Need room for title, tab, optional sep, msg, status, input.
+	// Need room for title, tab, optional agents/sep, msg, status, input.
 	c.show_tabs = !c.short && len(a.tabs) > 0 && c.height >= 8 && c.status_y >= 3
+	// Agent strip when children are living and the window is not tiny.
+	c.show_agents = c.agents_living > 0 && !c.tight && c.height >= 10 && c.status_y >= 4
 	c.show_sep = !c.short && c.height >= 8 && c.status_y >= 4
 
 	y := 1
@@ -119,6 +130,13 @@ app_chrome :: proc(a: ^App, width, height: int) -> Chrome {
 	} else {
 		c.tabs_y = -1
 		c.show_tabs = false
+	}
+	if c.show_agents && y < c.status_y {
+		c.agents_y = y
+		y += 1
+	} else {
+		c.agents_y = -1
+		c.show_agents = false
 	}
 	if c.show_sep && y < c.status_y {
 		c.sep_y = y

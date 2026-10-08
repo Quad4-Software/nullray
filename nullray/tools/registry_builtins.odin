@@ -381,14 +381,21 @@ registry_register_builtins :: proc(r: ^Registry) {
 	register_harness_tools(r)
 	registry_register(r, Tool{
 		name = "fetch_url",
-		description = "Preferred way to read a public http(s) page. Returns status, final url, title, and plain text (HTML stripped, links kept as text (url)). Soft-redirects (meta refresh / location.replace) are followed. Prefer this over curl/wget in run_shell. via=flaresolverr for protected pages.",
+		description = "Preferred way to read a public http(s) page. Returns status, final url, title, and plain text (HTML stripped, links kept as text (url)). Soft-redirects (meta refresh / location.replace) are followed. Prefer this over curl/wget in run_shell. via=flaresolverr for protected pages. For RSS/Atom feeds use fetch_rss.",
 		schema_json = `{"type":"object","properties":{"url":{"type":"string","description":"absolute http(s) URL"},"format":{"type":"string","description":"auto (default, HTML to text), text, or raw"},"max_chars":{"type":"string","description":"cap returned text, default large"},"via":{"type":"string","description":"optional fetch provider id, e.g. flaresolverr"}},"required":["url"]}`,
 		kind = .Read,
 		run = tool_fetch_url,
 	})
 	registry_register(r, Tool{
+		name = "fetch_rss",
+		description = "Fetch and summarize an RSS 2.0 or Atom feed. Returns feed title and a list of items (title, link, date, snippet). Use count to cap items. Then fetch_url an item link for full text. Prefer this over curl for feeds.",
+		schema_json = `{"type":"object","properties":{"url":{"type":"string","description":"absolute feed URL (rss/atom/xml)"},"count":{"type":"string","description":"max items, default 10, cap 30"}},"required":["url"]}`,
+		kind = .Read,
+		run = tool_fetch_rss,
+	})
+	registry_register(r, Tool{
 		name = "web_search",
-		description = "Search the web for titles, URLs, and snippets when you do not already know the URL. Needs NULLRAY_SEARCH_URL (SearXNG) or a vendor key. For a known docs URL, call fetch_url instead.",
+		description = "Search the web for titles, URLs, and snippets when you do not already know the URL. Needs NULLRAY_SEARCH_URL (SearXNG) or a vendor key. For a known docs URL, call fetch_url instead. For feeds, call fetch_rss.",
 		schema_json = `{"type":"object","properties":{"query":{"type":"string"},"queries":{"type":"array","items":{"type":"string"},"description":"combined multi-query fan-out, deduped"},"backends":{"type":"array","items":{"type":"string"},"description":"provider ids to federate across; default auto"},"count":{"type":"string","description":"max results, default 5, cap 10"},"scope":{"type":"string","description":"general, code, or news"},"context_max_chars":{"type":"string","description":"cap the result envelope, default 4000"}},"required":[]}`,
 		kind = .Read,
 		run = tool_web_search,

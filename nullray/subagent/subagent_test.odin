@@ -70,6 +70,43 @@ test_lease_conflict :: proc(t: ^testing.T) {
 }
 
 @(test)
+test_roster_activity_line :: proc(t: ^testing.T) {
+	r: Roster
+	roster_init(&r)
+	defer roster_destroy(&r)
+	h1 := Agent_Handle{
+		id = strings.clone("a1"),
+		role = strings.clone("explore"),
+		model = strings.clone("opencode/qwen3"),
+		status = .Running,
+	}
+	h2 := Agent_Handle{
+		id = strings.clone("a2"),
+		role = strings.clone("edit"),
+		model = strings.clone("sonnet"),
+		status = .Blocked,
+	}
+	h3 := Agent_Handle{
+		id = strings.clone("main"),
+		role = strings.clone("main"),
+		status = .Running,
+	}
+	roster_register(&r, h1)
+	roster_register(&r, h2)
+	roster_register(&r, h3)
+	testing.expect_value(t, roster_living_children(&r), 2)
+	line := roster_activity_line(&r, 4)
+	defer delete(line)
+	testing.expect(t, strings.contains(line, "live"))
+	testing.expect(t, strings.contains(line, "blocked") || strings.contains(line, "!"))
+	testing.expect(t, strings.contains(line, "explore"))
+	// main must not appear as a living child label count-wise only through compact.
+	compact := roster_compact_line(&r)
+	defer delete(compact)
+	testing.expect(t, strings.contains(compact, "2 agents"))
+}
+
+@(test)
 test_roster_status :: proc(t: ^testing.T) {
 	r: Roster
 	roster_init(&r)

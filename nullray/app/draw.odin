@@ -58,8 +58,12 @@ app_draw :: proc(buf: ^ui.Buffer, user: rawptr) {
 			sess = "default"
 		}
 		right := fmt.tprintf("%s · %s · %s", p.name, p.default_model, sess)
-		if agents := subagent.roster_compact_line(&a.subagents.roster, context.temp_allocator); len(agents) > 0 {
-			right = fmt.tprintf("%s · %s", right, agents)
+		// Living children move to the dedicated agents strip when shown;
+		// keep a compact count in the title on tight layouts only.
+		if !c.show_agents {
+			if agents := subagent.roster_compact_line(&a.subagents.roster, context.temp_allocator); len(agents) > 0 {
+				right = fmt.tprintf("%s · %s", right, agents)
+			}
 		}
 		if subagent.policy_is_locked() || a.subagents.model_locked {
 			right = fmt.tprintf("%s · lock", right)
@@ -83,6 +87,9 @@ app_draw :: proc(buf: ^ui.Buffer, user: rawptr) {
 
 	if c.show_tabs && c.tabs_y >= 0 {
 		app_draw_tabs(buf, a, c.tabs_y)
+	}
+	if c.show_agents && c.agents_y >= 0 {
+		app_draw_agents_strip(buf, a, c)
 	}
 	if c.show_sep && c.sep_y >= 0 {
 		ui.buffer_hline(buf, 0, c.sep_y, buf.width, '─', t.border, t.bg)
@@ -226,6 +233,36 @@ app_draw :: proc(buf: ^ui.Buffer, user: rawptr) {
 	app_draw_ask_modal(buf, a)
 
 	a.dirty = false
+}
+
+// Subagent activity strip: spinner + living roles, OpenCode-style.
+@(private)
+app_draw_agents_strip :: proc(buf: ^ui.Buffer, a: ^App, c: Chrome) {
+	t := ui.theme()
+	y := c.agents_y
+	if y < 0 {
+		return
+	}
+	ui.buffer_fill_rect(buf, 0, y, buf.width, 1, ' ', t.fg, t.status_bg)
+	spin := ui.spinner_frame(&a.agent_spinner)
+	line := subagent.roster_activity_line(&a.subagents.roster, c.narrow ? 2 : 4, context.temp_allocator)
+	if len(line) == 0 {
+		line = "agents"
+	}
+	left := fmt.tprintf("%s %s", spin, line)
+	right := "/agents"
+	if c.narrow {
+		right = ""
+	}
+	fg := t.accent
+	// Pulse highlight while children run.
+	pulse := ui.anim_pulse(1400)
+	fg = ui.color_lerp(t.accent_dim, t.accent, pulse)
+	ui.buffer_text_clip(buf, 1, y, buf.width - 1 - (len(right) > 0 ? ui.string_cols(right) + 2 : 0), left, fg, t.status_bg, {.Bold})
+	if len(right) > 0 {
+		rx := max(2, buf.width - ui.string_cols(right) - 1)
+		ui.buffer_text_clip(buf, rx, y, buf.width, right, t.muted, t.status_bg)
+	}
 }
 
 @(private)
