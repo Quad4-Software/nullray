@@ -212,7 +212,7 @@ app_chrome_help_right :: proc(a: ^App, c: Chrome) -> string {
 		if c.narrow {
 			return "/copy · Esc"
 		}
-		return "drag select · /copy · Esc clear"
+		return "drag select · copies · Ctrl-C · Esc clear"
 	}
 	if c.tight {
 		return "/ · ?"

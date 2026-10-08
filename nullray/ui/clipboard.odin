@@ -80,38 +80,41 @@ clipboard_run_stdin :: proc(command: []string, text: string) -> bool {
 	if pipe_err != nil {
 		return false
 	}
-	defer os.close(stdin_r)
 	stdout_r, stdout_w, pipe_err2 := os.pipe()
 	if pipe_err2 != nil {
+		os.close(stdin_r)
+		os.close(stdin_w)
 		return false
 	}
-	defer os.close(stdout_r)
 	stderr_r, stderr_w, pipe_err3 := os.pipe()
 	if pipe_err3 != nil {
+		os.close(stdin_r)
+		os.close(stdin_w)
+		os.close(stdout_r)
+		os.close(stdout_w)
 		return false
 	}
-	defer os.close(stderr_r)
 
-	process: os.Process
-	{
-		defer os.close(stdin_w)
-		defer os.close(stdout_w)
-		defer os.close(stderr_w)
-		desc := os.Process_Desc{
-			command = command,
-			stdin = stdin_r,
-			stdout = stdout_w,
-			stderr = stderr_w,
-		}
-		start_err: os.Error
-		process, start_err = os.process_start(desc)
-		if start_err != nil {
-			return false
-		}
+	// Child inherits the read ends. Parent keeps stdin_w open until after write.
+	desc := os.Process_Desc{
+		command = command,
+		stdin = stdin_r,
+		stdout = stdout_w,
+		stderr = stderr_w,
+	}
+	process, start_err := os.process_start(desc)
+	os.close(stdin_r)
+	os.close(stdout_w)
+	os.close(stderr_w)
+	os.close(stdout_r)
+	os.close(stderr_r)
+	if start_err != nil {
+		os.close(stdin_w)
+		return false
 	}
 
-	_, werr := os.write_string(stdin_w, text)
-	_ = os.close(stdin_w)
+	_, werr := os.write(stdin_w, transmute([]u8)text)
+	os.close(stdin_w)
 	if werr != nil {
 		_ = os.process_kill(process)
 		_, _ = os.process_wait(process)

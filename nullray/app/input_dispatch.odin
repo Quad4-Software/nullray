@@ -16,6 +16,11 @@ app_handle_bind_action :: proc(a: ^App, ev: ui.Event, suggesting: bool) -> (quit
 	action := config.binds_resolve(a.binds, ev.kind)
 	switch action {
 	case .Quit:
+		// Ctrl-C with an active selection copies instead of quitting/stopping.
+		if ev.kind == .Ctrl_C && (a.sel_has || a.sel_dragging) {
+			_ = app_sel_copy(a)
+			return false, true
+		}
 		// Ctrl-C while busy stops the agent. Ctrl-Q (or Ctrl-C when idle) quits.
 		if a.session.busy && ev.kind == .Ctrl_C {
 			session.session_request_cancel(a.session)
@@ -280,9 +285,13 @@ app_handle_default_event :: proc(a: ^App, ev: ui.Event) -> bool {
 			moved := ev.mx != a.sel_ax || ev.my != a.sel_ay
 			if !moved {
 				a.sel_dragging = false
-				_ = app_sel_click_message(a, ev.my)
+				if app_sel_click_message(a, ev.my) {
+					// Soft message select also copies so click-drag is not required.
+					_ = app_sel_copy(a)
+				}
 			} else {
-				app_sel_finish(a, ev.mx, ev.my, false)
+				// Drag select copies on release.
+				app_sel_finish(a, ev.mx, ev.my, true)
 			}
 			return true
 		}

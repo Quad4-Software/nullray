@@ -107,10 +107,19 @@ app_sel_extract :: proc(a: ^App, allocator := context.temp_allocator) -> string 
 	if !a.sel_has && !a.sel_dragging {
 		return ""
 	}
+	if len(a.sel_rows) == 0 {
+		return ""
+	}
 	x0, y0, x1, y1 := app_sel_norm(a)
+	// Selection coords are screen cells. Capture stores full rows starting at
+	// sel_rows_top. Clamp x to the transcript content so header/gutter misses
+	// do not empty the extract.
+	x0 = max(0, x0)
+	x1 = max(0, x1)
 	b: strings.Builder
 	strings.builder_init(&b, allocator)
 	first := true
+	any_chunk := false
 	for sy in y0 ..= y1 {
 		ri := app_sel_row_index(a, sy)
 		if ri < 0 || ri >= len(a.sel_rows) {
@@ -119,18 +128,48 @@ app_sel_extract :: proc(a: ^App, allocator := context.temp_allocator) -> string 
 		line := a.sel_rows[ri]
 		start_col := 0
 		end_col := ui.string_cols(line)
+		if end_col == 0 {
+			if !first {
+				strings.write_rune(&b, '\n')
+			}
+			first = false
+			continue
+		}
 		if sy == y0 {
-			start_col = x0
+			start_col = min(x0, end_col)
 		}
 		if sy == y1 {
-			end_col = x1 + 1
+			end_col = min(x1 + 1, end_col)
+			if end_col <= start_col && sy == y0 {
+				// Single-cell or reverse thin selection: take the glyph under x0.
+				end_col = min(start_col + 1, ui.string_cols(line))
+			}
 		}
 		chunk := app_sel_slice_cols(line, start_col, end_col, context.temp_allocator)
 		if !first {
 			strings.write_rune(&b, '\n')
 		}
 		first = false
+		if len(chunk) > 0 {
+			any_chunk = true
+		}
 		strings.write_string(&b, chunk)
+	}
+	if !any_chunk {
+		// Fallback: whole lines in the selected row range (click-message path).
+		strings.builder_reset(&b)
+		first = true
+		for sy in y0 ..= y1 {
+			ri := app_sel_row_index(a, sy)
+			if ri < 0 || ri >= len(a.sel_rows) {
+				continue
+			}
+			if !first {
+				strings.write_rune(&b, '\n')
+			}
+			first = false
+			strings.write_string(&b, a.sel_rows[ri])
+		}
 	}
 	return strings.to_string(b)
 }

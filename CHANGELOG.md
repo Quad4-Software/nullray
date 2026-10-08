@@ -79,6 +79,8 @@ Notable changes for nullray.
 - CLI late flags such as --completions now return handled so install and man generation work.
 
 ### Fixed
+- Transcript drag-select copies on mouse release, Ctrl-C copies an active
+  selection, and clipboard tool stdin no longer closes before write.
 - parse_cli_late no longer treats recognized flags as unknown (broke make install completions).
 - Soft-redirect cycles and loopback hop targets are stopped cleanly, apply_edits envelope paths stay distinct for anti-loop signals.
 - Help button hit target is the leading glyph only, not the whole version label.
