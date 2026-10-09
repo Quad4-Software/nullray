@@ -87,29 +87,6 @@ is empty.
 from `--keys` / `NULLRAY_KEYS`. Individual binds can be overridden in
 the same file.
 
-## Programmatic art
-
-Agents must not freehand box drawing. Use `show_art` (or `/art`) with a
-JSON program the engine rasterizes: figlet, marquee, bounce, spinner,
-wave/rain, clock, rect/line/circle, bars/sparks, plots, scatter, and a
-limited ANSI SGR blit. Set `fps` (cap 30) for live pane animation.
-`loop` and `duration_ms` control playback. Close the pane or `/art stop`
-to end.
-
-```json
-{
-  "width": 56, "height": 16, "fps": 14, "loop": true,
-  "ops": [
-    {"op": "figlet", "text": "SHIP", "x": 1, "y": 0, "color": "#5ad2ff", "pulse": true},
-    {"op": "marquee", "text": "deploying… ", "y": 5, "speed": 14},
-    {"op": "plot", "fn": "sin", "x": 2, "y": 6, "w": 40, "h": 9, "speed": 2},
-    {"op": "spinner", "x": 50, "y": 1}
-  ]
-}
-```
-
-`/art demo` (or `/art anim`) runs a live smoke scene.
-
 ## Themes
 
 Built-ins: ink, ember, moss, slate, rose, mono, dusk. Switch with

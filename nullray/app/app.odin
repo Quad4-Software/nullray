@@ -152,15 +152,6 @@ App :: struct {
 	view_form_scroll:   int,
 	view_canvas_id:     string, // last saved/opened canvas id
 	view_canvas_schema: string, // raw schema for /canvas save
-	// Programmatic art scene (animated side-pane player).
-	art_scene_on:       bool,
-	art_scene_json:     string,
-	art_scene_title:    string,
-	art_scene_start:    time.Tick,
-	art_scene_last:     time.Tick,
-	art_scene_fps:      int,
-	art_scene_loop:     bool,
-	art_scene_dur_ms:   int,
 	input_scroll_col:   int,
 	view_auto:          bool,
 	show_status:        bool,
@@ -206,7 +197,6 @@ app_init :: proc(a: ^App, loop: ^ui.Loop) {
 	a.agent_spinner = ui.spinner_init()
 	// Wire set_tui so live loop theme refreshes when the agent recolors the UI.
 	tools.register_tui_apply(app_tui_apply, a)
-	tools.register_art_show(app_art_show_cb, a)
 	// Export ask vault secrets into shell env when NULLRAY_VAULT_EXPORT=1.
 	sandbox.register_vault_export(proc(dst: ^[dynamic]string, allocator: mem.Allocator) -> int {
 		return ask.secret_export_env_pairs(dst, allocator)
@@ -321,7 +311,6 @@ app_destroy :: proc(a: ^App) {
 	}
 	app_setup_clear(a)
 	app_ask_clear(a)
-	app_art_scene_stop(a)
 	app_view_destroy(a)
 	app_toasts_destroy(a)
 	app_sel_destroy(a)

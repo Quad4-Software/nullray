@@ -31,9 +31,6 @@ Notable changes for nullray.
 - Durable agent canvas apps (`canvas_save`/`canvas_open`/`/canvas`, show_view
   persist/canvas_id), `skill_write` + `/learn`, worktree janitor
   (`/agents worktree`).
-- Programmatic terminal art: `show_art` + `/art` with figlet, shapes,
-  bars/sparks, math plots, scatter, safe ANSI SGR blit, and fps animation
-  (marquee, bounce, spinner, wave, orbit, pulse) in the side pane.
 - Provider set trimmed to locals (ollama, lmstudio, llamacpp), openai-compat,
   openrouter, opencode, opencode-go, and fireworks. Dropped first-class
   openai, anthropic, gemini, azure, and other cloud vendor aliases.
@@ -92,6 +89,7 @@ Notable changes for nullray.
 - Global theme persist: theme_export_json no longer emits broken fmt
   braces. `/theme NAME` and set_tui scope=global write valid
   theme_custom.json, load on startup.
+- Removed experimental programmatic art engine (`show_art`, `/art`).
 - parse_cli_late no longer treats recognized flags as unknown (broke make install completions).
 - Soft-redirect cycles and loopback hop targets are stopped cleanly, apply_edits envelope paths stay distinct for anti-loop signals.
 - Help button hit target is the leading glyph only, not the whole version label.

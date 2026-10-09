@@ -106,7 +106,6 @@ this list in-app.
 | `/key` `/token` | Aliases for `/secret` |
 | `/demo malleable` | Smoke show_view password vault + privacy UI |
 | `/canvas list\|open\|save\|rm` | Persist and reopen agent panel UIs |
-| `/art figlet\|demo\|show JSON` | Programmatic ASCII/ANSI art (engine, not freehand) |
 | `/learn ID [description]` | Save a compact skill from the last assistant reply |
 | `/agents worktree [--force]` | Prune orphan edit-subagent worktrees |
 | `/help` or `/?` | Command list |
