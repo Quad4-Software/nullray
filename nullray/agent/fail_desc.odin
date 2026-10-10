@@ -13,8 +13,9 @@ import "core:strings"
 import "nullray:provider"
 
 // Replacement arguments for a recorded call that failed. Still a JSON
-// object so provider serializers keep working.
-FAILED_CALL_ARGS :: `{"_failed":true}`
+// object so provider serializers keep working, and phrased as a harness
+// note so weak models do not mistake it for something they emitted.
+FAILED_CALL_ARGS :: `{"_nullray_scrubbed":"arguments withheld after this call failed"}`
 
 /*
 Scrub the recorded assistant tool_call that matches c. Keeps id and name

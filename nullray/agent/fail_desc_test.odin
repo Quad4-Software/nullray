@@ -89,7 +89,7 @@ test_failed_call_recorded_described_not_echoed :: proc(t: ^testing.T) {
 					testing.expect_value(t, tc.name, "fd_fail")
 					testing.expect(t, !strings.contains(tc.arguments, FD_MARKER))
 					testing.expect(t, !strings.contains(tc.arguments, "nullray-fd-nope"))
-					testing.expect(t, strings.contains(tc.arguments, "_failed"))
+					testing.expect(t, strings.contains(tc.arguments, "_nullray_scrubbed"))
 				}
 			}
 		}
