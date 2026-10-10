@@ -52,6 +52,15 @@ sizes and pricing when the models.dev cache is warm, plus which API
 surface an OpenCode Zen model needs (chat, messages, responses,
 gemini, or systemone). `NULLRAY_MODELSDEV=0` disables that cache.
 
+Zen routing speaks each surface natively: chat/completions, Anthropic
+messages, the OpenAI Responses API, and Gemini generateContent. The
+sole exception is systemone (jev-*), a typed question evaluator rather
+than a chat model, so nullray reports it as unsupported for agent
+turns. Providers that omit a cost field in usage get priced from the
+models.dev catalog, so the usage line and session totals show dollars.
+`NULLRAY_BUDGET_USD` caps per-turn spend; the turn stops with a budget
+note when the accumulated cost reaches it.
+
 Reasoning effort: `NULLRAY_REASONING` or `/reasoning` (low, medium,
 high, none). pi thinking-level defaults adopt into this.
 

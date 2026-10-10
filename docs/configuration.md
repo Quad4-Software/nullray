@@ -106,6 +106,7 @@ process only, so nothing silently persists a borrowed credential.
 | `NULLRAY_PRINT_TIMEOUT` | Print wall clock, default 600s |
 | `NULLRAY_PRINT_STRICT` | Exit 1 on incomplete runs |
 | `NULLRAY_PRINT_USAGE` | Print token and cost summary |
+| `NULLRAY_BUDGET_USD` | Stop the turn once its spend reaches this many dollars |
 | `NULLRAY_PRINT_STREAM` | Stream reply tokens live in print mode |
 | `NULLRAY_PRINT_STATS` | Completion stats line on stderr (0 disables) |
 | `NULLRAY_TRACE` | Stderr tool-call lines in print mode |
@@ -124,7 +125,7 @@ process only, so nothing silently persists a borrowed credential.
 | `NULLRAY_SANDBOX_EXTRA_RO` | Extra read-only absolute paths |
 | `NULLRAY_SANDBOX_EXTRA_RW` | Extra read-write absolute paths |
 | `NULLRAY_DOCS` | Narrow RO for doc caches (tldr, rustup) |
-| `NULLRAY_TOOLCHAIN` | Narrow RW for Go/Cargo/npm caches |
+| `NULLRAY_TOOLCHAIN` | Narrow RW for Go/Cargo/npm caches plus uv, pipx, and version-manager roots |
 | `NULLRAY_ELEVATE` | ask, deny, ticket |
 | `NULLRAY_ASKPASS` | External askpass helper path |
 | `NULLRAY_SECRETS_ALLOW` | Absolute paths allowed to read secrets |

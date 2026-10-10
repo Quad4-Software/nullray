@@ -62,6 +62,25 @@ read-only access to tldr and rustup caches so doc lookup tools work.
 under home, and forces absolute `GOMODCACHE`/`GOCACHE`/`GOPATH` in
 `run_shell` so builds do not litter the workspace.
 
+The toolchain grant also covers uv (`XDG_CACHE_HOME/uv`,
+`XDG_DATA_HOME/uv`, `UV_CACHE_DIR`, `UV_PYTHON_INSTALL_DIR`,
+`UV_TOOL_DIR`) so workspace `.venv` interpreters that symlink into the
+uv store still execute, plus pipx, virtualenvs, and the usual version
+managers (pyenv, mise, asdf, nvm, volta, pnpm, bun, deno, rye,
+micromamba, conda) when those roots already exist. `~/.local/bin` gets
+read-write only when it already hosts `uv`, `uvx`, or `pipx`. When
+`~/.opencode` is installed its binary dir gets read-only exec and its
+data, state, cache, and config dirs get read-write so `harness_run` can
+drive the CLI.
+
+`/proc` and `/sys` are read-only grants: several runtimes abort at
+startup when procfs reads fail. `TMPDIR` is pinned to the sandbox tmp
+dir for every spawned child so libc temp files land inside the grant.
+
+When a shell result ends in a permission failure and the sandbox is
+applied, run_shell and run_script append a one-line note naming the
+`NULLRAY_SANDBOX_EXTRA_RO`/`NULLRAY_SANDBOX_EXTRA_RW` knobs.
+
 ## Elevated commands
 
 `sudo`, `doas`, and `pkexec` go through `nullray/elevate`, a privilege

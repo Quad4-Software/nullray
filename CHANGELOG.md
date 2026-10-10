@@ -5,10 +5,8 @@ Notable changes for nullray.
 ## [Unreleased]
 
 ### Added
-- `/steps [N|auto|default]` controls the max tool/chat iterations per turn
-  (`NULLRAY_AGENT_STEPS`). `/status` shows the active `agent_steps` budget.
 - llama.cpp adopts the loaded GGUF name from `/v1/models`, probes ports 8080,
-  8081, and 9931, and sends `n_ctx` from `/props` or the model profile on chat.
+  8081, and 9931, and sends `n_ctx` from `/props` or the model profile on chat.1
 - `show_view` agent tool: LLM-designed TUI forms with text, textarea,
   number, checkbox, select, radio, password, label, markdown, separator, and
   image fields, placement=modal|panel, script actions. JSON `{action, values}`.
@@ -34,6 +32,35 @@ Notable changes for nullray.
 - Provider set trimmed to locals (ollama, lmstudio, llamacpp), openai-compat,
   openrouter, opencode, opencode-go, and fireworks. Dropped first-class
   openai, anthropic, gemini, azure, and other cloud vendor aliases.
+- OpenCode Zen responses and gemini surfaces: gpt-*, grok-*, and muse-*
+  models drive the OpenAI Responses API, and gemini-* models drive
+  generateContent including functionCall round-trips with echoed
+  thoughtSignature parts. systemone (jev-*) reports a clear
+  not-a-chat-model error.
+- Catalog cost tracking: responses that omit a cost field get priced
+  from the cached models.dev rates, so the usage line, session totals,
+  and usage ledger show dollars for Zen and other cost-silent providers.
+- `NULLRAY_BUDGET_USD` per-turn spend cap: the turn stops with a budget
+  note once accumulated cost reaches the limit.
+
+### Fixed
+- Landlock now grants the uv toolchain (`XDG_DATA_HOME/uv`,
+  `XDG_CACHE_HOME/uv`, `UV_*` dirs) so `uv` and workspace `.venv`
+  interpreters that symlink into the uv store no longer exit 126 inside
+  run_shell. pipx, virtualenvs, and version managers (pyenv, mise, asdf,
+  nvm, volta, pnpm, bun, deno, rye, micromamba, conda) get the same
+  exist-only grants, `~/.local/bin` is writable when it hosts a managed
+  tool, and `/proc`, `/sys`, `/opt`, `/nix`, `/snap`, `/home/linuxbrew`
+  are read-only roots. `TMPDIR` is pinned to the sandbox tmp for every
+  spawned child. `~/.opencode` gets exec plus its data/state/cache/config
+  dirs so `harness_run` can drive the opencode CLI under the sandbox.
+- run_shell and run_script append a note naming the
+  `NULLRAY_SANDBOX_EXTRA_RO`/`NULLRAY_SANDBOX_EXTRA_RW` knobs when a
+  sandboxed command ends in a permission failure.
+- Scrubbed failed-call arguments now read
+  `{"_nullray_scrubbed":"arguments withheld after this call failed"}`
+  instead of `{"_failed":true}` so weak models do not mistake the marker
+  for their own malformed args.
 
 ## [0.8.0] - 2026-10-08
 
