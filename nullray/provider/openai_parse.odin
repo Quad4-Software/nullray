@@ -130,6 +130,7 @@ parse_openai_chat_response :: proc(body: string, allocator := context.allocator)
 					delete(tc.id)
 					delete(tc.name)
 					delete(tc.arguments)
+					delete(tc.signature)
 				}
 			}
 			out.tool_calls = calls[:]

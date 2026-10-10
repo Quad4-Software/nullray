@@ -136,12 +136,13 @@ test_opencode_go_fallback_differs_from_zen :: proc(t: ^testing.T) {
 
 @(test)
 test_opencode_chat_rejects_unsupported_surface :: proc(t: ^testing.T) {
+	// systemone stays rejected: it evaluates typed questions, not chat.
 	p := Provider{id = "opencode", base_url = "https://opencode.ai/zen/v1"}
-	req := Chat_Request{model = "gpt-5.5", messages = []Message{{role = .User, content = "hi"}}}
+	req := Chat_Request{model = "jev-1.13", messages = []Message{{role = .User, content = "hi"}}}
 	res := opencode_chat(&p, req)
 	defer destroy_chat_response(&res)
 	testing.expect(t, !res.ok)
-	testing.expect(t, strings.contains(res.err, "responses"))
+	testing.expect(t, strings.contains(res.err, "systemone"))
 }
 
 @(test)

@@ -18,6 +18,8 @@ Tool_Call :: struct {
 	id:        string,
 	name:      string,
 	arguments: string,
+	// Gemini thoughtSignature echoed back with replayed functionCall parts.
+	signature:  string,
 }
 
 Media_Kind :: enum {
@@ -202,6 +204,7 @@ clone_tool_call :: proc(tc: Tool_Call, allocator := context.allocator) -> Tool_C
 		id = strings.clone(tc.id, allocator),
 		name = strings.clone(tc.name, allocator),
 		arguments = strings.clone(tc.arguments, allocator),
+		signature = strings.clone(tc.signature, allocator),
 	}
 }
 
@@ -210,6 +213,7 @@ destroy_tool_calls :: proc(calls: []Tool_Call) {
 		delete(c.id)
 		delete(c.name)
 		delete(c.arguments)
+		delete(c.signature)
 	}
 }
 

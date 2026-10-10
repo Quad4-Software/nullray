@@ -171,6 +171,13 @@ opencode_is_zen_base :: proc(p: ^Provider) -> bool {
 
 @(private)
 opencode_unsupported_err :: proc(p: ^Provider, model: string, api: Opencode_Api, allocator := context.allocator) -> string {
+	if api == .SystemOne {
+		return fmt.aprintf(
+			"%s rides the Zen systemone endpoint: it is a typed question evaluator (state + questions), not a chat model, so it cannot drive an agent turn. Pick any other Zen model.",
+			model,
+			allocator = allocator,
+		)
+	}
 	return fmt.aprintf(
 		"%s uses the Zen %s endpoint, which nullray does not support yet. Pick a chat model (big-pickle, kimi, glm, minimax, deepseek, qwen3.8-max) or a claude/qwen model for messages.",
 		model,
@@ -219,7 +226,11 @@ opencode_chat :: proc(p: ^Provider, req: Chat_Request, allocator := context.allo
 		#partial switch api {
 		case .Messages:
 			return anthropic_chat(p, req, allocator)
-		case .Responses, .Gemini, .SystemOne:
+		case .Responses:
+			return responses_chat(p, req, allocator)
+		case .Gemini:
+			return gemini_chat(p, req, allocator)
+		case .SystemOne:
 			return Chat_Response{ok = false, err = opencode_unsupported_err(p, model, api, allocator)}
 		}
 		return openai_chat(p, req, allocator)
@@ -244,7 +255,11 @@ opencode_chat_stream :: proc(
 		#partial switch api {
 		case .Messages:
 			return anthropic_chat_stream(p, req, on_delta, user, allocator)
-		case .Responses, .Gemini, .SystemOne:
+		case .Responses:
+			return responses_chat_stream(p, req, on_delta, user, allocator)
+		case .Gemini:
+			return gemini_chat_stream(p, req, on_delta, user, allocator)
+		case .SystemOne:
 			return Chat_Response{ok = false, err = opencode_unsupported_err(p, model, api, allocator)}
 		}
 		return openai_chat_stream(p, req, on_delta, user, allocator)
