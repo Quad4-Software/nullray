@@ -1,0 +1,5 @@
+{
+  "id": "go1-echo",
+  "prompt": "Read PROBLEM.md and write main.go implementing the echo service exactly. Build it with 'go build -o echo main.go' to confirm it compiles.",
+  "verify": "go build -o echo main.go && (./echo & SRV=$!; READY=0; for i in $(seq 1 40); do sleep 0.25; OUT=$(curl -s -X POST -d hello http://127.0.0.1:8799/echo 2>/dev/null); [ -n \"$OUT\" ] && { READY=1; break; }; done; OK=0; [ $READY = 1 ] && echo \"$OUT\" | grep -qF '\"echo\":\"hello\"' && curl -s http://127.0.0.1:8799/health | grep -qx ok && OK=1; kill $SRV 2>/dev/null; exit $((1-OK)))"
+}

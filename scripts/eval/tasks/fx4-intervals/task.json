@@ -1,0 +1,5 @@
+{
+  "id": "fx4-intervals",
+  "prompt": "intervals.py merges overlapping intervals but mis-handles the touching boundary case. The seeded unittests fail. Fix intervals.py; do not change the tests.",
+  "verify": "python3 -m unittest test_intervals 2>&1"
+}

@@ -45,6 +45,7 @@ PRICES = {
 }
 
 USAGE_RE = re.compile(r"session=(\d+)/(\d+)/(\d+)")
+COST_RE = re.compile(r"cost=([0-9.]+)")
 
 
 def load_tasks(only: set[str] | None) -> list[dict]:
@@ -67,8 +68,24 @@ def estimate_cost(model: str, tokens_in: int, tokens_out: int) -> float | None:
     return tokens_in / 1e6 * p[0] + tokens_out / 1e6 * p[1]
 
 
-def run_one(nullray: str, task: dict, model: str, out_dir: Path, timeout: int) -> dict:
-    ws = out_dir / f"{task['id']}_{model.replace('/', '_')}"
+def split_model_spec(spec: str) -> tuple[str, str]:
+    """'provider/model' -> (provider, model); bare 'model' -> ('', model).
+    Provider ids are a closed set so 'deepseek-v4.1-flash' is a model while
+    'opencode/deepseek-v4.1-flash' splits."""
+    KNOWN = {
+        "opencode", "opencode-go", "zen", "openrouter", "openai-compat",
+        "ollama", "lmstudio", "llamacpp", "fireworks",
+    }
+    if "/" in spec:
+        head, rest = spec.split("/", 1)
+        if head in KNOWN and rest:
+            return head, rest
+    return "", spec
+
+
+def run_one(nullray: str, task: dict, spec: str, out_dir: Path, timeout: int) -> dict:
+    prov, model = split_model_spec(spec)
+    ws = out_dir / f"{task['id']}_{spec.replace('/', '_')}"
     if ws.exists():
         shutil.rmtree(ws)
     ws.mkdir(parents=True)
@@ -99,6 +116,8 @@ def run_one(nullray: str, task: dict, model: str, out_dir: Path, timeout: int) -
         "--workspace",
         str(ws),
     ]
+    if prov:
+        argv += ["--provider", prov]
     argv += ["--mode", task.get("mode", "edit")]
     import shlex
 
@@ -120,6 +139,14 @@ def run_one(nullray: str, task: dict, model: str, out_dir: Path, timeout: int) -
         m = match
     if m:
         tok_in, tok_out = int(m.group(1)), int(m.group(2))
+    # nullray reports catalog-priced cost on the usage line since the Zen
+    # work; fall back to the local table only when it prints unknown.
+    cost_known = None
+    cm = None
+    for match in COST_RE.finditer(proc.stderr):
+        cm = match
+    if cm:
+        cost_known = float(cm.group(1))
 
     verify = task.get("verify", "")
     verdict = "no-check"
@@ -135,10 +162,10 @@ def run_one(nullray: str, task: dict, model: str, out_dir: Path, timeout: int) -
     elif proc.returncode != 0:
         verdict = "fail"
 
-    cost = estimate_cost(model, tok_in, tok_out)
+    cost = cost_known if cost_known is not None else estimate_cost(model, tok_in, tok_out)
     return {
         "task": task["id"],
-        "model": model,
+        "model": spec,
         "exit": proc.returncode,
         "verdict": verdict,
         "tokens_in": tok_in,
@@ -176,10 +203,11 @@ def main() -> int:
 
     spent = 0.0
     results = []
-    print(f"{'task':<14}{'model':<22}{'verdict':<9}{'in':>8}{'out':>7}{'wall':>6}{'cost$':>8}")
+    print(f"{'task':<14}{'model':<30}{'verdict':<9}{'in':>8}{'out':>7}{'wall':>6}{'cost$':>8}")
     for task in tasks:
         for model in models:
-            cost0 = estimate_cost(model, 1, 1)
+            _, bare = split_model_spec(model)
+            cost0 = estimate_cost(bare, 1, 1)
             if spent + (cost0 or 0) * 200_000 > args.budget:
                 print(f"budget ${args.budget} reached, stopping")
                 break

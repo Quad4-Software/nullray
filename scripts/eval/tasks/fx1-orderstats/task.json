@@ -1,0 +1,5 @@
+{
+  "id": "fx1-orderstats",
+  "prompt": "orderstats.py implements k-th smallest with quickselect but has a bug. The seeded unittest suite fails. Fix orderstats.py so all tests pass. Do not change the tests.",
+  "verify": "python3 -m unittest test_orderstats 2>&1"
+}

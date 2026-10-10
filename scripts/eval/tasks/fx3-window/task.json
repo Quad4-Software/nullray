@@ -1,0 +1,5 @@
+{
+  "id": "fx3-window",
+  "prompt": "window.py implements a sliding-window moving average but the sliding part is wrong. The seeded unittests fail. Fix window.py; do not change the tests.",
+  "verify": "python3 -m unittest test_window 2>&1"
+}

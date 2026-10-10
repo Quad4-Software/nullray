@@ -1,0 +1,3 @@
+{"id": "sp1-jsonl",
+ "prompt": "Read PROBLEM.md and write jsonl_norm.py exactly to spec. Test it on the example yourself before finishing.",
+ "verify": "printf '%s\\n' '{\"id\": \"b2\", \"ts\": \"1700000000.9\", \"extra\": 1}' '{\"id\": \"a1\", \"note\": \"x\"}' 'not json' '{\"id\": 7}' '{\"id\":\"c3\",\"ts\":\"bogus\"}' '{\"id\":\"a0\",\"ts\":42.7}' '{\"id\":\"zz\",\"ts\":-3.9}' | python3 jsonl_norm.py | diff - <(printf '%s\\n' '{\"id\":\"a0\",\"ts\":42}' '{\"id\":\"a1\",\"ts\":null}' '{\"id\":\"b2\",\"ts\":1700000000}' '{\"id\":\"c3\",\"ts\":null}' '{\"id\":\"zz\",\"ts\":-3}')"}

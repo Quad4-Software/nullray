@@ -1,0 +1,5 @@
+{
+  "id": "fx2-retry",
+  "prompt": "retry.py has a retry-with-backoff helper whose tests document the intended contract; several fail. Find and fix the bugs in retry.py. Do not change the tests.",
+  "verify": "python3 -m unittest test_retry 2>&1"
+}

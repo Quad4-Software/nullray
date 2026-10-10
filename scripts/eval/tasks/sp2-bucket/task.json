@@ -1,0 +1,5 @@
+{
+  "id": "sp2-bucket",
+  "prompt": "Read PROBLEM.md and implement bucket.py with the TokenBucket class so test_bucket.py passes. Do not change the test.",
+  "verify": "python3 -m unittest test_bucket 2>&1"
+}
