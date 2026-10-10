@@ -79,7 +79,9 @@ excerpt_for_envelope :: proc(body: string, n: int, allocator := context.allocato
 	}
 	tok := sandbox.redact_secret_tokens(ex, allocator)
 	if strings.contains(tok, sandbox.REDACTED_SECRET) {
-		delete(tok)
+		// Pair the free with the allocator that produced tok: callers pass
+		// the temp arena here, and freeing it through the heap aborts.
+		delete(tok, allocator)
 		return strings.clone(REDACTED_EXCERPT, allocator)
 	}
 	return tok
