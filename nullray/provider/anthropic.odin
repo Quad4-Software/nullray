@@ -84,6 +84,20 @@ anthropic_request_headers :: proc(headers: ^[dynamic]string, p: ^Provider, sessi
 	anthropic_version_header(headers)
 }
 
+// effort names the adaptive API accepts: minimal maps to low, the rest pass
+// through unchanged.
+@(private)
+anthropic_effort_name :: proc(effort: string) -> string {
+	el := strings.to_lower(strings.trim_space(effort), context.temp_allocator)
+	switch el {
+	case "minimal":
+		return "low"
+	case "low", "medium", "high", "xhigh", "max":
+		return el
+	}
+	return "medium"
+}
+
 @(private)
 anthropic_thinking_budget :: proc(effort: string) -> int {
 	el := strings.to_lower(strings.trim_space(effort), context.temp_allocator)
@@ -342,15 +356,35 @@ write_anthropic_tool_choice :: proc(b: ^strings.Builder, choice: string) {
 	}
 }
 
+/*
+The 5th-generation Claude ids on Zen reject thinking.type.enabled and want
+adaptive thinking plus an effort knob instead of a token budget.
+*/
+@(private)
+anthropic_uses_adaptive_thinking :: proc(model: string) -> bool {
+	m := strings.to_lower(strings.trim_space(model), context.temp_allocator)
+	if !strings.has_prefix(m, "claude-") {
+		return false
+	}
+	rest := m[len("claude-"):]
+	// claude-<family>-<version>*: family is opus, sonnet, haiku, or fable.
+	if idx := strings.index(rest, "-"); idx >= 0 {
+		ver := rest[idx + 1:]
+		return len(ver) > 0 && ver[0] == '5'
+	}
+	return false
+}
+
 build_anthropic_body :: proc(p: ^Provider, req: Chat_Request, model: string, stream: bool) -> string {
 	b: strings.Builder
 	strings.builder_init(&b, context.temp_allocator)
 	budget := anthropic_thinking_budget(req.reasoning_effort)
+	adaptive := anthropic_uses_adaptive_thinking(model)
 	max_tokens := req.max_tokens
 	if max_tokens <= 0 {
 		max_tokens = constants.DEFAULT_MAX_TOKENS
 	}
-	if budget > 0 && max_tokens <= budget + ANTHROPIC_THINKING_BUDGET_MIN {
+	if budget > 0 && !adaptive && max_tokens <= budget + ANTHROPIC_THINKING_BUDGET_MIN {
 		max_tokens = budget + ANTHROPIC_THINKING_BUDGET_MIN + 1024
 	}
 	strings.write_string(&b, `{"model":`)
@@ -386,7 +420,11 @@ build_anthropic_body :: proc(p: ^Provider, req: Chat_Request, model: string, str
 			write_anthropic_tool_choice(&b, req.tool_choice)
 		}
 	}
-	if budget > 0 {
+	if adaptive && budget > 0 {
+		strings.write_string(&b, `,"thinking":{"type":"adaptive"},"output_config":{"effort":`)
+		write_json_string(&b, anthropic_effort_name(req.reasoning_effort))
+		strings.write_byte(&b, '}')
+	} else if budget > 0 {
 		// Extended thinking rejects temperature/top_p overrides.
 		strings.write_string(&b, `,"thinking":{"type":"enabled","budget_tokens":`)
 		fmt.sbprintf(&b, "%d}", budget)
