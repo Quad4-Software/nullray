@@ -79,5 +79,15 @@ tool_run_shell :: proc(args_json: string, allocator := context.allocator) -> (re
 	if bg {
 		return shell_bg_start(command, workspace, env, allocator)
 	}
-	return run_process_capture(argv[:], workspace, timeout_ms, allocator, env)
+	out, rerr := run_process_capture(argv[:], workspace, timeout_ms, allocator, env)
+	if len(rerr) > 0 {
+		return "", rerr
+	}
+	if hint := sandbox.exec_denied_hint(out, allocator); len(hint) > 0 {
+		merged := fmt.aprintf("%s\n%s", out, hint, allocator = allocator)
+		delete(out)
+		delete(hint)
+		out = merged
+	}
+	return out, ""
 }

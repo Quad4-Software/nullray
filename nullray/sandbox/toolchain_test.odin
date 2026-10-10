@@ -13,7 +13,7 @@ test_toolchain_append_rw_go_cache :: proc(t: ^testing.T) {
 	home, ok := os.lookup_env("HOME", context.temp_allocator)
 	testing.expect(t, ok && len(home) > 0)
 	list := make([dynamic]string, context.temp_allocator)
-	toolchain_append_rw_paths(&list, context.temp_allocator)
+	toolchain_append_rw_paths(&list, nil, context.temp_allocator)
 	testing.expect(t, len(list) > 0)
 	found_mod := false
 	found_cache := false
@@ -33,7 +33,7 @@ test_toolchain_disabled :: proc(t: ^testing.T) {
 	os.set_env(constants.ENV_TOOLCHAIN, "0")
 	defer os.unset_env(constants.ENV_TOOLCHAIN)
 	list := make([dynamic]string, context.temp_allocator)
-	toolchain_append_rw_paths(&list, context.temp_allocator)
+	toolchain_append_rw_paths(&list, nil, context.temp_allocator)
 	testing.expect_value(t, len(list), 0)
 	env := toolchain_shell_env(context.temp_allocator)
 	testing.expect(t, env == nil)

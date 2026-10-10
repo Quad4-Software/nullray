@@ -137,7 +137,7 @@ config_from_env :: proc(allocator := context.allocator) -> Config {
 	cfg.net_ports = default_net_ports(allocator)
 	net_ports_from_env(&cfg.net_ports)
 	docs_append_ro_paths(&cfg.extra_ro, allocator)
-	toolchain_append_rw_paths(&cfg.extra_rw, allocator)
+	toolchain_append_rw_paths(&cfg.extra_rw, &cfg.extra_ro, allocator)
 	ops_apply_to_config(&cfg, allocator)
 	return cfg
 }

@@ -24,16 +24,18 @@ toolchain_enabled_from_env :: proc() -> bool {
 }
 
 /*
-Append narrow RW dirs for language toolchains (create if missing).
-Keeps module caches out of the workspace when Landlock is on.
+Append narrow RW dirs for language toolchains (create if missing) plus RO
+exec dirs for installed binaries. Keeps module caches out of the workspace
+when Landlock is on. out_ro may be nil when only the RW list is wanted.
 */
-toolchain_append_rw_paths :: proc(out: ^[dynamic]string, allocator := context.allocator) {
+toolchain_append_rw_paths :: proc(out: ^[dynamic]string, out_ro: ^[dynamic]string, allocator := context.allocator) {
 	if out == nil || !toolchain_enabled_from_env() {
 		return
 	}
 	home, _ := os.lookup_env("HOME", context.temp_allocator)
 	cache_root := xdg_dir("XDG_CACHE_HOME", home, ".cache", context.temp_allocator)
-	parents := []string{cache_root}
+	data_root := xdg_dir("XDG_DATA_HOME", home, ".local/share", context.temp_allocator)
+	parents := []string{cache_root, data_root}
 
 	candidates := make([dynamic]string, context.temp_allocator)
 
@@ -64,6 +66,133 @@ toolchain_append_rw_paths :: proc(out: ^[dynamic]string, allocator := context.al
 
 	for raw in candidates {
 		toolchain_add_rw_dir(out, raw, home, parents, allocator)
+	}
+
+	// uv: interpreters land in XDG_DATA_HOME/uv/python and workspace venvs
+	// symlink back to them, so an ungranted store makes every venv python
+	// fail with EACCES. Created when absent so a first uv run can populate.
+	if v, ok := os.lookup_env("UV_CACHE_DIR", context.temp_allocator); ok && len(strings.trim_space(v)) > 0 {
+		toolchain_add_rw_dir(out, strings.trim_space(v), home, parents, allocator)
+	} else if p, ok := docs_join_dir(cache_root, "uv"); ok {
+		toolchain_add_rw_dir(out, p, home, parents, allocator)
+	}
+	uv_dirs := []string{"UV_PYTHON_INSTALL_DIR", "UV_TOOL_DIR"}
+	for key in uv_dirs {
+		if v, ok := os.lookup_env(key, context.temp_allocator); ok && len(strings.trim_space(v)) > 0 {
+			toolchain_add_rw_dir(out, strings.trim_space(v), home, parents, allocator)
+		}
+	}
+	if p, ok := docs_join_dir(data_root, "uv"); ok {
+		toolchain_add_rw_dir(out, p, home, parents, allocator)
+	}
+
+	// uv tool and pipx shims land in ~/.local/bin by default. RW only when
+	// a managed tool already lives there so other user binaries are not
+	// opened up for a rewrite; a plain RO grant still lets them execute.
+	if b, ok := docs_join_dir(home, ".local/bin"); ok {
+		if docs_dir_has_named_bin(b, []string{"uv", "uvx", "pipx"}) {
+			toolchain_add_rw_dir(out, b, home, parents, allocator)
+		} else if out_ro != nil {
+			docs_add_existing_dir(out_ro, b, home, parents, allocator)
+		}
+	}
+	bin_dirs := []string{"UV_TOOL_BIN_DIR", "PIPX_BIN_DIR"}
+	for key in bin_dirs {
+		if v, ok := os.lookup_env(key, context.temp_allocator); ok && len(strings.trim_space(v)) > 0 {
+			toolchain_add_rw_dir(out, strings.trim_space(v), home, parents, allocator)
+		}
+	}
+
+	// Version managers, env tooling, and agent CLI data get a grant only
+	// when installed: creating these roots would leave stray dirs behind.
+	home_roots := []struct{key, rel: string}{
+		{"PYENV_ROOT", ".pyenv"},
+		{"ASDF_DATA_DIR", ".asdf"},
+		{"NVM_DIR", ".nvm"},
+		{"VOLTA_HOME", ".volta"},
+		{"BUN_INSTALL", ".bun"},
+		{"RYE_HOME", ".rye"},
+		{"MAMBA_ROOT_PREFIX", ".micromamba"},
+		{"", "miniconda3"},
+		{"", "miniforge3"},
+		{"", "anaconda3"},
+	}
+	for e in home_roots {
+		toolchain_add_env_or(out, e.key, home, e.rel, home, parents, allocator)
+	}
+	data_roots := []struct{key, rel: string}{
+		{"MISE_DATA_DIR", "mise"},
+		{"PNPM_HOME", "pnpm"},
+		{"PIPX_HOME", "pipx"},
+		{"", "virtualenvs"},
+	}
+	for e in data_roots {
+		toolchain_add_env_or(out, e.key, data_root, e.rel, home, parents, allocator)
+	}
+	cache_roots := []struct{key, rel: string}{
+		{"MISE_CACHE_DIR", "mise"},
+		{"DENO_DIR", "deno"},
+		{"", "pip"},
+		{"", "pypoetry"},
+	}
+	for e in cache_roots {
+		toolchain_add_env_or(out, e.key, cache_root, e.rel, home, parents, allocator)
+	}
+
+	// opencode: the harness preset resolves ~/.opencode/bin/opencode (RO is
+	// enough to exec) while the CLI writes to its data, state, cache, and
+	// config dirs. The writable roots are only created when the install
+	// dir is present so machines without opencode stay clean.
+	if p, ok := docs_join_dir(home, ".opencode"); ok {
+		if info, err := os.lstat(p, context.temp_allocator); err == nil && info.type == .Directory {
+			if out_ro != nil {
+				docs_add_existing_dir(out_ro, p, home, parents, allocator)
+			}
+			if d, dok := docs_join_dir(data_root, "opencode"); dok {
+				toolchain_add_rw_dir(out, d, home, parents, allocator)
+			}
+			if v, ok := os.lookup_env("XDG_STATE_HOME", context.temp_allocator); ok && len(strings.trim_space(v)) > 0 {
+				if d, dok := docs_join_dir(strings.trim_space(v), "opencode"); dok {
+					toolchain_add_rw_dir(out, d, home, parents, allocator)
+				}
+			} else if d, dok := docs_join_dir(home, ".local/state/opencode"); dok {
+				toolchain_add_rw_dir(out, d, home, parents, allocator)
+			}
+			if d, dok := docs_join_dir(cache_root, "opencode"); dok {
+				toolchain_add_rw_dir(out, d, home, parents, allocator)
+			}
+			if d, dok := docs_join_dir(home, ".config/opencode"); dok {
+				toolchain_add_rw_dir(out, d, home, parents, allocator)
+			}
+		}
+	}
+}
+
+/*
+Grant env_key override when set, else root/rel. Exist-only: an absent tool
+must not get a stray directory created under HOME.
+*/
+@(private)
+toolchain_add_env_or :: proc(
+	out: ^[dynamic]string,
+	env_key: string,
+	root: string,
+	rel: string,
+	home: string,
+	parents: []string,
+	allocator := context.allocator,
+) {
+	if len(env_key) > 0 {
+		if v, ok := os.lookup_env(env_key, context.temp_allocator); ok && len(strings.trim_space(v)) > 0 {
+			docs_add_existing_dir(out, strings.trim_space(v), home, parents, allocator)
+			return
+		}
+	}
+	if len(root) == 0 || len(rel) == 0 {
+		return
+	}
+	if p, ok := docs_join_dir(root, rel); ok {
+		docs_add_existing_dir(out, p, home, parents, allocator)
 	}
 }
 

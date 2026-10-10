@@ -59,7 +59,7 @@ apply :: proc(cfg: Config) -> Result {
 	} else {
 		append_unique_path(&g_state.allow_ro, cfg.workspace)
 	}
-	system_ro := []string{"/usr", "/lib", "/lib64", "/etc", "/etc/ssl", "/etc/ssl/certs", "/dev"}
+	system_ro := []string{"/usr", "/lib", "/lib64", "/opt", "/nix", "/snap", "/home/linuxbrew", "/proc", "/sys", "/etc", "/etc/ssl", "/etc/ssl/certs", "/dev"}
 	for p in system_ro {
 		append_unique_path(&g_state.allow_ro, p)
 	}
@@ -117,6 +117,13 @@ apply :: proc(cfg: Config) -> Result {
 			os.set_env("GIT_CONFIG_NOSYSTEM", "1")
 			os.set_env("GIT_CONFIG_GLOBAL", "/dev/null")
 			os.set_env("GIT_CONFIG_SYSTEM", "/dev/null")
+			// Landlock grants only the sandbox tmp dir, so children that
+			// honor TMPDIR (libc temp files, Bun, python tempfile) would
+			// hit EACCES on bare /tmp. Pin it once so every spawned child
+			// inherits a writable temp root.
+			if len(cfg.tmp_dir) > 0 {
+				os.set_env("TMPDIR", cfg.tmp_dir)
+			}
 		}
 		return Result{
 			ok = true,
@@ -139,6 +146,27 @@ apply :: proc(cfg: Config) -> Result {
 		}
 		return Result{ok = true, applied = false, message = "sandbox skipped (unsupported OS)"}
 	}
+}
+
+/*
+Shell output carrying a permission failure usually means Landlock denied
+an exec or write on a path outside the grants. Return a one-line hint so
+the model can route around the grant instead of probing blind; "" when
+the sandbox is off or the text is clean.
+*/
+exec_denied_hint :: proc(text: string, allocator := context.allocator) -> string {
+	if st := state(); st == nil || !st.applied {
+		return ""
+	}
+	lower := strings.to_lower(text, context.temp_allocator)
+	if !strings.contains(lower, "permission denied") &&
+	   !strings.contains(lower, "operation not permitted") {
+		return ""
+	}
+	return strings.clone(
+		"note: nullray sandbox (landlock) may have blocked this path; grant it with NULLRAY_SANDBOX_EXTRA_RO or NULLRAY_SANDBOX_EXTRA_RW, or run with NULLRAY_SANDBOX=off",
+		allocator,
+	)
 }
 
 @(private)

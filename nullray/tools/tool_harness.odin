@@ -96,6 +96,12 @@ tool_harness_run :: proc(args_json: string, allocator := context.allocator) -> (
 	if rerr != "" {
 		return "", rerr
 	}
+	if hint := sandbox.exec_denied_hint(out, allocator); len(hint) > 0 {
+		merged := fmt.aprintf("%s\n%s", out, hint, allocator = allocator)
+		delete(out)
+		delete(hint)
+		out = merged
+	}
 	if len(strings.trim_space(out)) == 0 {
 		delete(out)
 		return fmt.aprintf("harness %s produced no output", strings.trim_space(engine), allocator = allocator), ""

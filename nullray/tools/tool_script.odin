@@ -176,5 +176,15 @@ tool_run_script :: proc(args_json: string, allocator := context.allocator) -> (r
 		append(&owned_cmd, interpreter, script_path)
 		cmd = owned_cmd[:]
 	}
-	return run_process_capture(cmd, workspace, timeout_ms, allocator)
+	out, rerr := run_process_capture(cmd, workspace, timeout_ms, allocator)
+	if len(rerr) > 0 {
+		return "", rerr
+	}
+	if hint := sandbox.exec_denied_hint(out, allocator); len(hint) > 0 {
+		merged := fmt.aprintf("%s\n%s", out, hint, allocator = allocator)
+		delete(out)
+		delete(hint)
+		out = merged
+	}
+	return out, ""
 }
