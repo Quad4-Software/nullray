@@ -142,6 +142,25 @@ print_mode_active :: proc() -> bool {
 	return false
 }
 
+// Per-turn spend cap from NULLRAY_BUDGET_USD. 0 or unset means uncapped.
+budget_usd_limit :: proc() -> f64 {
+	if v, ok := os.lookup_env(constants.ENV_BUDGET_USD, context.temp_allocator); ok {
+		if n, nok := strconv.parse_f64(strings.trim_space(v)); nok && n > 0 {
+			return n
+		}
+	}
+	return 0
+}
+
+// Response model wins over the request model so escalation and provider
+// reroutes price the tokens against the model that actually served them.
+res_model :: proc(res: provider.Chat_Response, fallback: string) -> string {
+	if len(res.model) > 0 {
+		return res.model
+	}
+	return fallback
+}
+
 projection_user_turns :: proc() -> int {
 	if v, ok := os.lookup_env(constants.ENV_PROJECTION_TURNS, context.temp_allocator); ok {
 		n, n_ok := strconv.parse_int(v)

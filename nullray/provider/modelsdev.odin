@@ -275,6 +275,32 @@ modelsdev_model_meta :: proc(provider_id, model: string) -> (Modelsdev_Meta, boo
 	return {}, false
 }
 
+/*
+Fill usage cost from catalog prices when the provider omitted it (Zen
+responses carry token counts but no cost). prompt/completion token counts
+already include cache reads and reasoning, so in*price + out*price is the
+whole bill. No-op without a catalog price entry.
+*/
+usage_fill_catalog_cost :: proc(provider_id, model: string, u: ^Usage) {
+	if u == nil || u.cost_known {
+		return
+	}
+	if u.prompt_tokens + u.completion_tokens + u.total_tokens == 0 {
+		return
+	}
+	m := model
+	if len(m) == 0 {
+		return
+	}
+	meta, ok := modelsdev_model_meta(provider_id, m)
+	if !ok || !meta.has_cost {
+		return
+	}
+	u.cost_usd = f64(u.prompt_tokens) / 1e6 * meta.cost_in +
+		f64(u.completion_tokens) / 1e6 * meta.cost_out
+	u.cost_known = true
+}
+
 // Attach catalog limits and cost to a fetched model list. No-op when the
 // cache is absent or the provider is unknown to models.dev.
 modelsdev_enrich :: proc(provider_id: string, models: []Model_Info) {

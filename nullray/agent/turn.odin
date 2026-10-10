@@ -133,6 +133,9 @@ run_turn_inner :: proc(req: Run_Request, cfg: Config, allocator := context.alloc
 			harness_log_metrics(harness)
 			return finish_run(Run_Result{ok = false, err = res.err, usage = usage_sum, harness = harness}, &esc, allocator)
 		}
+		// Zen and other providers that omit cost get it priced from the
+		// models.dev catalog before the step lands in the running sum.
+		provider.usage_fill_catalog_cost(req.prov.id, res_model(res, model), &res.usage)
 		usage_sum.prompt_tokens += res.usage.prompt_tokens
 		usage_sum.completion_tokens += res.usage.completion_tokens
 		usage_sum.total_tokens += res.usage.total_tokens
@@ -147,6 +150,19 @@ run_turn_inner :: proc(req: Run_Request, cfg: Config, allocator := context.alloc
 		usage_sum.cost_known = saw_cost && cost_all_known
 		if usage_sum.total_tokens == 0 {
 			usage_sum.total_tokens = usage_sum.prompt_tokens + usage_sum.completion_tokens
+		}
+		if budget := budget_usd_limit(); budget > 0 && usage_sum.cost_known && usage_sum.cost_usd >= budget {
+			delete(res.content)
+			delete(res.reasoning)
+			turn_discard_chat_extras(&res, res.tool_calls, false)
+			msg := fmt.aprintf(
+				"Stopped: budget reached (NULLRAY_BUDGET_USD=$%.4f, spent ~$%.4f this turn).",
+				budget, usage_sum.cost_usd, allocator = allocator,
+			)
+			emit(cfg_local, .Status, fmt.tprintf("budget cap: $%.4f >= $%.4f", usage_sum.cost_usd, budget))
+			append(&msgs, provider.Message{role = .Assistant, content = msg})
+			harness_log_metrics(harness)
+			return finish_run(Run_Result{ok = true, messages = msgs, content = msg, stopped = owned_stop("budget", allocator), usage = usage_sum, harness = harness}, &esc, allocator)
 		}
 
 		calls := res.tool_calls
