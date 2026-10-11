@@ -85,7 +85,7 @@ test_anthropic_body_tools_and_thinking :: proc(t: ^testing.T) {
 		temperature = 0.5,
 		temperature_set = true,
 	}
-	body := build_anthropic_body(&p, req, "claude-opus-5", false)
+	body := build_anthropic_body(&p, req, "claude-opus-4-5", false)
 	doc, err := json.parse_string(body, .JSON, allocator = context.temp_allocator)
 	testing.expect(t, err == .None)
 	obj := doc.(json.Object)
@@ -106,6 +106,31 @@ test_anthropic_body_tools_and_thinking :: proc(t: ^testing.T) {
 	// sampling is dropped while thinking is on
 	_, has_temp := obj["temperature"]
 	testing.expect(t, !has_temp)
+}
+
+@(test)
+test_anthropic_body_adaptive_thinking :: proc(t: ^testing.T) {
+	p := Provider{id = "anthropic"}
+	msgs := []Message{{role = .User, content = "hi"}}
+	req := Chat_Request{
+		model            = "claude-sonnet-5-5",
+		messages         = msgs,
+		max_tokens       = 100,
+		reasoning_effort = "high",
+	}
+	models := []string{"claude-opus-5", "claude-sonnet-5-5", "claude-haiku-5-5", "claude-fable-5-1"}
+	for model in models {
+		body := build_anthropic_body(&p, req, model, false)
+		doc, err := json.parse_string(body, .JSON, allocator = context.temp_allocator)
+		testing.expect(t, err == .None)
+		obj := doc.(json.Object)
+		th := obj["thinking"].(json.Object)
+		testing.expect(t, th["type"].(json.String) == "adaptive", model)
+		_, has_budget := th["budget_tokens"]
+		testing.expect(t, !has_budget, model)
+		effort := obj["output_config"].(json.Object)["effort"].(json.String)
+		testing.expect(t, effort == "high", model)
+	}
 }
 
 @(test)
