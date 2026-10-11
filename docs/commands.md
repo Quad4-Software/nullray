@@ -95,7 +95,7 @@ this list in-app.
 | `/schedule [list\|cancel]` | Manage scheduled prompts |
 | `/watch [list\|add\|show\|rm]` | Standing watches that digest and notify only on new hits |
 | `/status` | Mode, plan, verify, tokens, agent step budget |
-| `/steps [N\|auto\|default]` | Max tool steps per turn (default 80) |
+| `/steps [N\|auto\|default]` | Max tool steps per turn (default 80; auto adapts by context) |
 | `/context` | Per-category context size (system, tools, messages, memory) |
 | `/copy` | Copy selection or last reply |
 | `/reset` | Wipe sessions and config (needs confirm) |

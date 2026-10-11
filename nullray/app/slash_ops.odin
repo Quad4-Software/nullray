@@ -82,14 +82,20 @@ slash_cmd_steps :: proc(a: ^App, args: string) {
 			note = "auto"
 		}
 		if len(env_set) > 0 {
+			if strings.to_lower(env_set, context.temp_allocator) == "auto" {
+				session.session_set_status(
+					a.session,
+					"steps auto (adaptive by model context, 80..500). /steps N|default",
+				)
+				return
+			}
 			session.session_set_status(
 				a.session,
 				fmt.tprintf(
-					"steps %d (NULLRAY_AGENT_STEPS=%s, floor default=%d auto=%d). /steps N|auto|default",
+					"steps %d (NULLRAY_AGENT_STEPS=%s, floor default=%d). /steps N|auto|default",
 					cfg.max_steps,
 					env_set,
 					constants.MAX_AGENT_STEPS,
-					constants.MAX_AUTO_AGENT_STEPS,
 				),
 			)
 			return
@@ -97,10 +103,9 @@ slash_cmd_steps :: proc(a: ^App, args: string) {
 		session.session_set_status(
 			a.session,
 			fmt.tprintf(
-				"steps %d (%s mode). /steps N to set, /steps auto for %d, /steps default for %d",
+				"steps %d (%s mode). /steps N to set, /steps auto for adaptive, /steps default for %d",
 				cfg.max_steps,
 				note,
-				constants.MAX_AUTO_AGENT_STEPS,
 				constants.MAX_AGENT_STEPS,
 			),
 		)
@@ -112,11 +117,11 @@ slash_cmd_steps :: proc(a: ^App, args: string) {
 		os.unset_env(constants.ENV_AGENT_STEPS)
 		session.session_set_status(
 			a.session,
-			fmt.tprintf("steps default (%d normal, %d with /auto on)", constants.MAX_AGENT_STEPS, constants.MAX_AUTO_AGENT_STEPS),
+			fmt.tprintf("steps default (%d; auto mode adapts 80..500 by context)", constants.MAX_AGENT_STEPS),
 		)
 	case "auto":
-		os.set_env(constants.ENV_AGENT_STEPS, fmt.tprintf("%d", constants.MAX_AUTO_AGENT_STEPS))
-		session.session_set_status(a.session, fmt.tprintf("steps %d (auto budget)", constants.MAX_AUTO_AGENT_STEPS))
+		os.set_env(constants.ENV_AGENT_STEPS, "auto")
+		session.session_set_status(a.session, "steps auto (adaptive by model context, 80..500)")
 	case:
 		n, ok := strconv.parse_int(rest)
 		if !ok || n < 1 {

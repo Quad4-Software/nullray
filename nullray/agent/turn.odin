@@ -6,6 +6,7 @@ Agent turn loop body: chat steps, tools, verify, and LID prepare.
 package agent
 
 import "core:fmt"
+import "core:os"
 import "core:strings"
 import "nullray:constants"
 import "nullray:experience"
@@ -57,6 +58,15 @@ run_turn_inner :: proc(req: Run_Request, cfg: Config, allocator := context.alloc
 		max_steps = cfg.max_steps
 		if max_steps <= 0 {
 			max_steps = constants.MAX_AGENT_STEPS
+		}
+		if v, ok := os.lookup_env(constants.ENV_AGENT_STEPS, context.temp_allocator); ok {
+			if strings.to_lower(strings.trim_space(v), context.temp_allocator) == "auto" {
+				limit := 0
+				if meta, mok := provider.modelsdev_model_meta(req.prov.id, model); mok {
+					limit = meta.context_limit
+				}
+				max_steps = auto_steps_for_context(limit)
+			}
 		}
 	}
 	shim_model, shim_on := toolshim_model(model)

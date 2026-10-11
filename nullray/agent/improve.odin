@@ -82,6 +82,24 @@ improve_prompt :: proc(
 	return strings.clone(out, allocator), ""
 }
 
+/*
+Scale the auto step budget to the model context window: roughly one step
+per 4k of context, floored at the flat budget and capped at 500.
+*/
+auto_steps_for_context :: proc(context_limit: int) -> int {
+	if context_limit <= 0 {
+		return constants.MAX_AUTO_AGENT_STEPS
+	}
+	n := context_limit / 4096
+	switch {
+	case n < constants.MAX_AUTO_AGENT_STEPS:
+		return constants.MAX_AUTO_AGENT_STEPS
+	case n > 500:
+		return 500
+	}
+	return n
+}
+
 auto_from_env :: proc() -> bool {
 	if v, ok := os.lookup_env(constants.ENV_AUTO, context.temp_allocator); ok {
 		switch strings.to_lower(v, context.temp_allocator) {
@@ -104,7 +122,8 @@ apply_auto_mode :: proc() {
 	os.set_env(constants.ENV_SHELL_CONFIRM, "0")
 	os.set_env(constants.ENV_AUTONOMY, "1")
 	if _, ok := os.lookup_env(constants.ENV_AGENT_STEPS, context.temp_allocator); !ok {
-		os.set_env(constants.ENV_AGENT_STEPS, "80")
+		// Resolved against the model context window at turn start.
+		os.set_env(constants.ENV_AGENT_STEPS, "auto")
 	}
 	// Auto print/TUI builds should prove the work unless the user opted out.
 	if _, ok := os.lookup_env(constants.ENV_VERIFY, context.temp_allocator); !ok {
