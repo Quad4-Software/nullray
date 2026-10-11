@@ -75,7 +75,7 @@ NGHTTP2_OBJS := $(addprefix $(TLS_BUILD)/nghttp2_,$(NGHTTP2_SRCS:.c=.o))
 H2_SHIM_OBJ  := $(TLS_BUILD)/nullray_h2_shim.o
 
 .PHONY: all clean install uninstall run test selftest chat-smoke print-smoke rag-live coverage help completions man \
-	debug tls-lib tls-size modules
+	debug tls-lib tls-size modules fmt fmt-check lint
 
 TEST_SUITES := ui agent tools skills session store sandbox memory rag mcp provider app config subagent elevate experience structure secure hooks harness vcs run patch http ask acp schedule todo serve search
 TEST_FLAGS  := $(COLLECTION) -define:ODIN_TEST_THREADS=1 -debug
@@ -152,6 +152,24 @@ test: $(TLS_LIB)
 	@$(MAKE) --no-print-directory selftest
 	@$(MAKE) --no-print-directory chat-smoke
 	@$(MAKE) --no-print-directory print-smoke
+
+# odinfmt over the Odin sources. The tree predates odinfmt, so `make fmt`
+# rewrites a large amount of code on first run; run it deliberately, once.
+ODINFMT ?= odinfmt
+ODIN_SRC_DIRS := $(ROOT)/nullray $(ROOT)/cmd
+fmt:
+	@command -v $(ODINFMT) >/dev/null || { echo 'fmt: install odinfmt first'; exit 1; }
+	@find $(ODIN_SRC_DIRS) -name '*.odin' -exec $(ODINFMT) {} -w +
+
+# Exit nonzero when files differ from odinfmt output (CI gate material).
+fmt-check:
+	@command -v $(ODINFMT) >/dev/null || { echo 'fmt-check: install odinfmt first'; exit 1; }
+	@dirty=0; for f in $$(find $(ODIN_SRC_DIRS) -name '*.odin' | sort); do 		if ! diff -q $$($(ODINFMT) "$$f" 2>/dev/null) "$$f" >/dev/null 2>&1; then 			echo "$$f"; dirty=1; 		fi; 	done; exit $$dirty
+
+# Type-check every package without emitting code. Catches dead-code drift
+# in packages the binary does not import.
+lint: $(TLS_LIB)
+	@for d in $$(find $(ODIN_SRC_DIRS) -name '*.odin' -exec dirname {} \; | sort -u); do 		$(ODIN) check "$$d" $(COLLECTION) -no-entry-point || exit 1; 	done; echo 'lint: all packages check clean'
 
 # Local HTML coverage via kcov (Linux). Does not upload or gate CI.
 coverage: $(TLS_LIB)
@@ -243,6 +261,9 @@ help:
 		'  all          build bin/nullray (default)' \
 		'  run          build and run' \
 		'  test         unit tests + selftest + chat-smoke + print-smoke' \
+			'  fmt          odinfmt -w all sources (one-time churn)' \
+			'  fmt-check    verify sources match odinfmt output' \
+			'  lint         odin check every package' \
 		'  selftest     headless smoke only' \
 		'  chat-smoke   one-turn provider smoke' \
 		'  rag-live     live OpenRouter embed + Mercury RAG recall' \
