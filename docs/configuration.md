@@ -96,7 +96,7 @@ process only, so nothing silently persists a borrowed credential.
 | `NULLRAY_ESCALATE_MODEL` | Loop-stall escalation target, provider/model |
 | `NULLRAY_ESCALATE_MAX` | Escalated calls per turn, default 3 |
 | `NULLRAY_AGENT_TOOLS` | 0 drops tool schemas entirely |
-| `NULLRAY_AGENT_STEPS` | Max tool/chat iterations per turn (default 24, auto mode 80). `/steps N` in TUI |
+| `NULLRAY_AGENT_STEPS` | Max tool/chat iterations per turn (default 80). `/steps N` in TUI |
 | `NULLRAY_VERIFY` | Post-edit verify gate |
 | `NULLRAY_LINT` | Post-edit lint.json (0 disables) |
 | `NULLRAY_GGUF_SAMPLE` | Local tool-call temp clamp (0 disables) |
