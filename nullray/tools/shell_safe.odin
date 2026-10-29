@@ -13,6 +13,7 @@ import "nullray:constants"
 import "nullray:elevate"
 import "nullray:hooks"
 import "nullray:sandbox"
+import "nullray:store"
 
 // Always denied even under perms=yolo / gate 3.
 ALWAYS_DENIED_SUBSTRINGS :: []string{
@@ -88,6 +89,52 @@ STRICT_DENIED_SUBSTRINGS :: []string{
 }
 
 shell_command_allowed :: proc(cmd: string, allocator := context.allocator) -> (ok: bool, reason: string) {
+	return shell_command_allowed_for(cmd, "run_shell", allocator)
+}
+
+shell_command_allowed_for :: proc(
+	cmd: string,
+	tool_name: string,
+	allocator := context.allocator,
+) -> (ok: bool, reason: string) {
+	ok, reason = shell_command_allowed_inner(cmd, allocator)
+	decision := "allow"
+	finding := "policy_pass"
+	if !ok {
+		decision = "block"
+		finding = shell_policy_finding(reason)
+		if strings.contains(strings.to_lower(reason, context.temp_allocator), "pending approval") ||
+		   strings.contains(strings.to_lower(reason, context.temp_allocator), "manual command approval") {
+			decision = "approval_required"
+		}
+	}
+	store.audit_log_command(tool_name, cmd, decision, finding)
+	return
+}
+
+@(private)
+shell_policy_finding :: proc(reason: string) -> string {
+	lower := strings.to_lower(reason, context.temp_allocator)
+	if strings.contains(lower, "metadata") || strings.contains(lower, "reported") || strings.contains(lower, "file-proxy") {
+		return "suspicious_endpoint"
+	}
+	if strings.contains(lower, "host information") || strings.contains(lower, "inventory") || strings.contains(lower, "namespace probing") {
+		return "host_information"
+	}
+	if strings.contains(lower, "verifier") || strings.contains(lower, "command review") || strings.contains(lower, "review unavailable") {
+		return "command_verifier"
+	}
+	if strings.contains(lower, "secret") || strings.contains(lower, "password") {
+		return "secret_policy"
+	}
+	if strings.contains(lower, "network") || strings.contains(lower, "fetch_url") {
+		return "network_policy"
+	}
+	return "shell_policy"
+}
+
+@(private)
+shell_command_allowed_inner :: proc(cmd: string, allocator := context.allocator) -> (ok: bool, reason: string) {
 	trimmed := strings.trim_space(cmd)
 	if len(trimmed) == 0 {
 		return false, strings.clone("empty command", allocator)
@@ -99,6 +146,13 @@ shell_command_allowed :: proc(cmd: string, allocator := context.allocator) -> (o
 			hint,
 			allocator = allocator,
 		)
+	}
+
+	if why := suspicious_endpoint_reason(trimmed); len(why) > 0 {
+		return false, fmt.aprintf("blocked suspicious network endpoint: %s", why, allocator = allocator)
+	}
+	if why := shell_system_info_reason(trimmed); len(why) > 0 {
+		return false, strings.clone(why, allocator)
 	}
 
 	norm := shell_normalize_pipe_spaces(trimmed, context.temp_allocator)
@@ -115,10 +169,6 @@ shell_command_allowed :: proc(cmd: string, allocator := context.allocator) -> (o
 	}
 
 	if blocked, why := shell_secret_arg_blocked(trimmed); blocked {
-		return false, strings.clone(why, allocator)
-	}
-
-	if blocked, why := shell_net_blocked(trimmed); blocked {
 		return false, strings.clone(why, allocator)
 	}
 
@@ -164,6 +214,16 @@ shell_command_allowed :: proc(cmd: string, allocator := context.allocator) -> (o
 
 	if shell_consume_once_allow(trimmed) {
 		return true, ""
+	}
+
+	if handled, reviewed, review_reason := command_verifier_gate(trimmed, "run_shell", allocator); handled {
+		if !reviewed {
+			return false, review_reason
+		}
+		delete(review_reason)
+	}
+	if blocked, why := shell_net_blocked(trimmed); blocked {
+		return false, strings.clone(why, allocator)
 	}
 
 	if cl.needs {
@@ -261,4 +321,3 @@ resolve_cwd_jail :: proc(workspace: string, allocator := context.allocator) -> (
 	}
 	return abs, ""
 }
-

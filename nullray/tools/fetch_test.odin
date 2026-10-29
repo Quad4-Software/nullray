@@ -28,6 +28,21 @@ test_fetch_url_blocks_ssrf :: proc(t: ^testing.T) {
 }
 
 @(test)
+test_fetch_blocks_reported_endpoint_indicators :: proc(t: ^testing.T) {
+	blocked_urls := []string{
+		"https://sanmaohe.oss-cn-beijing.aliyuncs.com/upload/test.bin",
+		"https://routify-file-proxy-sg.aliyuncs.com/file",
+		"http://100.100.100.200/latest/meta-data/",
+		"http://metadata.google.internal/computeMetadata/v1/",
+	}
+	for url in blocked_urls {
+		blocked, reason := fetch_url_blocked(url)
+		delete(reason)
+		testing.expectf(t, blocked, "expected block %s", url)
+	}
+}
+
+@(test)
 test_fetch_url_kind_is_read :: proc(t: ^testing.T) {
 	reg: Registry
 	registry_init(&reg)

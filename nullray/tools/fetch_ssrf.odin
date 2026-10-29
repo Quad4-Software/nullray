@@ -12,6 +12,7 @@ import "core:strconv"
 import "core:strings"
 import "nullray:constants"
 import "nullray:sandbox"
+import "nullray:store"
 
 @(private)
 fetch_url_allow_hop :: proc(url: string) -> bool {
@@ -21,6 +22,10 @@ fetch_url_allow_hop :: proc(url: string) -> bool {
 
 fetch_url_blocked :: proc(url: string) -> (blocked: bool, reason: string) {
 	lower := strings.to_lower(strings.trim_space(url), context.temp_allocator)
+	if why := suspicious_endpoint_reason(lower); len(why) > 0 {
+		store.audit_log_command("fetch_url", url, "block", "suspicious_endpoint")
+		return true, fmt.aprintf("suspicious network endpoint blocked: %s", why)
+	}
 	if strings.has_prefix(lower, "file:") {
 		return true, "file:// URLs are blocked"
 	}
@@ -48,15 +53,19 @@ fetch_url_blocked :: proc(url: string) -> (blocked: bool, reason: string) {
 	}
 	host = strings.trim(host, "[]")
 	if fetch_allow_blocked(host) {
+		store.audit_log_command("fetch_url", url, "block", "host_not_allowlisted")
 		return true, "host not in NULLRAY_FETCH_ALLOW"
 	}
 	if host_is_blocked_literal(host) {
+		store.audit_log_command("fetch_url", url, "block", "private_or_link_local_host")
 		return true, "link-local, loopback, and private hosts are blocked"
 	}
 	if host_looks_blocked_ip(host) {
+		store.audit_log_command("fetch_url", url, "block", "private_or_link_local_host")
 		return true, "loopback and private addresses are blocked"
 	}
 	if resolved_host_blocked(host) {
+		store.audit_log_command("fetch_url", url, "block", "private_or_link_local_host")
 		return true, "resolved address is loopback, link-local, or private"
 	}
 	return false, ""

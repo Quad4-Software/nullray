@@ -78,17 +78,31 @@ shell_net_env_ok :: proc() -> bool {
 @(private)
 shell_looks_net_egress :: proc(cmd: string) -> bool {
 	lower := strings.to_lower(cmd, context.temp_allocator)
+	api_markers := []string{
+		"http://", "https://", "requests.", "urllib", "http.client",
+		"socket.", "net/http", "fetch(", "git clone ", "git fetch", "git pull",
+		"git push", "git remote update", "git submodule", "git lfs", "pip install", "pip3 install",
+		"uv pip install", "npm install", "pnpm install", "yarn add", "cargo install",
+		"go install", "go get",
+	}
+	for marker in api_markers {
+		if strings.contains(lower, marker) {
+			return true
+		}
+	}
 	fields := strings.fields(lower, context.temp_allocator)
 	if len(fields) == 0 {
 		return false
 	}
-	base := fields[0]
-	if strings.contains(base, "/") {
-		base = filepath.base(base)
-	}
-	switch base {
-	case "curl", "wget", "nc", "ncat", "netcat", "socat":
-		return true
+	for field in fields {
+		base := strings.trim(field, "\"'`()[]{};,:")
+		if strings.contains(base, "/") {
+			base = filepath.base(base)
+		}
+		switch base {
+		case "curl", "wget", "nc", "ncat", "netcat", "socat", "ssh", "scp", "sftp", "ftp", "rsync":
+			return true
+		}
 	}
 	return false
 }

@@ -42,8 +42,7 @@ test_shell_yolo_allows_soft_denies :: proc(t: ^testing.T) {
 	allowed := []string{
 		"chmod 777 /app/data",
 		"chown -R webapp /var/lib/webapp",
-		"printenv PATH",
-		"base64 /etc/hostname",
+		"base64 workspace-data.bin",
 	}
 	for cmd in allowed {
 		ok, reason := shell_command_allowed(cmd)

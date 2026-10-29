@@ -6,6 +6,7 @@ Optional local audit JSONL when NULLRAY_AUDIT_LOG=1. No phone-home.
 package store
 
 import "core:fmt"
+import "core:hash"
 import "core:os"
 import "core:strings"
 import "core:time"
@@ -42,6 +43,36 @@ audit_log_append :: proc(event, tool_name, path_hash, finding_id: string) {
 		sanitize_json_token(event),
 		sanitize_json_token(tool_name),
 		sanitize_json_token(path_hash),
+		sanitize_json_token(finding_id),
+		allocator = context.temp_allocator,
+	)
+	f, err := os.open(path, os.O_WRONLY | os.O_CREATE | os.O_APPEND)
+	if err != nil {
+		return
+	}
+	defer os.close(f)
+	_, _ = os.write(f, transmute([]u8)line)
+}
+
+/*
+Append a command policy event without storing the command itself. The
+fingerprint is for local event correlation, not a cryptographic identifier.
+*/
+audit_log_command :: proc(tool_name, command, decision, finding_id: string) {
+	if !audit_log_enabled() {
+		return
+	}
+	path := audit_log_path(context.temp_allocator)
+	dir := sandbox.resolve_config_dir(context.temp_allocator)
+	_ = sandbox.mkdir_all(dir)
+	ts := time.now()
+	fingerprint := fmt.aprintf("%016x", hash.fnv64a(transmute([]u8)command), allocator = context.temp_allocator)
+	line := fmt.aprintf(
+		"{\"ts\":%d,\"event\":\"command_policy\",\"tool\":\"%s\",\"command_fingerprint\":\"%s\",\"decision\":\"%s\",\"finding\":\"%s\"}\n",
+		ts._nsec,
+		sanitize_json_token(tool_name),
+		sanitize_json_token(fingerprint),
+		sanitize_json_token(decision),
 		sanitize_json_token(finding_id),
 		allocator = context.temp_allocator,
 	)

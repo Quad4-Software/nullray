@@ -73,6 +73,48 @@ conservative:
   changes apply only after `/agents apply`.
 - **`--review`** reads diffs from local VCS only.
 
+## Command execution
+
+`run_shell` and `run_script` apply shell policy before execution. The policy
+blocks common host, process, network, and hardware inventory commands; selected
+host-information paths; cloud metadata addresses; and the endpoint indicators
+reported by [Cohere on Oct. 26, 2026](https://cohere.com/blog/concerning-behaviour-popular-open-weight-ai-model).
+These hard blocks apply even with `NULLRAY_PERMS=yolo` or
+`NULLRAY_SHELL_NET=1`. Known network clients are detected across command
+chains and require approval unless shell network access is enabled.
+
+An optional independent reviewer can inspect the exact shell command or script
+before it runs:
+
+```sh
+NULLRAY_COMMAND_VERIFY=manual
+NULLRAY_COMMAND_VERIFY_MODEL=ollama/MODEL_ID
+```
+
+Replace `MODEL_ID` with a model served by the selected provider.
+
+`manual` sends the command to the configured reviewer, then requires `/allow`
+or `/deny`. The reviewer is advisory in this mode; hard blocks still apply.
+`auto` requires a strict JSON `allow` verdict and blocks on denial, malformed
+output, missing configuration, or provider failure. `off` is the default.
+An automatic verdict is a model judgment and can be manipulated by command
+text; it is not a sandbox or a replacement for the static policy.
+The reviewer receives only the command and its fixed review instructions, not
+the conversation transcript. Choose a reviewer provider you trust; remote
+providers receive command text. `NULLRAY_COMMAND_VERIFY_MODEL` must name a
+different provider/model from the active pair when both primary values are
+set.
+
+With `NULLRAY_AUDIT_LOG=1`, command-policy, verifier-verdict, and blocked-URL events append to
+`~/.config/nullray/audit.jsonl` (or the active XDG config directory). Entries
+include a command fingerprint, decision, and policy category; raw commands and
+URLs are not written.
+
+These command checks are policy filters, not a complete shell-language or
+network sandbox. A command can invoke arbitrary code, and Linux network
+namespace isolation is not currently provided. Use an isolated environment or
+deny network egress at the OS/container boundary for untrusted models.
+
 ## Audit
 
 ```sh

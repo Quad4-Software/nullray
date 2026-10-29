@@ -72,6 +72,7 @@ process only, so nothing silently persists a borrowed credential.
 | `NULLRAY_VAULT_BACKEND` | `auto` (default), `keyring`, or `memory` |
 | `NULLRAY_KEYRING_SERVICE` | Secret Service attribute (default `nullray`) |
 | `NULLRAY_SECRET_TOOL` | Optional path to `secret-tool` |
+| `NULLRAY_AUDIT_LOG` | `1` writes local security and command-policy events to `audit.jsonl` |
 | (paths) | `canvases/` under config stores saved panel UIs, `skills/` holds `/learn` and `skill_write` output |
 | `NULLRAY_VIEW_AUTO` | Auto-open view pane on writes |
 | `NULLRAY_NOTIFY` | auto, desktop, osc, bell, off |
@@ -128,6 +129,10 @@ process only, so nothing silently persists a borrowed credential.
 | `NULLRAY_TOOLCHAIN` | Narrow RW for Go/Cargo/npm caches plus uv, pipx, and version-manager roots |
 | `NULLRAY_ELEVATE` | ask, deny, ticket |
 | `NULLRAY_ASKPASS` | External askpass helper path |
+| `NULLRAY_SHELL_NET` | `1` allows shell network clients; explicit metadata and indicator hosts stay blocked |
+| `NULLRAY_SHELL_DENY` | Comma-separated command substrings denied by shell policy |
+| `NULLRAY_COMMAND_VERIFY` | Optional second-model command review: `off`, `manual`, or `auto` |
+| `NULLRAY_COMMAND_VERIFY_MODEL` | Reviewer target as `provider/model`, for example `ollama/MODEL_ID` |
 | `NULLRAY_SECRETS_ALLOW` | Absolute paths allowed to read secrets |
 | `NULLRAY_VCS_NETWORK` | Enable vcs_push/pull/fetch/PR tools |
 | `NULLRAY_VCS_FORCE` | Allow force-push to main/master |

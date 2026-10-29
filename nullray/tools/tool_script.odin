@@ -117,9 +117,9 @@ tool_run_script :: proc(args_json: string, allocator := context.allocator) -> (r
 		return "", strings.clone("unsupported language (use sh, bash, python, python3)", allocator)
 	}
 
-	probe := fmt.aprintf("%s script%s", interpreter, ext, allocator = allocator)
+	probe := fmt.aprintf("%s script%s\n%s", interpreter, ext, code, allocator = allocator)
 	defer delete(probe)
-	allowed, reason := shell_command_allowed(probe, allocator)
+	allowed, reason := shell_command_allowed_for(probe, "run_script", allocator)
 	if !allowed {
 		return "", reason
 	}
